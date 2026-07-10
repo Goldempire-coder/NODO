@@ -1,0 +1,8 @@
+{
+  "login_status": 200,
+  "accept_status": 200,
+  "me_status": 200,
+  "terms_accepted": true,
+  "terms_version": "2026-07-06",
+  "telegram_id_exposed": false
+}

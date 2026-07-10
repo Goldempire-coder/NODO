@@ -1,0 +1,130 @@
+{
+  "slice": "slice_11_hardening_deploy",
+  "phase": "local_concurrency",
+  "run_id": "concurrency_harness_same_ad_local",
+  "targets": {
+    "searches": 10,
+    "duplicate_requests_same_idempotency_key": 5,
+    "same_ad_requests_different_idempotency_keys": 5,
+    "unique_order_creations": 5
+  },
+  "metrics": {
+    "duration_seconds": 2.324,
+    "throughput_per_second": 10.7559,
+    "total_requests": 25,
+    "total_errors": 4,
+    "total_error_rate": 0.16,
+    "p50_ms": 132.2978,
+    "p95_ms": 144.7502,
+    "p99_ms": 149.4124,
+    "endpoints": {
+      "concurrent:ads:search": {
+        "count": 10,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 141.3844,
+        "p95_ms": 149.4124,
+        "p99_ms": 149.4124,
+        "avg_ms": 140.6747,
+        "status_counts": {
+          "200": 10
+        }
+      },
+      "concurrent:orders:create_unique": {
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 95.9042,
+        "p95_ms": 99.8734,
+        "p99_ms": 99.8734,
+        "avg_ms": 94.6609,
+        "status_counts": {
+          "201": 5
+        }
+      },
+      "concurrent:orders:duplicate_key": {
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 138.5611,
+        "p95_ms": 139.8207,
+        "p99_ms": 139.8207,
+        "avg_ms": 124.0846,
+        "status_counts": {
+          "201": 5
+        }
+      },
+      "concurrent:orders:same_ad_different_keys": {
+        "count": 5,
+        "error_count": 4,
+        "error_rate": 0.8,
+        "p50_ms": 60.7716,
+        "p95_ms": 80.6953,
+        "p99_ms": 80.6953,
+        "avg_ms": 62.9056,
+        "status_counts": {
+          "409": 4,
+          "201": 1
+        }
+      }
+    }
+  },
+  "invariant_violations": {
+    "duplicate_order_rows": 0,
+    "duplicate_order_response_mismatch": 0,
+    "duplicate_order_errors": 0,
+    "same_ad_multiple_orders": 0,
+    "same_ad_success_count_invalid": 0,
+    "same_ad_db_rows_invalid": 0,
+    "unique_order_errors": 0,
+    "search_errors": 0,
+    "negative_balances": 0,
+    "db_errors": 0
+  },
+  "details": {
+    "duplicate_successful_ids": [
+      "c9cd9b4b-ff77-4326-a424-2f9a996db7a3",
+      "c9cd9b4b-ff77-4326-a424-2f9a996db7a3",
+      "c9cd9b4b-ff77-4326-a424-2f9a996db7a3",
+      "c9cd9b4b-ff77-4326-a424-2f9a996db7a3",
+      "c9cd9b4b-ff77-4326-a424-2f9a996db7a3"
+    ],
+    "duplicate_status_codes": [
+      201,
+      201,
+      201,
+      201,
+      201
+    ],
+    "same_ad_successful_ids": [
+      "5e46db60-326f-4b75-ac24-571baa2e4227"
+    ],
+    "same_ad_status_codes": [
+      409,
+      409,
+      409,
+      409,
+      201
+    ],
+    "unique_status_codes": [
+      201,
+      201,
+      201,
+      201,
+      201
+    ],
+    "search_status_codes": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200
+    ]
+  },
+  "exit_code": 0
+}

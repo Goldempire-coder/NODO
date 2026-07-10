@@ -1,0 +1,66 @@
+{
+  "phase": "supabase_storage_real_smoke",
+  "target": "supabase_project_aqmubphdxiaokaqqgqax",
+  "run_id": "smoke-da62982873be",
+  "bucket_count": 4,
+  "results": [
+    {
+      "name": "business_verification",
+      "upload_ok": true,
+      "signed_url_ok": true,
+      "signed_url_http_ok": false,
+      "cleanup_ok": false,
+      "size_bytes": 28,
+      "checksum_present": true,
+      "storage_path_private_scheme": true,
+      "signed_url_contains_private_storage_path": false,
+      "signed_url_http_status": 404
+    },
+    {
+      "name": "payment_evidence",
+      "upload_ok": true,
+      "signed_url_ok": true,
+      "signed_url_http_ok": false,
+      "cleanup_ok": false,
+      "size_bytes": 28,
+      "checksum_present": true,
+      "storage_path_private_scheme": true,
+      "signed_url_contains_private_storage_path": false,
+      "signed_url_http_status": 404
+    },
+    {
+      "name": "message_attachments",
+      "upload_ok": true,
+      "signed_url_ok": true,
+      "signed_url_http_ok": false,
+      "cleanup_ok": false,
+      "size_bytes": 28,
+      "checksum_present": true,
+      "storage_path_private_scheme": true,
+      "signed_url_contains_private_storage_path": false,
+      "signed_url_http_status": 404
+    },
+    {
+      "name": "credit_purchase_proofs",
+      "upload_ok": true,
+      "signed_url_ok": true,
+      "signed_url_http_ok": false,
+      "cleanup_ok": false,
+      "size_bytes": 28,
+      "checksum_present": true,
+      "storage_path_private_scheme": true,
+      "signed_url_contains_private_storage_path": false,
+      "signed_url_http_status": 404
+    }
+  ],
+  "failures": [
+    "business_verification:signed_url_http_ok",
+    "payment_evidence:signed_url_http_ok",
+    "message_attachments:signed_url_http_ok",
+    "credit_purchase_proofs:signed_url_http_ok"
+  ],
+  "exit_code": 1,
+  "secrets_printed": false,
+  "signed_urls_printed": false,
+  "storage_paths_printed": false
+}

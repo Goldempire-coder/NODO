@@ -1,0 +1,245 @@
+{
+  "slice": "real_services_capacity_hardening",
+  "phase": "scenario_capacity",
+  "run_id": "capacity_payment_confirm_smoke2_20260708",
+  "scenario": "payment-confirm",
+  "fixture_mode": "prepared_internal_dataset_no_legacy_onboarding",
+  "targets": {
+    "businesses": 2,
+    "ads_per_business": 2,
+    "remitters": 8,
+    "marketplace_reads": 0,
+    "order_creates": 0,
+    "same_ad_race_requests": 6,
+    "payment_confirms": 4
+  },
+  "prepared": {
+    "businesses": 2,
+    "ads": 4,
+    "payment_ads": 5,
+    "remitters": 8
+  },
+  "metrics": {
+    "duration_seconds": 2.736,
+    "throughput_per_second": 3.6553,
+    "total_requests": 10,
+    "total_errors": 5,
+    "total_error_rate": 0.5,
+    "p50_ms": 68.8628,
+    "p95_ms": 135.7826,
+    "p99_ms": 135.7826,
+    "endpoints": {
+      "capacity:business_orders:confirm_distinct": {
+        "count": 4,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 135.0724,
+        "p95_ms": 135.7826,
+        "p99_ms": 135.7826,
+        "avg_ms": 129.0876,
+        "status_counts": {
+          "200": 4
+        }
+      },
+      "capacity:business_orders:confirm_same_order_race": {
+        "count": 6,
+        "error_count": 5,
+        "error_rate": 0.8333,
+        "p50_ms": 66.9135,
+        "p95_ms": 69.2293,
+        "p99_ms": 69.2293,
+        "avg_ms": 64.0302,
+        "status_counts": {
+          "409": 5,
+          "200": 1
+        }
+      }
+    },
+    "route_groups": {
+      "POST /api/v1/business/orders/1183106a-622a-46d0-948a-225e374e9ca4/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 135.0724,
+        "p95_ms": 135.0724,
+        "p99_ms": 135.0724,
+        "avg_ms": 135.0724,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/54de51c0-0b33-4f7e-a98a-0d44f4db08ef/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 123.0892,
+        "p95_ms": 123.0892,
+        "p99_ms": 123.0892,
+        "avg_ms": 123.0892,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/656f02d1-6910-4345-8974-6f4ebfeb7758/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 135.7826,
+        "p95_ms": 135.7826,
+        "p99_ms": 135.7826,
+        "avg_ms": 135.7826,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/8f33247c-64fc-4e13-94d2-df2114c27759/confirm-payment": {
+        "count": 6,
+        "error_count": 5,
+        "error_rate": 0.8333,
+        "p50_ms": 66.9135,
+        "p95_ms": 69.2293,
+        "p99_ms": 69.2293,
+        "avg_ms": 64.0302,
+        "status_counts": {
+          "409": 5,
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/df0cdb5b-6feb-449d-ad55-c0581154efd8/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 122.4062,
+        "p95_ms": 122.4062,
+        "p99_ms": 122.4062,
+        "avg_ms": 122.4062,
+        "status_counts": {
+          "200": 1
+        }
+      }
+    },
+    "slowest_route_groups": [
+      {
+        "route": "POST /api/v1/business/orders/656f02d1-6910-4345-8974-6f4ebfeb7758/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 135.7826,
+        "p95_ms": 135.7826,
+        "p99_ms": 135.7826,
+        "avg_ms": 135.7826,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/1183106a-622a-46d0-948a-225e374e9ca4/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 135.0724,
+        "p95_ms": 135.0724,
+        "p99_ms": 135.0724,
+        "avg_ms": 135.0724,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/54de51c0-0b33-4f7e-a98a-0d44f4db08ef/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 123.0892,
+        "p95_ms": 123.0892,
+        "p99_ms": 123.0892,
+        "avg_ms": 123.0892,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/df0cdb5b-6feb-449d-ad55-c0581154efd8/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 122.4062,
+        "p95_ms": 122.4062,
+        "p99_ms": 122.4062,
+        "avg_ms": 122.4062,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/8f33247c-64fc-4e13-94d2-df2114c27759/confirm-payment",
+        "count": 6,
+        "error_count": 5,
+        "error_rate": 0.8333,
+        "p50_ms": 66.9135,
+        "p95_ms": 69.2293,
+        "p99_ms": 69.2293,
+        "avg_ms": 64.0302,
+        "status_counts": {
+          "409": 5,
+          "200": 1
+        }
+      }
+    ]
+  },
+  "invariant_violations": {
+    "marketplace_read_errors": 0,
+    "order_create_errors": 0,
+    "same_ad_success_count_invalid": 0,
+    "same_ad_db_rows_invalid": 0,
+    "duplicate_idempotency_response_mismatch": 0,
+    "duplicate_idempotency_db_rows_invalid": 0,
+    "fixture_insufficient_reserved_ads": 0,
+    "payment_report_setup_errors": 0,
+    "confirm_distinct_errors": 0,
+    "confirm_distinct_state_invalid": 0,
+    "confirm_same_order_success_count_invalid": 0,
+    "confirm_same_order_double_consume": 0,
+    "negative_balances": 0,
+    "double_credit_consumption": 0,
+    "db_errors": 0
+  },
+  "details": {
+    "payment_confirm": {
+      "status_codes": [
+        200,
+        200,
+        200,
+        200
+      ],
+      "attempted": 4,
+      "db_state": {
+        "confirmed_orders": 4,
+        "total_orders": 4,
+        "archived_ads": 4,
+        "consume_rows": 4
+      },
+      "same_order_race": {
+        "status_codes": [
+          200,
+          409,
+          409,
+          409,
+          409,
+          409
+        ],
+        "successful_ids": [
+          "8f33247c-64fc-4e13-94d2-df2114c27759"
+        ],
+        "consume_rows": 1,
+        "order_status": "payment_confirmed",
+        "ad_status": "archived"
+      }
+    },
+    "invariants": {
+      "negative_balances": 0,
+      "double_credit_consumption": 0
+    }
+  },
+  "exit_code": 0
+}

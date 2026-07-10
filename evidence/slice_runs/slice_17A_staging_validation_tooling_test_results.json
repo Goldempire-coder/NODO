@@ -1,0 +1,54 @@
+{
+  "slice": "slice_17A_staging_validation_tooling",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "real_services_executed": false,
+  "deploy_executed": false,
+  "ready_for_real_use_declared": false,
+  "commands": [
+    {
+      "command": "python -m pytest apps\\api\\tests\\test_staging_validation_tooling.py -q --tb=short",
+      "exit_code": 0,
+      "result": "8 passed, 1 warning"
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests -q",
+      "exit_code": 0,
+      "result": "146 passed, 1 warning"
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "exit_code": 0,
+      "result": "All checks passed!"
+    },
+    {
+      "command": "python -m compileall apps\\api apps\\web\\src scripts",
+      "exit_code": 0,
+      "result": "OK"
+    },
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "exit_code": 0,
+      "result": "OK"
+    },
+    {
+      "command": "rg -n \"SUPABASE_SERVICE_ROLE_KEY|BOT_TOKEN|JWT_SECRET|JWT_REFRESH_SECRET|storage_path|account_value|escrow|fondos protegidos|pago garantizado|garantía de entrega|garantia de entrega|NODO recibió dinero\" apps\\web\\src apps\\web\\.next apps\\web\\out",
+      "exit_code": 1,
+      "result": "No matches"
+    }
+  ],
+  "unit_tests_added": [
+    "test_staging_guardrails_allow_staging_and_redact_secrets",
+    "test_staging_guardrails_reject_production",
+    "test_staging_guardrails_require_confirmation_for_mutations",
+    "test_migration_plan_does_not_apply_without_apply_flag",
+    "test_staging_cleanup_dry_run_does_not_execute",
+    "test_capacity_real_uses_remote_client_context_for_non_marketplace_paths",
+    "test_storage_smoke_output_contract_does_not_expose_private_paths",
+    "test_telegram_smoke_does_not_print_token_or_secret"
+  ],
+  "residual_risks": [
+    "No real staging services were contacted in this slice by contract.",
+    "Actual Supabase/Postgres, Upstash Redis, Storage, Telegram and Railway validation remains pending for an approved staging execution phase.",
+    "capacity_real.py still prepares synthetic fixtures internally before measuring remote routes; the next phase must decide whether that fixture mode is acceptable for staging capacity evidence."
+  ]
+}

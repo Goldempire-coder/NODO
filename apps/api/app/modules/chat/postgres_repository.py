@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+from typing import Any
+
+from app.modules.businesses.models import FileAssetRecord
+from app.modules.chat.models import MessageAttachmentRecord, MessageRecord
+from app.modules.chat.row_mappers import attachment_from_row, file_from_row, message_from_row
+from app.shared.db.connection import pooled_connect
+
+
+class PostgresChatRepository:
+    def __init__(self, database_url: str) -> None:
+        self._database_url = database_url
+
+    def _connect(self):  # type: ignore[no-untyped-def]
+        return pooled_connect(self._database_url)
+
+    def list_messages(self, *, order_id: str, cursor: str | None, limit: int) -> tuple[list[MessageRecord], str | None]:
+        sql = "select * from messages where order_id = %s and deleted_at is null"
+        params: list[Any] = [order_id]
+        if cursor:
+            sql += " and created_at > %s"
+            params.append(cursor)
+        sql += " order by created_at asc limit %s"
+        params.append(limit)
+        with self._connect() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        items = [message_from_row(row) for row in rows]
+        return items, items[-1].created_at.isoformat() if len(items) == limit else None
+
+    def get_message_by_idempotency_key(self, *, sender_user_id: str, idempotency_key: str) -> MessageRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "select * from messages where sender_user_id = %s and idempotency_key = %s and deleted_at is null limit 1",
+                (sender_user_id, idempotency_key),
+            ).fetchone()
+        return message_from_row(row) if row else None
+
+    def create_message(self, *, order_id: str, sender_user_id: str, sender_role: str, body: str | None, idempotency_key: str) -> MessageRecord:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                insert into messages (
+                    order_id, sender_user_id, sender_role, body, visibility, status,
+                    idempotency_key, created_at, updated_at
+                )
+                values (%s, %s, %s, %s, 'parties', 'visible', %s, now(), now())
+                returning *
+                """,
+                (order_id, sender_user_id, sender_role, body, idempotency_key),
+            ).fetchone()
+            conn.commit()
+        return message_from_row(row)
+
+    def create_attachment_file(
+        self,
+        *,
+        file_id: str,
+        attachment_id: str,
+        owner_user_id: str,
+        order_id: str,
+        storage_path: str,
+        mime_type: str,
+        size_bytes: int,
+    ) -> tuple[FileAssetRecord, MessageAttachmentRecord]:
+        with self._connect() as conn:
+            file_row = conn.execute(
+                """
+                insert into file_assets (
+                    id, owner_user_id, resource_type, resource_id, file_type,
+                    storage_path, mime_type, size_bytes, created_at
+                )
+                values (%s, %s, 'message', %s, 'message_attachment', %s, %s, %s, now())
+                returning *
+                """,
+                (file_id, owner_user_id, attachment_id, storage_path, mime_type, size_bytes),
+            ).fetchone()
+            attachment_row = conn.execute(
+                """
+                insert into message_attachments (
+                    id, message_id, order_id, file_asset_id, uploaded_by_user_id,
+                    file_type, mime_type, size_bytes, status, created_at, updated_at
+                )
+                values (%s, null, %s, %s, %s, 'message_attachment', %s, %s, 'active', now(), now())
+                returning *
+                """,
+                (attachment_id, order_id, file_id, owner_user_id, mime_type, size_bytes),
+            ).fetchone()
+            conn.commit()
+        return file_from_row(file_row), attachment_from_row(attachment_row)
+
+    def get_attachment(self, attachment_id: str) -> MessageAttachmentRecord | None:
+        with self._connect() as conn:
+            row = conn.execute("select * from message_attachments where id = %s and deleted_at is null", (attachment_id,)).fetchone()
+        return attachment_from_row(row) if row else None
+
+    def attach_to_message(self, *, attachment_ids: list[str], message_id: str) -> list[MessageAttachmentRecord]:
+        if not attachment_ids:
+            return []
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                update message_attachments
+                set message_id = %s, updated_at = now()
+                where id = any(%s)
+                returning *
+                """,
+                (message_id, attachment_ids),
+            ).fetchall()
+            conn.execute("update file_assets set resource_id = %s where id = any(%s)", (message_id, [str(row["file_asset_id"]) for row in rows]))
+            conn.commit()
+        return [attachment_from_row(row) for row in rows]
+
+    def list_attachments_for_messages(self, message_ids: list[str]) -> dict[str, list[MessageAttachmentRecord]]:
+        result: dict[str, list[MessageAttachmentRecord]] = {message_id: [] for message_id in message_ids}
+        if not message_ids:
+            return result
+        with self._connect() as conn:
+            rows = conn.execute(
+                "select * from message_attachments where message_id = any(%s) and deleted_at is null order by created_at asc",
+                (message_ids,),
+            ).fetchall()
+        for row in rows:
+            attachment = attachment_from_row(row)
+            if attachment.message_id:
+                result.setdefault(attachment.message_id, []).append(attachment)
+        return result

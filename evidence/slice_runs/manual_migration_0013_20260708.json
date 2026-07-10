@@ -1,0 +1,7 @@
+{
+  "phase": "manual_migration_file",
+  "migration": "0013_slice_14B1_business_access_links.up.sql",
+  "env_file": ".env.local.example",
+  "failures": [],
+  "exit_code": 0
+}

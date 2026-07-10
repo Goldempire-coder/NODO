@@ -1,0 +1,15 @@
+{
+  "name": "nodo",
+  "private": true,
+  "version": "0.0.0-slice-00",
+  "scripts": {
+    "build": "pnpm --filter @nodo/web build",
+    "test": "python scripts/run_slice_00_tests.py",
+    "test:slice00": "python scripts/run_slice_00_tests.py"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

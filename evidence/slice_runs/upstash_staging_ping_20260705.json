@@ -1,0 +1,11 @@
+﻿{
+    "exit_code":  0,
+    "redis_version_present":  true,
+    "ping":  true,
+    "secrets_printed":  false,
+    "phase":  "upstash_staging_ping",
+    "target":  "upstash_nodo_staging_redis",
+    "failures":  [
+
+                 ]
+}

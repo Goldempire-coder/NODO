@@ -1,0 +1,2186 @@
+{
+  "slice": "real_services_capacity_hardening",
+  "phase": "scenario_capacity",
+  "run_id": "slice16_order_c25",
+  "scenario": "order-flow",
+  "fixture_mode": "prepared_internal_dataset_no_legacy_onboarding",
+  "request_target": "local_asgi_testclient",
+  "targets": {
+    "businesses": 3,
+    "ads_per_business": 10,
+    "remitters": 25,
+    "marketplace_reads": 0,
+    "marketplace_concurrency": 0,
+    "order_creates": 25,
+    "same_ad_race_requests": 0,
+    "payment_confirms": 0
+  },
+  "prepared": {
+    "businesses": 3,
+    "ads": 30,
+    "payment_ads": 0,
+    "remitters": 25
+  },
+  "metrics": {
+    "duration_seconds": 2.352,
+    "throughput_per_second": 10.6287,
+    "total_requests": 25,
+    "total_errors": 0,
+    "total_error_rate": 0.0,
+    "p50_ms": 252.7032,
+    "p95_ms": 267.0538,
+    "p99_ms": 268.5277,
+    "endpoints": {
+      "capacity:orders:create_distinct": {
+        "count": 25,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 252.7032,
+        "p95_ms": 267.0538,
+        "p99_ms": 268.5277,
+        "avg_ms": 241.3763,
+        "status_counts": {
+          "201": 25
+        }
+      }
+    },
+    "route_groups": {
+      "POST /api/v1/orders": {
+        "count": 25,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 252.7032,
+        "p95_ms": 267.0538,
+        "p99_ms": 268.5277,
+        "avg_ms": 241.3763,
+        "status_counts": {
+          "201": 25
+        }
+      }
+    },
+    "slowest_route_groups": [
+      {
+        "route": "POST /api/v1/orders",
+        "count": 25,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 252.7032,
+        "p95_ms": 267.0538,
+        "p99_ms": 268.5277,
+        "avg_ms": 241.3763,
+        "status_counts": {
+          "201": 25
+        }
+      }
+    ]
+  },
+  "profiled_steps": [
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 87.7701,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0027
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 28.5508
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 1.592
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 10.9362
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 12.9166
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 18.2506
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 2.2979
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 12.9066
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0475
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 10.2317
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 7.022,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0027
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0468
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0017
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0257
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 6.9659
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0052
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 101.4515,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0021
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 35.6039
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 2.8705
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 10.0778
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 12.5706
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 19.4091
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 1.3771
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 19.2471
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0451
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 6.0227
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 5.4021,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0025
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0382
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0015
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0456
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 5.3536
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0064
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 137.0082,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0006
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 38.2583
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 9.5507
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 9.1623
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 13.6055
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 42.1865
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 3.7766
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 20.1809
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0394
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 5.1736
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 7.3002,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0111
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0376
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0018
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0452
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 7.2423
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0074
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 168.9088,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0005
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 41.9283
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 39.9956
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 13.2192
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 22.2955
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 30.0767
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 3.5737
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 17.6385
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0403
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 1.9546
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 4.8677,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0032
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0718
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0021
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0352
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 4.7836
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.005
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 174.3377,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0007
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 39.2925
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 39.9105
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 22.7191
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 16.1072
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 39.882
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 4.7223
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 11.5111
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0295
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 6.4454
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 7.5611,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0022
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0326
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0019
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0376
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 7.519
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.004
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 184.2418,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0005
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 41.6119
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 39.9967
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 20.011
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 14.6321
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 35.5328
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 7.6644
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 24.6497
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0375
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 4.1414
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 6.9016,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0035
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0424
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0026
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0372
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 6.8472
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0048
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 194.1545,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0005
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 39.6704
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 39.7807
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 14.4705
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 18.6047
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 39.7027
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 23.4008
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 18.3559
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0316
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.6189
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 9.1946,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0022
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.071
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0019
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0305
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 9.1134
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0054
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 194.7929,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0005
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 38.7503
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 40.2027
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 18.3363
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 31.1156
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 28.9511
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 24.1263
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 13.1098
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0281
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.0403
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 7.1706,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0028
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0355
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0015
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0512
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 7.1252
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0051
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 192.7772,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 37.2651
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 40.0829
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 19.3235
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 25.5437
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 39.1908
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 9.5615
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 21.6169
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0353
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.673
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 11.2322,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0024
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0381
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0021
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0345
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 11.1852
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0047
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 194.1066,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0015
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 38.433
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 40.0814
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 15.6435
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 17.953
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 41.7883
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 22.8456
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 17.2126
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0267
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 1.8057
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 11.9552,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0027
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0478
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0015
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0346
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 11.8966
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0057
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 200.6882,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0005
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 41.3978
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 37.5481
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 22.1294
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 14.599
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 36.6918
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 26.686
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 21.436
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0329
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.663
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 8.1327,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0024
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0314
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0017
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0348
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 8.0917
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0046
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 202.4142,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0007
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 41.7851
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 40.1452
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 18.7582
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 37.0616
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 31.3481
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 10.5917
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 22.569
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.025
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 3.0441
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 7.5143,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0019
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0264
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0015
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0454
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 7.4778
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0062
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 206.6339,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0008
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 39.9431
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 40.6239
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 17.2185
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 14.5477
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 57.1813
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 22.9093
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 14.0324
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0319
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.0339
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 9.8992,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0126
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0553
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0025
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0229
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 9.818
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0032
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 208.5967,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0007
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 53.4324
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 36.3181
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 57.7715
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 15.1769
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 27.3241
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 2.6847
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 15.6154
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0282
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.0986
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 7.7511,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0025
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0382
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0019
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0372
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 7.7039
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0047
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 205.6364,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0009
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 37.289
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 44.5177
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 25.2971
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 24.5799
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 31.3741
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 23.369
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 19.0206
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0399
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.4352
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 11.2326,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0019
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.031
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.002
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0472
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 11.1935
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0069
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 204.811,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0009
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 36.5919
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 44.6372
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 47.9628
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 29.5021
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 26.3988
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 1.8103
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 17.7289
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0349
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.291
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 6.067,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0022
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0473
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0021
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0383
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 6.0118
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.006
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 204.2497,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0009
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 30.7674
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 40.8256
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 46.7944
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 20.7405
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 50.1459
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 2.6512
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 12.1296
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0306
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 1.153
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 28.9563,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0019
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0261
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0015
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0227
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 28.9224
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0033
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 196.0927,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0014
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 22.6614
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 50.5245
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 63.0608
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 11.4163
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 38.9976
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 2.4138
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 6.8545
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0258
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 1.5371
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 26.8444,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0031
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0535
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0016
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0434
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 26.7786
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.009
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 219.3823,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0008
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 56.4172
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 35.5588
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 53.7683
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 36.5089
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 24.5987
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 2.2369
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 10.0863
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0182
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.6862
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 7.2898,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0036
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0587
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.002
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0486
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 7.2189
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0049
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 206.8026,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 32.7566
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 49.3148
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 57.8869
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 29.5741
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 22.8815
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 2.5537
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 11.6924
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0237
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 1.9607
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 25.373,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0028
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0369
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0019
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0365
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 25.3267
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0062
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 213.2105,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0012
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 36.8293
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 42.0036
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 53.1571
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 42.3495
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 22.6992
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 5.0116
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 11.0206
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0204
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 1.7274
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 13.1114,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0024
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0372
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0018
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0412
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 13.0649
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0051
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 205.8906,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0007
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 32.8376
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 52.2075
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 65.7135
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 25.3643
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 18.9205
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 1.5639
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 9.1114
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0204
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.9452
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 28.6697,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.003
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0338
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0104
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0296
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 28.6097
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0044
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 202.0791,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.001
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 24.1237
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 44.4585
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 61.47
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 33.026
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 23.6952
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 4.3906
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 10.7832
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0211
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 1.261
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 25.0349,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0023
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0326
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0017
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.048
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 24.9937
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0067
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 213.4251,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0009
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 35.523
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 42.3929
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 67.7187
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 14.9742
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 32.7463
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 2.507
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 17.4024
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0274
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.1442
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 9.3982,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0039
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.1262
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0027
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0261
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 9.2581
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0036
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:orders:create_distinct",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "status_code": 201,
+      "profile": {
+        "total_ms": 217.1548,
+        "stages": [
+          {
+            "stage": "auth:require_remitter",
+            "elapsed_ms": 0.0013
+          },
+          {
+            "stage": "rate_limit:order_create",
+            "elapsed_ms": 38.5262
+          },
+          {
+            "stage": "idempotency:get_or_lock",
+            "elapsed_ms": 39.9129
+          },
+          {
+            "stage": "service:get_existing_idempotency",
+            "elapsed_ms": 81.9486
+          },
+          {
+            "stage": "db_reads:order_create_context",
+            "elapsed_ms": 15.2882
+          },
+          {
+            "stage": "transaction:create_order_and_move_ad",
+            "elapsed_ms": 23.0174
+          },
+          {
+            "stage": "cache:marketplace_invalidation",
+            "elapsed_ms": 3.0667
+          },
+          {
+            "stage": "audit:order_created_and_ad_moved",
+            "elapsed_ms": 15.2156
+          },
+          {
+            "stage": "service:public_order_payload",
+            "elapsed_ms": 0.0228
+          },
+          {
+            "stage": "idempotency:store_and_release_lock",
+            "elapsed_ms": 2.2459
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 9.2627,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0021
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.037
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0019
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0333
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 9.2179
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0042
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "invariant_violations": {
+    "marketplace_read_errors": 0,
+    "order_create_errors": 0,
+    "same_ad_success_count_invalid": 0,
+    "same_ad_unexpected_status": 0,
+    "same_ad_db_rows_invalid": 0,
+    "duplicate_idempotency_response_mismatch": 0,
+    "duplicate_idempotency_db_rows_invalid": 0,
+    "fixture_insufficient_reserved_ads": 0,
+    "payment_report_setup_errors": 0,
+    "confirm_distinct_errors": 0,
+    "confirm_distinct_state_invalid": 0,
+    "confirm_same_order_success_count_invalid": 0,
+    "confirm_same_order_double_consume": 0,
+    "negative_balances": 0,
+    "double_credit_consumption": 0,
+    "db_errors": 0
+  },
+  "details": {
+    "order_flow": {
+      "status_codes": [
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201
+      ],
+      "attempted": 25,
+      "requested": 25,
+      "reserved_for_race": 2
+    },
+    "invariants": {
+      "negative_balances": 0,
+      "double_credit_consumption": 0
+    }
+  },
+  "exit_code": 0
+}

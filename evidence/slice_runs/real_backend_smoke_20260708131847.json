@@ -1,0 +1,92 @@
+{
+  "run_id": "real_backend_smoke_20260708131847",
+  "target": "https://nodo-api-production.up.railway.app",
+  "steps": [
+    {
+      "name": "health",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 546.62
+    },
+    {
+      "name": "ready",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 941.494
+    },
+    {
+      "name": "version",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 209.959
+    },
+    {
+      "name": "auth_admin_telegram",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 1047.971
+    },
+    {
+      "name": "admin_intake_list",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 634.571
+    },
+    {
+      "name": "intake_start",
+      "status": 201,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 1854.575
+    },
+    {
+      "name": "smoke_exception",
+      "status": 500,
+      "ok": false,
+      "type": "KeyError",
+      "message": "'intake_id'"
+    },
+    {
+      "name": "cleanup_synthetic_data",
+      "status": 200,
+      "ok": true,
+      "business_deleted": 0,
+      "intake_deleted": 0,
+      "files_deleted": 0,
+      "user_deleted": 1
+    }
+  ],
+  "ok": false,
+  "error": {
+    "type": "KeyError",
+    "message": "'intake_id'"
+  },
+  "created_redacted": {
+    "intake_id": null,
+    "business_id": null,
+    "telegram_id": "[set]"
+  }
+}

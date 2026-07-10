@@ -1,0 +1,101 @@
+{
+  "slice": "slice_12_frontend_architecture_refactor",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "environment_notes": [
+    "Python packages such as pytest are installed in the Windows user-site outside the workspace; commands that invoked pytest were run with that site visible.",
+    "Docker Desktop was started only for the local slice_11 runner because local Postgres/Redis were not initially listening.",
+    "No Supabase, Upstash, Stripe live, Telegram real, or deploy target was used."
+  ],
+  "checks": [
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "exit_code": 0,
+      "result": "Next.js build passed. Route / size 24 kB, first load JS 126 kB."
+    },
+    {
+      "command": "python scripts\\run_slice_00_tests.py",
+      "exit_code": 0,
+      "result": "6 passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_01_tests.py",
+      "exit_code": 0,
+      "result": "6 passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_02_tests.py",
+      "exit_code": 0,
+      "result": "3 checks passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_03_tests.py",
+      "exit_code": 0,
+      "result": "3 checks passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_04_tests.py",
+      "exit_code": 0,
+      "result": "3 checks passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_05_tests.py",
+      "exit_code": 0,
+      "result": "3 checks passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_06_tests.py",
+      "exit_code": 0,
+      "result": "3 checks passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_07_tests.py",
+      "exit_code": 0,
+      "result": "3 checks passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_08_tests.py",
+      "exit_code": 0,
+      "result": "3 checks passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_09_tests.py",
+      "exit_code": 0,
+      "result": "3 checks passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_10_tests.py",
+      "exit_code": 0,
+      "result": "4 checks passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_11_tests.py",
+      "exit_code": 0,
+      "result": "8 checks passed, 0 failed"
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests -q",
+      "exit_code": 0,
+      "result": "92 passed, 1 Starlette/httpx warning"
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "exit_code": 0,
+      "result": "All checks passed"
+    },
+    {
+      "command": "python -m compileall apps scripts",
+      "exit_code": 0,
+      "result": "Compileall passed"
+    },
+    {
+      "command": "frontend source/build secret and private-data scan",
+      "exit_code": 0,
+      "result": "0 hits for secrets, storage_path, account_value, payment instructions snapshots, or prohibited claims"
+    }
+  ],
+  "test_harness_updates": [
+    "scripts/run_slice_01_tests.py frontend static check now scans apps/web/src instead of only apps/web/src/app/page.tsx.",
+    "apps/api/tests/test_admin_console.py static slice-09 screen ownership check now scans apps/web/src instead of only apps/web/src/app/page.tsx."
+  ],
+  "not_executed": []
+}

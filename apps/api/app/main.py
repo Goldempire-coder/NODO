@@ -1,0 +1,252 @@
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+import anyio.to_thread
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+
+from app.core.config import load_settings
+from app.core.errors import ApiError, api_error_response
+from app.core.logging import configure_logging, get_logger
+from app.modules.admin.repository import InMemoryAdminRepository, PostgresAdminRepository
+from app.modules.admin.routes import router as admin_router
+from app.modules.ads.repository import InMemoryAdRepository, PostgresAdRepository
+from app.modules.ads.routes import router as ads_router
+from app.modules.business_intake.repository import InMemoryBusinessIntakeRepository, PostgresBusinessIntakeRepository
+from app.modules.business_intake.routes import router as business_intake_router
+from app.modules.businesses.repository import InMemoryBusinessRepository, PostgresBusinessRepository
+from app.modules.businesses.routes import router as businesses_router
+from app.modules.chat.repository import InMemoryChatRepository, PostgresChatRepository
+from app.modules.chat.routes import router as chat_router
+from app.modules.credits.repository import InMemoryCreditRepository, PostgresCreditRepository
+from app.modules.credits.routes import router as credits_router
+from app.modules.disputes.repository import InMemoryDisputeRepository, PostgresDisputeRepository
+from app.modules.disputes.routes import router as disputes_router
+from app.modules.jobs.lock import InMemoryJobLockManager, RedisJobLockManager
+from app.modules.jobs.repository import InMemoryJobRepository, PostgresJobRepository
+from app.modules.jobs.routes import router as jobs_router
+from app.modules.jobs.worker import ExpireAndEscalateOrdersWorker
+from app.modules.orders.repository import InMemoryOrderRepository, PostgresOrderRepository
+from app.modules.orders.routes import router as orders_router
+from app.modules.users.repository import InMemoryUserRepository, PostgresUserRepository
+from app.routes.auth import router as auth_router
+from app.routes.health import router as health_router
+from app.routes.surface import router as surface_router
+from app.routes.telegram_bot import router as telegram_bot_router
+from app.routes.users import router as users_router
+from app.shared.audit.audit_service import InMemoryAuditWriter, PostgresAuditWriter
+from app.shared.cache import InMemoryTTLCache, RedisTTLCache, VersionedLayeredTTLCache
+from app.shared.db.connection import pool_snapshot, warm_pool
+from app.shared.idempotency.store import InMemoryIdempotencyStore, RedisIdempotencyStore
+from app.shared.rate_limit.in_memory import InMemoryRateLimiter
+from app.shared.rate_limit.redis import RedisRateLimiter
+from app.shared.security.headers import RuntimeTimingMiddleware, SecurityHeadersMiddleware
+from app.core.config import Settings
+from app.shared.storage.private import (
+    InMemoryPrivateStorage,
+    LocalFilePrivateStorage,
+    SupabasePrivateStorage,
+    UnavailablePrivateStorage,
+)
+
+
+def build_private_storage(settings: Settings):  # type: ignore[no-untyped-def]
+    if settings.private_storage_mode == "local_file":
+        return LocalFilePrivateStorage(settings.private_storage_root)
+    if settings.private_storage_mode == "supabase":
+        if not settings.supabase_url or not settings.supabase_service_role_key:
+            return UnavailablePrivateStorage()
+        return SupabasePrivateStorage(
+            supabase_url=settings.supabase_url,
+            service_role_key=settings.supabase_service_role_key,
+            business_verification_bucket=settings.supabase_storage_bucket_business_verification,
+            payment_evidence_bucket=settings.supabase_storage_bucket_payment_evidence,
+            credit_purchase_proofs_bucket=settings.supabase_storage_bucket_credit_purchase_proofs,
+            message_attachments_bucket=settings.supabase_storage_bucket_message_attachments,
+            business_intake_bucket=settings.supabase_storage_bucket_business_intake,
+        )
+    return UnavailablePrivateStorage()
+
+
+def create_app() -> FastAPI:
+    settings = load_settings()
+    configure_logging(settings.app_env)
+    logger = get_logger(__name__)
+    logger.info("api_boot", extra={"event": "system_bootstrapped", "app_version": settings.app_version})
+
+    app = _new_fastapi_app(settings, logger=logger)
+    app.state.settings = settings
+    if settings.app_env == "test":
+        _configure_test_state(app)
+    else:
+        _configure_runtime_state(app, settings=settings, logger=logger)
+    _configure_workers(app)
+    _configure_middlewares(app, settings=settings)
+    _include_routes(app)
+    _register_error_handlers(app, logger=logger)
+    return app
+
+
+def _new_fastapi_app(settings: Settings, *, logger) -> FastAPI:  # type: ignore[no-untyped-def]
+    return FastAPI(
+        title=settings.app_name,
+        version=settings.app_version,
+        docs_url="/docs" if settings.app_env != "production" else None,
+        redoc_url=None,
+        lifespan=_lifespan(settings=settings, logger=logger),
+    )
+
+
+def _lifespan(*, settings: Settings, logger):  # type: ignore[no-untyped-def]
+    @asynccontextmanager
+    async def app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        previous_limit = limiter.total_tokens
+        limiter.total_tokens = settings.api_thread_limit
+        logger.info(
+            "api_thread_limit_configured",
+            extra={"previous_limit": previous_limit, "api_thread_limit": settings.api_thread_limit},
+        )
+        yield
+
+    return app_lifespan
+
+def _configure_test_state(app: FastAPI) -> None:
+    app.state.user_repository = InMemoryUserRepository()
+    app.state.business_repository = InMemoryBusinessRepository()
+    app.state.business_intake_repository = InMemoryBusinessIntakeRepository()
+    app.state.ad_repository = InMemoryAdRepository()
+    app.state.order_repository = InMemoryOrderRepository()
+    app.state.chat_repository = InMemoryChatRepository()
+    app.state.credit_repository = InMemoryCreditRepository(app.state.ad_repository, app.state.business_repository)
+    app.state.dispute_repository = InMemoryDisputeRepository()
+    app.state.job_repository = InMemoryJobRepository()
+    app.state.audit_writer = InMemoryAuditWriter()
+    app.state.admin_repository = InMemoryAdminRepository(
+        users=app.state.user_repository,
+        businesses=app.state.business_repository,
+        orders=app.state.order_repository,
+        disputes=app.state.dispute_repository,
+        credits=app.state.credit_repository,
+        audit_writer=app.state.audit_writer,
+    )
+    app.state.rate_limiter = InMemoryRateLimiter()
+    app.state.marketplace_rate_limiter = InMemoryRateLimiter()
+    app.state.idempotency_store = InMemoryIdempotencyStore()
+    app.state.marketplace_cache = InMemoryTTLCache()
+    app.state.admin_read_model_cache = InMemoryTTLCache()
+    app.state.auth_user_cache = None
+    app.state.private_storage = InMemoryPrivateStorage()
+    app.state.job_lock_manager = InMemoryJobLockManager()
+
+
+def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> None:  # type: ignore[no-untyped-def]
+    app.state.user_repository = PostgresUserRepository(settings.database_url)
+    app.state.business_repository = PostgresBusinessRepository(settings.database_url)
+    app.state.business_intake_repository = PostgresBusinessIntakeRepository(settings.database_url)
+    app.state.ad_repository = PostgresAdRepository(settings.database_url)
+    app.state.order_repository = PostgresOrderRepository(settings.database_url)
+    app.state.chat_repository = PostgresChatRepository(settings.database_url)
+    app.state.credit_repository = PostgresCreditRepository(settings.database_url)
+    app.state.dispute_repository = PostgresDisputeRepository(settings.database_url)
+    app.state.job_repository = PostgresJobRepository(settings.database_url)
+    app.state.audit_writer = PostgresAuditWriter(settings.database_url)
+    app.state.admin_repository = PostgresAdminRepository(settings.database_url)
+    try:
+        warm_pool(settings.database_url, size=int(os.environ.get("NODO_DB_POOL_WARM_SIZE", "8")))
+        logger.info(
+            "db_pool_configured",
+            extra={"pool": pool_snapshot(settings.database_url), "api_thread_limit": settings.api_thread_limit},
+        )
+    except Exception as exc:
+        logger.warning("db_pool_warm_failed", extra={"error": str(exc)})
+    app.state.rate_limiter = RedisRateLimiter(settings.redis_url)
+    app.state.marketplace_rate_limiter = InMemoryRateLimiter()
+    app.state.idempotency_store = RedisIdempotencyStore(settings.redis_url)
+    app.state.marketplace_cache = VersionedLayeredTTLCache(
+        local_cache=InMemoryTTLCache(),
+        shared_cache=RedisTTLCache(settings.redis_url),
+        namespace="marketplace:ads",
+        version_cache_ttl_seconds=settings.marketplace_cache_version_ttl_seconds,
+        shared_hit_local_ttl_seconds=settings.marketplace_cache_shared_hit_local_ttl_seconds,
+    )
+    app.state.admin_read_model_cache = InMemoryTTLCache()
+    app.state.auth_user_cache = InMemoryTTLCache()
+    app.state.private_storage = build_private_storage(settings)
+    app.state.job_lock_manager = RedisJobLockManager(settings.redis_url)
+
+
+def _configure_workers(app: FastAPI) -> None:
+    app.state.expire_and_escalate_orders_worker = ExpireAndEscalateOrdersWorker(
+        job_repository=app.state.job_repository,
+        lock_manager=app.state.job_lock_manager,
+        order_repository=app.state.order_repository,
+        ad_repository=app.state.ad_repository,
+        business_repository=app.state.business_repository,
+        dispute_repository=app.state.dispute_repository,
+        audit_writer=app.state.audit_writer,
+    )
+
+
+def _configure_middlewares(app: FastAPI, *, settings: Settings) -> None:
+    app.add_middleware(RuntimeTimingMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
+    cloudflare_preview_origin_regex = r"^https://[a-z0-9-]+\.nodo-staging\.pages\.dev$"
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_origin_regex=cloudflare_preview_origin_regex,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PUT"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Request-Id",
+            "X-NODO-Surface",
+            "X-NODO-Profile",
+            "X-NODO-Bot-Webhook-Secret",
+            "Idempotency-Key",
+            "Stripe-Signature",
+        ],
+    )
+
+
+def _include_routes(app: FastAPI) -> None:
+    app.include_router(health_router, prefix="/api/v1")
+    app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(users_router, prefix="/api/v1")
+    app.include_router(surface_router, prefix="/api/v1")
+    app.include_router(businesses_router, prefix="/api/v1")
+    app.include_router(business_intake_router, prefix="/api/v1")
+    app.include_router(ads_router, prefix="/api/v1")
+    app.include_router(orders_router, prefix="/api/v1")
+    app.include_router(chat_router, prefix="/api/v1")
+    app.include_router(credits_router, prefix="/api/v1")
+    app.include_router(disputes_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(jobs_router, prefix="/api/v1")
+    app.include_router(telegram_bot_router, prefix="/api/v1")
+    app.include_router(health_router)
+
+
+def _register_error_handlers(app: FastAPI, *, logger) -> None:  # type: ignore[no-untyped-def]
+    @app.exception_handler(ApiError)
+    async def api_error_handler(request, exc: ApiError):  # type: ignore[no-untyped-def]
+        request_id = request.headers.get("x-request-id", "request_id_unavailable")
+        return api_error_response(exc.code, exc.message, request_id, status_code=exc.status_code)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request, exc: RequestValidationError):  # type: ignore[no-untyped-def]
+        request_id = request.headers.get("x-request-id", "request_id_unavailable")
+        return api_error_response("VALIDATION_ERROR", "Revisa los datos enviados.", request_id, status_code=422)
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request, exc):  # type: ignore[no-untyped-def]
+        request_id = request.headers.get("x-request-id", "request_id_unavailable")
+        logger.exception("api_unhandled_error", extra={"request_id": request_id, "error_code": "INTERNAL_ERROR"})
+        return api_error_response("INTERNAL_ERROR", "Ocurrio un error temporal.", request_id, status_code=500)
+
+
+app = create_app()

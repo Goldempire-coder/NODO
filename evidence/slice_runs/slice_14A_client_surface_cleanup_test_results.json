@@ -1,0 +1,65 @@
+{
+  "slice": "slice_14A_client_surface_cleanup",
+  "mode": "BUILD_ONLY",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "generated_at": "2026-07-07",
+  "commands": [
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "status": "passed_before_environment_recovery",
+      "result": "Next.js build compiled successfully; route / size 19.4 kB, first load JS 122 kB.",
+      "note": "After a later dependency-tree recovery attempt, corepack/node were not on PATH in the sandbox. The same build was revalidated with the local Next binary and runtime Node."
+    },
+    {
+      "command": "NEXT_PUBLIC_API_BASE_URL=https://nodo-api-production.up.railway.app NEXT_PUBLIC_APP_URL=https://nodo-staging.pages.dev NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=NODO node apps/web/node_modules/next/dist/bin/next build apps/web",
+      "status": "passed",
+      "result": "Compiled successfully in 7.2s; generated static pages 5/5; exported 2/2; route / size 19.4 kB, first load JS 122 kB.",
+      "warnings": [
+        "Tailwind CSS content option is missing or empty; pre-existing warning."
+      ]
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "status": "passed",
+      "result": "All checks passed!"
+    },
+    {
+      "command": "python -m compileall -q apps scripts",
+      "status": "passed",
+      "result": "Exit code 0."
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api;C:\\Users\\carlo\\AppData\\Roaming\\Python\\Python314\\site-packages'; python -m pytest apps\\api\\tests -q --tb=short",
+      "status": "passed",
+      "result": "100 passed, 1 warning in 14.38s.",
+      "warnings": [
+        "StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead."
+      ]
+    }
+  ],
+  "scans": [
+    {
+      "scan": "ClientWorkspace/client shell banned imports",
+      "command": "rg -n \"VerificationScreens|BusinessOperationsScreens|AdminConsoleScreens\" apps\\web\\src\\screens\\client apps\\web\\src\\hooks\\useClientWorkspaceModel.ts apps\\web\\src\\screens\\auth\\AuthEntryPage.tsx",
+      "status": "passed",
+      "result": "No matches."
+    },
+    {
+      "scan": "Client model forbidden business/admin handlers",
+      "command": "rg -n \"createOrUpdateBusiness|submitVerification|createAd|loadMyAds|loadArchivedAds|mutateAd|loadBusinessOrders|openBusinessOrder|mutateBusinessOrder|loadAdmin|reviewBusiness|openDocument|reviewCreditPurchase|submitAdminAdjustment|resolveAdminDispute\" apps\\web\\src\\hooks\\useClientWorkspaceModel.ts apps\\web\\src\\screens\\client apps\\web\\src\\screens\\auth\\AuthEntryPage.tsx",
+      "status": "passed",
+      "result": "No matches."
+    },
+    {
+      "scan": "Frontend source/build secrets and prohibited claims",
+      "command": "rg -n \"SUPABASE_SERVICE_ROLE_KEY|BOT_TOKEN|storage_path|account_value|escrow|fondos protegidos|pago garantizado|garant[ií]a de entrega|NODO recibi[oó] dinero\" apps\\web\\src apps\\web\\.next apps\\web\\out",
+      "status": "passed",
+      "result": "No matches."
+    }
+  ],
+  "deploy": {
+    "frontend_deploy": "not_executed",
+    "bot_menu_update": "not_executed",
+    "reason": "No wrangler/Cloudflare Pages deploy script was present and no CLOUDFLARE*/CF_*/BOT_TOKEN environment variables were available. Backend was not deployed."
+  }
+}

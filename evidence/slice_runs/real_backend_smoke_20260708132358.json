@@ -1,0 +1,133 @@
+{
+  "run_id": "real_backend_smoke_20260708132358",
+  "target": "https://nodo-api-production.up.railway.app",
+  "steps": [
+    {
+      "name": "health",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 356.947
+    },
+    {
+      "name": "ready",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 985.716
+    },
+    {
+      "name": "version",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 129.177
+    },
+    {
+      "name": "auth_admin_telegram",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 1007.452
+    },
+    {
+      "name": "admin_intake_list",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 755.649
+    },
+    {
+      "name": "intake_start",
+      "status": 201,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 1870.813
+    },
+    {
+      "name": "intake_contact",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 938.233
+    },
+    {
+      "name": "intake_submit",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 915.387
+    },
+    {
+      "name": "admin_intake_detail",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 1146.423
+    },
+    {
+      "name": "admin_accept_create_business_public_name",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 2851.373
+    },
+    {
+      "name": "invariants",
+      "status": 200,
+      "ok": true,
+      "created_business_pending": true,
+      "access_link_created_false": true,
+      "public_name_ok": true
+    },
+    {
+      "name": "cleanup_synthetic_data",
+      "status": 200,
+      "ok": true,
+      "business_deleted": 1,
+      "intake_deleted": 1,
+      "files_marked_deleted": 0,
+      "wallets_deleted": 0,
+      "user_deleted": 1,
+      "old_smoke_intakes_deleted": 0
+    }
+  ],
+  "ok": true,
+  "error": null,
+  "created_redacted": {
+    "intake_id": "[set]",
+    "business_id": "[set]",
+    "telegram_id": "[set]",
+    "owner_user_id": "[set]"
+  }
+}

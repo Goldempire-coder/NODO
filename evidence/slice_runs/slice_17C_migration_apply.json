@@ -1,0 +1,196 @@
+{
+  "slice": "slice_17A_staging_validation_tooling",
+  "phase": "staging_migration_apply",
+  "guardrails": {
+    "env_file": ".local\\staging_validation_17C_LOCAL_ONLY.env",
+    "run_id": "staging17c_apply_20260710120836",
+    "env": {
+      "APP_ENV": "staging",
+      "NODO_ENVIRONMENT_KIND": "staging",
+      "NODO_STAGING_VALIDATION": "1",
+      "NODO_STAGING_PROJECT_ID": "aqmubphdxiaokaqqgqax",
+      "NODO_PRODUCTION_PROJECT_ID": "",
+      "DATABASE_URL": "[REDACTED]",
+      "REDIS_URL": "[REDACTED]",
+      "NODO_STAGING_DB_HOST_ALLOWLIST": "aws-1-us-east-2.pooler.supabase.com",
+      "NODO_STAGING_API_HOST_ALLOWLIST": "",
+      "SUPABASE_URL": "https://aqmubphdxiaokaqqgqax.supabase.co",
+      "NODO_STAGING_SUPABASE_URL": "https://aqmubphdxiaokaqqgqax.supabase.co"
+    }
+  },
+  "mode": "apply",
+  "plan": {
+    "total": 16,
+    "pending": [
+      {
+        "filename": "0001_slice_00_foundation.up.sql",
+        "checksum_sha256": "6e9ec6268b9a70bd53c9b434ec54eb75b2e101638f05277b43087897898976cf",
+        "status": "pending"
+      },
+      {
+        "filename": "0002_slice_01_auth_telegram.up.sql",
+        "checksum_sha256": "659519496acb623b06bffd19d3d12fc0b788024460b23c49a0c17649f19ee3b8",
+        "status": "pending"
+      },
+      {
+        "filename": "0003_slice_02_business_verification.up.sql",
+        "checksum_sha256": "d9db86e2a84fbfbd1b72327dab707289f5a62a125d49cb2785b647b63f00f658",
+        "status": "pending"
+      },
+      {
+        "filename": "0004_slice_03_ads_marketplace.up.sql",
+        "checksum_sha256": "d70d190ff6e894f384af5753913420eee380518d47dcdcd6904bb09bff67b46e",
+        "status": "pending"
+      },
+      {
+        "filename": "0005_slice_04_order_creation.up.sql",
+        "checksum_sha256": "5b891d927fe498f1b7d8dbd1afed08e7fcdb165866540fe2045445e64a1a5c6f",
+        "status": "pending"
+      },
+      {
+        "filename": "0006_slice_05_payment_instructions_reports.up.sql",
+        "checksum_sha256": "b69961ccca8069ad63fda1a138ea5e7ac3142061d117b57a69334a41a3df722c",
+        "status": "pending"
+      },
+      {
+        "filename": "0007_slice_06_business_order_ops.up.sql",
+        "checksum_sha256": "5a746a1f5d670c98e56ad34e99eec5cff18a0463925d301b14634c53594c631c",
+        "status": "pending"
+      },
+      {
+        "filename": "0008_slice_07_chat_disputes.up.sql",
+        "checksum_sha256": "59972d45dffc9b02fb243ca8e20673fe97bf5bc421f8338c18e52ce4b8644ed4",
+        "status": "pending"
+      },
+      {
+        "filename": "0009_slice_08_credits_referrals.up.sql",
+        "checksum_sha256": "39914bb95b7da9f556c847d9fb4e8f8107799fbf4d2524d52019f6481a569c4e",
+        "status": "pending"
+      },
+      {
+        "filename": "0010_slice_09_admin_console.up.sql",
+        "checksum_sha256": "4126a1d34ff064c650616624b2df0d3dea98836e52b08884fb264c106bd0816d",
+        "status": "pending"
+      },
+      {
+        "filename": "0011_slice_10_jobs_notifications.up.sql",
+        "checksum_sha256": "50a9dfbb9ae382eeff7f481a1d6622f326ba75841e3cdc611d08858e68bd9240",
+        "status": "pending"
+      },
+      {
+        "filename": "0012_terms_acceptance.up.sql",
+        "checksum_sha256": "effc63eafb38cb7a8896975f61a1e37c87ce0083a111de2c48e09cd7ab445109",
+        "status": "pending"
+      },
+      {
+        "filename": "0013_slice_14B1_business_access_links.up.sql",
+        "checksum_sha256": "0236af265dc02f56997666dae65e7b7ee0c4692cc7d6d1bb66d918aa6d0b6389",
+        "status": "pending"
+      },
+      {
+        "filename": "0014_slice_14D_business_intake_bot.up.sql",
+        "checksum_sha256": "694148986d89d6eb2e356c891b109ed5c05342cc93bea916612b2085e9b85a05",
+        "status": "pending"
+      },
+      {
+        "filename": "0015_audit_logs_business_intake_bot_actor.up.sql",
+        "checksum_sha256": "9f80c2d74b4ddff70e21026e10ed18394bfa913bfc1caf706cb3ea1f22103fea",
+        "status": "pending"
+      },
+      {
+        "filename": "0016_query_performance_indexes.up.sql",
+        "checksum_sha256": "c2a6e6bff9f9baad550a838ef0040b386949d1036846df09a3fb2e17ee012197",
+        "status": "pending"
+      }
+    ],
+    "applied": [],
+    "checksum_mismatches": [],
+    "items": [
+      {
+        "filename": "0001_slice_00_foundation.up.sql",
+        "checksum_sha256": "6e9ec6268b9a70bd53c9b434ec54eb75b2e101638f05277b43087897898976cf",
+        "status": "pending"
+      },
+      {
+        "filename": "0002_slice_01_auth_telegram.up.sql",
+        "checksum_sha256": "659519496acb623b06bffd19d3d12fc0b788024460b23c49a0c17649f19ee3b8",
+        "status": "pending"
+      },
+      {
+        "filename": "0003_slice_02_business_verification.up.sql",
+        "checksum_sha256": "d9db86e2a84fbfbd1b72327dab707289f5a62a125d49cb2785b647b63f00f658",
+        "status": "pending"
+      },
+      {
+        "filename": "0004_slice_03_ads_marketplace.up.sql",
+        "checksum_sha256": "d70d190ff6e894f384af5753913420eee380518d47dcdcd6904bb09bff67b46e",
+        "status": "pending"
+      },
+      {
+        "filename": "0005_slice_04_order_creation.up.sql",
+        "checksum_sha256": "5b891d927fe498f1b7d8dbd1afed08e7fcdb165866540fe2045445e64a1a5c6f",
+        "status": "pending"
+      },
+      {
+        "filename": "0006_slice_05_payment_instructions_reports.up.sql",
+        "checksum_sha256": "b69961ccca8069ad63fda1a138ea5e7ac3142061d117b57a69334a41a3df722c",
+        "status": "pending"
+      },
+      {
+        "filename": "0007_slice_06_business_order_ops.up.sql",
+        "checksum_sha256": "5a746a1f5d670c98e56ad34e99eec5cff18a0463925d301b14634c53594c631c",
+        "status": "pending"
+      },
+      {
+        "filename": "0008_slice_07_chat_disputes.up.sql",
+        "checksum_sha256": "59972d45dffc9b02fb243ca8e20673fe97bf5bc421f8338c18e52ce4b8644ed4",
+        "status": "pending"
+      },
+      {
+        "filename": "0009_slice_08_credits_referrals.up.sql",
+        "checksum_sha256": "39914bb95b7da9f556c847d9fb4e8f8107799fbf4d2524d52019f6481a569c4e",
+        "status": "pending"
+      },
+      {
+        "filename": "0010_slice_09_admin_console.up.sql",
+        "checksum_sha256": "4126a1d34ff064c650616624b2df0d3dea98836e52b08884fb264c106bd0816d",
+        "status": "pending"
+      },
+      {
+        "filename": "0011_slice_10_jobs_notifications.up.sql",
+        "checksum_sha256": "50a9dfbb9ae382eeff7f481a1d6622f326ba75841e3cdc611d08858e68bd9240",
+        "status": "pending"
+      },
+      {
+        "filename": "0012_terms_acceptance.up.sql",
+        "checksum_sha256": "effc63eafb38cb7a8896975f61a1e37c87ce0083a111de2c48e09cd7ab445109",
+        "status": "pending"
+      },
+      {
+        "filename": "0013_slice_14B1_business_access_links.up.sql",
+        "checksum_sha256": "0236af265dc02f56997666dae65e7b7ee0c4692cc7d6d1bb66d918aa6d0b6389",
+        "status": "pending"
+      },
+      {
+        "filename": "0014_slice_14D_business_intake_bot.up.sql",
+        "checksum_sha256": "694148986d89d6eb2e356c891b109ed5c05342cc93bea916612b2085e9b85a05",
+        "status": "pending"
+      },
+      {
+        "filename": "0015_audit_logs_business_intake_bot_actor.up.sql",
+        "checksum_sha256": "9f80c2d74b4ddff70e21026e10ed18394bfa913bfc1caf706cb3ea1f22103fea",
+        "status": "pending"
+      },
+      {
+        "filename": "0016_query_performance_indexes.up.sql",
+        "checksum_sha256": "c2a6e6bff9f9baad550a838ef0040b386949d1036846df09a3fb2e17ee012197",
+        "status": "pending"
+      }
+    ]
+  },
+  "apply_result": {},
+  "failures": [
+    "DuplicateObject:constraint \"ads_credit_hold_ledger_fk\" for relation \"ads\" already exists"
+  ],
+  "exit_code": 1
+}

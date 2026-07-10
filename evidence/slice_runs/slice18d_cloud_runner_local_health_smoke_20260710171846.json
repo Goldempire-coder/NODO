@@ -1,0 +1,181 @@
+{
+  "phase": "cloud_load_runner",
+  "run_id": "slice18d_cloud_runner_local_health_smoke_20260710171846",
+  "scenario": "health",
+  "target": "https://nodo-api-production.up.railway.app",
+  "requests": 20,
+  "concurrency": 5,
+  "duration_seconds": 8.0248,
+  "throughput_per_second": 2.4923,
+  "total_errors": 0,
+  "error_rate": 0.0,
+  "client_latency": {
+    "count": 20,
+    "p50_ms": 126.6861,
+    "p95_ms": 7588.5691,
+    "p99_ms": 7591.5524,
+    "avg_ms": 1044.106
+  },
+  "server_process_time": {
+    "count": 20,
+    "p50_ms": 0.5762,
+    "p95_ms": 1.3793,
+    "p99_ms": 1.7118,
+    "avg_ms": 0.6992
+  },
+  "status_counts": {
+    "200": 20
+  },
+  "error_counts": {},
+  "railway_edge_counts": {
+    "mia1": 20
+  },
+  "cleanup": {
+    "required": false,
+    "run_id": null,
+    "note": null
+  },
+  "samples": [
+    {
+      "index": 4,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 1239.1504,
+      "error": null
+    },
+    {
+      "index": 2,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 1241.758,
+      "error": null
+    },
+    {
+      "index": 3,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 1244.1015,
+      "error": null
+    },
+    {
+      "index": 5,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 119.1067,
+      "error": null
+    },
+    {
+      "index": 7,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 118.2396,
+      "error": null
+    },
+    {
+      "index": 6,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 123.9171,
+      "error": null
+    },
+    {
+      "index": 10,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 71.001,
+      "error": null
+    },
+    {
+      "index": 9,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 76.516,
+      "error": null
+    },
+    {
+      "index": 8,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 81.9587,
+      "error": null
+    },
+    {
+      "index": 11,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 126.6861,
+      "error": null
+    },
+    {
+      "index": 12,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 124.7023,
+      "error": null
+    },
+    {
+      "index": 13,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 122.028,
+      "error": null
+    },
+    {
+      "index": 16,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 147.8268,
+      "error": null
+    },
+    {
+      "index": 15,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 190.0702,
+      "error": null
+    },
+    {
+      "index": 14,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 191.1203,
+      "error": null
+    },
+    {
+      "index": 17,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 109.6231,
+      "error": null
+    },
+    {
+      "index": 19,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 183.037,
+      "error": null
+    },
+    {
+      "index": 18,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 191.1549,
+      "error": null
+    },
+    {
+      "index": 0,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 7591.5524,
+      "error": null
+    },
+    {
+      "index": 1,
+      "path": "/api/v1/health",
+      "status": "200",
+      "elapsed_ms": 7588.5691,
+      "error": null
+    }
+  ],
+  "exit_code": 0
+}

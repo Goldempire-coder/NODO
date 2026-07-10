@@ -1,0 +1,34 @@
+{
+  "slice": "slice_17A_staging_validation_tooling",
+  "phase": "staging_storage_smoke",
+  "guardrails": {
+    "env_file": ".local\\staging_validation_17C_LOCAL_ONLY.env",
+    "run_id": "staging17_storage_smoke_20260710130828",
+    "env": {
+      "APP_ENV": "staging",
+      "NODO_ENVIRONMENT_KIND": "staging",
+      "NODO_STAGING_VALIDATION": "1",
+      "NODO_STAGING_PROJECT_ID": "aqmubphdxiaokaqqgqax",
+      "NODO_PRODUCTION_PROJECT_ID": "",
+      "DATABASE_URL": "[REDACTED]",
+      "REDIS_URL": "[REDACTED]",
+      "NODO_STAGING_DB_HOST_ALLOWLIST": "aws-1-us-east-2.pooler.supabase.com",
+      "NODO_STAGING_API_HOST_ALLOWLIST": "",
+      "SUPABASE_URL": "https://aqmubphdxiaokaqqgqax.supabase.co",
+      "NODO_STAGING_SUPABASE_URL": "https://aqmubphdxiaokaqqgqax.supabase.co"
+    }
+  },
+  "result": {
+    "bucket": "business-intake",
+    "object_deleted": true,
+    "size_bytes": 65,
+    "checksum_sha256": "5616b24063cb362f1014c4493c2a44c7ace891476eee049bf109bcfe082c7a1a",
+    "downloaded_checksum_sha256": "5616b24063cb362f1014c4493c2a44c7ace891476eee049bf109bcfe082c7a1a",
+    "checksum_match": true,
+    "signed_url_created": true,
+    "storage_path_exposed": false,
+    "signed_url_persisted": false
+  },
+  "failures": [],
+  "exit_code": 0
+}

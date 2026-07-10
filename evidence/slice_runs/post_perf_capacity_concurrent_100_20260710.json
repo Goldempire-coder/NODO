@@ -1,0 +1,1741 @@
+{
+  "slice": "real_services_capacity_hardening",
+  "phase": "scenario_capacity",
+  "run_id": "post_perf_capacity_concurrent_100_20260710",
+  "scenario": "all",
+  "fixture_mode": "prepared_internal_dataset_no_legacy_onboarding",
+  "request_target": "local_asgi_testclient",
+  "targets": {
+    "businesses": 10,
+    "ads_per_business": 18,
+    "remitters": 100,
+    "marketplace_reads": 500,
+    "order_creates": 100,
+    "same_ad_race_requests": 25,
+    "payment_confirms": 50
+  },
+  "prepared": {
+    "businesses": 10,
+    "ads": 180,
+    "payment_ads": 51,
+    "remitters": 100
+  },
+  "metrics": {
+    "duration_seconds": 20.002,
+    "throughput_per_second": 35.4972,
+    "total_requests": 710,
+    "total_errors": 48,
+    "total_error_rate": 0.0676,
+    "p50_ms": 1435.6281,
+    "p95_ms": 1500.8288,
+    "p99_ms": 1521.2139,
+    "endpoints": {
+      "capacity:business_orders:confirm_distinct": {
+        "count": 50,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 322.3993,
+        "p95_ms": 364.1596,
+        "p99_ms": 380.0495,
+        "avg_ms": 330.337,
+        "status_counts": {
+          "200": 50
+        }
+      },
+      "capacity:business_orders:confirm_same_order_race": {
+        "count": 25,
+        "error_count": 24,
+        "error_rate": 0.96,
+        "p50_ms": 108.4047,
+        "p95_ms": 129.1653,
+        "p99_ms": 132.9579,
+        "avg_ms": 107.502,
+        "status_counts": {
+          "409": 24,
+          "200": 1
+        }
+      },
+      "capacity:marketplace:read": {
+        "count": 500,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 1464.532,
+        "p95_ms": 1506.4061,
+        "p99_ms": 1523.6934,
+        "avg_ms": 1459.8405,
+        "status_counts": {
+          "200": 500
+        }
+      },
+      "capacity:orders:create_distinct": {
+        "count": 100,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 951.8288,
+        "p95_ms": 1012.8876,
+        "p99_ms": 1021.2517,
+        "avg_ms": 962.3491,
+        "status_counts": {
+          "201": 100
+        }
+      },
+      "capacity:orders:duplicate_idempotency": {
+        "count": 10,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 84.1387,
+        "p95_ms": 89.0502,
+        "p99_ms": 89.0502,
+        "avg_ms": 82.1555,
+        "status_counts": {
+          "201": 10
+        }
+      },
+      "capacity:orders:same_ad_race": {
+        "count": 25,
+        "error_count": 24,
+        "error_rate": 0.96,
+        "p50_ms": 171.2024,
+        "p95_ms": 185.0186,
+        "p99_ms": 186.7496,
+        "avg_ms": 169.7984,
+        "status_counts": {
+          "409": 24,
+          "201": 1
+        }
+      }
+    },
+    "route_groups": {
+      "GET /api/v1/ads/search": {
+        "count": 500,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 1464.532,
+        "p95_ms": 1506.4061,
+        "p99_ms": 1523.6934,
+        "avg_ms": 1459.8405,
+        "status_counts": {
+          "200": 500
+        }
+      },
+      "POST /api/v1/business/orders/07703b7f-461d-4210-9078-83ca80f89f81/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 281.3073,
+        "p95_ms": 281.3073,
+        "p99_ms": 281.3073,
+        "avg_ms": 281.3073,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/077c2ca4-e366-464c-a0c7-066155412ded/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 355.4265,
+        "p95_ms": 355.4265,
+        "p99_ms": 355.4265,
+        "avg_ms": 355.4265,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/0c2b4538-9171-42e3-a8a9-d87b2820b64e/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 352.7839,
+        "p95_ms": 352.7839,
+        "p99_ms": 352.7839,
+        "avg_ms": 352.7839,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/0db703e5-a55f-4b4e-b945-1ec5fca18fbc/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 314.0419,
+        "p95_ms": 314.0419,
+        "p99_ms": 314.0419,
+        "avg_ms": 314.0419,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/0fd4def3-6084-4695-9d6a-857930109979/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 322.4018,
+        "p95_ms": 322.4018,
+        "p99_ms": 322.4018,
+        "avg_ms": 322.4018,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/1791fcf7-50f0-47a2-b125-8a3fcf88dabe/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 318.3887,
+        "p95_ms": 318.3887,
+        "p99_ms": 318.3887,
+        "avg_ms": 318.3887,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/2079858d-b19a-4341-9eb6-02d3ed1afd16/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 341.7119,
+        "p95_ms": 341.7119,
+        "p99_ms": 341.7119,
+        "avg_ms": 341.7119,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/213def57-e44b-4d42-bd0c-3ed26b595849/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 319.7052,
+        "p95_ms": 319.7052,
+        "p99_ms": 319.7052,
+        "avg_ms": 319.7052,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/23da2370-5e3d-4771-be74-ff99bc3ae89a/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 353.4347,
+        "p95_ms": 353.4347,
+        "p99_ms": 353.4347,
+        "avg_ms": 353.4347,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/2b344c30-b23b-4cd4-8174-9b2218e5fdc1/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 356.8561,
+        "p95_ms": 356.8561,
+        "p99_ms": 356.8561,
+        "avg_ms": 356.8561,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/2badbe86-99c0-4ab9-9919-c9e98616043b/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 271.4672,
+        "p95_ms": 271.4672,
+        "p99_ms": 271.4672,
+        "avg_ms": 271.4672,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/30c2fe56-39e0-4f6e-afd0-dff553bfa3b2/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 310.7859,
+        "p95_ms": 310.7859,
+        "p99_ms": 310.7859,
+        "avg_ms": 310.7859,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/353cc87b-d375-44ab-a51d-3f0d31922cc1/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 318.6114,
+        "p95_ms": 318.6114,
+        "p99_ms": 318.6114,
+        "avg_ms": 318.6114,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/367b2b82-fc19-4979-98db-8f5affaff9a7/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 351.4967,
+        "p95_ms": 351.4967,
+        "p99_ms": 351.4967,
+        "avg_ms": 351.4967,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/3c149bf1-e6aa-4ccb-87cb-6bc194265afd/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 360.5302,
+        "p95_ms": 360.5302,
+        "p99_ms": 360.5302,
+        "avg_ms": 360.5302,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/4150fc7e-1619-4ead-98c5-61d4ed9dbbf5/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 353.7933,
+        "p95_ms": 353.7933,
+        "p99_ms": 353.7933,
+        "avg_ms": 353.7933,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/41871b00-2abd-4ee7-82ec-206d10a3e57a/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 302.5065,
+        "p95_ms": 302.5065,
+        "p99_ms": 302.5065,
+        "avg_ms": 302.5065,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/49619016-d1d8-44da-ae94-8e36d38869c3/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 309.4283,
+        "p95_ms": 309.4283,
+        "p99_ms": 309.4283,
+        "avg_ms": 309.4283,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/5d1345f4-79e0-48e2-a7f3-25317496f708/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 318.6312,
+        "p95_ms": 318.6312,
+        "p99_ms": 318.6312,
+        "avg_ms": 318.6312,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/5e3f5f83-38d7-460e-8ee9-2ae2cb2d04b4/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 321.6384,
+        "p95_ms": 321.6384,
+        "p99_ms": 321.6384,
+        "avg_ms": 321.6384,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/5e4579ca-5c26-4a92-a7d0-1bfa4bbe1577/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 380.0495,
+        "p95_ms": 380.0495,
+        "p99_ms": 380.0495,
+        "avg_ms": 380.0495,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/621ead62-1b05-40b4-8906-0df6d6264454/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 364.1596,
+        "p95_ms": 364.1596,
+        "p99_ms": 364.1596,
+        "avg_ms": 364.1596,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/6362e8f2-28dc-4aac-9788-02802883e58a/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 279.3991,
+        "p95_ms": 279.3991,
+        "p99_ms": 279.3991,
+        "avg_ms": 279.3991,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/66280ba3-33d7-47c0-8c57-0c8a8530a290/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 335.9042,
+        "p95_ms": 335.9042,
+        "p99_ms": 335.9042,
+        "avg_ms": 335.9042,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/6ef637ea-e812-4ede-9a94-79e17af6e249/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 320.6094,
+        "p95_ms": 320.6094,
+        "p99_ms": 320.6094,
+        "avg_ms": 320.6094,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/719dc499-8d5a-40d8-a454-e280cb75d60a/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 310.8373,
+        "p95_ms": 310.8373,
+        "p99_ms": 310.8373,
+        "avg_ms": 310.8373,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/7fb5aa4a-32c4-4183-a715-30de7c61175b/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 312.2602,
+        "p95_ms": 312.2602,
+        "p99_ms": 312.2602,
+        "avg_ms": 312.2602,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/882eb0ac-6ad0-4ced-8274-1e5232d9f256/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 304.4494,
+        "p95_ms": 304.4494,
+        "p99_ms": 304.4494,
+        "avg_ms": 304.4494,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/88598dd7-eb28-457c-ac40-fa6451786f6a/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 360.7041,
+        "p95_ms": 360.7041,
+        "p99_ms": 360.7041,
+        "avg_ms": 360.7041,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/8883749e-0927-4be6-a58e-fdc2510ba87d/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 301.7163,
+        "p95_ms": 301.7163,
+        "p99_ms": 301.7163,
+        "avg_ms": 301.7163,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/898ae6a6-36de-4c3c-bb8f-18ed024fcbff/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 351.2411,
+        "p95_ms": 351.2411,
+        "p99_ms": 351.2411,
+        "avg_ms": 351.2411,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/91b61461-a787-4ae8-b9a7-660f77091c7f/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 340.7559,
+        "p95_ms": 340.7559,
+        "p99_ms": 340.7559,
+        "avg_ms": 340.7559,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/91dabe77-4b74-4874-a835-b69554236d92/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 337.1932,
+        "p95_ms": 337.1932,
+        "p99_ms": 337.1932,
+        "avg_ms": 337.1932,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/ab08c192-afda-4e07-ab12-53503bbe10b9/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 363.2596,
+        "p95_ms": 363.2596,
+        "p99_ms": 363.2596,
+        "avg_ms": 363.2596,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/abeb576e-3e80-4041-989d-f90e130cba53/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 322.3993,
+        "p95_ms": 322.3993,
+        "p99_ms": 322.3993,
+        "avg_ms": 322.3993,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/af91c7eb-dca3-44ba-a3b5-318c7f88ed0e/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 314.5951,
+        "p95_ms": 314.5951,
+        "p99_ms": 314.5951,
+        "avg_ms": 314.5951,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/b0ecd1d4-a768-4ba8-b3fe-080fe7ccb060/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 307.0974,
+        "p95_ms": 307.0974,
+        "p99_ms": 307.0974,
+        "avg_ms": 307.0974,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/b5005c20-1a30-48bd-a9f6-a4a268cc0645/confirm-payment": {
+        "count": 25,
+        "error_count": 24,
+        "error_rate": 0.96,
+        "p50_ms": 108.4047,
+        "p95_ms": 129.1653,
+        "p99_ms": 132.9579,
+        "avg_ms": 107.502,
+        "status_counts": {
+          "409": 24,
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/b71a3a32-b70c-43d3-873c-334469fc8731/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 338.5153,
+        "p95_ms": 338.5153,
+        "p99_ms": 338.5153,
+        "avg_ms": 338.5153,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/bce4b073-11c2-4d83-a127-49f3aa8def3e/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 305.1611,
+        "p95_ms": 305.1611,
+        "p99_ms": 305.1611,
+        "avg_ms": 305.1611,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/c76b8d67-5ebe-4177-9820-af9dec5b5b19/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 315.6451,
+        "p95_ms": 315.6451,
+        "p99_ms": 315.6451,
+        "avg_ms": 315.6451,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/d1552cec-af24-4b5d-8f66-f4265aa382cf/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 312.8989,
+        "p95_ms": 312.8989,
+        "p99_ms": 312.8989,
+        "avg_ms": 312.8989,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/d82f4b0f-d83f-4e8a-bc25-e01068a4b054/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 353.0424,
+        "p95_ms": 353.0424,
+        "p99_ms": 353.0424,
+        "avg_ms": 353.0424,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/d8825090-6297-4e70-8718-167c20b6939e/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 361.0782,
+        "p95_ms": 361.0782,
+        "p99_ms": 361.0782,
+        "avg_ms": 361.0782,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/d8ade9b8-70e6-4bf3-8a9a-eb6b71b6f4b0/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 361.9893,
+        "p95_ms": 361.9893,
+        "p99_ms": 361.9893,
+        "avg_ms": 361.9893,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/dab2db62-16b3-46f0-82cf-fadc1fd61e38/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 313.3803,
+        "p95_ms": 313.3803,
+        "p99_ms": 313.3803,
+        "avg_ms": 313.3803,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/dae75ce8-4fe8-49fc-b32e-8a51ee80e01c/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 375.2864,
+        "p95_ms": 375.2864,
+        "p99_ms": 375.2864,
+        "avg_ms": 375.2864,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/dd314a63-6583-408b-bd97-681aa7932e19/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 356.5567,
+        "p95_ms": 356.5567,
+        "p99_ms": 356.5567,
+        "avg_ms": 356.5567,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/e02c6619-70b3-40f4-8f9f-2ac343f56a17/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 339.6988,
+        "p95_ms": 339.6988,
+        "p99_ms": 339.6988,
+        "avg_ms": 339.6988,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/e70ac3f9-0347-442e-9f19-5a93260bd8f8/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 336.8149,
+        "p95_ms": 336.8149,
+        "p99_ms": 336.8149,
+        "avg_ms": 336.8149,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/business/orders/f82791ce-0b3f-422d-a323-7c4acb177011/confirm-payment": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 305.2066,
+        "p95_ms": 305.2066,
+        "p99_ms": 305.2066,
+        "avg_ms": 305.2066,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/orders": {
+        "count": 135,
+        "error_count": 24,
+        "error_rate": 0.1778,
+        "p50_ms": 944.7686,
+        "p95_ms": 1012.2528,
+        "p99_ms": 1021.2517,
+        "avg_ms": 750.3809,
+        "status_counts": {
+          "201": 111,
+          "409": 24
+        }
+      }
+    },
+    "slowest_route_groups": [
+      {
+        "route": "GET /api/v1/ads/search",
+        "count": 500,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 1464.532,
+        "p95_ms": 1506.4061,
+        "p99_ms": 1523.6934,
+        "avg_ms": 1459.8405,
+        "status_counts": {
+          "200": 500
+        }
+      },
+      {
+        "route": "POST /api/v1/orders",
+        "count": 135,
+        "error_count": 24,
+        "error_rate": 0.1778,
+        "p50_ms": 944.7686,
+        "p95_ms": 1012.2528,
+        "p99_ms": 1021.2517,
+        "avg_ms": 750.3809,
+        "status_counts": {
+          "201": 111,
+          "409": 24
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/5e4579ca-5c26-4a92-a7d0-1bfa4bbe1577/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 380.0495,
+        "p95_ms": 380.0495,
+        "p99_ms": 380.0495,
+        "avg_ms": 380.0495,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/dae75ce8-4fe8-49fc-b32e-8a51ee80e01c/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 375.2864,
+        "p95_ms": 375.2864,
+        "p99_ms": 375.2864,
+        "avg_ms": 375.2864,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/621ead62-1b05-40b4-8906-0df6d6264454/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 364.1596,
+        "p95_ms": 364.1596,
+        "p99_ms": 364.1596,
+        "avg_ms": 364.1596,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/ab08c192-afda-4e07-ab12-53503bbe10b9/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 363.2596,
+        "p95_ms": 363.2596,
+        "p99_ms": 363.2596,
+        "avg_ms": 363.2596,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/d8ade9b8-70e6-4bf3-8a9a-eb6b71b6f4b0/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 361.9893,
+        "p95_ms": 361.9893,
+        "p99_ms": 361.9893,
+        "avg_ms": 361.9893,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/d8825090-6297-4e70-8718-167c20b6939e/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 361.0782,
+        "p95_ms": 361.0782,
+        "p99_ms": 361.0782,
+        "avg_ms": 361.0782,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/88598dd7-eb28-457c-ac40-fa6451786f6a/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 360.7041,
+        "p95_ms": 360.7041,
+        "p99_ms": 360.7041,
+        "avg_ms": 360.7041,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/3c149bf1-e6aa-4ccb-87cb-6bc194265afd/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 360.5302,
+        "p95_ms": 360.5302,
+        "p99_ms": 360.5302,
+        "avg_ms": 360.5302,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/2b344c30-b23b-4cd4-8174-9b2218e5fdc1/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 356.8561,
+        "p95_ms": 356.8561,
+        "p99_ms": 356.8561,
+        "avg_ms": 356.8561,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/dd314a63-6583-408b-bd97-681aa7932e19/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 356.5567,
+        "p95_ms": 356.5567,
+        "p99_ms": 356.5567,
+        "avg_ms": 356.5567,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/077c2ca4-e366-464c-a0c7-066155412ded/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 355.4265,
+        "p95_ms": 355.4265,
+        "p99_ms": 355.4265,
+        "avg_ms": 355.4265,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/4150fc7e-1619-4ead-98c5-61d4ed9dbbf5/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 353.7933,
+        "p95_ms": 353.7933,
+        "p99_ms": 353.7933,
+        "avg_ms": 353.7933,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/23da2370-5e3d-4771-be74-ff99bc3ae89a/confirm-payment",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 353.4347,
+        "p95_ms": 353.4347,
+        "p99_ms": 353.4347,
+        "avg_ms": 353.4347,
+        "status_counts": {
+          "200": 1
+        }
+      }
+    ]
+  },
+  "profiled_steps": [],
+  "invariant_violations": {
+    "marketplace_read_errors": 0,
+    "order_create_errors": 0,
+    "same_ad_success_count_invalid": 0,
+    "same_ad_unexpected_status": 0,
+    "same_ad_db_rows_invalid": 0,
+    "duplicate_idempotency_response_mismatch": 0,
+    "duplicate_idempotency_db_rows_invalid": 0,
+    "fixture_insufficient_reserved_ads": 0,
+    "payment_report_setup_errors": 0,
+    "confirm_distinct_errors": 0,
+    "confirm_distinct_state_invalid": 0,
+    "confirm_same_order_success_count_invalid": 0,
+    "confirm_same_order_double_consume": 0,
+    "negative_balances": 0,
+    "double_credit_consumption": 0,
+    "db_errors": 0
+  },
+  "details": {
+    "marketplace_reads": {
+      "status_codes": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ]
+    },
+    "order_flow": {
+      "status_codes": [
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201
+      ],
+      "attempted": 100,
+      "requested": 100,
+      "reserved_for_race": 2
+    },
+    "same_ad_race": {
+      "status_codes": [
+        409,
+        201,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409
+      ],
+      "successful_ids": [
+        "302629a2-d736-4995-958b-c4dac1b923d5"
+      ],
+      "unexpected_statuses": [],
+      "db_rows": 1
+    },
+    "duplicate_idempotency_race": {
+      "status_codes": [
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201,
+        201
+      ],
+      "successful_ids": [
+        "b6c2d541-b687-4702-a24f-29e246fffbb4",
+        "b6c2d541-b687-4702-a24f-29e246fffbb4",
+        "b6c2d541-b687-4702-a24f-29e246fffbb4",
+        "b6c2d541-b687-4702-a24f-29e246fffbb4",
+        "b6c2d541-b687-4702-a24f-29e246fffbb4",
+        "b6c2d541-b687-4702-a24f-29e246fffbb4",
+        "b6c2d541-b687-4702-a24f-29e246fffbb4",
+        "b6c2d541-b687-4702-a24f-29e246fffbb4",
+        "b6c2d541-b687-4702-a24f-29e246fffbb4",
+        "b6c2d541-b687-4702-a24f-29e246fffbb4"
+      ],
+      "db_rows": 1
+    },
+    "payment_confirm": {
+      "status_codes": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "attempted": 50,
+      "db_state": {
+        "confirmed_orders": 50,
+        "total_orders": 50,
+        "archived_ads": 50,
+        "consume_rows": 50
+      },
+      "same_order_race": {
+        "status_codes": [
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          200,
+          409,
+          409,
+          409,
+          409,
+          409
+        ],
+        "successful_ids": [
+          "b5005c20-1a30-48bd-a9f6-a4a268cc0645"
+        ],
+        "consume_rows": 1,
+        "order_status": "payment_confirmed",
+        "ad_status": "archived"
+      }
+    },
+    "invariants": {
+      "negative_balances": 0,
+      "double_credit_consumption": 0
+    }
+  },
+  "exit_code": 0
+}

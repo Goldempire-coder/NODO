@@ -1,0 +1,11 @@
+{
+  "run_id": "job_dry_run_measure_batch_fix_20260708",
+  "elapsed_ms": 7833.285,
+  "counters": {
+    "processed_count": 482,
+    "changed_count": 482,
+    "skipped_count": 0,
+    "failed_count": 0
+  },
+  "job_status": "finished"
+}

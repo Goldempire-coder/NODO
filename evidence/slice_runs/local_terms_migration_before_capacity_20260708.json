@@ -1,0 +1,11 @@
+{
+  "phase": "terms_migration",
+  "migration": "0012_terms_acceptance.up.sql",
+  "env_file": ".env.local.example",
+  "columns": [
+    "terms_accepted_at",
+    "terms_version"
+  ],
+  "failures": [],
+  "exit_code": 0
+}

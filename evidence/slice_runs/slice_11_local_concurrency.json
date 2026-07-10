@@ -1,0 +1,135 @@
+{
+  "slice": "slice_11_hardening_deploy",
+  "phase": "local_concurrency",
+  "run_id": "concurrency1783559223",
+  "targets": {
+    "searches": 10,
+    "duplicate_requests_same_idempotency_key": 5,
+    "same_ad_requests_different_idempotency_keys": 8,
+    "unique_order_creations": 5
+  },
+  "metrics": {
+    "duration_seconds": 2.169,
+    "throughput_per_second": 12.9078,
+    "total_requests": 28,
+    "total_errors": 7,
+    "total_error_rate": 0.25,
+    "p50_ms": 77.7195,
+    "p95_ms": 118.2684,
+    "p99_ms": 128.8136,
+    "endpoints": {
+      "concurrent:ads:search": {
+        "count": 10,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 112.192,
+        "p95_ms": 128.8136,
+        "p99_ms": 128.8136,
+        "avg_ms": 114.5762,
+        "status_counts": {
+          "200": 10
+        }
+      },
+      "concurrent:orders:create_unique": {
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 57.5059,
+        "p95_ms": 59.0439,
+        "p99_ms": 59.0439,
+        "avg_ms": 55.9778,
+        "status_counts": {
+          "201": 5
+        }
+      },
+      "concurrent:orders:duplicate_key": {
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 79.391,
+        "p95_ms": 82.1058,
+        "p99_ms": 82.1058,
+        "avg_ms": 76.1271,
+        "status_counts": {
+          "201": 5
+        }
+      },
+      "concurrent:orders:same_ad_different_keys": {
+        "count": 8,
+        "error_count": 7,
+        "error_rate": 0.875,
+        "p50_ms": 67.7808,
+        "p95_ms": 70.1035,
+        "p99_ms": 70.1035,
+        "avg_ms": 66.4023,
+        "status_counts": {
+          "409": 7,
+          "201": 1
+        }
+      }
+    },
+    "route_groups": {},
+    "slowest_route_groups": []
+  },
+  "invariant_violations": {
+    "duplicate_order_rows": 0,
+    "duplicate_order_response_mismatch": 0,
+    "duplicate_order_errors": 0,
+    "same_ad_multiple_orders": 0,
+    "same_ad_success_count_invalid": 0,
+    "same_ad_db_rows_invalid": 0,
+    "unique_order_errors": 0,
+    "search_errors": 0,
+    "negative_balances": 0,
+    "db_errors": 0
+  },
+  "details": {
+    "duplicate_successful_ids": [
+      "e4c6847d-963a-4279-82d5-2682d556168e",
+      "e4c6847d-963a-4279-82d5-2682d556168e",
+      "e4c6847d-963a-4279-82d5-2682d556168e",
+      "e4c6847d-963a-4279-82d5-2682d556168e",
+      "e4c6847d-963a-4279-82d5-2682d556168e"
+    ],
+    "duplicate_status_codes": [
+      201,
+      201,
+      201,
+      201,
+      201
+    ],
+    "same_ad_successful_ids": [
+      "79943827-4e28-42da-973d-4784f5d83c5e"
+    ],
+    "same_ad_status_codes": [
+      409,
+      409,
+      409,
+      409,
+      201,
+      409,
+      409,
+      409
+    ],
+    "unique_status_codes": [
+      201,
+      201,
+      201,
+      201,
+      201
+    ],
+    "search_status_codes": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200
+    ]
+  },
+  "exit_code": 0
+}

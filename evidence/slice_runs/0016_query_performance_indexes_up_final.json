@@ -1,0 +1,7 @@
+{
+  "phase": "manual_migration_file",
+  "migration": "0016_query_performance_indexes.up.sql",
+  "env_file": "C:\\Users\\carlo\\Documents\\Playground\\NODO\\.env.local.example",
+  "failures": [],
+  "exit_code": 0
+}

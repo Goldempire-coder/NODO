@@ -1,0 +1,92 @@
+{
+  "run_id": "real_backend_smoke_20260708131753",
+  "target": "https://nodo-api-production.up.railway.app",
+  "steps": [
+    {
+      "name": "health",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 773.482
+    },
+    {
+      "name": "ready",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 998.489
+    },
+    {
+      "name": "version",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 213.33
+    },
+    {
+      "name": "auth_admin_telegram",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 1029.742
+    },
+    {
+      "name": "admin_intake_list",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 722.697
+    },
+    {
+      "name": "intake_start",
+      "status": 403,
+      "ok": false,
+      "body_keys": [
+        "error",
+        "request_id"
+      ],
+      "latency_ms": 137.741
+    },
+    {
+      "name": "smoke_exception",
+      "status": 500,
+      "ok": false,
+      "type": "RuntimeError",
+      "message": "intake_start failed 403: {\"error\":{\"code\":\"FORBIDDEN\",\"message\":\"No tienes permiso para realizar esta accion.\",\"details\":{}},\"request_id\":\"req_real_backend_smoke_20260708131753_bot\"}"
+    },
+    {
+      "name": "cleanup_synthetic_data",
+      "status": 200,
+      "ok": true,
+      "business_deleted": 0,
+      "intake_deleted": 0,
+      "files_deleted": 0,
+      "user_deleted": 0
+    }
+  ],
+  "ok": false,
+  "error": {
+    "type": "RuntimeError",
+    "message": "intake_start failed 403: {\"error\":{\"code\":\"FORBIDDEN\",\"message\":\"No tienes permiso para realizar esta accion.\",\"details\":{}},\"request_id\":\"req_real_backend_smoke_20260708131753_bot\"}"
+  },
+  "created_redacted": {
+    "intake_id": null,
+    "business_id": null,
+    "telegram_id": "[set]"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "slice": "slice_11_hardening_deploy",
+  "phase": "local_rollback_drill",
+  "rolled_back": [
+    {
+      "file": "0011_slice_10_jobs_notifications.down.sql",
+      "bytes": 2038
+    },
+    {
+      "file": "0010_slice_09_admin_console.down.sql",
+      "bytes": 1131
+    },
+    {
+      "file": "0009_slice_08_credits_referrals.down.sql",
+      "bytes": 2124
+    },
+    {
+      "file": "0008_slice_07_chat_disputes.down.sql",
+      "bytes": 1245
+    },
+    {
+      "file": "0007_slice_06_business_order_ops.down.sql",
+      "bytes": 1430
+    },
+    {
+      "file": "0006_slice_05_payment_instructions_reports.down.sql",
+      "bytes": 1014
+    },
+    {
+      "file": "0005_slice_04_order_creation.down.sql",
+      "bytes": 738
+    },
+    {
+      "file": "0004_slice_03_ads_marketplace.down.sql",
+      "bytes": 844
+    },
+    {
+      "file": "0003_slice_02_business_verification.down.sql",
+      "bytes": 170
+    },
+    {
+      "file": "0002_slice_01_auth_telegram.down.sql",
+      "bytes": 31
+    },
+    {
+      "file": "0001_slice_00_foundation.down.sql",
+      "bytes": 310
+    }
+  ],
+  "failures": [],
+  "exit_code": 0
+}

@@ -1,0 +1,46 @@
+{
+  "slice": "slice_17D_staging_migration_ledger_reconciliation",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "real_services_used": false,
+  "deploy_performed": false,
+  "ready_for_real_use_declared": false,
+  "commands": [
+    {
+      "command": "python -m pytest apps\\api\\tests\\test_staging_validation_tooling.py -q --tb=short",
+      "exit_code": 0,
+      "result": "22 passed, 1 warning"
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests -q",
+      "exit_code": 0,
+      "result": "160 passed, 1 warning"
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "exit_code": 0,
+      "result": "All checks passed!"
+    },
+    {
+      "command": "python -m compileall apps\\api apps\\web\\src scripts",
+      "exit_code": 0,
+      "result": "OK"
+    },
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "exit_code": 0,
+      "result": "OK"
+    }
+  ],
+  "artifacts": [
+    "scripts/reconcile_staging_migration_ledger.py",
+    "governance/builder_reports/slice_17D_staging_migration_ledger_reconciliation_BUILDER_REPORT.md",
+    "evidence/slice_runs/slice_17D_staging_migration_ledger_reconciliation_evidence.md",
+    "evidence/slice_runs/slice_17D_staging_migration_ledger_reconciliation_test_results.json"
+  ],
+  "residual_risks": [
+    "Dry-run against staging real still must be executed before any apply.",
+    "If dry-run finds missing artifacts, reconciliation must stop as BLOCKED_BY_SCHEMA_DRIFT.",
+    "orders_active_created_idx remains a real required check and must be resolved in staging before ledger reconciliation can pass.",
+    "Apply against staging requires explicit owner approval and guardrail confirmation."
+  ]
+}

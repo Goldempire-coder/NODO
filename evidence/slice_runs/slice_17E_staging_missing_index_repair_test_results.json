@@ -1,0 +1,47 @@
+{
+  "slice": "slice_17E_staging_missing_index_repair",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "real_services_used": false,
+  "migration_applied": false,
+  "ledger_touched": false,
+  "deploy_performed": false,
+  "ready_for_real_use_declared": false,
+  "commands": [
+    {
+      "command": "python -m pytest apps\\api\\tests\\test_staging_validation_tooling.py -q --tb=short",
+      "exit_code": 0,
+      "result": "26 passed, 1 warning"
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests -q",
+      "exit_code": 0,
+      "result": "164 passed, 1 warning"
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "exit_code": 0,
+      "result": "All checks passed!"
+    },
+    {
+      "command": "python -m compileall apps\\api apps\\web\\src scripts",
+      "exit_code": 0,
+      "result": "OK"
+    },
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "exit_code": 0,
+      "result": "OK"
+    }
+  ],
+  "artifacts": [
+    "scripts/apply_staging_single_migration.py",
+    "governance/builder_reports/slice_17E_staging_missing_index_repair_BUILDER_REPORT.md",
+    "evidence/slice_runs/slice_17E_staging_missing_index_repair_evidence.md",
+    "evidence/slice_runs/slice_17E_staging_missing_index_repair_test_results.json"
+  ],
+  "residual_risks": [
+    "Dry-run against staging real still must be executed before any apply.",
+    "Apply of 0016_query_performance_indexes.up.sql requires explicit owner approval and staging guardrail confirmation.",
+    "Ledger reconciliation must only happen after a clean reconcile dry-run after the index repair."
+  ]
+}

@@ -1,0 +1,782 @@
+{
+  "slice": "slice_11_hardening_deploy",
+  "phase": "local_stress_checkpoint",
+  "status": "timeout",
+  "profile": "25",
+  "workflow_mode": "after_orders",
+  "target": {
+    "businesses": 50,
+    "orders": 500,
+    "marketplace_searches": 500,
+    "stripe_events": 50,
+    "manual_reviews": 50
+  },
+  "progress": {
+    "businesses": 18,
+    "ads": 0,
+    "orders": 0,
+    "workflow_orders": 0,
+    "marketplace_searches": 0,
+    "phase": "seed_businesses"
+  },
+  "elapsed_seconds": 620.194,
+  "metrics": {
+    "duration_seconds": 620.196,
+    "throughput_per_second": 0.2935,
+    "total_requests": 182,
+    "total_errors": 0,
+    "total_error_rate": 0.0,
+    "p50_ms": 2982.6078,
+    "p95_ms": 4803.595,
+    "p99_ms": 9634.5524,
+    "endpoints": {
+      "admin:business:access_link": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3495.4439,
+        "p95_ms": 4170.7138,
+        "p99_ms": 4803.595,
+        "avg_ms": 3668.0184,
+        "status_counts": {
+          "201": 18
+        }
+      },
+      "admin:business:approve": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3505.9194,
+        "p95_ms": 3938.9028,
+        "p99_ms": 4084.7348,
+        "avg_ms": 3534.7116,
+        "status_counts": {
+          "200": 18
+        }
+      },
+      "auth:stress_admin": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2964.2538,
+        "p95_ms": 2964.2538,
+        "p99_ms": 2964.2538,
+        "avg_ms": 2964.2538,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2191.7243,
+        "p95_ms": 2191.7243,
+        "p99_ms": 2191.7243,
+        "avg_ms": 2191.7243,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2339.8905,
+        "p95_ms": 2339.8905,
+        "p99_ms": 2339.8905,
+        "avg_ms": 2339.8905,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_10": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2196.1642,
+        "p95_ms": 2196.1642,
+        "p99_ms": 2196.1642,
+        "avg_ms": 2196.1642,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_11": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2039.6631,
+        "p95_ms": 2039.6631,
+        "p99_ms": 2039.6631,
+        "avg_ms": 2039.6631,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_12": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2481.9914,
+        "p95_ms": 2481.9914,
+        "p99_ms": 2481.9914,
+        "avg_ms": 2481.9914,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_13": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2074.7184,
+        "p95_ms": 2074.7184,
+        "p99_ms": 2074.7184,
+        "avg_ms": 2074.7184,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_14": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2123.7705,
+        "p95_ms": 2123.7705,
+        "p99_ms": 2123.7705,
+        "avg_ms": 2123.7705,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_15": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2178.8965,
+        "p95_ms": 2178.8965,
+        "p99_ms": 2178.8965,
+        "avg_ms": 2178.8965,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_16": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2334.9597,
+        "p95_ms": 2334.9597,
+        "p99_ms": 2334.9597,
+        "avg_ms": 2334.9597,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_17": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 1876.2135,
+        "p95_ms": 1876.2135,
+        "p99_ms": 1876.2135,
+        "avg_ms": 1876.2135,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2342.1175,
+        "p95_ms": 2342.1175,
+        "p99_ms": 2342.1175,
+        "avg_ms": 2342.1175,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_3": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2172.7976,
+        "p95_ms": 2172.7976,
+        "p99_ms": 2172.7976,
+        "avg_ms": 2172.7976,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_4": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2205.7606,
+        "p95_ms": 2205.7606,
+        "p99_ms": 2205.7606,
+        "avg_ms": 2205.7606,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_5": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2189.7391,
+        "p95_ms": 2189.7391,
+        "p99_ms": 2189.7391,
+        "avg_ms": 2189.7391,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_6": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2315.4384,
+        "p95_ms": 2315.4384,
+        "p99_ms": 2315.4384,
+        "avg_ms": 2315.4384,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_7": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2066.5406,
+        "p95_ms": 2066.5406,
+        "p99_ms": 2066.5406,
+        "avg_ms": 2066.5406,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_8": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2539.421,
+        "p95_ms": 2539.421,
+        "p99_ms": 2539.421,
+        "avg_ms": 2539.421,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_9": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 1834.7023,
+        "p95_ms": 1834.7023,
+        "p99_ms": 1834.7023,
+        "avg_ms": 1834.7023,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_remitter": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2254.2474,
+        "p95_ms": 2254.2474,
+        "p99_ms": 2254.2474,
+        "avg_ms": 2254.2474,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "business:create": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3002.0,
+        "p95_ms": 3365.0929,
+        "p99_ms": 3605.2279,
+        "avg_ms": 3048.6929,
+        "status_counts": {
+          "201": 18
+        }
+      },
+      "business:submit": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4251.841,
+        "p95_ms": 5136.8919,
+        "p99_ms": 5190.6295,
+        "avg_ms": 4490.6724,
+        "status_counts": {
+          "200": 18
+        }
+      },
+      "business:upload:address_proof": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2278.44,
+        "p95_ms": 2786.4062,
+        "p99_ms": 2999.6455,
+        "avg_ms": 2358.6852,
+        "status_counts": {
+          "201": 18
+        }
+      },
+      "business:upload:business_license": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2263.9033,
+        "p95_ms": 2709.385,
+        "p99_ms": 3024.8625,
+        "avg_ms": 2365.1983,
+        "status_counts": {
+          "201": 18
+        }
+      },
+      "business:upload:owner_identity": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2189.434,
+        "p95_ms": 2732.4439,
+        "p99_ms": 2827.3456,
+        "avg_ms": 2289.4069,
+        "status_counts": {
+          "201": 18
+        }
+      },
+      "business:upload:rif_document": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2778.8972,
+        "p95_ms": 9678.8255,
+        "p99_ms": 12607.3661,
+        "avg_ms": 4042.8512,
+        "status_counts": {
+          "201": 18
+        }
+      },
+      "stress:credits:adjust:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3271.2392,
+        "p95_ms": 3271.2392,
+        "p99_ms": 3271.2392,
+        "avg_ms": 3271.2392,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3566.1059,
+        "p95_ms": 3566.1059,
+        "p99_ms": 3566.1059,
+        "avg_ms": 3566.1059,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:10": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4197.8703,
+        "p95_ms": 4197.8703,
+        "p99_ms": 4197.8703,
+        "avg_ms": 4197.8703,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:11": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3036.0908,
+        "p95_ms": 3036.0908,
+        "p99_ms": 3036.0908,
+        "avg_ms": 3036.0908,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:12": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3837.9482,
+        "p95_ms": 3837.9482,
+        "p99_ms": 3837.9482,
+        "avg_ms": 3837.9482,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:13": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3672.9323,
+        "p95_ms": 3672.9323,
+        "p99_ms": 3672.9323,
+        "avg_ms": 3672.9323,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:14": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3732.3255,
+        "p95_ms": 3732.3255,
+        "p99_ms": 3732.3255,
+        "avg_ms": 3732.3255,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:15": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3579.4091,
+        "p95_ms": 3579.4091,
+        "p99_ms": 3579.4091,
+        "avg_ms": 3579.4091,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:16": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3591.0533,
+        "p95_ms": 3591.0533,
+        "p99_ms": 3591.0533,
+        "avg_ms": 3591.0533,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:17": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3149.6526,
+        "p95_ms": 3149.6526,
+        "p99_ms": 3149.6526,
+        "avg_ms": 3149.6526,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3628.7575,
+        "p95_ms": 3628.7575,
+        "p99_ms": 3628.7575,
+        "avg_ms": 3628.7575,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:3": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3247.1604,
+        "p95_ms": 3247.1604,
+        "p99_ms": 3247.1604,
+        "avg_ms": 3247.1604,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:4": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3717.2178,
+        "p95_ms": 3717.2178,
+        "p99_ms": 3717.2178,
+        "avg_ms": 3717.2178,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:5": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3589.6463,
+        "p95_ms": 3589.6463,
+        "p99_ms": 3589.6463,
+        "avg_ms": 3589.6463,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:6": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3288.4035,
+        "p95_ms": 3288.4035,
+        "p99_ms": 3288.4035,
+        "avg_ms": 3288.4035,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:7": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3090.142,
+        "p95_ms": 3090.142,
+        "p99_ms": 3090.142,
+        "avg_ms": 3090.142,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:8": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3147.7892,
+        "p95_ms": 3147.7892,
+        "p99_ms": 3147.7892,
+        "avg_ms": 3147.7892,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:9": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3005.6667,
+        "p95_ms": 3005.6667,
+        "p99_ms": 3005.6667,
+        "avg_ms": 3005.6667,
+        "status_counts": {
+          "200": 1
+        }
+      }
+    },
+    "route_groups": {
+      "POST /api/v1/admin/businesses/{id}/access-links": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3495.4439,
+        "p95_ms": 4170.7138,
+        "p99_ms": 4803.595,
+        "avg_ms": 3668.0184,
+        "status_counts": {
+          "201": 18
+        }
+      },
+      "POST /api/v1/admin/businesses/{id}/approve": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3505.9194,
+        "p95_ms": 3938.9028,
+        "p99_ms": 4084.7348,
+        "avg_ms": 3534.7116,
+        "status_counts": {
+          "200": 18
+        }
+      },
+      "POST /api/v1/admin/credits/adjust": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3566.1059,
+        "p95_ms": 3837.9482,
+        "p99_ms": 4197.8703,
+        "avg_ms": 3463.8561,
+        "status_counts": {
+          "200": 18
+        }
+      },
+      "POST /api/v1/auth/telegram": {
+        "count": 20,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2196.1642,
+        "p95_ms": 2539.421,
+        "p99_ms": 2964.2538,
+        "avg_ms": 2236.1505,
+        "status_counts": {
+          "200": 20
+        }
+      },
+      "POST /api/v1/businesses": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3002.0,
+        "p95_ms": 3365.0929,
+        "p99_ms": 3605.2279,
+        "avg_ms": 3048.6929,
+        "status_counts": {
+          "201": 18
+        }
+      },
+      "POST /api/v1/businesses/{id}/submit-verification": {
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4251.841,
+        "p95_ms": 5136.8919,
+        "p99_ms": 5190.6295,
+        "avg_ms": 4490.6724,
+        "status_counts": {
+          "200": 18
+        }
+      },
+      "POST /api/v1/businesses/{id}/verification-documents": {
+        "count": 72,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2350.2466,
+        "p95_ms": 3048.7578,
+        "p99_ms": 9678.8255,
+        "avg_ms": 2764.0354,
+        "status_counts": {
+          "201": 72
+        }
+      }
+    },
+    "slowest_route_groups": [
+      {
+        "route": "POST /api/v1/businesses/{id}/submit-verification",
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4251.841,
+        "p95_ms": 5136.8919,
+        "p99_ms": 5190.6295,
+        "avg_ms": 4490.6724,
+        "status_counts": {
+          "200": 18
+        }
+      },
+      {
+        "route": "POST /api/v1/admin/businesses/{id}/access-links",
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3495.4439,
+        "p95_ms": 4170.7138,
+        "p99_ms": 4803.595,
+        "avg_ms": 3668.0184,
+        "status_counts": {
+          "201": 18
+        }
+      },
+      {
+        "route": "POST /api/v1/admin/businesses/{id}/approve",
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3505.9194,
+        "p95_ms": 3938.9028,
+        "p99_ms": 4084.7348,
+        "avg_ms": 3534.7116,
+        "status_counts": {
+          "200": 18
+        }
+      },
+      {
+        "route": "POST /api/v1/admin/credits/adjust",
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3566.1059,
+        "p95_ms": 3837.9482,
+        "p99_ms": 4197.8703,
+        "avg_ms": 3463.8561,
+        "status_counts": {
+          "200": 18
+        }
+      },
+      {
+        "route": "POST /api/v1/businesses",
+        "count": 18,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3002.0,
+        "p95_ms": 3365.0929,
+        "p99_ms": 3605.2279,
+        "avg_ms": 3048.6929,
+        "status_counts": {
+          "201": 18
+        }
+      },
+      {
+        "route": "POST /api/v1/businesses/{id}/verification-documents",
+        "count": 72,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2350.2466,
+        "p95_ms": 3048.7578,
+        "p99_ms": 9678.8255,
+        "avg_ms": 2764.0354,
+        "status_counts": {
+          "201": 72
+        }
+      },
+      {
+        "route": "POST /api/v1/auth/telegram",
+        "count": 20,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2196.1642,
+        "p95_ms": 2539.421,
+        "p99_ms": 2964.2538,
+        "avg_ms": 2236.1505,
+        "status_counts": {
+          "200": 20
+        }
+      }
+    ]
+  },
+  "invariant_violations": {
+    "idempotency_duplicates": 0,
+    "idempotency_replay_conflicts": 0,
+    "double_credit_consumption": 0,
+    "double_credit_accreditation": 0,
+    "negative_balances": 0,
+    "invalid_transitions": 0,
+    "redis_failures": 0,
+    "db_errors": 0,
+    "timeouts": 0,
+    "deadlocks": 0,
+    "job_lock_failures": 0
+  },
+  "steps_recorded": 201,
+  "error": "stress exceeded 600s during seed_businesses",
+  "exit_code": 2
+}

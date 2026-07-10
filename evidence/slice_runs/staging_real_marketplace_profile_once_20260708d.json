@@ -1,0 +1,8 @@
+{
+  "run_id": "staging_real_marketplace_profile_once_20260708d",
+  "status_code": 200,
+  "elapsed_ms": 2028.5549,
+  "step_latency_ms": 2028.4861,
+  "profile": null,
+  "item_count": 5
+}

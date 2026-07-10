@@ -1,0 +1,97 @@
+{
+  "slice": "slice_17E_staging_missing_index_repair",
+  "phase": "staging_single_migration",
+  "mode": "apply",
+  "guardrails": {
+    "env_file": ".local\\staging_validation_17C_LOCAL_ONLY.env",
+    "run_id": "staging17e_0016_apply_20260710125904",
+    "env": {
+      "APP_ENV": "staging",
+      "NODO_ENVIRONMENT_KIND": "staging",
+      "NODO_STAGING_VALIDATION": "1",
+      "NODO_STAGING_PROJECT_ID": "aqmubphdxiaokaqqgqax",
+      "NODO_PRODUCTION_PROJECT_ID": "",
+      "DATABASE_URL": "[REDACTED]",
+      "REDIS_URL": "[REDACTED]",
+      "NODO_STAGING_DB_HOST_ALLOWLIST": "aws-1-us-east-2.pooler.supabase.com",
+      "NODO_STAGING_API_HOST_ALLOWLIST": "",
+      "SUPABASE_URL": "https://aqmubphdxiaokaqqgqax.supabase.co",
+      "NODO_STAGING_SUPABASE_URL": "https://aqmubphdxiaokaqqgqax.supabase.co"
+    }
+  },
+  "migration": {
+    "filename": "0016_query_performance_indexes.up.sql",
+    "checksum_sha256": "c2a6e6bff9f9baad550a838ef0040b386949d1036846df09a3fb2e17ee012197",
+    "statement_count": 12,
+    "statements": [
+      {
+        "kind": "create_index",
+        "object_name": "users_remitter_phone_updated_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "businesses_created_at_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "businesses_risk_level_created_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "orders_created_at_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "orders_active_created_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "credit_purchases_created_at_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "disputes_created_at_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "job_runs_created_at_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "business_intake_requests_created_at_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "business_intake_requests_chat_status_updated_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "business_intake_requests_chat_updated_idx",
+        "create_index_if_not_exists": true
+      },
+      {
+        "kind": "create_index",
+        "object_name": "referral_events_referred_created_idx",
+        "create_index_if_not_exists": true
+      }
+    ],
+    "create_index_count": 12,
+    "create_index_if_not_exists_count": 12,
+    "writes_database": true
+  },
+  "apply_result": {
+    "applied_migration": "0016_query_performance_indexes.up.sql"
+  },
+  "failures": [],
+  "exit_code": 0
+}

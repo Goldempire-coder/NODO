@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+from typing import Any, Callable
+
+from app.core.errors import ApiError
+from app.modules.credits.models import CreditPurchaseRecord
+from app.modules.credits.policy import require_admin_mutation, require_admin_view
+from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest
+from app.modules.credits.serializers import ledger_public, purchase_public
+from app.modules.users.models import UserRecord
+
+
+class CreditAdminActions:
+    def __init__(
+        self,
+        *,
+        repository,
+        business_repository,
+        audit_writer,
+        idempotency_store,
+        rate_limit: Callable[[str, str], None],
+        require_idempotency_key: Callable[[str | None], str],
+    ) -> None:  # type: ignore[no-untyped-def]
+        self._repository = repository
+        self._businesses = business_repository
+        self._audit = audit_writer
+        self._idempotency = idempotency_store
+        self._rate_limit = rate_limit
+        self._require_idempotency_key = require_idempotency_key
+
+    def list_purchases(self, *, user: UserRecord, status: str | None, business_id: str | None, cursor: str | None, limit: int) -> dict[str, Any]:
+        require_admin_view(user)
+        self._rate_limit("admin_list_purchases", user.id)
+        items, next_cursor = self._repository.list_purchases(status=status, business_id=business_id, cursor=cursor, limit=limit)
+        return {"items": [purchase_public(item, admin=True) for item in items], "next_cursor": next_cursor}
+
+    def approve_purchase(self, *, user: UserRecord, purchase_id: str, payload: AdminReviewCreditPurchaseRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        require_admin_mutation(user)
+        self._rate_limit("admin_approve_purchase", user.id)
+        stable_key = self._require_idempotency_key(idempotency_key)
+
+        def compute() -> dict[str, Any]:
+            purchase = self._purchase_or_404(purchase_id)
+            if purchase.status != "pending_manual_review":
+                raise ApiError("MANUAL_PAYMENT_ALREADY_REVIEWED", status_code=409)
+            updated, ledger = self._repository.approve_purchase(purchase=purchase, actor_user_id=user.id, admin_note=payload.reason)
+            self._audit.write(event_type="manual_credit_payment_approved", actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"reason": payload.reason})
+            self._audit.write(event_type="credits_added", actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"ledger_id": ledger.id if ledger else None, "amount": updated.credits_amount})
+            return {"purchase": purchase_public(updated, admin=True), "ledger": ledger_public(ledger) if ledger else None}
+
+        return self._idempotency.replay_or_store(
+            f"credits:admin_approve:{purchase_id}:{stable_key}",
+            payload={"purchase_id": purchase_id, "reason": payload.reason},
+            compute=compute,
+        )
+
+    def reject_purchase(self, *, user: UserRecord, purchase_id: str, payload: AdminReviewCreditPurchaseRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        require_admin_mutation(user)
+        self._rate_limit("admin_reject_purchase", user.id)
+        stable_key = self._require_idempotency_key(idempotency_key)
+
+        def compute() -> dict[str, Any]:
+            purchase = self._purchase_or_404(purchase_id)
+            updated = self._repository.reject_purchase(purchase=purchase, admin_user_id=user.id, reason=payload.reason)
+            self._audit.write(event_type="manual_credit_payment_rejected", actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"reason": payload.reason})
+            return {"purchase": purchase_public(updated, admin=True)}
+
+        return self._idempotency.replay_or_store(
+            f"credits:admin_reject:{purchase_id}:{stable_key}",
+            payload={"purchase_id": purchase_id, "reason": payload.reason},
+            compute=compute,
+        )
+
+    def adjust(self, *, user: UserRecord, payload: AdminCreditAdjustmentRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        require_admin_mutation(user)
+        self._rate_limit("admin_adjust", user.id)
+        stable_key = self._require_idempotency_key(idempotency_key)
+
+        def compute() -> dict[str, Any]:
+            business = self._businesses.get_business(payload.business_id)
+            if business is None:
+                raise ApiError("BUSINESS_NOT_FOUND", status_code=404)
+            ledger = self._repository.adjust_wallet(
+                business_id=payload.business_id,
+                amount=payload.amount,
+                direction=payload.direction,
+                reason=payload.reason,
+                notes=payload.notes,
+                created_by=user.id,
+            )
+            self._audit.write(event_type="admin_credit_adjustment", actor_user_id=user.id, actor_role=user.role, resource_type="business", resource_id=payload.business_id, request_id=request_id, metadata_json={"ledger_id": ledger.id, "amount": payload.amount, "direction": payload.direction, "reason": payload.reason})
+            return {"ledger": ledger_public(ledger)}
+
+        return self._idempotency.replay_or_store(
+            f"credits:admin_adjust:{payload.business_id}:{stable_key}",
+            payload=payload.model_dump(),
+            compute=compute,
+        )
+
+    def _purchase_or_404(self, purchase_id: str) -> CreditPurchaseRecord:
+        purchase = self._repository.get_purchase(purchase_id)
+        if purchase is None:
+            raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
+        return purchase

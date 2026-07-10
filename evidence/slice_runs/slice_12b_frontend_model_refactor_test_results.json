@@ -1,0 +1,57 @@
+{
+  "slice": "slice_12b_frontend_model_refactor",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "checks": [
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "exit_code": 0,
+      "result": "Next.js build passed. Route / size 25.7 kB, first load JS 128 kB."
+    },
+    {
+      "command": "python scripts\\run_slice_01_tests.py",
+      "exit_code": 0,
+      "result": "6 passed, 0 failed"
+    },
+    {
+      "command": "python scripts\\run_slice_08_tests.py",
+      "exit_code": 0,
+      "result": "7 passed, 1 Starlette/httpx warning"
+    },
+    {
+      "command": "python scripts\\run_slice_09_tests.py",
+      "exit_code": 0,
+      "result": "7 passed, 1 Starlette/httpx warning"
+    },
+    {
+      "command": "python scripts\\run_slice_11_tests.py",
+      "exit_code": 0,
+      "result": "8 checks passed, including local infra, schema validation, concurrency, frontend build, ruff, compileall, and frontend scan"
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests -q",
+      "exit_code": 0,
+      "result": "92 passed, 1 Starlette/httpx warning"
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "exit_code": 0,
+      "result": "All checks passed"
+    },
+    {
+      "command": "python -m compileall apps scripts",
+      "exit_code": 0,
+      "result": "Compileall passed"
+    },
+    {
+      "command": "frontend source/build secret and private-data scan",
+      "exit_code": 0,
+      "result": "0 hits for secrets, storage_path, account_value, payment instructions snapshots, or prohibited claims"
+    }
+  ],
+  "environment_notes": [
+    "Pytest-based commands were run with the Windows user-site visible because pytest is installed outside the workspace sandbox.",
+    "No Supabase, Upstash, Stripe live, Telegram real, or deploy target was used.",
+    "No dependencies were installed."
+  ],
+  "not_executed": []
+}

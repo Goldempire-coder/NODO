@@ -1,0 +1,12 @@
+drop index if exists referral_events_referred_created_idx;
+drop index if exists business_intake_requests_chat_updated_idx;
+drop index if exists business_intake_requests_chat_status_updated_idx;
+drop index if exists business_intake_requests_created_at_idx;
+drop index if exists job_runs_created_at_idx;
+drop index if exists disputes_created_at_idx;
+drop index if exists credit_purchases_created_at_idx;
+drop index if exists orders_active_created_idx;
+drop index if exists orders_created_at_idx;
+drop index if exists businesses_risk_level_created_idx;
+drop index if exists businesses_created_at_idx;
+drop index if exists users_remitter_phone_updated_idx;

@@ -1,0 +1,24 @@
+{
+  "slice": "slice_02_business_verification",
+  "checks": [
+    {
+      "command": "C:\\Python314\\python.exe -m pytest apps/api/tests/test_business_verification.py -q",
+      "exit_code": 0,
+      "duration_seconds": 4.018,
+      "stdout": ".........                                                                [100%]\n============================== warnings summary ===============================\n..\\..\\..\\AppData\\Roaming\\Python\\Python314\\site-packages\\fastapi\\testclient.py:1\n  C:\\Users\\carlo\\AppData\\Roaming\\Python\\Python314\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n9 passed, 1 warning in 2.34s\n",
+      "stderr": ""
+    },
+    {
+      "command": "C:\\Python314\\python.exe -m compileall apps/api scripts",
+      "exit_code": 0,
+      "duration_seconds": 0.127,
+      "stdout": "Listing 'apps/api'...\nListing 'apps/api\\\\app'...\nListing 'apps/api\\\\app\\\\auth'...\nListing 'apps/api\\\\app\\\\core'...\nListing 'apps/api\\\\app\\\\modules'...\nListing 'apps/api\\\\app\\\\modules\\\\admin'...\nListing 'apps/api\\\\app\\\\modules\\\\ads'...\nListing 'apps/api\\\\app\\\\modules\\\\businesses'...\nListing 'apps/api\\\\app\\\\modules\\\\chat'...\nListing 'apps/api\\\\app\\\\modules\\\\credits'...\nListing 'apps/api\\\\app\\\\modules\\\\disputes'...\nListing 'apps/api\\\\app\\\\modules\\\\jobs'...\nListing 'apps/api\\\\app\\\\modules\\\\orders'...\nListing 'apps/api\\\\app\\\\modules\\\\users'...\nListing 'apps/api\\\\app\\\\repositories'...\nListing 'apps/api\\\\app\\\\routes'...\nListing 'apps/api\\\\app\\\\services'...\nListing 'apps/api\\\\app\\\\shared'...\nListing 'apps/api\\\\app\\\\shared\\\\audit'...\nListing 'apps/api\\\\app\\\\shared\\\\db'...\nListing 'apps/api\\\\app\\\\shared\\\\idempotency'...\nListing 'apps/api\\\\app\\\\shared\\\\rate_limit'...\nListing 'apps/api\\\\app\\\\shared\\\\security'...\nListing 'apps/api\\\\app\\\\shared\\\\storage'...\nListing 'apps/api\\\\tests'...\nListing 'scripts'...\n",
+      "stderr": ""
+    },
+    {
+      "command": "secret/source scan",
+      "exit_code": 0,
+      "hits": []
+    }
+  ]
+}

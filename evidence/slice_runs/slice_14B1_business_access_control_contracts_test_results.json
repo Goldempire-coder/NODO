@@ -1,0 +1,66 @@
+{
+  "slice": "slice_14B1_business_access_control_contracts",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "tests": [
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "status": "passed",
+      "summary": "Next.js build compiled, type checked, generated and exported successfully."
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api;C:\\Users\\carlo\\AppData\\Roaming\\Python\\Python314\\site-packages'; python -m pytest apps\\api\\tests\\test_business_access_control.py apps\\api\\tests\\test_ads_marketplace.py -q --tb=short",
+      "status": "passed",
+      "summary": "18 passed, 1 warning in 2.86s"
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api;C:\\Users\\carlo\\AppData\\Roaming\\Python\\Python314\\site-packages'; python -m pytest apps\\api\\tests -q --tb=short",
+      "status": "passed",
+      "summary": "110 passed, 1 warning in 15.77s"
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "status": "passed",
+      "summary": "All checks passed!"
+    },
+    {
+      "command": "python -m compileall apps scripts",
+      "status": "passed",
+      "summary": "compileall completed with exit code 0"
+    }
+  ],
+  "scans": [
+    {
+      "name": "Business Mini App uses surface session",
+      "command": "rg -n \"surface/session|X-NODO-Surface\" apps\\web\\src\\hooks\\useBusinessMiniAppModel.ts",
+      "status": "passed",
+      "matches": [
+        "177: const session = await request(\"/api/v1/surface/session\", {",
+        "178: headers: { \"X-NODO-Surface\": \"business_mini_app\" }"
+      ]
+    },
+    {
+      "name": "Business Mini App does not use businesses/me as initial gate",
+      "command": "rg -n \"/api/v1/businesses/me|/businesses/me\" apps\\web\\src\\hooks\\useBusinessMiniAppModel.ts",
+      "status": "passed",
+      "matches": []
+    },
+    {
+      "name": "Business Mini App does not import client/admin shells",
+      "command": "rg -n \"ClientWorkspace|AdminWebWorkspace|RemitterScreens|VerificationScreens|BusinessOperationsScreens|AdminConsoleScreens\" apps\\web\\src\\screens\\business-app apps\\web\\src\\hooks\\useBusinessMiniAppModel.ts",
+      "status": "passed",
+      "matches": []
+    },
+    {
+      "name": "Business Mini App and build do not expose forbidden sensitive strings",
+      "command": "rg -n \"storage_path|account_value|SUPABASE_SERVICE_ROLE_KEY|BOT_TOKEN|JWT_SECRET|escrow|fondos protegidos|pago garantizado|garant[ií]a de entrega|NODO recibió dinero\" apps\\web\\src\\screens\\business-app apps\\web\\src\\hooks\\useBusinessMiniAppModel.ts apps\\web\\out",
+      "status": "passed",
+      "matches": []
+    }
+  ],
+  "warnings": [
+    "StarletteDeprecationWarning from fastapi.testclient/httpx remains accepted inherited warning."
+  ],
+  "not_executed": [],
+  "ready_for_real_use_declared": false,
+  "deploy_executed": false
+}

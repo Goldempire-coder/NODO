@@ -1,0 +1,99 @@
+{
+  "slice": "slice_15_scalability_runtime_hardening",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "ready_for_real_use": false,
+  "validations": [
+    {
+      "command": "python -m pytest apps\\api\\tests\\test_ads_marketplace.py -q --tb=short",
+      "result": "passed",
+      "summary": "17 passed, 1 warning"
+    },
+    {
+      "command": "python -m pytest apps\\api\\tests -q",
+      "result": "passed",
+      "summary": "137 passed, 1 warning"
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "result": "passed",
+      "summary": "All checks passed"
+    },
+    {
+      "command": "python -m compileall apps\\api apps\\web\\src scripts",
+      "result": "passed",
+      "summary": "compileall completed"
+    },
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "result": "passed",
+      "summary": "Next.js build compiled, type checked, generated static pages and exported successfully"
+    },
+    {
+      "command": "python scripts\\capacity_real.py --scenario marketplace-reads --marketplace-concurrency 100",
+      "result": "passed",
+      "artifact": "evidence/slice_runs/slice_15_marketplace_c100.json",
+      "summary": "1000 requests, 0 errors, 0.0 error rate, p50 186.3046ms, p95 343.767ms, p99 407.2485ms"
+    },
+    {
+      "command": "python scripts\\capacity_real.py --scenario marketplace-reads --marketplace-concurrency 200",
+      "result": "passed",
+      "artifact": "evidence/slice_runs/slice_15_marketplace_c200.json",
+      "summary": "1000 requests, 0 errors, 0.0 error rate, p50 518.2419ms, p95 939.6169ms, p99 987.132ms"
+    },
+    {
+      "command": "python scripts\\capacity_real.py --scenario all --marketplace-concurrency 100 --order-creates 50 --same-ad-race-requests 50 --payment-confirms 20",
+      "result": "passed_with_expected_conflicts",
+      "artifact": "evidence/slice_runs/slice_15_mixed_c100.json",
+      "summary": "655 requests, 73 expected 409 conflict responses from race/idempotency checks, 0 invariant violations"
+    },
+    {
+      "command": "Select-String stress logs for too many clients, ReadTimeout, ReadError, OperationalError, RATE_LIMITED, status_code 500",
+      "result": "passed",
+      "summary": "No matches"
+    },
+    {
+      "command": "rg frontend source/build for secrets, storage_path, account_value and prohibited claims",
+      "result": "passed",
+      "summary": "No matches"
+    }
+  ],
+  "stress": {
+    "marketplace_c100": {
+      "run_id": "slice15_marketplace_c100_20260710095349",
+      "total_requests": 1000,
+      "total_errors": 0,
+      "error_rate": 0.0,
+      "duration_seconds": 117.962,
+      "throughput_per_second": 8.4773,
+      "p50_ms": 186.3046,
+      "p95_ms": 343.767,
+      "p99_ms": 407.2485,
+      "invariant_violations": 0
+    },
+    "marketplace_c200": {
+      "run_id": "slice15_marketplace_c200_20260710095557",
+      "total_requests": 1000,
+      "total_errors": 0,
+      "error_rate": 0.0,
+      "duration_seconds": 123.313,
+      "throughput_per_second": 8.1095,
+      "p50_ms": 518.2419,
+      "p95_ms": 939.6169,
+      "p99_ms": 987.132,
+      "invariant_violations": 0
+    },
+    "mixed_c100": {
+      "run_id": "slice15_mixed_c100_20260710095823",
+      "total_requests": 655,
+      "total_errors": 73,
+      "error_rate": 0.1115,
+      "expected_conflict_responses": 73,
+      "duration_seconds": 213.366,
+      "throughput_per_second": 3.0698,
+      "p50_ms": 246.6842,
+      "p95_ms": 15938.3774,
+      "p99_ms": 16121.629,
+      "invariant_violations": 0
+    }
+  }
+}

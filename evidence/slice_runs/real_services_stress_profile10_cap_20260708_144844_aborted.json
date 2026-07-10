@@ -1,0 +1,19 @@
+{
+  "slice": "slice_11_hardening_deploy",
+  "phase": "real_services_stress_profile10_cap",
+  "run_id": "real_services_stress_profile10_cap_20260708_144844",
+  "started_at_local": "2026-07-08 14:48:44 -04:00",
+  "stopped_at_local": "2026-07-08 14:59:58 -04:00",
+  "command": "python scripts\\stress_local.py --env-file .local\\staging_real_services_smoke_LOCAL_ONLY.env --profile 10 --cap-businesses 5 --cap-orders 25 --workflow-mode interleaved --run-id real_services_stress_profile10_cap_20260708_144844 --output evidence\\slice_runs\\real_services_stress_profile10_cap_20260708_144844.json",
+  "result": "ABORTED_BY_OPERATOR_FOR_EXCESSIVE_INTERACTIVE_DURATION",
+  "exit_code": 1,
+  "json_output_created": false,
+  "reason": "The process remained active for more than 11 minutes without producing a partial evidence file. The run was stopped to avoid an unbounded interactive test against real staging services.",
+  "interpretation": "This is not a product pass and not a READY_FOR_REAL_USE signal. It is a performance/harness finding: profile 10 capped at 5 businesses and 25 orders is currently too slow or insufficiently observable for interactive staging validation.",
+  "recommended_next_steps": [
+    "Add per-phase timeout and partial progress flushing to scripts/stress_local.py.",
+    "Add cleanup tagging and cleanup command for synthetic real-services data.",
+    "Run a smaller profile 10 preflight with cap-orders 5 and explicit phase timings.",
+    "Profile slow endpoints before reattempting cap-orders 25."
+  ]
+}

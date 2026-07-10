@@ -1,0 +1,41 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.cursor/
+
+# Node / frontend
+node_modules/
+.next/
+out/
+dist/
+coverage/
+
+# Python / backend
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+*.pyc
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+!.env.local.example
+!.env.staging.example
+
+# Local hardening runtime
+.local/
+*LOCAL_ONLY*
+.wrangler/
+.playwright-cli/
+tmp/
+output/
+
+# Local evidence artifacts
+evidence/**/*.log
+evidence/**/*.tmp

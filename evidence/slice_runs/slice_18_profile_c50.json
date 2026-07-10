@@ -1,0 +1,4816 @@
+{
+  "slice": "real_services_capacity_hardening",
+  "phase": "scenario_capacity",
+  "run_id": "slice18_profile_c50_20260710160817",
+  "scenario": "marketplace-reads",
+  "fixture_mode": "db_seed_api_remote",
+  "fixture_mode_detail": {
+    "seed": "direct_db_seed",
+    "measured_requests": "remote_api",
+    "invariants": "direct_db_sql",
+    "api_remote_only": false
+  },
+  "request_target": "https://nodo-api-production.up.railway.app",
+  "cleanup": {
+    "required": true,
+    "run_id": "slice18_profile_c50_20260710160817",
+    "recommended_command": "python scripts\\staging_cleanup_synthetic_run.py --env-file <staging-env> --run-id slice18_profile_c50_20260710160817 --output evidence\\slice_runs\\cleanup_slice18_profile_c50_20260710160817.json"
+  },
+  "targets": {
+    "businesses": 5,
+    "ads_per_business": 4,
+    "remitters": 60,
+    "marketplace_reads": 400,
+    "marketplace_concurrency": 50,
+    "order_creates": 0,
+    "same_ad_race_requests": 0,
+    "payment_confirms": 0
+  },
+  "prepared": {
+    "businesses": 5,
+    "ads": 20,
+    "payment_ads": 0,
+    "remitters": 60
+  },
+  "metrics": {
+    "duration_seconds": 150.834,
+    "throughput_per_second": 2.6519,
+    "total_requests": 400,
+    "total_errors": 0,
+    "total_error_rate": 0.0,
+    "p50_ms": 522.7897,
+    "p95_ms": 1832.3659,
+    "p99_ms": 7393.3645,
+    "endpoints": {
+      "capacity:marketplace:read": {
+        "count": 400,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 522.7897,
+        "p95_ms": 1832.3659,
+        "p99_ms": 7393.3645,
+        "avg_ms": 757.6323,
+        "status_counts": {
+          "200": 400
+        }
+      }
+    },
+    "route_groups": {
+      "GET /api/v1/ads/search": {
+        "count": 400,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 522.7897,
+        "p95_ms": 1832.3659,
+        "p99_ms": 7393.3645,
+        "avg_ms": 757.6323,
+        "status_counts": {
+          "200": 400
+        }
+      }
+    },
+    "slowest_route_groups": [
+      {
+        "route": "GET /api/v1/ads/search",
+        "count": 400,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 522.7897,
+        "p95_ms": 1832.3659,
+        "p99_ms": 7393.3645,
+        "avg_ms": 757.6323,
+        "status_counts": {
+          "200": 400
+        }
+      }
+    ]
+  },
+  "profiled_steps": [
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0719,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.001
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0061
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0021
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0032
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0454
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 40.5017,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0013
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.011
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0053
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0456
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 40.4866
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0154
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 27.8066,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0081
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0023
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0067
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0032
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 2.0205
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 25.6181
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 25.6365
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0718
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0005,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 55.4093,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0014
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0109
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0087
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0641
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 55.394
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0239
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 50.1887,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0036
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0186
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0037
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0068
+          },
+          {
+            "stage": "cache:version_lookup",
+            "elapsed_ms": 1.9849
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0038
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 1.911
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0055
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0102
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0003
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0018
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 1.7819
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0003,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "db:acquire",
+            "elapsed_ms": 0.0312
+          },
+          {
+            "stage": "db:query:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 28.5397
+          },
+          {
+            "stage": "db:row_map:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 0.1398
+          },
+          {
+            "stage": "repo:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 41.319
+          },
+          {
+            "stage": "service:rank",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "service:payload",
+            "elapsed_ms": 0.063
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:set_local",
+            "elapsed_ms": 0.0581
+          },
+          {
+            "stage": "cache:set_shared",
+            "elapsed_ms": 2.9337
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 33.6081,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0017
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0106
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0087
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0724
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 33.5923
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0239
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 53.5694,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0064
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0038
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 2.0749
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0038
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0077
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 1.9115
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0002,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "db:acquire",
+            "elapsed_ms": 0.0056
+          },
+          {
+            "stage": "db:query:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 32.1644
+          },
+          {
+            "stage": "db:row_map:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 0.1189
+          },
+          {
+            "stage": "repo:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 46.4819
+          },
+          {
+            "stage": "service:rank",
+            "elapsed_ms": 0.0021
+          },
+          {
+            "stage": "service:payload",
+            "elapsed_ms": 0.0559
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:set_local",
+            "elapsed_ms": 0.0589
+          },
+          {
+            "stage": "cache:set_shared",
+            "elapsed_ms": 2.9108
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 32.1336,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0018
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0106
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0079
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0469
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 32.1185
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0109
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 51.5355,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0051
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.003
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0017
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 1.9165
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0002,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0032
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0063
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.001
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 1.8617
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0002,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "db:acquire",
+            "elapsed_ms": 0.0054
+          },
+          {
+            "stage": "db:query:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 30.2778
+          },
+          {
+            "stage": "db:row_map:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 0.1381
+          },
+          {
+            "stage": "repo:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 44.539
+          },
+          {
+            "stage": "service:rank",
+            "elapsed_ms": 0.0024
+          },
+          {
+            "stage": "service:payload",
+            "elapsed_ms": 0.0673
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:set_local",
+            "elapsed_ms": 0.0677
+          },
+          {
+            "stage": "cache:set_shared",
+            "elapsed_ms": 3.0147
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 37.9071,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0011
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.01
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0049
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0371
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 37.893
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0102
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 73.2018,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0018
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0088
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0029
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.006
+          },
+          {
+            "stage": "cache:version_lookup",
+            "elapsed_ms": 2.3928
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.004
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 2.2663
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0006,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0053
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.01
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0021
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 1.9921
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0003,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "db:acquire",
+            "elapsed_ms": 0.011
+          },
+          {
+            "stage": "db:query:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 43.2627
+          },
+          {
+            "stage": "db:row_map:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 0.1545
+          },
+          {
+            "stage": "repo:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 62.8755
+          },
+          {
+            "stage": "service:rank",
+            "elapsed_ms": 0.003
+          },
+          {
+            "stage": "service:payload",
+            "elapsed_ms": 0.0702
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:set_local",
+            "elapsed_ms": 0.0629
+          },
+          {
+            "stage": "cache:set_shared",
+            "elapsed_ms": 3.4276
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 60.8089,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0014
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0122
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0107
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0811
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 60.7919
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0231
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1057,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.002
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0096
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0058
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0639
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0005,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 44.9017,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.001
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0095
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0052
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0546
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 44.8885
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0165
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 72.9541,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.002
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0091
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0062
+          },
+          {
+            "stage": "cache:version_lookup",
+            "elapsed_ms": 2.3488
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0036
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 2.0081
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0042
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0083
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0005
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0017
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 2.1329
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0002,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "db:acquire",
+            "elapsed_ms": 0.0118
+          },
+          {
+            "stage": "db:query:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 42.5593
+          },
+          {
+            "stage": "db:row_map:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 0.1345
+          },
+          {
+            "stage": "repo:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 63.6693
+          },
+          {
+            "stage": "service:rank",
+            "elapsed_ms": 0.0037
+          },
+          {
+            "stage": "service:payload",
+            "elapsed_ms": 0.085
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:set_local",
+            "elapsed_ms": 0.0735
+          },
+          {
+            "stage": "cache:set_shared",
+            "elapsed_ms": 2.5201
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 60.164,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0014
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0118
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0101
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0717
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 60.1466
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0291
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1045,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0075
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0052
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0638
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0007,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 64.0338,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0012
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.011
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0069
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.079
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 64.0177
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0375
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0754,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0022
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0063
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0034
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0454
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0003,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 32.6741,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0015
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0123
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0133
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0785
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 32.6564
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0219
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0842,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0009
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0051
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0014
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0027
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0578
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 64.3419,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0009
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0106
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0038
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0433
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 64.3269
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0143
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 71.2028,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0131
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0083
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0031
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0053
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0005
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0034
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 2.1454
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0048
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0091
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 2.2144
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0003,
+            "metadata": {
+              "hit_type": "miss"
+            }
+          },
+          {
+            "stage": "db:acquire",
+            "elapsed_ms": 0.0107
+          },
+          {
+            "stage": "db:query:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 43.8598
+          },
+          {
+            "stage": "db:row_map:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 0.1311
+          },
+          {
+            "stage": "repo:list_marketplace_ads_with_businesses",
+            "elapsed_ms": 64.2842
+          },
+          {
+            "stage": "service:rank",
+            "elapsed_ms": 0.0028
+          },
+          {
+            "stage": "service:payload",
+            "elapsed_ms": 0.0644
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:set_local",
+            "elapsed_ms": 0.0696
+          },
+          {
+            "stage": "cache:set_shared",
+            "elapsed_ms": 2.3041
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 59.1263,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0013
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0122
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0096
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0748
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 59.1087
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0241
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0995,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0018
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0071
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0017
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.007
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0636
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 32.9455,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0012
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.013
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.007
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0478
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 32.9277
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0152
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1056,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0017
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.008
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0027
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.006
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0661
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 38.2723,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0014
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0115
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0092
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0933
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 38.2563
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0245
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0836,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0013
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0069
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0043
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0504
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0006,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 32.4586,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0013
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0115
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0067
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0666
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 32.4431
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0184
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0904,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0018
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0082
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0053
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0541
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 37.9135,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0015
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.015
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0089
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0536
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 37.8939
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0188
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1106,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0019
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0118
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0049
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.065
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0007,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 42.9654,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0015
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.015
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0066
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0668
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 42.9451
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0221
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 2.4176,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0012
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0057
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0018
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.004
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0029
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 2.2945
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0007,
+            "metadata": {
+              "hit_type": "shared"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 41.7565,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0015
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0114
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0064
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0494
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 41.7404
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0202
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0948,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0012
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0079
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.002
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0053
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0589
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0005,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 64.488,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0016
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0116
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0085
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0667
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 64.4713
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0223
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 2.4535,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0007
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0037
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0009
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0019
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0009
+          },
+          {
+            "stage": "cache:shared_get",
+            "elapsed_ms": 2.3698
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0006,
+            "metadata": {
+              "hit_type": "shared"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 60.458,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0014
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0134
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0064
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0396
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 60.4402
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0127
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0901,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0083
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0024
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0049
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0525
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 32.2441,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0009
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0117
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0072
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0644
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 32.2289
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0324
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0521,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0013
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0032
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0012
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.034
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0002,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 32.5522,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0018
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.013
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0116
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0595
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 32.5343
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0176
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0767,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.008
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0025
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.004
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0424
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0006,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 32.0347,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0016
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0126
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0107
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0507
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 32.0174
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0148
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1393,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0027
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0116
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0036
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0066
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0005
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.083
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0008,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 43.8223,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0012
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0115
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0104
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0972
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 43.8064
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0317
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1042,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0013
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0066
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0035
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.068
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0005,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 38.1338,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0016
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0127
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0098
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0747
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 38.1164
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0248
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0616,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0049
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0022
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0389
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0003,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 38.4337,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0011
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0125
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0073
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.038
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 38.4172
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0153
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0862,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0063
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0019
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0042
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0545
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0007,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 40.9278,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0012
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.2293
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0084
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0591
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 40.6942
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0165
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0567,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0007
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0029
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0007
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0014
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0403
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0002,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 46.4349,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0027
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0172
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.012
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0581
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 46.4109
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0159
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0799,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0015
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0075
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0023
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0047
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0444
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0006,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 59.5154,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0017
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0114
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0083
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0664
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 59.4993
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.018
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0907,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0017
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0079
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0023
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0056
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0542
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 49.4585,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.001
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.012
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0055
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0513
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 49.4425
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0174
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0766,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.001
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0058
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0012
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.004
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0497
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 58.6586,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0013
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0135
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.007
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0446
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 58.6402
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.013
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0694,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.001
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0038
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0028
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0475
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 59.288,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.001
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0119
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0044
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0364
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 59.2719
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.012
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0796,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0013
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0065
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0021
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0042
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0003
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.048
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 32.2563,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0014
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0137
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0089
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0479
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 32.2381
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0161
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1205,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0018
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0103
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0032
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0064
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.075
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0006,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 62.6062,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0018
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.017
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.013
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.079
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 62.5829
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0245
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.099,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0017
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0093
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0025
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0056
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0601
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0007,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 61.0373,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0013
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0125
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0108
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0757
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 61.02
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0232
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1219,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0018
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.009
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0025
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0063
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0772
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0007,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 64.628,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0013
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0131
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.011
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.1001
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 64.5989
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0245
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0926,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0102
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0025
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.005
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0543
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 64.2385,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0015
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0125
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.011
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0603
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 64.2213
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0183
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0843,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0067
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0024
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0042
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0515
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0005,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 72.6771,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0011
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.012
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.006
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0494
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 72.6608
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0164
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0828,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0017
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0076
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0025
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0064
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0451
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 0.0569,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0014
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0122
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.02
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 0.0408
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0062
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0919,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0015
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0067
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0023
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0052
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0556
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0005,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 81.1353,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.001
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0142
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0049
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0634
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 81.1171
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0193
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0777,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0017
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0063
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0018
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0039
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0462
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0005,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 31.5524,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0012
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.013
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0078
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0545
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 31.5346
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0146
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1128,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0106
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0036
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0047
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0704
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 32.258,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0009
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0102
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0046
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.257
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 32.2438
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0374
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0786,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.001
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0053
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0019
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0057
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0383
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0003,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 126.6045,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.001
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0107
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0054
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0426
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 126.5901
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0133
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1053,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0087
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0055
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0642
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0005,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 43.3443,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0011
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0117
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0075
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0754
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 43.3285
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0236
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1081,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0098
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0028
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.007
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0609
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0005,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 138.6956,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0009
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0095
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0049
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0776
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 138.6823
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0264
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0942,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0083
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0022
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0053
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0002
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0553
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 169.6154,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0012
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0118
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.005
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0753
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 169.5989
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0239
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0991,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0019
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.009
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0031
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0054
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0577
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 59.5733,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0012
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0136
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0062
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.078
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 59.5553
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0245
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.1284,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.002
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0085
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0029
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0061
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0747
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0121,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 136.6061,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0016
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0116
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0089
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0725
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 136.5901
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0227
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.066,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0009
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.005
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0024
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0001
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0434
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0004,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 0.0434,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0013
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0113
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0137
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 0.0286
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0042
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.114,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0018
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0095
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0023
+          },
+          {
+            "stage": "cache:key_build",
+            "elapsed_ms": 0.0055
+          },
+          {
+            "stage": "cache:version_cached",
+            "elapsed_ms": 0.0004
+          },
+          {
+            "stage": "cache:local_get",
+            "elapsed_ms": 0.0564
+          },
+          {
+            "stage": "cache:hit",
+            "elapsed_ms": 0.0007,
+            "metadata": {
+              "hit_type": "local"
+            }
+          }
+        ],
+        "dependency": {
+          "auth": {
+            "total_ms": 183.016,
+            "stages": [
+              {
+                "stage": "auth:validate_header",
+                "elapsed_ms": 0.0009
+              },
+              {
+                "stage": "auth:decode_access_token",
+                "elapsed_ms": 0.0127
+              },
+              {
+                "stage": "auth:user_cache_get",
+                "elapsed_ms": 0.0051
+              },
+              {
+                "stage": "auth:user_cache_set",
+                "elapsed_ms": 0.0709
+              },
+              {
+                "stage": "auth:get_user_by_id",
+                "elapsed_ms": 182.9993
+              },
+              {
+                "stage": "auth:status_check",
+                "elapsed_ms": 0.0239
+              }
+            ],
+            "mode": "marketplace_fallback_db"
+          }
+        }
+      }
+    }
+  ],
+  "profile_summary": {
+    "enabled": true,
+    "captured_profiles": 400,
+    "raw_profile_limit": 50,
+    "route_total": {
+      "count": 400,
+      "p50_ms": 0.0945,
+      "p95_ms": 2.2892,
+      "p99_ms": 51.5355
+    },
+    "stages": {
+      "auth:decode_access_token": {
+        "count": 400,
+        "p50_ms": 0.0124,
+        "p95_ms": 0.0174,
+        "p99_ms": 0.0327
+      },
+      "auth:get_user_by_id": {
+        "count": 400,
+        "p50_ms": 37.8937,
+        "p95_ms": 65.1004,
+        "p99_ms": 183.6026
+      },
+      "auth:status_check": {
+        "count": 400,
+        "p50_ms": 0.0165,
+        "p95_ms": 0.0293,
+        "p99_ms": 0.0375
+      },
+      "auth:user_cache_get": {
+        "count": 400,
+        "p50_ms": 0.0121,
+        "p95_ms": 0.0224,
+        "p99_ms": 0.0315
+      },
+      "auth:user_cache_set": {
+        "count": 237,
+        "p50_ms": 0.0709,
+        "p95_ms": 0.0972,
+        "p99_ms": 0.1313
+      },
+      "auth:validate_header": {
+        "count": 400,
+        "p50_ms": 0.0014,
+        "p95_ms": 0.002,
+        "p99_ms": 0.0029
+      },
+      "cache:hit": {
+        "count": 407,
+        "p50_ms": 0.0005,
+        "p95_ms": 0.0007,
+        "p99_ms": 0.0009
+      },
+      "cache:key_build": {
+        "count": 400,
+        "p50_ms": 0.0053,
+        "p95_ms": 0.0072,
+        "p99_ms": 0.0089
+      },
+      "cache:local_get": {
+        "count": 407,
+        "p50_ms": 0.054,
+        "p95_ms": 0.078,
+        "p99_ms": 0.1063
+      },
+      "cache:lock_wait": {
+        "count": 14,
+        "p50_ms": 0.0063,
+        "p95_ms": 25.6365,
+        "p99_ms": 25.6365
+      },
+      "cache:set_local": {
+        "count": 6,
+        "p50_ms": 0.0629,
+        "p95_ms": 0.0735,
+        "p99_ms": 0.0735
+      },
+      "cache:set_shared": {
+        "count": 6,
+        "p50_ms": 2.9108,
+        "p95_ms": 3.4276,
+        "p99_ms": 3.4276
+      },
+      "cache:shared_get": {
+        "count": 18,
+        "p50_ms": 2.0749,
+        "p95_ms": 4.0738,
+        "p99_ms": 4.0738
+      },
+      "cache:version_cached": {
+        "count": 395,
+        "p50_ms": 0.0002,
+        "p95_ms": 0.0004,
+        "p99_ms": 0.0005
+      },
+      "cache:version_lookup": {
+        "count": 18,
+        "p50_ms": 2.1802,
+        "p95_ms": 2.5013,
+        "p99_ms": 2.5013
+      },
+      "db:acquire": {
+        "count": 6,
+        "p50_ms": 0.0107,
+        "p95_ms": 0.0312,
+        "p99_ms": 0.0312
+      },
+      "db:query:list_marketplace_ads_with_businesses": {
+        "count": 6,
+        "p50_ms": 32.1644,
+        "p95_ms": 43.8598,
+        "p99_ms": 43.8598
+      },
+      "db:row_map:list_marketplace_ads_with_businesses": {
+        "count": 6,
+        "p50_ms": 0.1345,
+        "p95_ms": 0.1545,
+        "p99_ms": 0.1545
+      },
+      "repo:list_marketplace_ads_with_businesses": {
+        "count": 6,
+        "p50_ms": 46.4819,
+        "p95_ms": 64.2842,
+        "p99_ms": 64.2842
+      },
+      "service:marketplace_access": {
+        "count": 400,
+        "p50_ms": 0.0016,
+        "p95_ms": 0.0025,
+        "p99_ms": 0.003
+      },
+      "service:payload": {
+        "count": 6,
+        "p50_ms": 0.0644,
+        "p95_ms": 0.085,
+        "p99_ms": 0.085
+      },
+      "service:rank": {
+        "count": 6,
+        "p50_ms": 0.0026,
+        "p95_ms": 0.0037,
+        "p99_ms": 0.0037
+      },
+      "service:rate_limit": {
+        "count": 400,
+        "p50_ms": 0.0079,
+        "p95_ms": 0.0116,
+        "p99_ms": 0.0225
+      },
+      "service:validate_search_params": {
+        "count": 400,
+        "p50_ms": 0.0025,
+        "p95_ms": 0.0036,
+        "p99_ms": 0.0112
+      }
+    },
+    "cache_hit_counts": {
+      "local": 389,
+      "miss": 13,
+      "shared": 5
+    },
+    "auth_mode_counts": {
+      "marketplace_fallback_db": 400
+    },
+    "db_acquire_p95_ms": 0.0312,
+    "db_query_p95_ms": 43.8598,
+    "route_total_p95_ms": 2.2892
+  },
+  "invariant_violations": {
+    "marketplace_read_errors": 0,
+    "order_create_errors": 0,
+    "same_ad_success_count_invalid": 0,
+    "same_ad_unexpected_status": 0,
+    "same_ad_db_rows_invalid": 0,
+    "duplicate_idempotency_response_mismatch": 0,
+    "duplicate_idempotency_db_rows_invalid": 0,
+    "fixture_insufficient_reserved_ads": 0,
+    "payment_report_setup_errors": 0,
+    "confirm_distinct_errors": 0,
+    "confirm_distinct_state_invalid": 0,
+    "confirm_same_order_success_count_invalid": 0,
+    "confirm_same_order_double_consume": 0,
+    "negative_balances": 0,
+    "double_credit_consumption": 0,
+    "db_errors": 0
+  },
+  "details": {
+    "marketplace_reads": {
+      "status_codes": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ]
+    },
+    "invariants": {
+      "negative_balances": 0,
+      "double_credit_consumption": 0
+    }
+  },
+  "exit_code": 0
+}

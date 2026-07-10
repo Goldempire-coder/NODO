@@ -1,0 +1,10 @@
+{
+  "phase": "supabase_staging_terms_migration",
+  "migration": "0012_terms_acceptance.up.sql",
+  "columns": [
+    "terms_accepted_at",
+    "terms_version"
+  ],
+  "failures": [],
+  "exit_code": 0
+}

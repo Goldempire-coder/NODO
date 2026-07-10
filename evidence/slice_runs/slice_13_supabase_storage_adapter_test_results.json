@@ -1,0 +1,62 @@
+{
+  "slice": "slice_13_supabase_storage_adapter",
+  "mode": "BUILD_GOVERNED",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "generated_at": "2026-07-05T19:12:09.6446455-04:00",
+  "dependencies_installed": [],
+  "commands": [
+    {
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests\\test_supabase_storage_adapter.py -q",
+      "exit_code": 0,
+      "result": "6 passed in 1.47s"
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "exit_code": 0,
+      "result": "All checks passed!"
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests -q",
+      "exit_code": 0,
+      "result": "98 passed, 1 warning in 23.26s",
+      "warning": "StarletteDeprecationWarning from fastapi.testclient/httpx, previously accepted"
+    },
+    {
+      "command": "python -m compileall apps scripts",
+      "exit_code": 0,
+      "result": "compileall completed successfully"
+    },
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "exit_code": 0,
+      "result": "Next.js build completed successfully; / prerendered static; first load JS 128 kB"
+    },
+    {
+      "command": "rg -n \"SUPABASE_SERVICE_ROLE_KEY|service-role|supabase://|storage_path|signedURL|signedUrl|account_value\" apps/web/src apps/web/.next",
+      "exit_code": 1,
+      "result": "No matches"
+    },
+    {
+      "command": "rg -n \"service-role|sk_live_|whsec_live|BEGIN PRIVATE KEY|storage_path|account_value\" apps/web/src apps/web/.next",
+      "exit_code": 1,
+      "result": "No matches"
+    }
+  ],
+  "real_supabase_smoke": {
+    "executed": false,
+    "reason": ".local/supabase_storage_LOCAL_ONLY.txt was not present; contract says optional real smoke must not block without the local-only credential file"
+  },
+  "coverage": {
+    "mocked_supabase_upload": true,
+    "canonical_bucket_mapping": true,
+    "signed_url_ttl_cap_300_seconds": true,
+    "safe_storage_errors": true,
+    "env_validation_for_supabase_mode": true,
+    "main_app_storage_factory_activation": true,
+    "frontend_secret_scan": true
+  },
+  "residual_risks": [
+    "Real Supabase bucket smoke remains pending until local-only credentials are provided.",
+    "Production/staging provider permissions must still be verified outside mocked unit tests."
+  ]
+}

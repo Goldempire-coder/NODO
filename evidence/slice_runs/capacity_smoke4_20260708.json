@@ -1,0 +1,195 @@
+{
+  "slice": "real_services_capacity_hardening",
+  "phase": "scenario_capacity",
+  "run_id": "capacity_smoke4_20260708",
+  "scenario": "all",
+  "fixture_mode": "prepared_internal_dataset_no_legacy_onboarding",
+  "targets": {
+    "businesses": 1,
+    "ads_per_business": 4,
+    "remitters": 5,
+    "marketplace_reads": 5,
+    "order_creates": 2,
+    "same_ad_race_requests": 3
+  },
+  "prepared": {
+    "businesses": 1,
+    "ads": 4,
+    "remitters": 5
+  },
+  "metrics": {
+    "duration_seconds": 2.014,
+    "throughput_per_second": 6.4554,
+    "total_requests": 13,
+    "total_errors": 2,
+    "total_error_rate": 0.1538,
+    "p50_ms": 138.3219,
+    "p95_ms": 169.1544,
+    "p99_ms": 187.4206,
+    "endpoints": {
+      "capacity:marketplace:read": {
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 167.0525,
+        "p95_ms": 187.4206,
+        "p99_ms": 187.4206,
+        "avg_ms": 166.1401,
+        "status_counts": {
+          "200": 5
+        }
+      },
+      "capacity:orders:create_distinct": {
+        "count": 2,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 123.0213,
+        "p95_ms": 131.775,
+        "p99_ms": 131.775,
+        "avg_ms": 127.3981,
+        "status_counts": {
+          "201": 2
+        }
+      },
+      "capacity:orders:duplicate_idempotency": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 136.8581,
+        "p95_ms": 148.5289,
+        "p99_ms": 148.5289,
+        "avg_ms": 137.6666,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      "capacity:orders:same_ad_race": {
+        "count": 3,
+        "error_count": 2,
+        "error_rate": 0.6667,
+        "p50_ms": 132.4476,
+        "p95_ms": 138.3219,
+        "p99_ms": 138.3219,
+        "avg_ms": 133.1507,
+        "status_counts": {
+          "409": 2,
+          "201": 1
+        }
+      }
+    },
+    "route_groups": {
+      "GET /api/v1/ads/search": {
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 167.0525,
+        "p95_ms": 187.4206,
+        "p99_ms": 187.4206,
+        "avg_ms": 166.1401,
+        "status_counts": {
+          "200": 5
+        }
+      },
+      "POST /api/v1/orders": {
+        "count": 8,
+        "error_count": 2,
+        "error_rate": 0.25,
+        "p50_ms": 132.4476,
+        "p95_ms": 148.5289,
+        "p99_ms": 148.5289,
+        "avg_ms": 133.406,
+        "status_counts": {
+          "201": 6,
+          "409": 2
+        }
+      }
+    },
+    "slowest_route_groups": [
+      {
+        "route": "GET /api/v1/ads/search",
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 167.0525,
+        "p95_ms": 187.4206,
+        "p99_ms": 187.4206,
+        "avg_ms": 166.1401,
+        "status_counts": {
+          "200": 5
+        }
+      },
+      {
+        "route": "POST /api/v1/orders",
+        "count": 8,
+        "error_count": 2,
+        "error_rate": 0.25,
+        "p50_ms": 132.4476,
+        "p95_ms": 148.5289,
+        "p99_ms": 148.5289,
+        "avg_ms": 133.406,
+        "status_counts": {
+          "201": 6,
+          "409": 2
+        }
+      }
+    ]
+  },
+  "invariant_violations": {
+    "marketplace_read_errors": 0,
+    "order_create_errors": 0,
+    "same_ad_success_count_invalid": 0,
+    "same_ad_db_rows_invalid": 0,
+    "duplicate_idempotency_response_mismatch": 0,
+    "duplicate_idempotency_db_rows_invalid": 0,
+    "negative_balances": 0,
+    "double_credit_consumption": 0,
+    "db_errors": 0
+  },
+  "details": {
+    "marketplace_reads": {
+      "status_codes": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ]
+    },
+    "order_flow": {
+      "status_codes": [
+        201,
+        201
+      ],
+      "attempted": 2
+    },
+    "same_ad_race": {
+      "status_codes": [
+        201,
+        409,
+        409
+      ],
+      "successful_ids": [
+        "00ee7317-af6b-48e7-989f-7f02fde4ca9f"
+      ],
+      "db_rows": 1
+    },
+    "duplicate_idempotency_race": {
+      "status_codes": [
+        201,
+        201,
+        201
+      ],
+      "successful_ids": [
+        "1e4a67fe-2a66-48d1-b715-a66ceed0a7d3",
+        "1e4a67fe-2a66-48d1-b715-a66ceed0a7d3",
+        "1e4a67fe-2a66-48d1-b715-a66ceed0a7d3"
+      ],
+      "db_rows": 1
+    },
+    "invariants": {
+      "negative_balances": 0,
+      "double_credit_consumption": 0
+    }
+  },
+  "exit_code": 0
+}

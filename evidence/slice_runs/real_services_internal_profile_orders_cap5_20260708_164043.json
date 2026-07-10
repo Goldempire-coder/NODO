@@ -1,0 +1,953 @@
+{
+  "slice": "slice_11_hardening_deploy",
+  "phase": "local_stress",
+  "profile": "10",
+  "workflow_mode": "interleaved",
+  "target": {
+    "businesses": 3,
+    "orders": 5,
+    "marketplace_searches": 5,
+    "stripe_events": 3,
+    "manual_reviews": 3
+  },
+  "actual": {
+    "businesses": 3,
+    "ads": 5,
+    "orders": 5,
+    "workflow_orders": 3
+  },
+  "metrics": {
+    "duration_seconds": 283.633,
+    "throughput_per_second": 0.2115,
+    "total_requests": 60,
+    "total_errors": 0,
+    "total_error_rate": 0.0,
+    "p50_ms": 4262.5641,
+    "p95_ms": 7141.5158,
+    "p99_ms": 7435.9749,
+    "endpoints": {
+      "admin:business:access_link": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4262.5641,
+        "p95_ms": 4850.9931,
+        "p99_ms": 4850.9931,
+        "avg_ms": 4369.7222,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      "admin:business:approve": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5010.2288,
+        "p95_ms": 5188.8409,
+        "p99_ms": 5188.8409,
+        "avg_ms": 4867.6008,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      "auth:stress_admin": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2578.983,
+        "p95_ms": 2578.983,
+        "p99_ms": 2578.983,
+        "avg_ms": 2578.983,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2317.9601,
+        "p95_ms": 2317.9601,
+        "p99_ms": 2317.9601,
+        "avg_ms": 2317.9601,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2974.1852,
+        "p95_ms": 2974.1852,
+        "p99_ms": 2974.1852,
+        "avg_ms": 2974.1852,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2600.8876,
+        "p95_ms": 2600.8876,
+        "p99_ms": 2600.8876,
+        "avg_ms": 2600.8876,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_remitter": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 1963.9408,
+        "p95_ms": 1963.9408,
+        "p99_ms": 1963.9408,
+        "avg_ms": 1963.9408,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "business:create": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3503.1785,
+        "p95_ms": 4855.1343,
+        "p99_ms": 4855.1343,
+        "avg_ms": 3864.3981,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      "business:submit": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5285.1347,
+        "p95_ms": 6098.0491,
+        "p99_ms": 6098.0491,
+        "avg_ms": 5338.6789,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      "business:upload:address_proof": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3004.8645,
+        "p95_ms": 3138.3433,
+        "p99_ms": 3138.3433,
+        "avg_ms": 2999.3866,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      "business:upload:business_license": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3171.9453,
+        "p95_ms": 3284.3569,
+        "p99_ms": 3284.3569,
+        "avg_ms": 3195.2524,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      "business:upload:owner_identity": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3626.1805,
+        "p95_ms": 3674.8805,
+        "p99_ms": 3674.8805,
+        "avg_ms": 3604.7297,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      "business:upload:rif_document": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3655.6415,
+        "p95_ms": 3926.1295,
+        "p99_ms": 3926.1295,
+        "avg_ms": 3665.6554,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      "stress:ads:create:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5739.9404,
+        "p95_ms": 5739.9404,
+        "p99_ms": 5739.9404,
+        "avg_ms": 5739.9404,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:ads:create:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5668.7878,
+        "p95_ms": 5668.7878,
+        "p99_ms": 5668.7878,
+        "avg_ms": 5668.7878,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:ads:create:2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5657.5869,
+        "p95_ms": 5657.5869,
+        "p99_ms": 5657.5869,
+        "avg_ms": 5657.5869,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:ads:create:3": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5649.2155,
+        "p95_ms": 5649.2155,
+        "p99_ms": 5649.2155,
+        "avg_ms": 5649.2155,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:ads:create:4": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5494.5899,
+        "p95_ms": 5494.5899,
+        "p99_ms": 5494.5899,
+        "avg_ms": 5494.5899,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:ads:search:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3183.3093,
+        "p95_ms": 3183.3093,
+        "p99_ms": 3183.3093,
+        "avg_ms": 3183.3093,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:ads:search:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2890.4317,
+        "p95_ms": 2890.4317,
+        "p99_ms": 2890.4317,
+        "avg_ms": 2890.4317,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:ads:search:2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2567.3453,
+        "p95_ms": 2567.3453,
+        "p99_ms": 2567.3453,
+        "avg_ms": 2567.3453,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:ads:search:3": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2680.3822,
+        "p95_ms": 2680.3822,
+        "p99_ms": 2680.3822,
+        "avg_ms": 2680.3822,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:ads:search:4": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2432.04,
+        "p95_ms": 2432.04,
+        "p99_ms": 2432.04,
+        "avg_ms": 2432.04,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:confirm:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 8660.4597,
+        "p95_ms": 8660.4597,
+        "p99_ms": 8660.4597,
+        "avg_ms": 8660.4597,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:confirm:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 7280.2366,
+        "p95_ms": 7280.2366,
+        "p99_ms": 7280.2366,
+        "avg_ms": 7280.2366,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:confirm:2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 7435.9749,
+        "p95_ms": 7435.9749,
+        "p99_ms": 7435.9749,
+        "avg_ms": 7435.9749,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3665.4724,
+        "p95_ms": 3665.4724,
+        "p99_ms": 3665.4724,
+        "avg_ms": 3665.4724,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3903.572,
+        "p95_ms": 3903.572,
+        "p99_ms": 3903.572,
+        "avg_ms": 3903.572,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4483.8544,
+        "p95_ms": 4483.8544,
+        "p99_ms": 4483.8544,
+        "avg_ms": 4483.8544,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:deliver:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4350.622,
+        "p95_ms": 4350.622,
+        "p99_ms": 4350.622,
+        "avg_ms": 4350.622,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:deliver:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4033.0252,
+        "p95_ms": 4033.0252,
+        "p99_ms": 4033.0252,
+        "avg_ms": 4033.0252,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:deliver:2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4693.0322,
+        "p95_ms": 4693.0322,
+        "p99_ms": 4693.0322,
+        "avg_ms": 4693.0322,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:evidence:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3613.6222,
+        "p95_ms": 3613.6222,
+        "p99_ms": 3613.6222,
+        "avg_ms": 3613.6222,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:evidence:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4746.0767,
+        "p95_ms": 4746.0767,
+        "p99_ms": 4746.0767,
+        "avg_ms": 4746.0767,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:evidence:2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3859.0657,
+        "p95_ms": 3859.0657,
+        "p99_ms": 3859.0657,
+        "avg_ms": 3859.0657,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:jobs:dry_run": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 7141.5158,
+        "p95_ms": 7141.5158,
+        "p99_ms": 7141.5158,
+        "avg_ms": 7141.5158,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:orders:create:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5850.4286,
+        "p95_ms": 5850.4286,
+        "p99_ms": 5850.4286,
+        "avg_ms": 5850.4286,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:orders:create:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 6145.9311,
+        "p95_ms": 6145.9311,
+        "p99_ms": 6145.9311,
+        "avg_ms": 6145.9311,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:orders:create:2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 6698.6251,
+        "p95_ms": 6698.6251,
+        "p99_ms": 6698.6251,
+        "avg_ms": 6698.6251,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:orders:create:3": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5974.6457,
+        "p95_ms": 5974.6457,
+        "p99_ms": 5974.6457,
+        "avg_ms": 5974.6457,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:orders:create:4": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 6070.4939,
+        "p95_ms": 6070.4939,
+        "p99_ms": 6070.4939,
+        "avg_ms": 6070.4939,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:report:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5649.0698,
+        "p95_ms": 5649.0698,
+        "p99_ms": 5649.0698,
+        "avg_ms": 5649.0698,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:report:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4773.3934,
+        "p95_ms": 4773.3934,
+        "p99_ms": 4773.3934,
+        "avg_ms": 4773.3934,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:report:2": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5563.218,
+        "p95_ms": 5563.218,
+        "p99_ms": 5563.218,
+        "avg_ms": 5563.218,
+        "status_counts": {
+          "201": 1
+        }
+      }
+    },
+    "route_groups": {
+      "GET /api/v1/ads/search": {
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2680.3822,
+        "p95_ms": 3183.3093,
+        "p99_ms": 3183.3093,
+        "avg_ms": 2750.7017,
+        "status_counts": {
+          "200": 5
+        }
+      },
+      "POST /api/v1/admin/businesses/{id}/access-links": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4262.5641,
+        "p95_ms": 4850.9931,
+        "p99_ms": 4850.9931,
+        "avg_ms": 4369.7222,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      "POST /api/v1/admin/businesses/{id}/approve": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5010.2288,
+        "p95_ms": 5188.8409,
+        "p99_ms": 5188.8409,
+        "avg_ms": 4867.6008,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      "POST /api/v1/admin/credits/adjust": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3903.572,
+        "p95_ms": 4483.8544,
+        "p99_ms": 4483.8544,
+        "avg_ms": 4017.6329,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      "POST /api/v1/admin/jobs/expire-and-escalate-orders/dry-run": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 7141.5158,
+        "p95_ms": 7141.5158,
+        "p99_ms": 7141.5158,
+        "avg_ms": 7141.5158,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "POST /api/v1/auth/telegram": {
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2578.983,
+        "p95_ms": 2974.1852,
+        "p99_ms": 2974.1852,
+        "avg_ms": 2487.1913,
+        "status_counts": {
+          "200": 5
+        }
+      },
+      "POST /api/v1/business/ads": {
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5657.5869,
+        "p95_ms": 5739.9404,
+        "p99_ms": 5739.9404,
+        "avg_ms": 5642.0241,
+        "status_counts": {
+          "201": 5
+        }
+      },
+      "POST /api/v1/business/orders/{id}/confirm-payment": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 7435.9749,
+        "p95_ms": 8660.4597,
+        "p99_ms": 8660.4597,
+        "avg_ms": 7792.2237,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      "POST /api/v1/business/orders/{id}/mark-delivered": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4350.622,
+        "p95_ms": 4693.0322,
+        "p99_ms": 4693.0322,
+        "avg_ms": 4358.8931,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      "POST /api/v1/businesses": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3503.1785,
+        "p95_ms": 4855.1343,
+        "p99_ms": 4855.1343,
+        "avg_ms": 3864.3981,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      "POST /api/v1/businesses/{id}/submit-verification": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5285.1347,
+        "p95_ms": 6098.0491,
+        "p99_ms": 6098.0491,
+        "avg_ms": 5338.6789,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      "POST /api/v1/businesses/{id}/verification-documents": {
+        "count": 12,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3415.1952,
+        "p95_ms": 3674.8805,
+        "p99_ms": 3926.1295,
+        "avg_ms": 3366.256,
+        "status_counts": {
+          "201": 12
+        }
+      },
+      "POST /api/v1/orders": {
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 6070.4939,
+        "p95_ms": 6698.6251,
+        "p99_ms": 6698.6251,
+        "avg_ms": 6148.0249,
+        "status_counts": {
+          "201": 5
+        }
+      },
+      "POST /api/v1/orders/{id}/payment-evidence": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3859.0657,
+        "p95_ms": 4746.0767,
+        "p99_ms": 4746.0767,
+        "avg_ms": 4072.9215,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      "POST /api/v1/orders/{id}/payment-report": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5563.218,
+        "p95_ms": 5649.0698,
+        "p99_ms": 5649.0698,
+        "avg_ms": 5328.5604,
+        "status_counts": {
+          "201": 3
+        }
+      }
+    },
+    "slowest_route_groups": [
+      {
+        "route": "POST /api/v1/business/orders/{id}/confirm-payment",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 7435.9749,
+        "p95_ms": 8660.4597,
+        "p99_ms": 8660.4597,
+        "avg_ms": 7792.2237,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      {
+        "route": "POST /api/v1/admin/jobs/expire-and-escalate-orders/dry-run",
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 7141.5158,
+        "p95_ms": 7141.5158,
+        "p99_ms": 7141.5158,
+        "avg_ms": 7141.5158,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      {
+        "route": "POST /api/v1/orders",
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 6070.4939,
+        "p95_ms": 6698.6251,
+        "p99_ms": 6698.6251,
+        "avg_ms": 6148.0249,
+        "status_counts": {
+          "201": 5
+        }
+      },
+      {
+        "route": "POST /api/v1/businesses/{id}/submit-verification",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5285.1347,
+        "p95_ms": 6098.0491,
+        "p99_ms": 6098.0491,
+        "avg_ms": 5338.6789,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      {
+        "route": "POST /api/v1/business/ads",
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5657.5869,
+        "p95_ms": 5739.9404,
+        "p99_ms": 5739.9404,
+        "avg_ms": 5642.0241,
+        "status_counts": {
+          "201": 5
+        }
+      },
+      {
+        "route": "POST /api/v1/orders/{id}/payment-report",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5563.218,
+        "p95_ms": 5649.0698,
+        "p99_ms": 5649.0698,
+        "avg_ms": 5328.5604,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      {
+        "route": "POST /api/v1/admin/businesses/{id}/approve",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 5010.2288,
+        "p95_ms": 5188.8409,
+        "p99_ms": 5188.8409,
+        "avg_ms": 4867.6008,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      {
+        "route": "POST /api/v1/businesses",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3503.1785,
+        "p95_ms": 4855.1343,
+        "p99_ms": 4855.1343,
+        "avg_ms": 3864.3981,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      {
+        "route": "POST /api/v1/admin/businesses/{id}/access-links",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4262.5641,
+        "p95_ms": 4850.9931,
+        "p99_ms": 4850.9931,
+        "avg_ms": 4369.7222,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      {
+        "route": "POST /api/v1/orders/{id}/payment-evidence",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3859.0657,
+        "p95_ms": 4746.0767,
+        "p99_ms": 4746.0767,
+        "avg_ms": 4072.9215,
+        "status_counts": {
+          "201": 3
+        }
+      },
+      {
+        "route": "POST /api/v1/business/orders/{id}/mark-delivered",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 4350.622,
+        "p95_ms": 4693.0322,
+        "p99_ms": 4693.0322,
+        "avg_ms": 4358.8931,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      {
+        "route": "POST /api/v1/admin/credits/adjust",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3903.572,
+        "p95_ms": 4483.8544,
+        "p99_ms": 4483.8544,
+        "avg_ms": 4017.6329,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      {
+        "route": "POST /api/v1/businesses/{id}/verification-documents",
+        "count": 12,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 3415.1952,
+        "p95_ms": 3674.8805,
+        "p99_ms": 3926.1295,
+        "avg_ms": 3366.256,
+        "status_counts": {
+          "201": 12
+        }
+      },
+      {
+        "route": "GET /api/v1/ads/search",
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2680.3822,
+        "p95_ms": 3183.3093,
+        "p99_ms": 3183.3093,
+        "avg_ms": 2750.7017,
+        "status_counts": {
+          "200": 5
+        }
+      },
+      {
+        "route": "POST /api/v1/auth/telegram",
+        "count": 5,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 2578.983,
+        "p95_ms": 2974.1852,
+        "p99_ms": 2974.1852,
+        "avg_ms": 2487.1913,
+        "status_counts": {
+          "200": 5
+        }
+      }
+    ]
+  },
+  "invariant_violations": {
+    "idempotency_duplicates": 0,
+    "idempotency_replay_conflicts": 0,
+    "double_credit_consumption": 0,
+    "double_credit_accreditation": 0,
+    "negative_balances": 0,
+    "invalid_transitions": 0,
+    "redis_failures": 0,
+    "db_errors": 0,
+    "timeouts": 0,
+    "deadlocks": 0,
+    "job_lock_failures": 0
+  },
+  "steps_recorded": 64,
+  "exit_code": 0
+}

@@ -1,0 +1,28 @@
+{
+  "results": [
+    {
+      "name": "test_env_validation",
+      "status": "passed"
+    },
+    {
+      "name": "test_health_version_ready_unavailable",
+      "status": "passed"
+    },
+    {
+      "name": "test_error_contract_without_fastapi_dependency",
+      "status": "passed"
+    },
+    {
+      "name": "test_logging_redacts_secrets",
+      "status": "passed"
+    },
+    {
+      "name": "test_migrations_contract",
+      "status": "passed"
+    },
+    {
+      "name": "test_frontend_bundle_sources_do_not_reference_backend_secrets",
+      "status": "passed"
+    }
+  ]
+}

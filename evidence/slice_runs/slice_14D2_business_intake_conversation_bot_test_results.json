@@ -1,0 +1,65 @@
+{
+  "slice": "slice_14D2_business_intake_conversation_bot",
+  "mode": "BUILD_ONLY",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "date": "2026-07-08",
+  "tests": [
+    {
+      "name": "specific_business_intake_bot_tests",
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests\\test_business_intake_bot.py apps\\api\\tests\\test_telegram_bot_webhook.py -q",
+      "result": "passed",
+      "summary": "17 passed, 1 warning in 4.19s"
+    },
+    {
+      "name": "frontend_build",
+      "command": "corepack pnpm --filter @nodo/web build",
+      "result": "passed",
+      "summary": "Next.js build completed successfully; static export completed for /, /_not-found and /icon.svg."
+    },
+    {
+      "name": "backend_pytest_accumulated",
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests -q",
+      "result": "passed",
+      "summary": "124 passed, 1 warning in 31.89s"
+    },
+    {
+      "name": "ruff",
+      "command": "python -m ruff check apps\\api scripts",
+      "result": "passed",
+      "summary": "All checks passed!"
+    },
+    {
+      "name": "compileall",
+      "command": "python -m compileall apps scripts",
+      "result": "passed",
+      "summary": "Command exited 0; compiled changed API tests and modules."
+    },
+    {
+      "name": "frontend_secret_private_scan",
+      "command": "rg -n \"BUSINESS_INTAKE_BOT_TOKEN|BOT_TOKEN|SUPABASE_SERVICE_ROLE_KEY|JWT_SECRET|storage_path|account_value|escrow|fondos protegidos|pago garantizado|garant[ií]a de entrega|NODO recibi[oó] dinero\" apps\\web\\src apps\\web\\.next apps\\web\\out",
+      "result": "passed",
+      "summary": "No matches."
+    },
+    {
+      "name": "backend_intake_token_storage_scan",
+      "command": "rg -n \"BUSINESS_INTAKE_BOT_TOKEN|BOT_TOKEN|storage_path|account_value\" apps\\api\\app\\modules\\business_intake apps\\api\\app\\routes\\telegram_bot.py apps\\api\\app\\core\\config.py apps\\api\\tests\\test_business_intake_bot.py apps\\api\\tests\\test_telegram_bot_webhook.py",
+      "result": "passed_with_expected_internal_matches",
+      "summary": "Matches are limited to env config, test fixture tokens, internal storage_path persistence, and tests asserting storage_path is absent from responses."
+    }
+  ],
+  "scope_confirmations": {
+    "created_active_business": false,
+    "created_business_access_links": false,
+    "changed_user_roles": false,
+    "granted_business_mini_app_access": false,
+    "built_admin_web": false,
+    "built_client_mini_app": false,
+    "built_business_mini_app": false,
+    "deployed": false,
+    "declared_ready_for_real_use": false
+  },
+  "residual_risks": [
+    "Real Telegram file download was validated with mocked Telegram API calls; live webhook setup/deploy remains outside this slice.",
+    "Private storage remains dependent on the configured runtime storage adapter."
+  ]
+}

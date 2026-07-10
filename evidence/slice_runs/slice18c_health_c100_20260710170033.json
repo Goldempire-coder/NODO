@@ -1,0 +1,146 @@
+{
+  "phase": "runtime_latency_probe",
+  "run_id": "slice18c_health_c100_20260710170033",
+  "target": "https://nodo-api-production.up.railway.app/api/v1/health",
+  "http2": false,
+  "requests": 600,
+  "concurrency": 100,
+  "duration_seconds": 22.3303,
+  "throughput_per_second": 26.8693,
+  "total_errors": 0,
+  "error_rate": 0.0,
+  "latency": {
+    "count": 600,
+    "p50_ms": 1015.0949,
+    "p95_ms": 5278.5224,
+    "p99_ms": 12731.2343,
+    "avg_ms": 1843.1824
+  },
+  "status_counts": {
+    "200": 600
+  },
+  "error_counts": {},
+  "samples": [
+    {
+      "index": 3,
+      "status": "200",
+      "elapsed_ms": 720.2016,
+      "error": null
+    },
+    {
+      "index": 5,
+      "status": "200",
+      "elapsed_ms": 719.1796,
+      "error": null
+    },
+    {
+      "index": 8,
+      "status": "200",
+      "elapsed_ms": 757.4977,
+      "error": null
+    },
+    {
+      "index": 1,
+      "status": "200",
+      "elapsed_ms": 764.3932,
+      "error": null
+    },
+    {
+      "index": 0,
+      "status": "200",
+      "elapsed_ms": 771.5656,
+      "error": null
+    },
+    {
+      "index": 14,
+      "status": "200",
+      "elapsed_ms": 753.4647,
+      "error": null
+    },
+    {
+      "index": 30,
+      "status": "200",
+      "elapsed_ms": 738.3642,
+      "error": null
+    },
+    {
+      "index": 16,
+      "status": "200",
+      "elapsed_ms": 752.799,
+      "error": null
+    },
+    {
+      "index": 20,
+      "status": "200",
+      "elapsed_ms": 750.2054,
+      "error": null
+    },
+    {
+      "index": 11,
+      "status": "200",
+      "elapsed_ms": 757.9296,
+      "error": null
+    },
+    {
+      "index": 17,
+      "status": "200",
+      "elapsed_ms": 753.6719,
+      "error": null
+    },
+    {
+      "index": 7,
+      "status": "200",
+      "elapsed_ms": 763.2389,
+      "error": null
+    },
+    {
+      "index": 4,
+      "status": "200",
+      "elapsed_ms": 766.5569,
+      "error": null
+    },
+    {
+      "index": 28,
+      "status": "200",
+      "elapsed_ms": 782.141,
+      "error": null
+    },
+    {
+      "index": 6,
+      "status": "200",
+      "elapsed_ms": 803.7412,
+      "error": null
+    },
+    {
+      "index": 10,
+      "status": "200",
+      "elapsed_ms": 800.486,
+      "error": null
+    },
+    {
+      "index": 2,
+      "status": "200",
+      "elapsed_ms": 808.5336,
+      "error": null
+    },
+    {
+      "index": 45,
+      "status": "200",
+      "elapsed_ms": 769.0565,
+      "error": null
+    },
+    {
+      "index": 22,
+      "status": "200",
+      "elapsed_ms": 802.2332,
+      "error": null
+    },
+    {
+      "index": 35,
+      "status": "200",
+      "elapsed_ms": 802.9477,
+      "error": null
+    }
+  ],
+  "exit_code": 0
+}

@@ -1,0 +1,66 @@
+{
+  "slice": "slice_11_hardening_deploy",
+  "phase": "local_infra_check",
+  "exit_code": 0,
+  "checks": {
+    "docker_version": {
+      "command": "docker --version",
+      "exit_code": 0,
+      "duration_seconds": 0.11,
+      "stdout": "Docker version 29.3.1, build c2be9cc\n",
+      "stderr": "WARNING: Error loading config file: open C:\\Users\\carlo\\.docker\\config.json: Access is denied.\n"
+    },
+    "docker_compose_version": {
+      "command": "docker compose version",
+      "exit_code": 0,
+      "duration_seconds": 0.257,
+      "stdout": "Docker Compose version v5.1.0\n",
+      "stderr": "WARNING: Error loading config file: open C:\\Users\\carlo\\.docker\\config.json: Access is denied.\n"
+    },
+    "postgres_tcp": {
+      "ok": true,
+      "host": "127.0.0.1",
+      "port": 55432,
+      "duration_seconds": 0.004
+    },
+    "redis_tcp": {
+      "ok": true,
+      "host": "127.0.0.1",
+      "port": 56379,
+      "duration_seconds": 0.0
+    },
+    "env_redacted": {
+      "APP_ENV": "local",
+      "APP_NAME": "NODO",
+      "APP_VERSION": "0.0.0-slice-11-local",
+      "NODO_BUILD_ID": "slice-11-local-hardening",
+      "API_CORS_ORIGINS": "http://localhost:3000",
+      "DATABASE_URL": "[REDACTED]",
+      "NODO_DB_POOL_MAX_SIZE": "50",
+      "NODO_DB_POOL_TIMEOUT_SECONDS": "20",
+      "NODO_DB_POOL_WARM_SIZE": "8",
+      "REDIS_URL": "[REDACTED]",
+      "BOT_TOKEN": "[REDACTED]",
+      "BUSINESS_INTAKE_BOT_TOKEN": "123456:local-business-intake-bot-token",
+      "JWT_SECRET": "[REDACTED]",
+      "JWT_REFRESH_SECRET": "[REDACTED]",
+      "STRIPE_SECRET_KEY": "[REDACTED]",
+      "STRIPE_WEBHOOK_SECRET": "[REDACTED]",
+      "AUTH_INIT_DATA_MAX_AGE_SECONDS": "86400",
+      "ACCESS_TOKEN_TTL_SECONDS": "900",
+      "REFRESH_TOKEN_TTL_SECONDS": "2592000",
+      "AUTH_RATE_LIMIT_MAX_ATTEMPTS": "1000",
+      "AUTH_RATE_LIMIT_WINDOW_SECONDS": "60",
+      "BUSINESS_RATE_LIMIT_MAX_ATTEMPTS": "1000",
+      "BUSINESS_RATE_LIMIT_WINDOW_SECONDS": "60",
+      "MARKETPLACE_CACHE_TTL_SECONDS": "30",
+      "AUTH_USER_CACHE_TTL_SECONDS": "2",
+      "API_THREAD_LIMIT": "40",
+      "PRIVATE_STORAGE_MODE": "local_file",
+      "PRIVATE_STORAGE_ROOT": ".local/private_storage",
+      "STORAGE_SIGNED_URL_TTL_SECONDS": "300",
+      "NEXT_PUBLIC_API_BASE_URL": "http://localhost:8000/api/v1",
+      "NEXT_PUBLIC_TELEGRAM_BOT_USERNAME": "nodo_local_test_bot"
+    }
+  }
+}

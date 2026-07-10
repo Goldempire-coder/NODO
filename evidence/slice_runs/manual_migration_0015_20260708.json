@@ -1,0 +1,7 @@
+{
+  "phase": "manual_migration_file",
+  "migration": "0015_audit_logs_business_intake_bot_actor.up.sql",
+  "env_file": ".env.local.example",
+  "failures": [],
+  "exit_code": 0
+}

@@ -1,0 +1,62 @@
+{
+  "slice": "slice_18_remote_marketplace_latency_profiling",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "commands": [
+    {
+      "name": "targeted_marketplace_profile_tests",
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests\\test_ads_marketplace.py::test_marketplace_profile_is_not_returned_without_full_staging_gate apps\\api\\tests\\test_ads_marketplace.py::test_marketplace_profile_requires_staging_env_flag_and_header_and_is_sanitized -q --tb=short",
+      "exit_code": 0,
+      "result": "2 passed, 1 warning"
+    },
+    {
+      "name": "targeted_capacity_profile_tests",
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests\\test_staging_validation_tooling.py::test_capacity_profile_marketplace_adds_profile_header apps\\api\\tests\\test_staging_validation_tooling.py::test_capacity_without_profile_marketplace_does_not_add_profile_header apps\\api\\tests\\test_staging_validation_tooling.py::test_capacity_profile_summary_aggregates_stages_without_secrets -q --tb=short",
+      "exit_code": 0,
+      "result": "3 passed, 1 warning"
+    },
+    {
+      "name": "backend_pytest",
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests -q",
+      "exit_code": 0,
+      "result": "170 passed, 1 warning"
+    },
+    {
+      "name": "ruff",
+      "command": "python -m ruff check apps\\api scripts",
+      "exit_code": 0,
+      "result": "All checks passed!"
+    },
+    {
+      "name": "compileall",
+      "command": "python -m compileall apps\\api apps\\web\\src scripts",
+      "exit_code": 0,
+      "result": "OK"
+    },
+    {
+      "name": "frontend_build",
+      "command": "corepack pnpm --filter @nodo/web build",
+      "exit_code": 0,
+      "result": "Next.js build OK"
+    },
+    {
+      "name": "frontend_secret_private_scan",
+      "command": "rg -n \"SUPABASE_SERVICE_ROLE_KEY|BOT_TOKEN|JWT_SECRET|JWT_REFRESH_SECRET|storage_path|account_value|fondos protegidos|pago garantizado|garantía de entrega|garantia de entrega|NODO recibió dinero|NODO recibio dinero\" apps\\web\\src apps\\web\\.next apps\\web\\out",
+      "exit_code": 1,
+      "result": "No matches"
+    }
+  ],
+  "profile_gate": {
+    "requires_app_env": "staging",
+    "requires_enable_staging_profiling": "1",
+    "requires_header": "X-NODO-Profile: 1",
+    "production_never_returns_profile": true
+  },
+  "not_done": [
+    "No deploy",
+    "No staging stress run",
+    "No DB schema change",
+    "No frontend product change",
+    "No workers or pool change",
+    "No READY_FOR_REAL_USE"
+  ]
+}

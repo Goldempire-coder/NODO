@@ -1,0 +1,113 @@
+{
+  "run_id": "real_backend_smoke_20260708132059",
+  "target": "https://nodo-api-production.up.railway.app",
+  "steps": [
+    {
+      "name": "health",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 7602.512
+    },
+    {
+      "name": "ready",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 1018.797
+    },
+    {
+      "name": "version",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 129.906
+    },
+    {
+      "name": "auth_admin_telegram",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 968.444
+    },
+    {
+      "name": "admin_intake_list",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 676.498
+    },
+    {
+      "name": "intake_start",
+      "status": 201,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 1791.667
+    },
+    {
+      "name": "intake_contact",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 865.884
+    },
+    {
+      "name": "intake_submit",
+      "status": 422,
+      "ok": false,
+      "body_keys": [
+        "error",
+        "request_id"
+      ],
+      "latency_ms": 344.545
+    },
+    {
+      "name": "smoke_exception",
+      "status": 500,
+      "ok": false,
+      "type": "RuntimeError",
+      "message": "intake_submit failed 422: {\"error\":{\"code\":\"VALIDATION_ERROR\",\"message\":\"Revisa los datos enviados.\",\"details\":{}},\"request_id\":\"req_real_backend_smoke_20260708132059_bot\"}"
+    },
+    {
+      "name": "cleanup_synthetic_data",
+      "status": 200,
+      "ok": true,
+      "business_deleted": 0,
+      "intake_deleted": 1,
+      "files_deleted": 0,
+      "user_deleted": 1,
+      "old_smoke_intakes_deleted": 0
+    }
+  ],
+  "ok": false,
+  "error": {
+    "type": "RuntimeError",
+    "message": "intake_submit failed 422: {\"error\":{\"code\":\"VALIDATION_ERROR\",\"message\":\"Revisa los datos enviados.\",\"details\":{}},\"request_id\":\"req_real_backend_smoke_20260708132059_bot\"}"
+  },
+  "created_redacted": {
+    "intake_id": "[set]",
+    "business_id": null,
+    "telegram_id": "[set]"
+  }
+}

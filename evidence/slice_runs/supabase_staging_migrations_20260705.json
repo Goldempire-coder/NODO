@@ -1,0 +1,99 @@
+{
+  "phase": "supabase_staging_migrations",
+  "target": "supabase_project_aqmubphdxiaokaqqgqax",
+  "reset_schema": false,
+  "migration_count": 11,
+  "pre": {
+    "table_count": 0,
+    "index_count": 0,
+    "tables": []
+  },
+  "applied": [
+    {
+      "file": "0001_slice_00_foundation.up.sql",
+      "bytes": 4144,
+      "duration_ms": 349.42
+    },
+    {
+      "file": "0002_slice_01_auth_telegram.up.sql",
+      "bytes": 1178,
+      "duration_ms": 243.72
+    },
+    {
+      "file": "0003_slice_02_business_verification.up.sql",
+      "bytes": 6790,
+      "duration_ms": 280.86
+    },
+    {
+      "file": "0004_slice_03_ads_marketplace.up.sql",
+      "bytes": 5903,
+      "duration_ms": 313.6
+    },
+    {
+      "file": "0005_slice_04_order_creation.up.sql",
+      "bytes": 5184,
+      "duration_ms": 358.3
+    },
+    {
+      "file": "0006_slice_05_payment_instructions_reports.up.sql",
+      "bytes": 2862,
+      "duration_ms": 291.23
+    },
+    {
+      "file": "0007_slice_06_business_order_ops.up.sql",
+      "bytes": 1747,
+      "duration_ms": 315.87
+    },
+    {
+      "file": "0008_slice_07_chat_disputes.up.sql",
+      "bytes": 6473,
+      "duration_ms": 431.09
+    },
+    {
+      "file": "0009_slice_08_credits_referrals.up.sql",
+      "bytes": 7734,
+      "duration_ms": 389.69
+    },
+    {
+      "file": "0010_slice_09_admin_console.up.sql",
+      "bytes": 1523,
+      "duration_ms": 255.86
+    },
+    {
+      "file": "0011_slice_10_jobs_notifications.up.sql",
+      "bytes": 6683,
+      "duration_ms": 403.67
+    }
+  ],
+  "post": {
+    "table_count": 23,
+    "index_count": 128,
+    "tables": [
+      "ads",
+      "app_metadata",
+      "audit_logs",
+      "business_payment_methods",
+      "business_verification_submissions",
+      "businesses",
+      "credit_purchases",
+      "credit_wallets",
+      "credits_ledger",
+      "dispute_events",
+      "disputes",
+      "file_assets",
+      "job_runs",
+      "message_attachments",
+      "messages",
+      "notification_jobs",
+      "order_state_events",
+      "orders",
+      "payment_reports",
+      "referral_codes",
+      "referral_events",
+      "sessions",
+      "users"
+    ]
+  },
+  "failures": [],
+  "exit_code": 0
+}

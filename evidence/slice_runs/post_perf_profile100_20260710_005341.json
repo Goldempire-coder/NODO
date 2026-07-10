@@ -1,0 +1,154 @@
+{
+  "slice": "slice_11_hardening_deploy",
+  "phase": "local_stress_checkpoint",
+  "status": "failed",
+  "profile": "100",
+  "workflow_mode": "after_orders",
+  "target": {
+    "businesses": 200,
+    "orders": 2000,
+    "marketplace_searches": 2000,
+    "stripe_events": 200,
+    "manual_reviews": 200
+  },
+  "progress": {
+    "businesses": 0,
+    "ads": 0,
+    "orders": 0,
+    "workflow_orders": 0,
+    "marketplace_searches": 0,
+    "phase": "initialized"
+  },
+  "elapsed_seconds": 0.185,
+  "metrics": {
+    "duration_seconds": 0.185,
+    "throughput_per_second": 21.6293,
+    "total_requests": 4,
+    "total_errors": 1,
+    "total_error_rate": 0.25,
+    "p50_ms": 49.5098,
+    "p95_ms": 73.0149,
+    "p99_ms": 73.0149,
+    "endpoints": {
+      "auth:stress_admin": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 73.0149,
+        "p95_ms": 73.0149,
+        "p99_ms": 73.0149,
+        "avg_ms": 73.0149,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 40.3473,
+        "p95_ms": 40.3473,
+        "p99_ms": 40.3473,
+        "avg_ms": 40.3473,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_remitter": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 49.5098,
+        "p95_ms": 49.5098,
+        "p99_ms": 49.5098,
+        "avg_ms": 49.5098,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "business:create": {
+        "count": 1,
+        "error_count": 1,
+        "error_rate": 1.0,
+        "p50_ms": 9.7378,
+        "p95_ms": 9.7378,
+        "p99_ms": 9.7378,
+        "avg_ms": 9.7378,
+        "status_counts": {
+          "403": 1
+        }
+      }
+    },
+    "route_groups": {
+      "POST /api/v1/auth/telegram": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 49.5098,
+        "p95_ms": 73.0149,
+        "p99_ms": 73.0149,
+        "avg_ms": 54.2907,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      "POST /api/v1/businesses": {
+        "count": 1,
+        "error_count": 1,
+        "error_rate": 1.0,
+        "p50_ms": 9.7378,
+        "p95_ms": 9.7378,
+        "p99_ms": 9.7378,
+        "avg_ms": 9.7378,
+        "status_counts": {
+          "403": 1
+        }
+      }
+    },
+    "slowest_route_groups": [
+      {
+        "route": "POST /api/v1/auth/telegram",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 49.5098,
+        "p95_ms": 73.0149,
+        "p99_ms": 73.0149,
+        "avg_ms": 54.2907,
+        "status_counts": {
+          "200": 3
+        }
+      },
+      {
+        "route": "POST /api/v1/businesses",
+        "count": 1,
+        "error_count": 1,
+        "error_rate": 1.0,
+        "p50_ms": 9.7378,
+        "p95_ms": 9.7378,
+        "p99_ms": 9.7378,
+        "avg_ms": 9.7378,
+        "status_counts": {
+          "403": 1
+        }
+      }
+    ]
+  },
+  "invariant_violations": {
+    "idempotency_duplicates": 0,
+    "idempotency_replay_conflicts": 0,
+    "double_credit_consumption": 0,
+    "double_credit_accreditation": 0,
+    "negative_balances": 0,
+    "invalid_transitions": 0,
+    "redis_failures": 0,
+    "db_errors": 0,
+    "timeouts": 0,
+    "deadlocks": 0,
+    "job_lock_failures": 0
+  },
+  "steps_recorded": 5,
+  "error": "business:create failed: 403 {\"error\":{\"code\":\"BUSINESS_SELF_ONBOARDING_DISABLED\",\"message\":\"No pudimos completar la accion.\",\"details\":{}},\"request_id\":\"req_post_perf_profile100_20260710_005341_business_1_create\"}",
+  "error_type": "RuntimeError",
+  "exit_code": 1
+}

@@ -1,0 +1,70 @@
+{
+  "slice": "slice_14B_business_mini_app_surface",
+  "generated_at": "2026-07-07T17:47:31.9909329-04:00",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "ready_for_real_use": false,
+  "commands": [
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "status": "passed",
+      "summary": "Next.js 15.5.20 compiled successfully. Route / size 26.3 kB, First Load JS 129 kB."
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests -q",
+      "status": "passed",
+      "summary": "105 passed, 1 warning in 15.66s. Warning is Starlette/httpx deprecation."
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "status": "passed",
+      "summary": "All checks passed."
+    },
+    {
+      "command": "python -m compileall apps scripts",
+      "status": "passed",
+      "summary": "Compile completed successfully."
+    }
+  ],
+  "scans": [
+    {
+      "name": "business_surface_forbidden_imports",
+      "command": "rg -n \"ClientWorkspace|RemitterScreens|AdminConsoleScreens|VerificationScreens\" apps\\web\\src\\screens\\business-app apps\\web\\src\\hooks\\useBusinessMiniAppModel.ts",
+      "status": "passed",
+      "findings": 0
+    },
+    {
+      "name": "business_model_forbidden_handlers",
+      "command": "rg -n \"loadAdmin|reviewBusiness|openDocument|reviewCreditPurchase|submitAdminAdjustment|resolveAdminDispute|createOrder|searchAds|loadActiveMarketplace|openPaymentInstructions|submitPaymentReport\" apps\\web\\src\\hooks\\useBusinessMiniAppModel.ts",
+      "status": "passed",
+      "findings": 0
+    },
+    {
+      "name": "frontend_secret_private_claim_scan",
+      "command": "rg -n \"SUPABASE_SERVICE_ROLE_KEY|BOT_TOKEN|JWT_SECRET|JWT_REFRESH_SECRET|STRIPE_SECRET|storage_path|account_value|escrow|fondos protegidos|pago garantizado|garantia de entrega|NODO recibio dinero\" apps\\web\\src apps\\web\\.next apps\\web\\out",
+      "status": "passed",
+      "findings": 0
+    }
+  ],
+  "tests_added": [
+    "test_business_payment_methods_endpoint_returns_only_safe_approved_own_methods",
+    "test_business_payment_methods_endpoint_blocks_unapproved_business"
+  ],
+  "not_executed": [
+    {
+      "item": "deploy",
+      "reason": "Out of scope by owner instruction."
+    },
+    {
+      "item": "Telegram real smoke",
+      "reason": "Out of scope for this local build slice."
+    },
+    {
+      "item": "slice 14B runner",
+      "reason": "No dedicated run_slice_14B_tests.py was found in scripts."
+    }
+  ],
+  "residual_risks": [
+    "Business Mini App is exposed by technical query parameter ?surface=business until a dedicated Telegram/business route is configured.",
+    "No real Telegram smoke or deploy was executed."
+  ]
+}

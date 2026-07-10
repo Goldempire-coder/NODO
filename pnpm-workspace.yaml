@@ -1,0 +1,4 @@
+packages:
+  - "apps/*"
+allowBuilds:
+  sharp: set this to true or false

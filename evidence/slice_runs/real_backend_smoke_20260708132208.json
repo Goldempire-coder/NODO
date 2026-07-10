@@ -1,0 +1,127 @@
+{
+  "run_id": "real_backend_smoke_20260708132208",
+  "target": "https://nodo-api-production.up.railway.app",
+  "steps": [
+    {
+      "name": "health",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 7658.66
+    },
+    {
+      "name": "ready",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 943.59
+    },
+    {
+      "name": "version",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 145.015
+    },
+    {
+      "name": "auth_admin_telegram",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 993.872
+    },
+    {
+      "name": "admin_intake_list",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 781.037
+    },
+    {
+      "name": "intake_start",
+      "status": 201,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 1733.043
+    },
+    {
+      "name": "intake_contact",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 882.74
+    },
+    {
+      "name": "intake_submit",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 949.309
+    },
+    {
+      "name": "admin_intake_detail",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 1144.102
+    },
+    {
+      "name": "admin_accept_create_business_public_name",
+      "status": 200,
+      "ok": true,
+      "body_keys": [
+        "data",
+        "request_id"
+      ],
+      "latency_ms": 3094.739
+    },
+    {
+      "name": "invariants",
+      "status": 200,
+      "ok": true,
+      "created_business_pending": true,
+      "access_link_created_false": true,
+      "public_name_ok": true
+    },
+    {
+      "name": "cleanup_synthetic_data",
+      "status": 500,
+      "ok": false,
+      "error": "ForeignKeyViolation"
+    }
+  ],
+  "ok": false,
+  "error": null,
+  "created_redacted": {
+    "intake_id": "[set]",
+    "business_id": "[set]",
+    "telegram_id": "[set]"
+  }
+}

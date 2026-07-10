@@ -1,0 +1,426 @@
+{
+  "slice": "real_services_capacity_hardening",
+  "phase": "scenario_capacity",
+  "run_id": "staging_real_marketplace_localcache_localrate_profiled_20260708",
+  "scenario": "marketplace-reads",
+  "fixture_mode": "prepared_internal_dataset_no_legacy_onboarding",
+  "targets": {
+    "businesses": 3,
+    "ads_per_business": 3,
+    "remitters": 4,
+    "marketplace_reads": 8,
+    "order_creates": 4,
+    "same_ad_race_requests": 6,
+    "payment_confirms": 0
+  },
+  "prepared": {
+    "businesses": 3,
+    "ads": 9,
+    "payment_ads": 0,
+    "remitters": 6
+  },
+  "metrics": {
+    "duration_seconds": 55.16,
+    "throughput_per_second": 0.145,
+    "total_requests": 8,
+    "total_errors": 0,
+    "total_error_rate": 0.0,
+    "p50_ms": 1682.6842,
+    "p95_ms": 1686.0727,
+    "p99_ms": 1686.0727,
+    "endpoints": {
+      "capacity:marketplace:read": {
+        "count": 8,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 1682.6842,
+        "p95_ms": 1686.0727,
+        "p99_ms": 1686.0727,
+        "avg_ms": 1484.1113,
+        "status_counts": {
+          "200": 8
+        }
+      }
+    },
+    "route_groups": {
+      "GET /api/v1/ads/search": {
+        "count": 8,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 1682.6842,
+        "p95_ms": 1686.0727,
+        "p99_ms": 1686.0727,
+        "avg_ms": 1484.1113,
+        "status_counts": {
+          "200": 8
+        }
+      }
+    },
+    "slowest_route_groups": [
+      {
+        "route": "GET /api/v1/ads/search",
+        "count": 8,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 1682.6842,
+        "p95_ms": 1686.0727,
+        "p99_ms": 1686.0727,
+        "avg_ms": 1484.1113,
+        "status_counts": {
+          "200": 8
+        }
+      }
+    ]
+  },
+  "profiled_steps": [
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 819.8038,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0026
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0122
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0013
+          },
+          {
+            "stage": "cache:get_initial",
+            "elapsed_ms": 0.0069
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0107
+          },
+          {
+            "stage": "cache:get_locked",
+            "elapsed_ms": 0.0016
+          },
+          {
+            "stage": "repo:list_marketplace_ads_for_marketplace",
+            "elapsed_ms": 521.4981
+          },
+          {
+            "stage": "repo:get_businesses_by_ids",
+            "elapsed_ms": 298.0943
+          },
+          {
+            "stage": "service:rank_and_payload",
+            "elapsed_ms": 0.0698
+          },
+          {
+            "stage": "cache:set",
+            "elapsed_ms": 0.0657
+          }
+        ]
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0784,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0023
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0129
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0014
+          },
+          {
+            "stage": "cache:get_initial",
+            "elapsed_ms": 0.0501
+          }
+        ]
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 0.0647,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0014
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0084
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0018
+          },
+          {
+            "stage": "cache:get_initial",
+            "elapsed_ms": 0.0426
+          }
+        ]
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 495.9099,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0008
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0042
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0008
+          },
+          {
+            "stage": "cache:get_initial",
+            "elapsed_ms": 0.003
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 495.8397
+          },
+          {
+            "stage": "cache:get_locked",
+            "elapsed_ms": 0.0484
+          }
+        ]
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 498.0498,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0012
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0073
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0012
+          },
+          {
+            "stage": "cache:get_initial",
+            "elapsed_ms": 0.0051
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 497.9976
+          },
+          {
+            "stage": "cache:get_locked",
+            "elapsed_ms": 0.0245
+          }
+        ]
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 504.6314,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0064
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0013
+          },
+          {
+            "stage": "cache:get_initial",
+            "elapsed_ms": 0.0042
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0126
+          },
+          {
+            "stage": "cache:get_locked",
+            "elapsed_ms": 0.0012
+          },
+          {
+            "stage": "repo:list_marketplace_ads_for_marketplace",
+            "elapsed_ms": 264.2261
+          },
+          {
+            "stage": "repo:get_businesses_by_ids",
+            "elapsed_ms": 240.2574
+          },
+          {
+            "stage": "service:rank_and_payload",
+            "elapsed_ms": 0.0537
+          },
+          {
+            "stage": "cache:set",
+            "elapsed_ms": 0.0425
+          }
+        ]
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 495.639,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0005
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0039
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0007
+          },
+          {
+            "stage": "cache:get_initial",
+            "elapsed_ms": 0.0028
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 0.0049
+          },
+          {
+            "stage": "cache:get_locked",
+            "elapsed_ms": 0.0006
+          },
+          {
+            "stage": "repo:list_marketplace_ads_for_marketplace",
+            "elapsed_ms": 255.6383
+          },
+          {
+            "stage": "repo:get_businesses_by_ids",
+            "elapsed_ms": 239.8341
+          },
+          {
+            "stage": "service:rank_and_payload",
+            "elapsed_ms": 0.0638
+          },
+          {
+            "stage": "cache:set",
+            "elapsed_ms": 0.0669
+          }
+        ]
+      }
+    },
+    {
+      "name": "capacity:marketplace:read",
+      "method": "GET",
+      "path": "/api/v1/ads/search",
+      "status_code": 200,
+      "profile": {
+        "total_ms": 498.2848,
+        "stages": [
+          {
+            "stage": "service:marketplace_access",
+            "elapsed_ms": 0.0011
+          },
+          {
+            "stage": "service:rate_limit",
+            "elapsed_ms": 0.0039
+          },
+          {
+            "stage": "service:validate_search_params",
+            "elapsed_ms": 0.0008
+          },
+          {
+            "stage": "cache:get_initial",
+            "elapsed_ms": 0.0033
+          },
+          {
+            "stage": "cache:lock_wait",
+            "elapsed_ms": 498.2353
+          },
+          {
+            "stage": "cache:get_locked",
+            "elapsed_ms": 0.0302
+          }
+        ]
+      }
+    }
+  ],
+  "invariant_violations": {
+    "marketplace_read_errors": 0,
+    "order_create_errors": 0,
+    "same_ad_success_count_invalid": 0,
+    "same_ad_unexpected_status": 0,
+    "same_ad_db_rows_invalid": 0,
+    "duplicate_idempotency_response_mismatch": 0,
+    "duplicate_idempotency_db_rows_invalid": 0,
+    "fixture_insufficient_reserved_ads": 0,
+    "payment_report_setup_errors": 0,
+    "confirm_distinct_errors": 0,
+    "confirm_distinct_state_invalid": 0,
+    "confirm_same_order_success_count_invalid": 0,
+    "confirm_same_order_double_consume": 0,
+    "negative_balances": 0,
+    "double_credit_consumption": 0,
+    "db_errors": 0
+  },
+  "details": {
+    "marketplace_reads": {
+      "status_codes": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ]
+    },
+    "invariants": {
+      "negative_balances": 0,
+      "double_credit_consumption": 0
+    }
+  },
+  "exit_code": 0
+}

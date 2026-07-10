@@ -1,0 +1,54 @@
+{
+  "elapsed_ms": 3485.068,
+  "summary": {
+    "orders.list_job_candidate_orders": {
+      "count": 1,
+      "total_ms": 826.887,
+      "max_ms": 826.887,
+      "avg_ms": 826.887
+    },
+    "disputes.list_open_order_ids": {
+      "count": 1,
+      "total_ms": 219.647,
+      "max_ms": 219.647,
+      "avg_ms": 219.647
+    },
+    "_handle_delivered": {
+      "count": 30,
+      "total_ms": 0.056,
+      "max_ms": 0.007,
+      "avg_ms": 0.002
+    },
+    "_cancel_waiting_payment": {
+      "count": 452,
+      "total_ms": 0.34,
+      "max_ms": 0.022,
+      "avg_ms": 0.001
+    },
+    "_process_orders": {
+      "count": 1,
+      "total_ms": 1049.027,
+      "max_ms": 1049.027,
+      "avg_ms": 1049.027
+    },
+    "_process_ads": {
+      "count": 1,
+      "total_ms": 345.796,
+      "max_ms": 345.796,
+      "avg_ms": 345.796
+    },
+    "_process_founders": {
+      "count": 1,
+      "total_ms": 362.879,
+      "max_ms": 362.879,
+      "avg_ms": 362.879
+    }
+  },
+  "counters": {
+    "processed_count": 482,
+    "changed_count": 482,
+    "skipped_count": 0,
+    "failed_count": 0
+  },
+  "job_status": "finished"
+}

@@ -1,0 +1,30 @@
+{
+  "results": [
+    {
+      "name": "test_sessions_migration_contract",
+      "status": "passed"
+    },
+    {
+      "name": "test_auth_routes_are_canonical",
+      "status": "passed"
+    },
+    {
+      "name": "test_backend_security_contract_static",
+      "status": "passed"
+    },
+    {
+      "name": "test_required_audit_events_declared_and_written",
+      "status": "passed"
+    },
+    {
+      "name": "test_frontend_telegram_ui_and_motion_contract",
+      "status": "failed",
+      "error": "AnimatedLogo motion must be within 900ms-1400ms",
+      "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\carlo\\Documents\\Playground\\NODO\\scripts\\run_slice_01_tests.py\", line 162, in main\n    test()\n    ~~~~^^\n  File \"C:\\Users\\carlo\\Documents\\Playground\\NODO\\scripts\\run_slice_01_tests.py\", line 133, in test_frontend_telegram_ui_and_motion_contract\n    assert_true(\"1100ms\" in css, \"AnimatedLogo motion must be within 900ms-1400ms\")\n    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\carlo\\Documents\\Playground\\NODO\\scripts\\run_slice_01_tests.py\", line 22, in assert_true\n    raise AssertionError(message)\nAssertionError: AnimatedLogo motion must be within 900ms-1400ms\n"
+    },
+    {
+      "name": "test_frontend_sources_do_not_reference_backend_secrets",
+      "status": "passed"
+    }
+  ]
+}

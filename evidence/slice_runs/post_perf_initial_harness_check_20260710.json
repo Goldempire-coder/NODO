@@ -1,0 +1,117 @@
+{
+  "slice": "slice_11_hardening_deploy",
+  "phase": "local_stress_checkpoint",
+  "status": "failed",
+  "profile": "initial",
+  "workflow_mode": "after_orders",
+  "target": {
+    "businesses": 2,
+    "orders": 2,
+    "marketplace_searches": 2,
+    "stripe_events": 2,
+    "manual_reviews": 1
+  },
+  "progress": {
+    "businesses": 0,
+    "ads": 0,
+    "orders": 0,
+    "workflow_orders": 0,
+    "marketplace_searches": 0,
+    "phase": "initialized"
+  },
+  "elapsed_seconds": 0.188,
+  "metrics": {
+    "duration_seconds": 0.188,
+    "throughput_per_second": 15.9754,
+    "total_requests": 3,
+    "total_errors": 0,
+    "total_error_rate": 0.0,
+    "p50_ms": 44.9635,
+    "p95_ms": 71.0097,
+    "p99_ms": 71.0097,
+    "endpoints": {
+      "auth:stress_admin": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 71.0097,
+        "p95_ms": 71.0097,
+        "p99_ms": 71.0097,
+        "avg_ms": 71.0097,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 28.8116,
+        "p95_ms": 28.8116,
+        "p99_ms": 28.8116,
+        "avg_ms": 28.8116,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_remitter": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 44.9635,
+        "p95_ms": 44.9635,
+        "p99_ms": 44.9635,
+        "avg_ms": 44.9635,
+        "status_counts": {
+          "200": 1
+        }
+      }
+    },
+    "route_groups": {
+      "POST /api/v1/auth/telegram": {
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 44.9635,
+        "p95_ms": 71.0097,
+        "p99_ms": 71.0097,
+        "avg_ms": 48.2616,
+        "status_counts": {
+          "200": 3
+        }
+      }
+    },
+    "slowest_route_groups": [
+      {
+        "route": "POST /api/v1/auth/telegram",
+        "count": 3,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 44.9635,
+        "p95_ms": 71.0097,
+        "p99_ms": 71.0097,
+        "avg_ms": 48.2616,
+        "status_counts": {
+          "200": 3
+        }
+      }
+    ]
+  },
+  "invariant_violations": {
+    "idempotency_duplicates": 0,
+    "idempotency_replay_conflicts": 0,
+    "double_credit_consumption": 0,
+    "double_credit_accreditation": 0,
+    "negative_balances": 0,
+    "invalid_transitions": 0,
+    "redis_failures": 0,
+    "db_errors": 0,
+    "timeouts": 0,
+    "deadlocks": 0,
+    "job_lock_failures": 0
+  },
+  "steps_recorded": 5,
+  "error": "tuple indices must be integers or slices, not str",
+  "error_type": "TypeError",
+  "exit_code": 1
+}

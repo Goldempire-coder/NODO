@@ -1,0 +1,178 @@
+import { useEffect, useState } from "react";
+import { Spinner, Text, Title } from "@telegram-apps/telegram-ui";
+import { AnimatedLogo } from "../../components/nodo/AnimatedLogo";
+import type { ClientView } from "../../constants/clientViews";
+import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
+import { ClientScreens } from "./ClientScreens";
+
+const TITLE_BY_VIEW: Partial<Record<ClientView, string>> = {
+  welcome: "Bienvenido",
+  terms: "Términos",
+  "client-profile-setup": "Tus datos",
+  profile: "Perfil",
+  "marketplace-search": "Marketplace",
+  "marketplace-list": "Negocios",
+  "marketplace-detail": "Negocio verificado",
+  "create-order": "Crear orden",
+  "order-summary": "Resumen de orden",
+  "payment-instructions": "Instrucciones",
+  "report-payment": "Reportar pago",
+  "my-orders": "Mis órdenes",
+  messages: "Mensajes",
+  "order-chat": "Tracking y chat"
+};
+
+function NavIcon({ name }: { name: "home" | "search" | "orders" | "messages" | "profile" }) {
+  if (name === "home") {
+    return (
+      <svg aria-hidden="true" className="nav-icon" viewBox="0 0 24 24">
+        <path d="M4.5 10.8 12 4.6l7.5 6.2" />
+        <path d="M6.8 10.2v8.4h10.4v-8.4" />
+        <path d="M10 18.6v-4.4h4v4.4" />
+      </svg>
+    );
+  }
+  if (name === "search") {
+    return (
+      <svg aria-hidden="true" className="nav-icon" viewBox="0 0 24 24">
+        <circle cx="10.8" cy="10.8" r="5.8" />
+        <path d="m15.2 15.2 4.3 4.3" />
+      </svg>
+    );
+  }
+  if (name === "orders") {
+    return (
+      <svg aria-hidden="true" className="nav-icon" viewBox="0 0 24 24">
+        <rect x="6.2" y="4.4" width="11.6" height="15.2" rx="2" />
+        <path d="M9.2 8.2h5.6" />
+        <path d="M9.2 12h5.6" />
+        <path d="M9.2 15.8h4" />
+      </svg>
+    );
+  }
+  if (name === "messages") {
+    return (
+      <svg aria-hidden="true" className="nav-icon" viewBox="0 0 24 24">
+        <path d="M5.2 6.2h13.6v9.2H10l-4.8 3.2v-3.2z" />
+      </svg>
+    );
+  }
+  return (
+    <svg aria-hidden="true" className="nav-icon" viewBox="0 0 24 24">
+      <circle cx="12" cy="8.2" r="3.6" />
+      <path d="M5.8 19.2c.8-3.4 3-5.2 6.2-5.2s5.4 1.8 6.2 5.2" />
+    </svg>
+  );
+}
+
+export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel }) {
+  const { busy, canGoBack, goBack, loadActiveMarketplace, loadMyOrders, notice, setView, user, view } = model;
+  const [activeNav, setActiveNav] = useState<"home" | "businesses" | "orders" | "messages" | "profile">("home");
+  const isOnboardingView = view === "welcome" || view === "terms" || view === "client-profile-setup";
+  const shouldShowNotice = Boolean(notice) && !["welcome", "terms", "client-profile-setup", "marketplace-search", "create-order", "marketplace-detail"].includes(view);
+
+  useEffect(() => {
+    if (view === "profile") {
+      setActiveNav("profile");
+      return;
+    }
+    if (view === "my-orders" || view === "order-summary" || view === "payment-instructions" || view === "report-payment") {
+      setActiveNav("orders");
+      return;
+    }
+    if (view === "messages" || view === "order-chat") {
+      setActiveNav("messages");
+      return;
+    }
+    if (view === "marketplace-search") {
+      setActiveNav("home");
+      return;
+    }
+    if (view === "marketplace-list" || view === "marketplace-detail" || view === "create-order") {
+      setActiveNav("businesses");
+    }
+  }, [view]);
+
+  return (
+    <section className="business-shell" aria-live="polite">
+      <div className="business-shell__header app-topbar">
+        <div className="topbar-brand">
+          <AnimatedLogo />
+          <div className="topbar-wordmark">
+            <strong>NODO</strong>
+          </div>
+        </div>
+        <div className="topbar-user">
+          <span className="topbar-avatar" aria-hidden="true">
+            {(user.first_name || user.username || "U").slice(0, 1).toUpperCase()}
+          </span>
+          <div>
+            <span>Hola, {user.first_name || user.username || "Usuario"}</span>
+          </div>
+        </div>
+      </div>
+
+      {canGoBack ? (
+        <div className="screen-heading">
+          <button className="topbar-back" type="button" aria-label="Volver" onClick={goBack}>
+            <span aria-hidden="true" />
+          </button>
+          <Title level="2" className="business-shell__title">
+            {TITLE_BY_VIEW[view] || "NODO"}
+          </Title>
+        </div>
+      ) : null}
+
+      {!isOnboardingView ? (
+        <div className="primary-nav">
+          <button className={activeNav === "home" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => {
+            setActiveNav("home");
+            setView("marketplace-search");
+          }}>
+            <NavIcon name="home" />
+            <span>Inicio</span>
+          </button>
+          <button className={activeNav === "businesses" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => {
+            setActiveNav("businesses");
+            void loadActiveMarketplace();
+          }}>
+            <NavIcon name="search" />
+            <span>Negocios</span>
+          </button>
+          <button className={activeNav === "orders" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => {
+            setActiveNav("orders");
+            void loadMyOrders("my-orders");
+          }}>
+            <NavIcon name="orders" />
+            <span>Órdenes</span>
+          </button>
+          <button className={activeNav === "messages" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => {
+            setActiveNav("messages");
+            void loadMyOrders("messages");
+          }}>
+            <NavIcon name="messages" />
+            <span>Mensajes</span>
+          </button>
+          <button className={activeNav === "profile" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => {
+            setActiveNav("profile");
+            setView("profile");
+          }}>
+            <NavIcon name="profile" />
+            <span>Perfil</span>
+          </button>
+        </div>
+      ) : null}
+
+      {busy ? (
+        <div className="shell-loading-pill">
+          <Spinner size="s" />
+          <Text>Cargando</Text>
+        </div>
+      ) : null}
+
+      {shouldShowNotice ? <Text className="auth-entry__message">{notice}</Text> : null}
+
+      <ClientScreens model={model} />
+    </section>
+  );
+}

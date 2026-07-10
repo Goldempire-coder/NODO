@@ -1,0 +1,31 @@
+# ERROR_CASES.md
+
+Expected errors for slice 04:
+
+- UNAUTHENTICATED
+- FORBIDDEN
+- VALIDATION_ERROR
+- RATE_LIMITED
+- IDEMPOTENCY_KEY_REQUIRED
+- IDEMPOTENCY_CONFLICT
+- IDEMPOTENCY_PAYLOAD_MISMATCH
+- AD_NOT_FOUND
+- AD_NOT_AVAILABLE
+- AD_EXPIRED
+- BUSINESS_NOT_APPROVED
+- AMOUNT_OUT_OF_RANGE
+- ORDER_ALREADY_EXISTS
+- ORDER_NOT_FOUND
+- ORDER_NOT_OWNED
+- ORDER_STATUS_INVALID
+- ORDER_EXPIRED
+- ORDER_EXTENSION_ALREADY_USED
+- ORDER_PAYMENT_ALREADY_REPORTED
+- STATE_TRANSITION_NOT_ALLOWED
+
+Rules:
+
+- Use `06_API_CONTRACTS/ERROR_CONTRACT.md`.
+- Do not expose stack traces, SQL, secrets, tokens, account values, payment instructions or private storage keys.
+- Permission errors must not leak private resource existence.
+- UI must map every expected error to a safe user state.

@@ -1,0 +1,30 @@
+{
+  "slice": "slice_17A_staging_validation_tooling",
+  "phase": "staging_telegram_webhook_smoke",
+  "guardrails": {
+    "env_file": ".local\\staging_validation_17C_LOCAL_ONLY.env",
+    "run_id": null,
+    "env": {
+      "APP_ENV": "staging",
+      "NODO_ENVIRONMENT_KIND": "staging",
+      "NODO_STAGING_VALIDATION": "1",
+      "NODO_STAGING_PROJECT_ID": "aqmubphdxiaokaqqgqax",
+      "NODO_PRODUCTION_PROJECT_ID": "",
+      "DATABASE_URL": "[REDACTED]",
+      "REDIS_URL": "[REDACTED]",
+      "NODO_STAGING_DB_HOST_ALLOWLIST": "aws-1-us-east-2.pooler.supabase.com",
+      "NODO_STAGING_API_HOST_ALLOWLIST": "nodo-api-production.up.railway.app",
+      "SUPABASE_URL": "https://aqmubphdxiaokaqqgqax.supabase.co",
+      "NODO_STAGING_SUPABASE_URL": "https://aqmubphdxiaokaqqgqax.supabase.co"
+    }
+  },
+  "result": {
+    "mode": "valid_test_chat",
+    "bot": "client",
+    "test_chat_hash": "e67747d1d11f",
+    "status_code": 200,
+    "passed": true
+  },
+  "failures": [],
+  "exit_code": 0
+}

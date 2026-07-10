@@ -1,0 +1,63 @@
+{
+  "slice": "slice_14C_admin_web_surface",
+  "mode": "BUILD_SLICE",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "timestamp": "2026-07-07T19:00:22.9065838-04:00",
+  "commands": [
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "status": "passed",
+      "details": "Next.js 15.5.20 compiled and exported successfully. Route / size 32.2 kB, First Load JS 135 kB."
+    },
+    {
+      "command": "$env:PYTHONPATH='apps/api'; python -m pytest apps\\api\\tests -q",
+      "status": "passed",
+      "details": "105 passed, 1 warning in 13.77s. Warning: known Starlette/httpx deprecation warning."
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "status": "passed",
+      "details": "All checks passed!"
+    },
+    {
+      "command": "python -m compileall apps scripts",
+      "status": "passed",
+      "details": "compileall completed with exit code 0."
+    }
+  ],
+  "scans": [
+    {
+      "name": "admin_surface_forbidden_imports",
+      "command": "rg -n \"ClientWorkspace|BusinessMiniAppWorkspace|RemitterScreens|VerificationScreens|BusinessOperationsScreens|BusinessWorkspaceModel\" apps\\web\\src\\screens\\admin-web apps\\web\\src\\hooks\\useAdminWebModel.ts",
+      "status": "passed",
+      "matches": 0
+    },
+    {
+      "name": "admin_surface_telegram_rules",
+      "command": "rg -n \"@telegram-apps|MainButton|themeParams|bottom nav|Telegram MainButton\" apps\\web\\src\\screens\\admin-web apps\\web\\src\\hooks\\useAdminWebModel.ts",
+      "status": "passed",
+      "matches": 0
+    },
+    {
+      "name": "frontend_secret_private_claim_scan",
+      "command": "rg -n \"SUPABASE_SERVICE_ROLE_KEY|BOT_TOKEN|JWT_SECRET|JWT_REFRESH_SECRET|storage_path|fondos protegidos|pago garantizado|garantía de entrega|garantia de entrega|NODO recibió dinero|NODO recibio dinero|escrow\" apps\\web\\src apps\\web\\out",
+      "status": "passed",
+      "matches": 0
+    },
+    {
+      "name": "admin_account_value_scan",
+      "command": "rg -n \"account_value\" apps\\web\\src\\screens\\admin-web apps\\web\\src\\hooks\\useAdminWebModel.ts apps\\web\\out",
+      "status": "passed",
+      "matches": 0
+    }
+  ],
+  "runner_14c": {
+    "status": "not_run",
+    "reason": "No dedicated slice_14C runner exists under scripts; equivalent required validation was executed."
+  },
+  "deploy": {
+    "status": "not_run",
+    "reason": "Deploy is explicitly out of scope for this slice."
+  },
+  "ready_for_real_use": false
+}

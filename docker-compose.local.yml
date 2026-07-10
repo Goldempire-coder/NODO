@@ -1,0 +1,37 @@
+name: nodo-local-hardening
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nodo_postgres_local
+    environment:
+      POSTGRES_USER: nodo_local
+      POSTGRES_PASSWORD: nodo_local_password
+      POSTGRES_DB: nodo_local
+    ports:
+      - "55432:5432"
+    volumes:
+      - nodo_postgres_local_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nodo_local -d nodo_local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: nodo_redis_local
+    ports:
+      - "56379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - nodo_redis_local_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  nodo_postgres_local_data:
+  nodo_redis_local_data:

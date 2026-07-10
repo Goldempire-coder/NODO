@@ -1,0 +1,206 @@
+{
+  "slice": "slice_16_order_creation_performance_hardening",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "validations": {
+    "pytest": {
+      "command": "python -m pytest apps\\api\\tests -q",
+      "result": "passed",
+      "summary": "138 passed, 1 warning"
+    },
+    "ruff": {
+      "command": "python -m ruff check apps\\api scripts",
+      "result": "passed",
+      "summary": "All checks passed"
+    },
+    "compileall": {
+      "command": "python -m compileall apps\\api apps\\web\\src scripts",
+      "result": "passed"
+    },
+    "frontend_build": {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "result": "passed",
+      "summary": "Next.js build completed successfully"
+    },
+    "schema_pre": {
+      "file": "evidence/slice_runs/slice_16_schema_pre.json",
+      "result": "passed"
+    },
+    "schema_post": {
+      "file": "evidence/slice_runs/slice_16_schema_post.json",
+      "result": "passed"
+    },
+    "log_scan": {
+      "patterns": [
+        "too many clients",
+        "ReadTimeout",
+        "ReadError",
+        "OperationalError",
+        "RATE_LIMITED",
+        "DB_POOL_SATURATED",
+        "HTTP status 500"
+      ],
+      "result": "passed",
+      "findings": "No real matches. Raw 500 scan produced false positives from counts/p99 values; exact status 500 scan returned no matches."
+    },
+    "frontend_secret_private_scan": {
+      "paths": [
+        "apps/web/src",
+        "apps/web/.next"
+      ],
+      "patterns": [
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "BOT_TOKEN",
+        "JWT_SECRET",
+        "JWT_REFRESH_SECRET",
+        "STRIPE_SECRET_KEY",
+        "storage_path",
+        "account_value",
+        "escrow",
+        "fondos protegidos",
+        "pago garantizado",
+        "garantia de entrega",
+        "NODO recibio dinero"
+      ],
+      "result": "passed",
+      "findings": "No matches"
+    }
+  },
+  "stress": {
+    "order_create_distinct_c25": {
+      "file": "evidence/slice_runs/slice_16_order_create_c25.json",
+      "log": "evidence/slice_runs/slice_16_order_create_c25.log",
+      "exit_code": 0,
+      "total_requests": 25,
+      "total_errors": 0,
+      "error_rate": 0.0,
+      "duration_seconds": 2.352,
+      "throughput_per_second": 10.6287,
+      "p50_ms": 252.7032,
+      "p95_ms": 267.0538,
+      "p99_ms": 268.5277,
+      "status_counts": {
+        "201": 25
+      },
+      "invariant_violations": 0
+    },
+    "order_create_distinct_c50": {
+      "file": "evidence/slice_runs/slice_16_order_create_c50.json",
+      "log": "evidence/slice_runs/slice_16_order_create_c50.log",
+      "exit_code": 0,
+      "total_requests": 50,
+      "total_errors": 0,
+      "error_rate": 0.0,
+      "duration_seconds": 4.13,
+      "throughput_per_second": 12.1054,
+      "p50_ms": 497.3998,
+      "p95_ms": 516.2397,
+      "p99_ms": 522.0869,
+      "status_counts": {
+        "201": 50
+      },
+      "invariant_violations": 0
+    },
+    "order_create_distinct_c100": {
+      "file": "evidence/slice_runs/slice_16_order_create_c100.json",
+      "log": "evidence/slice_runs/slice_16_order_create_c100.log",
+      "exit_code": 0,
+      "total_requests": 100,
+      "total_errors": 0,
+      "error_rate": 0.0,
+      "duration_seconds": 7.87,
+      "throughput_per_second": 12.7061,
+      "p50_ms": 719.4509,
+      "p95_ms": 757.5213,
+      "p99_ms": 768.2331,
+      "status_counts": {
+        "201": 100
+      },
+      "invariant_violations": 0
+    },
+    "same_ad_race_c50_duplicate_idempotency_c25": {
+      "file": "evidence/slice_runs/slice_16_order_race_c50_duplicate_c25.json",
+      "log": "evidence/slice_runs/slice_16_order_race_c50_duplicate_c25.log",
+      "exit_code": 0,
+      "total_requests": 75,
+      "same_ad_race": {
+        "count": 50,
+        "status_counts": {
+          "201": 1,
+          "409": 49
+        },
+        "db_rows": 1,
+        "unexpected_statuses": 0,
+        "p95_ms": 300.5725
+      },
+      "duplicate_idempotency": {
+        "count": 25,
+        "status_counts": {
+          "201": 25
+        },
+        "db_rows": 1,
+        "response_mismatch": 0,
+        "p95_ms": 109.934
+      },
+      "invariant_violations": 0
+    },
+    "mixed_c100": {
+      "file": "evidence/slice_runs/slice_16_mixed_c100.json",
+      "log": "evidence/slice_runs/slice_16_mixed_c100.log",
+      "exit_code": 0,
+      "total_requests": 670,
+      "total_errors": 73,
+      "error_rate": 0.109,
+      "note": "All errors are expected 409 conflicts from same-resource race scenarios; invariant_violations are zero.",
+      "duration_seconds": 10.744,
+      "throughput_per_second": 62.3628,
+      "p50_ms": 189.1803,
+      "p95_ms": 444.3592,
+      "p99_ms": 492.2385,
+      "marketplace_reads": {
+        "count": 500,
+        "status_counts": {
+          "200": 500
+        },
+        "p95_ms": 326.4167
+      },
+      "order_create_distinct": {
+        "count": 50,
+        "status_counts": {
+          "201": 50
+        },
+        "p95_ms": 498.9728
+      },
+      "same_ad_race": {
+        "count": 50,
+        "status_counts": {
+          "201": 1,
+          "409": 49
+        },
+        "p95_ms": 258.4739
+      },
+      "duplicate_idempotency": {
+        "count": 25,
+        "status_counts": {
+          "201": 25
+        },
+        "p95_ms": 118.8332
+      },
+      "payment_confirm_distinct": {
+        "count": 20,
+        "status_counts": {
+          "200": 20
+        },
+        "p95_ms": 166.541
+      },
+      "invariant_violations": 0
+    }
+  },
+  "profile_summary_mixed_c100_orders": {
+    "auth_get_user_by_id_p95_ms": 17.0631,
+    "idempotency_get_or_lock_p95_ms": 97.9632,
+    "db_reads_order_create_context_p95_ms": 60.6949,
+    "transaction_create_order_and_move_ad_p95_ms": 75.7654,
+    "cache_marketplace_invalidation_p95_ms": 8.2189,
+    "audit_order_created_and_ad_moved_p95_ms": 44.3538
+  }
+}

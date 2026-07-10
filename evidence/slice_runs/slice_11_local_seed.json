@@ -1,0 +1,381 @@
+{
+  "slice": "slice_11_hardening_deploy",
+  "phase": "local_seed",
+  "profile": "initial",
+  "target": {
+    "businesses": 2,
+    "orders": 2,
+    "marketplace_searches": 2,
+    "stripe_events": 2,
+    "manual_reviews": 1
+  },
+  "actual": {
+    "businesses": 2,
+    "ads": 2,
+    "orders": 2,
+    "workflow_orders": 2
+  },
+  "metrics": {
+    "duration_seconds": 8.035,
+    "throughput_per_second": 4.356,
+    "total_requests": 35,
+    "total_errors": 0,
+    "total_error_rate": 0.0,
+    "p50_ms": 224.4887,
+    "p95_ms": 321.3889,
+    "p99_ms": 400.2582,
+    "endpoints": {
+      "admin:business:approve": {
+        "count": 2,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 161.9063,
+        "p95_ms": 338.1481,
+        "p99_ms": 338.1481,
+        "avg_ms": 250.0272,
+        "status_counts": {
+          "200": 2
+        }
+      },
+      "auth:stress_admin": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 273.8758,
+        "p95_ms": 273.8758,
+        "p99_ms": 273.8758,
+        "avg_ms": 273.8758,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 251.3597,
+        "p95_ms": 251.3597,
+        "p99_ms": 251.3597,
+        "avg_ms": 251.3597,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_owner_1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 251.048,
+        "p95_ms": 251.048,
+        "p99_ms": 251.048,
+        "avg_ms": 251.048,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "auth:stress_remitter": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 186.7477,
+        "p95_ms": 186.7477,
+        "p99_ms": 186.7477,
+        "avg_ms": 186.7477,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "business:create": {
+        "count": 2,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 189.9366,
+        "p95_ms": 233.1209,
+        "p99_ms": 233.1209,
+        "avg_ms": 211.5287,
+        "status_counts": {
+          "201": 2
+        }
+      },
+      "business:submit": {
+        "count": 2,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 269.2355,
+        "p95_ms": 400.2582,
+        "p99_ms": 400.2582,
+        "avg_ms": 334.7468,
+        "status_counts": {
+          "200": 2
+        }
+      },
+      "business:upload:address_proof": {
+        "count": 2,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 213.6066,
+        "p95_ms": 229.7775,
+        "p99_ms": 229.7775,
+        "avg_ms": 221.692,
+        "status_counts": {
+          "201": 2
+        }
+      },
+      "business:upload:business_license": {
+        "count": 2,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 161.9753,
+        "p95_ms": 287.6558,
+        "p99_ms": 287.6558,
+        "avg_ms": 224.8155,
+        "status_counts": {
+          "201": 2
+        }
+      },
+      "business:upload:owner_identity": {
+        "count": 2,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 183.9049,
+        "p95_ms": 321.3889,
+        "p99_ms": 321.3889,
+        "avg_ms": 252.6469,
+        "status_counts": {
+          "201": 2
+        }
+      },
+      "business:upload:rif_document": {
+        "count": 2,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 207.1575,
+        "p95_ms": 286.9685,
+        "p99_ms": 286.9685,
+        "avg_ms": 247.063,
+        "status_counts": {
+          "201": 2
+        }
+      },
+      "stress:ads:create:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 195.4541,
+        "p95_ms": 195.4541,
+        "p99_ms": 195.4541,
+        "avg_ms": 195.4541,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:ads:create:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 172.8461,
+        "p95_ms": 172.8461,
+        "p99_ms": 172.8461,
+        "avg_ms": 172.8461,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:ads:search:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 100.6151,
+        "p95_ms": 100.6151,
+        "p99_ms": 100.6151,
+        "avg_ms": 100.6151,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:ads:search:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 91.9307,
+        "p95_ms": 91.9307,
+        "p99_ms": 91.9307,
+        "avg_ms": 91.9307,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:confirm:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 248.9725,
+        "p95_ms": 248.9725,
+        "p99_ms": 248.9725,
+        "avg_ms": 248.9725,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:confirm:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 295.9929,
+        "p95_ms": 295.9929,
+        "p99_ms": 295.9929,
+        "avg_ms": 295.9929,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 240.0383,
+        "p95_ms": 240.0383,
+        "p99_ms": 240.0383,
+        "avg_ms": 240.0383,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:credits:adjust:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 162.5369,
+        "p95_ms": 162.5369,
+        "p99_ms": 162.5369,
+        "avg_ms": 162.5369,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:deliver:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 158.8736,
+        "p95_ms": 158.8736,
+        "p99_ms": 158.8736,
+        "avg_ms": 158.8736,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:deliver:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 162.8261,
+        "p95_ms": 162.8261,
+        "p99_ms": 162.8261,
+        "avg_ms": 162.8261,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:evidence:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 104.7231,
+        "p95_ms": 104.7231,
+        "p99_ms": 104.7231,
+        "avg_ms": 104.7231,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:evidence:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 91.8599,
+        "p95_ms": 91.8599,
+        "p99_ms": 91.8599,
+        "avg_ms": 91.8599,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:jobs:dry_run": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 243.4264,
+        "p95_ms": 243.4264,
+        "p99_ms": 243.4264,
+        "avg_ms": 243.4264,
+        "status_counts": {
+          "200": 1
+        }
+      },
+      "stress:orders:create:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 254.715,
+        "p95_ms": 254.715,
+        "p99_ms": 254.715,
+        "avg_ms": 254.715,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:orders:create:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 273.1619,
+        "p95_ms": 273.1619,
+        "p99_ms": 273.1619,
+        "avg_ms": 273.1619,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:report:0": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 224.4887,
+        "p95_ms": 224.4887,
+        "p99_ms": 224.4887,
+        "avg_ms": 224.4887,
+        "status_counts": {
+          "201": 1
+        }
+      },
+      "stress:report:1": {
+        "count": 1,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "p50_ms": 199.6888,
+        "p95_ms": 199.6888,
+        "p99_ms": 199.6888,
+        "avg_ms": 199.6888,
+        "status_counts": {
+          "201": 1
+        }
+      }
+    }
+  },
+  "invariant_violations": {
+    "idempotency_duplicates": 0,
+    "idempotency_replay_conflicts": 0,
+    "double_credit_consumption": 0,
+    "double_credit_accreditation": 0,
+    "negative_balances": 0,
+    "invalid_transitions": 0,
+    "redis_failures": 0,
+    "db_errors": 0,
+    "timeouts": 0,
+    "deadlocks": 0,
+    "job_lock_failures": 0
+  },
+  "steps_recorded": 38,
+  "exit_code": 0
+}

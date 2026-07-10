@@ -1,0 +1,48 @@
+{
+  "elapsed_ms": 149720.315,
+  "marks": [
+    {
+      "name": "lock.acquire",
+      "elapsed_ms": 646.936
+    },
+    {
+      "name": "jobs.create_job_run",
+      "elapsed_ms": 932.991
+    },
+    {
+      "name": "audit.write",
+      "elapsed_ms": 221.179
+    },
+    {
+      "name": "orders.list_job_candidate_orders",
+      "elapsed_ms": 678.496
+    },
+    {
+      "name": "ads.list_expirable_ads",
+      "elapsed_ms": 388.395
+    },
+    {
+      "name": "businesses.list_expired_founder_businesses",
+      "elapsed_ms": 435.97
+    },
+    {
+      "name": "jobs.update_job_run",
+      "elapsed_ms": 291.157
+    },
+    {
+      "name": "audit.write",
+      "elapsed_ms": 326.954
+    },
+    {
+      "name": "lock.release",
+      "elapsed_ms": 57.791
+    }
+  ],
+  "counters": {
+    "processed_count": 482,
+    "changed_count": 472,
+    "skipped_count": 10,
+    "failed_count": 0
+  },
+  "job_status": "finished"
+}
