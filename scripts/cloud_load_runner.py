@@ -62,6 +62,7 @@ class CloudLoadRunner:
         amount_usd: str,
         payment_method: str,
         delivery_method: str,
+        profile_marketplace: bool,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.scenario = scenario
@@ -74,11 +75,16 @@ class CloudLoadRunner:
         self.amount_usd = amount_usd
         self.payment_method = payment_method
         self.delivery_method = delivery_method
+        self.profile_marketplace = profile_marketplace
         self.client_latencies: list[float] = []
         self.server_latencies: list[float] = []
         self.statuses: Counter[str] = Counter()
         self.errors: Counter[str] = Counter()
         self.edges: Counter[str] = Counter()
+        self.profiled_requests = 0
+        self.response_bytes_total = 0
+        self.profile_stage_counts: Counter[str] = Counter()
+        self.profile_cache_hit_counts: Counter[str] = Counter()
         self.samples: list[dict[str, Any]] = []
 
     async def run(self) -> dict[str, Any]:
@@ -106,6 +112,7 @@ class CloudLoadRunner:
             "status_counts": dict(self.statuses),
             "error_counts": dict(self.errors),
             "railway_edge_counts": dict(self.edges),
+            "cost_units": self._cost_units(setup_requests=len(tokens)),
             "cleanup": {
                 "required": cleanup_required,
                 "run_id": self.run_id if cleanup_required else None,
@@ -150,6 +157,8 @@ class CloudLoadRunner:
                     response = await client.get(path, headers=headers)
                     status = str(response.status_code)
                     self._capture_headers(response)
+                    self.response_bytes_total += len(response.content)
+                    self._capture_profile(response)
                 except httpx.RequestError as exc:
                     error_code = type(exc).__name__
                     self.errors[error_code] += 1
@@ -171,6 +180,8 @@ class CloudLoadRunner:
             return "/api/v1/version", headers
         if self.scenario == "marketplace":
             headers["Authorization"] = f"Bearer {tokens[index % len(tokens)]}"
+            if self.profile_marketplace:
+                headers["X-NODO-Profile"] = "1"
             path = (
                 "/api/v1/ads/search"
                 f"?amount_usd={self.amount_usd}"
@@ -180,6 +191,35 @@ class CloudLoadRunner:
             )
             return path, headers
         raise RuntimeError(f"unsupported scenario {self.scenario}")
+
+    def _capture_profile(self, response: httpx.Response) -> None:
+        if self.scenario != "marketplace" or not self.profile_marketplace:
+            return
+        try:
+            payload = response.json()
+        except ValueError:
+            return
+        profile = ((payload.get("data") or {}).get("_profile") or {}) if isinstance(payload, dict) else {}
+        if not isinstance(profile, dict):
+            return
+        stages = profile.get("stages")
+        if isinstance(stages, list):
+            self.profiled_requests += 1
+            for stage in stages:
+                if not isinstance(stage, dict):
+                    continue
+                name = stage.get("stage")
+                if isinstance(name, str):
+                    self.profile_stage_counts[name] += 1
+                meta = stage.get("meta") or stage.get("metadata")
+                if isinstance(meta, dict) and meta.get("hit_type"):
+                    self.profile_cache_hit_counts[str(meta["hit_type"])] += 1
+        dependency = profile.get("dependency")
+        auth_stages = (((dependency or {}).get("auth") or {}).get("stages") or []) if isinstance(dependency, dict) else []
+        if isinstance(auth_stages, list):
+            for stage in auth_stages:
+                if isinstance(stage, dict) and isinstance(stage.get("stage"), str):
+                    self.profile_stage_counts[stage["stage"]] += 1
 
     def _capture_headers(self, response: httpx.Response) -> None:
         process_time = response.headers.get("x-nodo-process-time-ms")
@@ -191,6 +231,41 @@ class CloudLoadRunner:
         edge = response.headers.get("x-railway-edge")
         if edge:
             self.edges[edge] += 1
+
+    def _cost_units(self, *, setup_requests: int) -> dict[str, Any]:
+        measured_requests = len(self.client_latencies)
+        backend_process_ms_total = round(sum(self.server_latencies), 4)
+        return {
+            "unit": "operational_units_not_dollars",
+            "note": "Use provider billing exports to convert these units into dollars; this runner does not invent prices.",
+            "scenario": self.scenario,
+            "measured_http_requests": measured_requests,
+            "setup_http_requests": setup_requests,
+            "total_http_requests": measured_requests + setup_requests,
+            "synthetic_users_created": setup_requests if self.scenario == "marketplace" else 0,
+            "response_bytes_total": self.response_bytes_total,
+            "response_kb_total": round(self.response_bytes_total / 1024, 4),
+            "client_ms_total": round(sum(self.client_latencies), 4),
+            "backend_process_ms_total": backend_process_ms_total,
+            "profiled_requests": self.profiled_requests,
+            "profile_stage_counts": dict(self.profile_stage_counts),
+            "profile_cache_hit_counts": dict(self.profile_cache_hit_counts),
+            "transport_error_counts": dict(self.errors),
+        }
+
+    def scalability_cost_row(self) -> dict[str, Any]:
+        return {
+            "scenario": self.scenario,
+            "concurrency": self.concurrency,
+            "requests": self.requests,
+            "status_counts": dict(self.statuses),
+            "client_p95_ms": _percentiles(self.client_latencies)["p95_ms"],
+            "server_p95_ms": _percentiles(self.server_latencies)["p95_ms"],
+            "response_kb_total": round(self.response_bytes_total / 1024, 4),
+            "profiled_requests": self.profiled_requests,
+            "cache_hits": dict(self.profile_cache_hit_counts),
+            "transport_errors": dict(self.errors),
+        }
 
 
 def main() -> int:
@@ -207,6 +282,7 @@ def main() -> int:
     parser.add_argument("--amount-usd", default="50.00")
     parser.add_argument("--payment-method", default="zelle")
     parser.add_argument("--delivery-method", default="pago_movil_ve")
+    parser.add_argument("--profile-marketplace", action="store_true")
     args = parser.parse_args()
     bot_token = os.environ.get(args.bot_token_env)
     payload = asyncio.run(
@@ -222,6 +298,7 @@ def main() -> int:
             amount_usd=args.amount_usd,
             payment_method=args.payment_method,
             delivery_method=args.delivery_method,
+            profile_marketplace=args.profile_marketplace,
         ).run()
     )
     write_json(Path(args.output), payload)
