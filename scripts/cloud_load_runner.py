@@ -9,6 +9,7 @@ import math
 import os
 import time
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -16,6 +17,14 @@ from urllib.parse import urlencode
 import httpx
 
 from local_hardening_common import write_json
+
+
+@dataclass(frozen=True)
+class RequestSpec:
+    method: str
+    path: str
+    headers: dict[str, str]
+    json: dict[str, Any] | None = None
 
 
 def _percentiles(values: list[float]) -> dict[str, float | int]:
@@ -63,6 +72,7 @@ class CloudLoadRunner:
         payment_method: str,
         delivery_method: str,
         profile_marketplace: bool,
+        order_ad_ids: list[str],
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.scenario = scenario
@@ -76,6 +86,7 @@ class CloudLoadRunner:
         self.payment_method = payment_method
         self.delivery_method = delivery_method
         self.profile_marketplace = profile_marketplace
+        self.order_ad_ids = order_ad_ids
         self.client_latencies: list[float] = []
         self.server_latencies: list[float] = []
         self.statuses: Counter[str] = Counter()
@@ -91,11 +102,12 @@ class CloudLoadRunner:
         started_at = time.perf_counter()
         limits = httpx.Limits(max_connections=max(20, self.concurrency), max_keepalive_connections=max(20, self.concurrency))
         async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout_seconds, limits=limits) as client:
-            tokens = await self._setup_tokens(client) if self.scenario == "marketplace" else []
+            self._validate_scenario_inputs()
+            tokens = await self._setup_tokens(client) if self._scenario_requires_auth() else []
             await self._run_requests(client, tokens=tokens)
         duration_seconds = round(time.perf_counter() - started_at, 4)
         total_errors = sum(count for status, count in self.statuses.items() if int(status) >= 400)
-        cleanup_required = self.scenario == "marketplace"
+        cleanup_required = self._scenario_requires_auth()
         return {
             "phase": "cloud_load_runner",
             "run_id": self.run_id,
@@ -116,11 +128,32 @@ class CloudLoadRunner:
             "cleanup": {
                 "required": cleanup_required,
                 "run_id": self.run_id if cleanup_required else None,
-                "note": "Marketplace scenario creates synthetic auth users; clean later with staging cleanup by run_id." if cleanup_required else None,
+                "note": self._cleanup_note() if cleanup_required else None,
             },
             "samples": self.samples,
             "exit_code": 1 if total_errors else 0,
         }
+
+    def _scenario_requires_auth(self) -> bool:
+        return self.scenario in {"marketplace", "order-create", "mixed-read-order"}
+
+    def _validate_scenario_inputs(self) -> None:
+        if self.scenario == "order-create" and len(self.order_ad_ids) < self.requests:
+            raise RuntimeError("order-create requires --order-ad-ids with at least one prepared synthetic ad id per request")
+        if self.scenario == "mixed-read-order":
+            required_order_ads = self._mixed_order_attempts()
+            if len(self.order_ad_ids) < required_order_ads:
+                raise RuntimeError("mixed-read-order requires enough prepared synthetic --order-ad-ids for its order attempts")
+
+    def _cleanup_note(self) -> str:
+        if self.scenario == "marketplace":
+            return "Marketplace scenario creates synthetic auth users; clean later with staging cleanup by run_id."
+        return "Order scenarios create synthetic auth users and mutate the explicit prepared ad ids; clean staging fixtures by the fixture run_id and this run_id."
+
+    def _mixed_order_attempts(self) -> int:
+        if self.scenario != "mixed-read-order":
+            return 0
+        return min(len(self.order_ad_ids), max(1, self.requests // 4))
 
     async def _setup_tokens(self, client: httpx.AsyncClient) -> list[str]:
         if not self.bot_token:
@@ -149,12 +182,12 @@ class CloudLoadRunner:
 
         async def one(index: int) -> None:
             async with semaphore:
-                path, headers = self._request_spec(index, tokens=tokens)
+                spec = self._request_spec(index, tokens=tokens)
                 started = time.perf_counter()
                 status = "599"
                 error_code: str | None = None
                 try:
-                    response = await client.get(path, headers=headers)
+                    response = await client.request(spec.method, spec.path, headers=spec.headers, json=spec.json)
                     status = str(response.status_code)
                     self._capture_headers(response)
                     self.response_bytes_total += len(response.content)
@@ -166,31 +199,74 @@ class CloudLoadRunner:
                 self.client_latencies.append(elapsed_ms)
                 self.statuses[status] += 1
                 if len(self.samples) < 20:
-                    self.samples.append({"index": index, "path": path.split("?", 1)[0], "status": status, "elapsed_ms": round(elapsed_ms, 4), "error": error_code})
+                    self.samples.append({
+                        "index": index,
+                        "method": spec.method,
+                        "path": spec.path.split("?", 1)[0],
+                        "status": status,
+                        "elapsed_ms": round(elapsed_ms, 4),
+                        "error": error_code,
+                    })
 
         await asyncio.gather(*(one(index) for index in range(self.requests)))
 
-    def _request_spec(self, index: int, *, tokens: list[str]) -> tuple[str, dict[str, str]]:
+    def _request_spec(self, index: int, *, tokens: list[str]) -> RequestSpec:
         headers = {"X-Request-Id": f"req_{self.run_id}_{index}"}
         if self.scenario == "health":
-            return "/api/v1/health", headers
+            return RequestSpec("GET", "/api/v1/health", headers)
         if self.scenario == "ready":
-            return "/api/v1/ready", headers
+            return RequestSpec("GET", "/api/v1/ready", headers)
         if self.scenario == "version":
-            return "/api/v1/version", headers
+            return RequestSpec("GET", "/api/v1/version", headers)
         if self.scenario == "marketplace":
-            headers["Authorization"] = f"Bearer {tokens[index % len(tokens)]}"
-            if self.profile_marketplace:
-                headers["X-NODO-Profile"] = "1"
-            path = (
-                "/api/v1/ads/search"
-                f"?amount_usd={self.amount_usd}"
-                f"&payment_method={self.payment_method}"
-                f"&delivery_method={self.delivery_method}"
-                "&limit=20"
-            )
-            return path, headers
+            return self._marketplace_request_spec(index, tokens=tokens, headers=headers)
+        if self.scenario == "order-create":
+            return self._order_request_spec(index, tokens=tokens, ad_id=self.order_ad_ids[index], headers=headers)
+        if self.scenario == "mixed-read-order":
+            order_attempts = self._mixed_order_attempts()
+            if index < order_attempts:
+                return self._order_request_spec(index, tokens=tokens, ad_id=self.order_ad_ids[index], headers=headers)
+            return self._marketplace_request_spec(index, tokens=tokens, headers=headers)
         raise RuntimeError(f"unsupported scenario {self.scenario}")
+
+    def _marketplace_request_spec(self, index: int, *, tokens: list[str], headers: dict[str, str]) -> RequestSpec:
+        headers = dict(headers)
+        headers["Authorization"] = f"Bearer {tokens[index % len(tokens)]}"
+        if self.profile_marketplace:
+            headers["X-NODO-Profile"] = "1"
+        path = (
+            "/api/v1/ads/search"
+            f"?amount_usd={self.amount_usd}"
+            f"&payment_method={self.payment_method}"
+            f"&delivery_method={self.delivery_method}"
+            "&limit=20"
+        )
+        return RequestSpec("GET", path, headers)
+
+    def _order_request_spec(self, index: int, *, tokens: list[str], ad_id: str, headers: dict[str, str]) -> RequestSpec:
+        headers = dict(headers)
+        headers.update(
+            {
+                "Authorization": f"Bearer {tokens[index % len(tokens)]}",
+                "Content-Type": "application/json",
+                "Idempotency-Key": f"{self.run_id}_cloud_order_{index}",
+            }
+        )
+        return RequestSpec(
+            "POST",
+            "/api/v1/orders",
+            headers,
+            {
+                "ad_id": ad_id,
+                "amount_usd": self.amount_usd,
+                "receiver_data": {
+                    "bank": "Banco Local",
+                    "phone": "+584121234567",
+                    "document": f"C{index:08d}",
+                    "holder": f"Cloud Receiver {index}",
+                },
+            },
+        )
 
     def _capture_profile(self, response: httpx.Response) -> None:
         if self.scenario != "marketplace" or not self.profile_marketplace:
@@ -242,7 +318,8 @@ class CloudLoadRunner:
             "measured_http_requests": measured_requests,
             "setup_http_requests": setup_requests,
             "total_http_requests": measured_requests + setup_requests,
-            "synthetic_users_created": setup_requests if self.scenario == "marketplace" else 0,
+            "synthetic_users_created": setup_requests if self._scenario_requires_auth() else 0,
+            "order_ad_ids_supplied": len(self.order_ad_ids),
             "response_bytes_total": self.response_bytes_total,
             "response_kb_total": round(self.response_bytes_total / 1024, 4),
             "client_ms_total": round(sum(self.client_latencies), 4),
@@ -271,7 +348,7 @@ class CloudLoadRunner:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
-    parser.add_argument("--scenario", choices=["health", "ready", "version", "marketplace"], default="health")
+    parser.add_argument("--scenario", choices=["health", "ready", "version", "marketplace", "order-create", "mixed-read-order"], default="health")
     parser.add_argument("--requests", type=int, default=200)
     parser.add_argument("--concurrency", type=int, default=50)
     parser.add_argument("--timeout-seconds", type=float, default=30.0)
@@ -283,24 +360,42 @@ def main() -> int:
     parser.add_argument("--payment-method", default="zelle")
     parser.add_argument("--delivery-method", default="pago_movil_ve")
     parser.add_argument("--profile-marketplace", action="store_true")
+    parser.add_argument("--order-ad-ids", default="", help="Comma-separated prepared synthetic ad ids. Required for mutating order scenarios.")
     args = parser.parse_args()
     bot_token = os.environ.get(args.bot_token_env)
-    payload = asyncio.run(
-        CloudLoadRunner(
-            base_url=args.base_url,
-            scenario=args.scenario,
-            run_id=args.run_id,
-            requests=args.requests,
-            concurrency=args.concurrency,
-            timeout_seconds=args.timeout_seconds,
-            bot_token=bot_token,
-            remitters=args.remitters,
-            amount_usd=args.amount_usd,
-            payment_method=args.payment_method,
-            delivery_method=args.delivery_method,
-            profile_marketplace=args.profile_marketplace,
-        ).run()
+    order_ad_ids = [item.strip() for item in args.order_ad_ids.split(",") if item.strip()]
+    runner = CloudLoadRunner(
+        base_url=args.base_url,
+        scenario=args.scenario,
+        run_id=args.run_id,
+        requests=args.requests,
+        concurrency=args.concurrency,
+        timeout_seconds=args.timeout_seconds,
+        bot_token=bot_token,
+        remitters=args.remitters,
+        amount_usd=args.amount_usd,
+        payment_method=args.payment_method,
+        delivery_method=args.delivery_method,
+        profile_marketplace=args.profile_marketplace,
+        order_ad_ids=order_ad_ids,
     )
+    try:
+        payload = asyncio.run(runner.run())
+    except RuntimeError as exc:
+        payload = {
+            "phase": "cloud_load_runner",
+            "run_id": args.run_id,
+            "scenario": args.scenario,
+            "target": args.base_url,
+            "requests": args.requests,
+            "concurrency": args.concurrency,
+            "status_counts": {},
+            "error_counts": {type(exc).__name__: 1},
+            "failure": str(exc),
+            "cost_units": runner._cost_units(setup_requests=0),
+            "cleanup": {"required": False, "run_id": None, "note": None},
+            "exit_code": 1,
+        }
     write_json(Path(args.output), payload)
     print(json.dumps(payload, indent=2))
     return int(payload["exit_code"])

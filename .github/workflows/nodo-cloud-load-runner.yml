@@ -17,6 +17,8 @@ on:
           - ready
           - version
           - marketplace
+          - order-create
+          - mixed-read-order
       requests:
         description: "Total requests"
         required: true
@@ -37,6 +39,10 @@ on:
         options:
           - "false"
           - "true"
+      order_ad_ids:
+        description: "Comma-separated prepared synthetic ad ids for mutating order scenarios"
+        required: false
+        default: ""
 
 jobs:
   cloud-load:
@@ -72,6 +78,7 @@ jobs:
             --requests "${{ inputs.requests }}" \
             --concurrency "${{ inputs.concurrency }}" \
             --remitters "${{ inputs.remitters }}" \
+            --order-ad-ids "${{ inputs.order_ad_ids }}" \
             --run-id "$RUN_ID" \
             --output "evidence/slice_runs/${RUN_ID}.json" \
             "${PROFILE_ARGS[@]}"

@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -17,11 +18,14 @@ if str(SCRIPTS) not in sys.path:
 import apply_staging_migrations  # noqa: E402
 import apply_staging_single_migration  # noqa: E402
 import capacity_real  # noqa: E402
+import cloud_load_runner  # noqa: E402
+import external_latency_probe  # noqa: E402
 import reconcile_staging_migration_ledger  # noqa: E402
 import staging_cleanup_synthetic_run  # noqa: E402
 import staging_guardrails  # noqa: E402
 import staging_storage_smoke  # noqa: E402
 import staging_telegram_webhook_smoke  # noqa: E402
+from app.auth.jwt import decode_access_token  # noqa: E402
 from app.routes.telegram_bot import telegram_webhook_secret  # noqa: E402
 
 
@@ -505,8 +509,11 @@ def test_capacity_db_seed_api_remote_fixture_mode_is_identified(tmp_path: Path, 
     payload = harness.run("marketplace-reads")
 
     assert payload["fixture_mode"] == "db_seed_api_remote"
-    assert payload["fixture_mode_detail"]["seed"] == "direct_db_seed"
+    assert payload["fixture_mode_detail"]["seed"] == "hybrid_direct_db_seed_plus_configurable_ad_setup"
     assert payload["fixture_mode_detail"]["measured_requests"] == "remote_api"
+    assert payload["fixture_setup_mode"] == "api_ads"
+    assert payload["fixture_setup"]["ad_setup"] == "api_ads"
+    assert "setup_note" in payload["fixture_mode_detail"]
 
 
 def test_capacity_api_remote_only_blocks_until_db_free_flow_exists(tmp_path: Path) -> None:
@@ -530,6 +537,333 @@ def test_capacity_api_remote_only_blocks_until_db_free_flow_exists(tmp_path: Pat
         assert "api_remote_only is blocked" in str(exc)
     else:
         raise AssertionError("api_remote_only must block while DB seed/invariants are required")
+
+
+def test_capacity_parses_process_time_and_server_timing() -> None:
+    assert capacity_real.parse_process_time_ms("12.3456") == 12.3456
+    assert capacity_real.parse_process_time_ms("-1") is None
+    assert capacity_real.parse_process_time_ms("not-a-number") is None
+
+    parsed = capacity_real.parse_server_timing("app;dur=12.3, db;dur=4.5;desc=query, cache;dur=0.75")
+
+    assert parsed == {"app": 12.3, "db": 4.5, "cache": 0.75}
+
+
+def test_capacity_latency_isolation_aggregates_headers_and_delta(tmp_path: Path) -> None:
+    env_file = _env_file(tmp_path)
+    harness = capacity_real.RealCapacityHarness(
+        env_file=env_file,
+        run_id="staging-run-0001",
+        businesses=1,
+        ads_per_business=1,
+        remitters=1,
+        marketplace_reads=1,
+        order_creates=0,
+        same_ad_race_requests=2,
+        payment_confirms=0,
+    )
+
+    response = httpx.Response(
+        200,
+        headers={
+            "X-NODO-Process-Time-Ms": "15.5",
+            "Server-Timing": "app;dur=15.5, db;dur=4.25",
+            "X-Request-Id": "req_staging_0001",
+            "X-Correlation-Id": "corr_staging_0001",
+        },
+        content=b'{"data":{"items":[]}}',
+    )
+    harness._record_latency_sample(
+        name="capacity:marketplace:read",
+        method="GET",
+        path="/api/v1/ads/search",
+        status_code=200,
+        external_duration_ms=45.5,
+        response=response,
+    )
+
+    summary = harness.latency_isolation_summary()
+
+    assert summary["backend_process"]["p95_ms"] == 15.5
+    assert summary["external_minus_backend"]["p95_ms"] == 30.0
+    assert summary["server_timing"]["db"]["p95_ms"] == 4.25
+    assert summary["response_size_bytes"]["p95_ms"] == len(response.content)
+    assert harness.latency_samples[0]["request_id"] == "req_staging_0001"
+    assert harness.latency_samples[0]["correlation_id"] == "corr_staging_0001"
+
+
+def test_capacity_classifies_httpx_request_errors() -> None:
+    assert capacity_real.classify_request_error(httpx.ConnectTimeout("connect timed out")) == "CONNECT_TIMEOUT"
+    assert capacity_real.classify_request_error(httpx.ConnectError("all connection attempts failed")) == "CONNECT_ERROR"
+    assert capacity_real.classify_request_error(httpx.ReadTimeout("read timed out")) == "READ_TIMEOUT"
+    assert capacity_real.classify_request_error(httpx.WriteTimeout("write timed out")) == "WRITE_TIMEOUT"
+    assert capacity_real.classify_request_error(httpx.PoolTimeout("pool timed out")) == "POOL_TIMEOUT"
+    assert (
+        capacity_real.classify_request_error(httpx.RemoteProtocolError("server disconnected"))
+        == "REMOTE_DISCONNECT_OR_PROTOCOL_ERROR"
+    )
+    assert capacity_real.classify_request_error(httpx.RequestError("generic failure")) == "UNKNOWN_CLIENT_ERROR"
+
+
+def test_capacity_redacts_request_error_message() -> None:
+    message = (
+        "Authorization: Bearer secret-token DATABASE_URL=postgres://secret "
+        "refresh_token=refresh-secret https://api.example.test/path?access_token=secret"
+    )
+
+    redacted = capacity_real.redact_exception_message(message)
+
+    assert "secret-token" not in redacted
+    assert "postgres://secret" not in redacted
+    assert "refresh-secret" not in redacted
+    assert "access_token=secret" not in redacted
+
+
+def test_capacity_records_request_error_samples_outside_latency_limit(tmp_path: Path) -> None:
+    env_file = _env_file(tmp_path)
+    harness = capacity_real.RealCapacityHarness(
+        env_file=env_file,
+        run_id="staging-run-0001",
+        businesses=1,
+        ads_per_business=1,
+        remitters=1,
+        marketplace_reads=1,
+        order_creates=0,
+        same_ad_race_requests=2,
+        payment_confirms=0,
+        profile_detail_limit=0,
+    )
+
+    class FailingClient:
+        base_url = "https://nodo-staging.example.test"
+
+        def __init__(self) -> None:
+            self.headers: dict[str, str] = {}
+
+        async def request(self, _method: str, _url: str, **kwargs: Any) -> httpx.Response:
+            self.headers = kwargs["headers"]
+            raise httpx.ReadTimeout(
+                "read timeout Authorization: Bearer secret-token refresh_token=secret",
+                request=httpx.Request("GET", f"{self.base_url}/api/v1/ads/search"),
+            )
+
+    client = FailingClient()
+
+    response = asyncio.run(
+        harness._request(
+            client,  # type: ignore[arg-type]
+            "capacity:marketplace:read",
+            "GET",
+            "/api/v1/ads/search",
+            headers={"Authorization": "Bearer should-not-be-persisted", "X-Request-Id": "req_existing"},
+        )
+    )
+
+    assert response.status_code == 599
+    assert harness.latency_samples == []
+    assert len(harness.request_error_samples) == 1
+    sample = harness.request_error_samples[0]
+    assert sample["classification"] == "READ_TIMEOUT"
+    assert sample["exception_class"] == "ReadTimeout"
+    assert sample["request_id"] == "req_existing"
+    assert sample["correlation_id"] == "corr_staging-run-0001"
+    assert sample["operation_id"] == "op_staging-run-0001_capacity_marketplace_read"
+    assert sample["response_started"] is False
+    assert "secret-token" not in json.dumps(sample)
+    assert "should-not-be-persisted" not in json.dumps(sample)
+    assert client.headers["X-Correlation-Id"] == "corr_staging-run-0001"
+    assert client.headers["X-NODO-Operation-Id"] == "op_staging-run-0001_capacity_marketplace_read"
+    assert client.headers["X-NODO-Surface"] == "client_mini_app"
+
+    summary = harness.request_error_summary()
+    assert summary["total"] == 1
+    assert summary["by_classification"]["READ_TIMEOUT"] == 1
+    assert summary["by_endpoint"]["GET /api/v1/ads/search"] == 1
+    assert summary["by_group"]["capacity:marketplace:read"] == 1
+
+
+def test_capacity_remote_mode_uses_staging_guardrails(tmp_path: Path) -> None:
+    env_file = _env_file(tmp_path, extra={"NODO_STAGING_API_HOST_ALLOWLIST": "other.example.test"})
+
+    try:
+        capacity_real.RealCapacityHarness(
+            env_file=env_file,
+            run_id="staging-run-0001",
+            businesses=1,
+            ads_per_business=1,
+            remitters=1,
+            marketplace_reads=1,
+            order_creates=0,
+            same_ad_race_requests=2,
+            payment_confirms=0,
+            remote_base_url="https://nodo-staging.example.test",
+            fixture_mode="db_seed_api_remote",
+        )
+    except staging_guardrails.StagingGuardrailError as exc:
+        assert "API base URL host is not in NODO_STAGING_API_HOST_ALLOWLIST" in str(exc)
+    else:
+        raise AssertionError("remote staging capacity runs must enforce API host guardrails")
+
+
+def test_capacity_remote_client_uses_explicit_max_connections(tmp_path: Path) -> None:
+    harness = capacity_real.RealCapacityHarness(
+        env_file=_env_file(tmp_path),
+        run_id="staging-run-0001",
+        businesses=1,
+        ads_per_business=1,
+        remitters=1,
+        marketplace_reads=1,
+        order_creates=0,
+        same_ad_race_requests=2,
+        payment_confirms=0,
+        remote_base_url="https://nodo-staging.example.test",
+        fixture_mode="db_seed_api_remote",
+        max_connections=7,
+    )
+
+    client = harness._client_context(concurrency=50)
+
+    try:
+        assert client._transport._pool._max_connections == 7  # type: ignore[attr-defined]  # noqa: SLF001
+    finally:
+        asyncio.run(client.aclose())
+
+
+def test_capacity_output_separates_setup_and_measured_load(tmp_path: Path) -> None:
+    harness = capacity_real.RealCapacityHarness(
+        env_file=_env_file(tmp_path),
+        run_id="staging-run-0001",
+        businesses=1,
+        ads_per_business=1,
+        remitters=1,
+        marketplace_reads=1,
+        order_creates=0,
+        same_ad_race_requests=2,
+        payment_confirms=0,
+    )
+
+    async def fake_marketplace_reads(_prepared: dict[str, Any]) -> dict[str, Any]:
+        started = time.perf_counter()
+        harness.metrics.record("capacity:marketplace:read", 200, started, route_group="GET /api/v1/ads/search")
+        return {"status_codes": [200]}
+
+    harness.prepare_dataset = lambda: {"businesses": [], "ads": [], "payment_ads": [], "remitters": []}  # type: ignore[method-assign]
+    harness.run_marketplace_reads = fake_marketplace_reads  # type: ignore[method-assign]
+    harness.scan_invariants = lambda: {"negative_balances": 0, "double_credit_consumption": 0}  # type: ignore[method-assign]
+
+    payload = harness.run("marketplace-reads")
+
+    assert payload["phase_timings"]["setup_seconds"] >= 0
+    assert payload["phase_timings"]["measured_load_seconds"] >= 0
+    assert payload["phase_timings"]["total_seconds"] >= payload["phase_timings"]["measured_load_seconds"]
+    assert payload["metrics"]["total_requests"] == 1
+
+
+def test_capacity_rejects_unknown_fixture_setup_mode(tmp_path: Path) -> None:
+    try:
+        capacity_real.RealCapacityHarness(
+            env_file=_env_file(tmp_path),
+            run_id="staging-run-0001",
+            businesses=1,
+            ads_per_business=1,
+            remitters=1,
+            marketplace_reads=1,
+            order_creates=0,
+            same_ad_race_requests=2,
+            payment_confirms=0,
+            fixture_setup_mode="unknown",  # type: ignore[arg-type]
+        )
+    except ValueError as exc:
+        assert "fixture_setup_mode must be one of" in str(exc)
+    else:
+        raise AssertionError("capacity harness must reject unknown fixture setup modes")
+
+
+def test_capacity_db_direct_ad_setup_dispatches_without_api_call(tmp_path: Path, monkeypatch: Any) -> None:
+    harness = capacity_real.RealCapacityHarness(
+        env_file=_env_file(tmp_path),
+        run_id="staging-run-0001",
+        businesses=1,
+        ads_per_business=1,
+        remitters=1,
+        marketplace_reads=1,
+        order_creates=0,
+        same_ad_race_requests=2,
+        payment_confirms=0,
+        fixture_setup_mode="db_direct_ads",
+    )
+    calls: list[str] = []
+
+    def fake_db(**_kwargs: Any) -> dict[str, Any]:
+        calls.append("db")
+        return {"id": "ad-db"}
+
+    def fake_api(**_kwargs: Any) -> dict[str, Any]:
+        calls.append("api")
+        return {"id": "ad-api"}
+
+    monkeypatch.setattr(harness, "_create_ad_fixture_direct_db", fake_db)
+    monkeypatch.setattr(harness, "_create_ad_fixture_via_api", fake_api)
+
+    ad = harness._create_ad_fixture(
+        owner={"user": {"id": "user-1"}},
+        fixture={"business_id": "business-1"},
+        payment_method_id="payment-method-1",
+        payment_method="zelle",
+        business_index=0,
+        ad_index=0,
+        amount_min=20,
+        amount_max=100,
+        request_label="capacity:ads:create:0:0",
+    )
+
+    assert ad == {"id": "ad-db"}
+    assert calls == ["db"]
+
+
+def test_capacity_output_reports_db_direct_fixture_setup_mode(tmp_path: Path) -> None:
+    harness = capacity_real.RealCapacityHarness(
+        env_file=_env_file(tmp_path),
+        run_id="staging-run-0001",
+        businesses=1,
+        ads_per_business=1,
+        remitters=1,
+        marketplace_reads=1,
+        order_creates=0,
+        same_ad_race_requests=2,
+        payment_confirms=0,
+        fixture_setup_mode="db_direct_ads",
+    )
+    harness.prepare_dataset = lambda: {"businesses": [], "ads": [], "payment_ads": [], "remitters": []}  # type: ignore[method-assign]
+    harness.run_marketplace_reads = lambda _prepared: {"status_codes": []}  # type: ignore[method-assign]
+    harness.scan_invariants = lambda: {"negative_balances": 0, "double_credit_consumption": 0}  # type: ignore[method-assign]
+    harness._direct_ads_created = 3
+    harness._marketplace_cache_invalidated = True
+
+    payload = harness.run("order-flow")
+
+    assert payload["fixture_setup_mode"] == "db_direct_ads"
+    assert payload["fixture_setup"]["ad_setup"] == "db_direct_ads"
+    assert payload["fixture_setup"]["direct_ads_created"] == 3
+    assert payload["fixture_setup"]["marketplace_cache_invalidated"] is True
+
+
+def test_capacity_fallback_db_token_helper_creates_old_but_unexpired_token() -> None:
+    issued_at = int(time.time()) - 360
+    token = capacity_real.create_access_token_at(
+        user_id="user-1",
+        role="remitter",
+        status="active",
+        secret="test-secret",
+        ttl_seconds=900,
+        issued_at=issued_at,
+    )
+
+    payload = decode_access_token(token, "test-secret")
+
+    assert payload["sub"] == "user-1"
+    assert int(time.time()) - payload["iat"] > 300
+    assert payload["exp"] > int(time.time())
 
 
 def test_capacity_profile_marketplace_adds_profile_header(tmp_path: Path, monkeypatch: Any) -> None:
@@ -634,6 +968,387 @@ def test_capacity_profile_summary_aggregates_stages_without_secrets(tmp_path: Pa
     assert "secret" not in serialized.lower()
 
 
+def test_cloud_load_runner_cost_units_capture_profile_without_secrets() -> None:
+    runner = cloud_load_runner.CloudLoadRunner(
+        base_url="https://nodo-staging.example.test",
+        scenario="marketplace",
+        run_id="cloud-cost-test",
+        requests=10,
+        concurrency=5,
+        timeout_seconds=5.0,
+        bot_token="secret-token",
+        remitters=3,
+        amount_usd="50.00",
+        payment_method="zelle",
+        delivery_method="pago_movil_ve",
+        profile_marketplace=True,
+        order_ad_ids=[],
+    )
+    response = httpx.Response(
+        200,
+        headers={"X-NODO-Process-Time-Ms": "12.5", "X-Railway-Edge": "mia1"},
+        json={
+            "data": {
+                "items": [],
+                "_profile": {
+                    "stages": [
+                        {"stage": "cache:hit", "elapsed_ms": 0.1, "metadata": {"hit_type": "local"}},
+                        {"stage": "db:query:list_marketplace_ads_with_businesses", "elapsed_ms": 5.0},
+                    ],
+                    "dependency": {
+                        "auth": {
+                            "stages": [{"stage": "auth:marketplace_decode_access_token", "elapsed_ms": 0.2}],
+                        }
+                    },
+                },
+            }
+        },
+    )
+
+    runner.client_latencies.append(20.0)
+    runner._capture_headers(response)
+    runner.response_bytes_total += len(response.content)
+    runner._capture_profile(response)
+    summary = runner._cost_units(setup_requests=3)
+    serialized = json.dumps(summary)
+
+    assert summary["unit"] == "operational_units_not_dollars"
+    assert summary["total_http_requests"] == 4
+    assert summary["synthetic_users_created"] == 3
+    assert summary["profiled_requests"] == 1
+    assert summary["profile_cache_hit_counts"]["local"] == 1
+    assert summary["profile_stage_counts"]["db:query:list_marketplace_ads_with_businesses"] == 1
+    assert "secret-token" not in serialized
+    assert "Bearer " not in serialized
+
+
+def test_cloud_load_runner_profile_marketplace_adds_header() -> None:
+    runner = cloud_load_runner.CloudLoadRunner(
+        base_url="https://nodo-staging.example.test",
+        scenario="marketplace",
+        run_id="cloud-profile-test",
+        requests=1,
+        concurrency=1,
+        timeout_seconds=5.0,
+        bot_token="secret-token",
+        remitters=1,
+        amount_usd="50.00",
+        payment_method="zelle",
+        delivery_method="pago_movil_ve",
+        profile_marketplace=True,
+        order_ad_ids=[],
+    )
+
+    spec = runner._request_spec(0, tokens=["access-token"])
+
+    assert spec.method == "GET"
+    assert spec.path.startswith("/api/v1/ads/search")
+    assert spec.headers["X-NODO-Profile"] == "1"
+    assert spec.headers["Authorization"] == "Bearer access-token"
+
+
+def test_cloud_load_runner_order_create_requires_explicit_prepared_ads() -> None:
+    runner = cloud_load_runner.CloudLoadRunner(
+        base_url="https://nodo-staging.example.test",
+        scenario="order-create",
+        run_id="cloud-order-test",
+        requests=2,
+        concurrency=2,
+        timeout_seconds=5.0,
+        bot_token="secret-token",
+        remitters=2,
+        amount_usd="50.00",
+        payment_method="zelle",
+        delivery_method="pago_movil_ve",
+        profile_marketplace=False,
+        order_ad_ids=["ad_1"],
+    )
+
+    try:
+        runner._validate_scenario_inputs()
+    except RuntimeError as exc:
+        assert "order-create requires --order-ad-ids" in str(exc)
+    else:
+        raise AssertionError("order-create must not run without one prepared ad per request")
+
+
+def test_cloud_load_runner_order_create_builds_post_without_sensitive_payload() -> None:
+    runner = cloud_load_runner.CloudLoadRunner(
+        base_url="https://nodo-staging.example.test",
+        scenario="order-create",
+        run_id="cloud-order-test",
+        requests=1,
+        concurrency=1,
+        timeout_seconds=5.0,
+        bot_token="secret-token",
+        remitters=1,
+        amount_usd="50.00",
+        payment_method="zelle",
+        delivery_method="pago_movil_ve",
+        profile_marketplace=False,
+        order_ad_ids=["ad_prepared_1"],
+    )
+
+    spec = runner._request_spec(0, tokens=["access-token"])
+    serialized = json.dumps({"headers": spec.headers, "body": spec.json})
+
+    assert spec.method == "POST"
+    assert spec.path == "/api/v1/orders"
+    assert spec.headers["Idempotency-Key"] == "cloud-order-test_cloud_order_0"
+    assert spec.json is not None
+    assert spec.json["ad_id"] == "ad_prepared_1"
+    assert spec.json["amount_usd"] == "50.00"
+    assert "secret-token" not in serialized
+    assert "account_value" not in serialized
+
+
+def test_external_latency_probe_parser_accepts_client_modes(tmp_path: Path) -> None:
+    base_args = [
+        "--env-file",
+        str(_env_file(tmp_path)),
+        "--remote-base-url",
+        "https://nodo-staging.example.test",
+        "--path",
+        "/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&delivery_method=pago_movil_ve&limit=20",
+        "--run-id",
+        "staging-run-0001",
+        "--requests",
+        "2",
+        "--concurrency",
+        "1",
+        "--output",
+        str(tmp_path / "probe.json"),
+    ]
+
+    shared = external_latency_probe.parse_args([*base_args, "--client-mode", "shared"])
+    new_client = external_latency_probe.parse_args([*base_args, "--client-mode", "new-per-request"])
+
+    assert shared.client_mode == "shared"
+    assert new_client.client_mode == "new-per-request"
+
+
+def test_external_latency_probe_shared_mode_uses_max_connections(tmp_path: Path) -> None:
+    class FakeClient:
+        created: list["FakeClient"] = []
+
+        def __init__(self, **kwargs: Any) -> None:
+            self.kwargs = kwargs
+            FakeClient.created.append(self)
+
+        async def __aenter__(self) -> "FakeClient":
+            return self
+
+        async def __aexit__(self, *_args: Any) -> None:
+            return None
+
+        async def get(self, _path: str, *, headers: dict[str, str]) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={
+                    "X-NODO-Process-Time-Ms": "2.5",
+                    "Server-Timing": "app;dur=2.5, db;dur=0.4",
+                    "X-Request-Id": headers["X-Request-Id"],
+                    "X-Correlation-Id": headers["X-Correlation-Id"],
+                    "X-NODO-Operation-Id": headers["X-NODO-Operation-Id"],
+                },
+                json={"data": {"items": []}},
+            )
+
+    output = tmp_path / "probe_shared.json"
+    probe = external_latency_probe.ExternalLatencyProbe(
+        env_file=_env_file(tmp_path),
+        remote_base_url="https://nodo-staging.example.test",
+        path="/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&delivery_method=pago_movil_ve&limit=20",
+        run_id="staging-run-0001",
+        requests=3,
+        concurrency=2,
+        client_mode="shared",
+        max_connections=7,
+        profile_marketplace=False,
+        output=output,
+        client_factory=FakeClient,  # type: ignore[arg-type]
+    )
+
+    payload = probe.run()
+
+    assert len(FakeClient.created) == 1
+    limits = FakeClient.created[0].kwargs["limits"]
+    assert limits.max_connections == 7
+    assert payload["summary"]["status_counts"] == {"200": 3}
+    assert payload["summary"]["backend_process"]["p95_ms"] == 2.5
+
+
+def test_external_latency_probe_new_per_request_creates_client_per_request(tmp_path: Path) -> None:
+    class FakeClient:
+        created: list["FakeClient"] = []
+
+        def __init__(self, **kwargs: Any) -> None:
+            self.kwargs = kwargs
+            FakeClient.created.append(self)
+
+        async def __aenter__(self) -> "FakeClient":
+            return self
+
+        async def __aexit__(self, *_args: Any) -> None:
+            return None
+
+        async def get(self, _path: str, *, headers: dict[str, str]) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={
+                    "X-NODO-Process-Time-Ms": "1.0",
+                    "X-Request-Id": headers["X-Request-Id"],
+                    "X-Correlation-Id": headers["X-Correlation-Id"],
+                    "X-NODO-Operation-Id": headers["X-NODO-Operation-Id"],
+                },
+                json={"data": {"items": []}},
+            )
+
+    output = tmp_path / "probe_new_per_request.json"
+    probe = external_latency_probe.ExternalLatencyProbe(
+        env_file=_env_file(tmp_path),
+        remote_base_url="https://nodo-staging.example.test",
+        path="/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&delivery_method=pago_movil_ve&limit=20",
+        run_id="staging-run-0001",
+        requests=4,
+        concurrency=2,
+        client_mode="new-per-request",
+        max_connections=50,
+        profile_marketplace=False,
+        output=output,
+        client_factory=FakeClient,  # type: ignore[arg-type]
+    )
+
+    payload = probe.run()
+
+    assert len(FakeClient.created) == 4
+    assert payload["client"]["mode"] == "new-per-request"
+    assert payload["summary"]["status_counts"] == {"200": 4}
+
+
+def test_external_latency_probe_delta_and_percentiles() -> None:
+    assert external_latency_probe.external_minus_backend_ms(45.5, 15.5) == 30.0
+    assert external_latency_probe.external_minus_backend_ms(10.0, None) is None
+
+    summary = external_latency_probe._percentiles([5.0, 1.0, 3.0, 9.0, 7.0])
+
+    assert summary["count"] == 5
+    assert summary["p50_ms"] == 5.0
+    assert summary["p95_ms"] == 9.0
+    assert summary["p99_ms"] == 9.0
+
+
+def test_external_latency_probe_profile_summary_does_not_store_secrets() -> None:
+    aggregator = external_latency_probe.ProfileAggregator()
+
+    aggregator.add(
+        {
+            "total_ms": 8.0,
+            "dependency": {
+                "auth": {
+                    "mode": "marketplace_claims",
+                    "stages": [{"stage": "auth:marketplace_decode_access_token", "elapsed_ms": 0.5}],
+                }
+            },
+            "stages": [
+                {"stage": "cache:hit", "elapsed_ms": 0.1, "metadata": {"hit_type": "shared"}},
+                {"stage": "db:acquire", "elapsed_ms": 0.2},
+                {"stage": "db:query:list_marketplace_ads_with_businesses", "elapsed_ms": 3.0},
+            ],
+            "Authorization": "Bearer should-not-be-persisted",
+        }
+    )
+
+    summary = aggregator.summary()
+    serialized = json.dumps(summary)
+
+    assert summary["captured_profiles"] == 1
+    assert summary["auth_mode_counts"]["marketplace_claims"] == 1
+    assert summary["cache_hit_counts"]["shared"] == 1
+    assert summary["db_query_p95_ms"] == 3.0
+    assert "Bearer " not in serialized
+    assert "should-not-be-persisted" not in serialized
+
+
+def test_external_latency_probe_output_redacts_env_and_headers(tmp_path: Path) -> None:
+    class FakeClient:
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "FakeClient":
+            return self
+
+        async def __aexit__(self, *_args: Any) -> None:
+            return None
+
+        async def get(self, _path: str, *, headers: dict[str, str]) -> httpx.Response:
+            assert "Authorization" in headers
+            return httpx.Response(
+                200,
+                headers={
+                    "X-NODO-Process-Time-Ms": "2.5",
+                    "X-Request-Id": headers["X-Request-Id"],
+                    "X-Correlation-Id": headers["X-Correlation-Id"],
+                },
+                json={
+                    "data": {
+                        "_profile": {
+                            "total_ms": 2.5,
+                            "stages": [{"stage": "cache:hit", "elapsed_ms": 0.1, "metadata": {"hit_type": "miss"}}],
+                        }
+                    }
+                },
+            )
+
+    env_file = _env_file(tmp_path, extra={"JWT_SECRET": "jwt-secret-value-for-test"})
+    output = tmp_path / "probe_output.json"
+    probe = external_latency_probe.ExternalLatencyProbe(
+        env_file=env_file,
+        remote_base_url="https://nodo-staging.example.test",
+        path="/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&delivery_method=pago_movil_ve&limit=20",
+        run_id="staging-run-0001",
+        requests=1,
+        concurrency=1,
+        client_mode="shared",
+        max_connections=1,
+        profile_marketplace=True,
+        output=output,
+        client_factory=FakeClient,  # type: ignore[arg-type]
+    )
+
+    probe.run()
+    serialized = output.read_text(encoding="utf-8")
+
+    assert "postgresql://user:password" not in serialized
+    assert "jwt-secret-value-for-test" not in serialized
+    assert "Authorization" not in serialized
+    assert "Bearer " not in serialized
+    assert "storage_path" not in serialized
+    assert "account_value" not in serialized
+
+
+def test_external_latency_probe_remote_url_requires_guardrails(tmp_path: Path) -> None:
+    env_file = _env_file(tmp_path, extra={"NODO_STAGING_API_HOST_ALLOWLIST": "other.example.test"})
+
+    try:
+        external_latency_probe.ExternalLatencyProbe(
+            env_file=env_file,
+            remote_base_url="https://nodo-staging.example.test",
+            path="/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&delivery_method=pago_movil_ve&limit=20",
+            run_id="staging-run-0001",
+            requests=1,
+            concurrency=1,
+            client_mode="shared",
+            max_connections=1,
+            profile_marketplace=False,
+            output=tmp_path / "probe.json",
+        )
+    except staging_guardrails.StagingGuardrailError as exc:
+        assert "API base URL host is not in NODO_STAGING_API_HOST_ALLOWLIST" in str(exc)
+    else:
+        raise AssertionError("external latency probe must enforce remote API guardrails")
+
+
 def test_storage_smoke_output_contract_does_not_expose_private_paths(tmp_path: Path, monkeypatch: Any) -> None:
     env_file = _env_file(tmp_path, extra={"STAGING_VALIDATION_ACK": "staging-run-0001"})
     output = tmp_path / "storage.json"
@@ -710,3 +1425,4 @@ def test_telegram_smoke_does_not_print_token_or_secret(tmp_path: Path, monkeypat
     assert secret not in text
     assert "123456789" not in text
     assert "test_chat_hash" in text
+
