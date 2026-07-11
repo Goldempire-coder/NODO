@@ -264,6 +264,8 @@ class CloudLoadRunner:
                 "Idempotency-Key": f"{self.run_id}_cloud_order_{index}",
             }
         )
+        if self.profile_marketplace:
+            headers["X-NODO-Profile"] = "1"
         return RequestSpec(
             "POST",
             "/api/v1/orders",
