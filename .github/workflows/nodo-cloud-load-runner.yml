@@ -80,4 +80,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nodo-cloud-load-runner-${{ github.run_id }}-${{ github.run_attempt }}
-          path: evidence/slice_runs/*.json
+          path: evidence/slice_runs/gha_${{ github.run_id }}_${{ github.run_attempt }}_${{ inputs.scenario }}.json
