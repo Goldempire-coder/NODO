@@ -101,6 +101,8 @@ class CloudLoadRunner:
         self.profiled_requests_by_operation: Counter[str] = Counter()
         self.response_bytes_total = 0
         self.profile_stage_counts: Counter[str] = Counter()
+        self.profile_stage_latencies: dict[str, list[float]] = {}
+        self.profile_stage_latencies_by_operation: dict[str, dict[str, list[float]]] = {}
         self.profile_cache_hit_counts: Counter[str] = Counter()
         self.samples: list[dict[str, Any]] = []
 
@@ -299,6 +301,7 @@ class CloudLoadRunner:
                 name = stage.get("stage")
                 if isinstance(name, str):
                     self.profile_stage_counts[name] += 1
+                    self._record_profile_stage_latency(operation, name, stage.get("elapsed_ms"))
                 meta = stage.get("meta") or stage.get("metadata")
                 if isinstance(meta, dict) and meta.get("hit_type"):
                     self.profile_cache_hit_counts[str(meta["hit_type"])] += 1
@@ -308,6 +311,15 @@ class CloudLoadRunner:
             for stage in auth_stages:
                 if isinstance(stage, dict) and isinstance(stage.get("stage"), str):
                     self.profile_stage_counts[stage["stage"]] += 1
+                    self._record_profile_stage_latency(operation, stage["stage"], stage.get("elapsed_ms"))
+
+    def _record_profile_stage_latency(self, operation: str, stage_name: str, elapsed_ms: Any) -> None:
+        if isinstance(elapsed_ms, bool) or not isinstance(elapsed_ms, int | float):
+            return
+        elapsed = float(elapsed_ms)
+        self.profile_stage_latencies.setdefault(stage_name, []).append(elapsed)
+        operation_stages = self.profile_stage_latencies_by_operation.setdefault(operation, {})
+        operation_stages.setdefault(stage_name, []).append(elapsed)
 
     def _capture_headers(self, response: httpx.Response, *, operation: str = "unknown") -> None:
         process_time = response.headers.get("x-nodo-process-time-ms")
@@ -365,6 +377,17 @@ class CloudLoadRunner:
             "profiled_requests": self.profiled_requests,
             "profiled_requests_by_operation": dict(self.profiled_requests_by_operation),
             "profile_stage_counts": dict(self.profile_stage_counts),
+            "profile_stage_latency": {
+                stage: _percentiles(values)
+                for stage, values in sorted(self.profile_stage_latencies.items())
+            },
+            "profile_stage_latency_by_operation": {
+                operation: {
+                    stage: _percentiles(values)
+                    for stage, values in sorted(stage_values.items())
+                }
+                for operation, stage_values in sorted(self.profile_stage_latencies_by_operation.items())
+            },
             "profile_cache_hit_counts": dict(self.profile_cache_hit_counts),
             "operations": {
                 operation: {
