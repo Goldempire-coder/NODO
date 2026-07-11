@@ -25,6 +25,7 @@ class RequestSpec:
     path: str
     headers: dict[str, str]
     json: dict[str, Any] | None = None
+    operation: str = "unknown"
 
 
 def _percentiles(values: list[float]) -> dict[str, float | int]:
@@ -92,7 +93,12 @@ class CloudLoadRunner:
         self.statuses: Counter[str] = Counter()
         self.errors: Counter[str] = Counter()
         self.edges: Counter[str] = Counter()
+        self.client_latencies_by_operation: dict[str, list[float]] = {}
+        self.server_latencies_by_operation: dict[str, list[float]] = {}
+        self.statuses_by_operation: dict[str, Counter[str]] = {}
+        self.response_bytes_by_operation: Counter[str] = Counter()
         self.profiled_requests = 0
+        self.profiled_requests_by_operation: Counter[str] = Counter()
         self.response_bytes_total = 0
         self.profile_stage_counts: Counter[str] = Counter()
         self.profile_cache_hit_counts: Counter[str] = Counter()
@@ -124,6 +130,7 @@ class CloudLoadRunner:
             "status_counts": dict(self.statuses),
             "error_counts": dict(self.errors),
             "railway_edge_counts": dict(self.edges),
+            "operations": self._operation_summary(),
             "cost_units": self._cost_units(setup_requests=len(tokens)),
             "cleanup": {
                 "required": cleanup_required,
@@ -189,18 +196,21 @@ class CloudLoadRunner:
                 try:
                     response = await client.request(spec.method, spec.path, headers=spec.headers, json=spec.json)
                     status = str(response.status_code)
-                    self._capture_headers(response)
-                    self.response_bytes_total += len(response.content)
-                    self._capture_profile(response)
+                    self._capture_headers(response, operation=spec.operation)
+                    self._record_response_bytes(spec.operation, len(response.content))
+                    self._capture_profile(response, operation=spec.operation)
                 except httpx.RequestError as exc:
                     error_code = type(exc).__name__
                     self.errors[error_code] += 1
                 elapsed_ms = (time.perf_counter() - started) * 1000
                 self.client_latencies.append(elapsed_ms)
+                self.client_latencies_by_operation.setdefault(spec.operation, []).append(elapsed_ms)
                 self.statuses[status] += 1
+                self.statuses_by_operation.setdefault(spec.operation, Counter())[status] += 1
                 if len(self.samples) < 20:
                     self.samples.append({
                         "index": index,
+                        "operation": spec.operation,
                         "method": spec.method,
                         "path": spec.path.split("?", 1)[0],
                         "status": status,
@@ -213,11 +223,11 @@ class CloudLoadRunner:
     def _request_spec(self, index: int, *, tokens: list[str]) -> RequestSpec:
         headers = {"X-Request-Id": f"req_{self.run_id}_{index}"}
         if self.scenario == "health":
-            return RequestSpec("GET", "/api/v1/health", headers)
+            return RequestSpec("GET", "/api/v1/health", headers, operation="health")
         if self.scenario == "ready":
-            return RequestSpec("GET", "/api/v1/ready", headers)
+            return RequestSpec("GET", "/api/v1/ready", headers, operation="ready")
         if self.scenario == "version":
-            return RequestSpec("GET", "/api/v1/version", headers)
+            return RequestSpec("GET", "/api/v1/version", headers, operation="version")
         if self.scenario == "marketplace":
             return self._marketplace_request_spec(index, tokens=tokens, headers=headers)
         if self.scenario == "order-create":
@@ -241,7 +251,7 @@ class CloudLoadRunner:
             f"&delivery_method={self.delivery_method}"
             "&limit=20"
         )
-        return RequestSpec("GET", path, headers)
+        return RequestSpec("GET", path, headers, operation="marketplace_read")
 
     def _order_request_spec(self, index: int, *, tokens: list[str], ad_id: str, headers: dict[str, str]) -> RequestSpec:
         headers = dict(headers)
@@ -266,10 +276,11 @@ class CloudLoadRunner:
                     "holder": f"Cloud Receiver {index}",
                 },
             },
+            operation="order_create",
         )
 
-    def _capture_profile(self, response: httpx.Response) -> None:
-        if self.scenario != "marketplace" or not self.profile_marketplace:
+    def _capture_profile(self, response: httpx.Response, *, operation: str = "unknown") -> None:
+        if not self.profile_marketplace:
             return
         try:
             payload = response.json()
@@ -281,6 +292,7 @@ class CloudLoadRunner:
         stages = profile.get("stages")
         if isinstance(stages, list):
             self.profiled_requests += 1
+            self.profiled_requests_by_operation[operation] += 1
             for stage in stages:
                 if not isinstance(stage, dict):
                     continue
@@ -297,16 +309,42 @@ class CloudLoadRunner:
                 if isinstance(stage, dict) and isinstance(stage.get("stage"), str):
                     self.profile_stage_counts[stage["stage"]] += 1
 
-    def _capture_headers(self, response: httpx.Response) -> None:
+    def _capture_headers(self, response: httpx.Response, *, operation: str = "unknown") -> None:
         process_time = response.headers.get("x-nodo-process-time-ms")
         if process_time is not None:
             try:
-                self.server_latencies.append(float(process_time))
+                process_time_ms = float(process_time)
+                self.server_latencies.append(process_time_ms)
+                self.server_latencies_by_operation.setdefault(operation, []).append(process_time_ms)
             except ValueError:
                 pass
         edge = response.headers.get("x-railway-edge")
         if edge:
             self.edges[edge] += 1
+
+    def _record_response_bytes(self, operation: str, byte_count: int) -> None:
+        self.response_bytes_total += byte_count
+        self.response_bytes_by_operation[operation] += byte_count
+
+    def _operation_summary(self) -> dict[str, Any]:
+        operations = sorted(
+            set(self.client_latencies_by_operation)
+            | set(self.server_latencies_by_operation)
+            | set(self.statuses_by_operation)
+            | set(self.response_bytes_by_operation)
+        )
+        return {
+            operation: {
+                "requests": len(self.client_latencies_by_operation.get(operation, [])),
+                "client_latency": _percentiles(self.client_latencies_by_operation.get(operation, [])),
+                "server_process_time": _percentiles(self.server_latencies_by_operation.get(operation, [])),
+                "status_counts": dict(self.statuses_by_operation.get(operation, Counter())),
+                "response_bytes_total": int(self.response_bytes_by_operation.get(operation, 0)),
+                "response_kb_total": round(self.response_bytes_by_operation.get(operation, 0) / 1024, 4),
+                "profiled_requests": int(self.profiled_requests_by_operation.get(operation, 0)),
+            }
+            for operation in operations
+        }
 
     def _cost_units(self, *, setup_requests: int) -> dict[str, Any]:
         measured_requests = len(self.client_latencies)
@@ -325,8 +363,24 @@ class CloudLoadRunner:
             "client_ms_total": round(sum(self.client_latencies), 4),
             "backend_process_ms_total": backend_process_ms_total,
             "profiled_requests": self.profiled_requests,
+            "profiled_requests_by_operation": dict(self.profiled_requests_by_operation),
             "profile_stage_counts": dict(self.profile_stage_counts),
             "profile_cache_hit_counts": dict(self.profile_cache_hit_counts),
+            "operations": {
+                operation: {
+                    "measured_http_requests": len(self.client_latencies_by_operation.get(operation, [])),
+                    "response_kb_total": round(self.response_bytes_by_operation.get(operation, 0) / 1024, 4),
+                    "client_ms_total": round(sum(self.client_latencies_by_operation.get(operation, [])), 4),
+                    "backend_process_ms_total": round(sum(self.server_latencies_by_operation.get(operation, [])), 4),
+                    "profiled_requests": int(self.profiled_requests_by_operation.get(operation, 0)),
+                }
+                for operation in sorted(
+                    set(self.client_latencies_by_operation)
+                    | set(self.server_latencies_by_operation)
+                    | set(self.response_bytes_by_operation)
+                    | set(self.profiled_requests_by_operation)
+                )
+            },
             "transport_error_counts": dict(self.errors),
         }
 
