@@ -1,0 +1,31 @@
+{
+  "slice": "slice_29A_cross_surface_functional_smoke",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "changed_scope": [
+    "scripts/local_surface_cross_smoke.py"
+  ],
+  "smoke": {
+    "command": "python scripts\\local_surface_cross_smoke.py --output evidence\\slice_runs\\local_surface_cross_smoke_29A.json",
+    "result": "PASS",
+    "output": "evidence/slice_runs/local_surface_cross_smoke_29A.json"
+  },
+  "validations": {
+    "ruff": "All checks passed",
+    "compileall": "OK",
+    "focused_pytest": "44 passed, 1 warning"
+  },
+  "coverage": {
+    "client": true,
+    "business": true,
+    "admin": true,
+    "support": true,
+    "staff": true,
+    "business_intake_bot": true,
+    "base_usdc_pending_payment": true,
+    "real_onchain_verification": false,
+    "real_telegram": false,
+    "real_browser_ui": false,
+    "staging": false
+  },
+  "ready_for_real_use": false
+}

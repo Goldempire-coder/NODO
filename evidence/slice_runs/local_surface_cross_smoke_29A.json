@@ -1,0 +1,69 @@
+{
+  "admin": {
+    "audit_items": 20,
+    "dashboard_keys": [
+      "credits",
+      "disclaimer",
+      "orders",
+      "queues",
+      "risk",
+      "users"
+    ],
+    "order_detail_loaded": true,
+    "staff_profile_id": "45be9809-8e71-4e68-962a-862d2aa1fd9b"
+  },
+  "base_usdc_credits": {
+    "business_cannot_use_admin_credit_list": true,
+    "business_detail_status": "pending_payment",
+    "destination_wallet_present": true,
+    "network": "base_mainnet",
+    "payment_method": "base_usdc_onchain",
+    "purchase_id": "885e9f25-8c20-41a0-8082-5c1bac2f625c",
+    "status": "pending_payment",
+    "token_symbol": "USDC"
+  },
+  "business": {
+    "confirm_status": "payment_confirmed",
+    "orders_seen": 1,
+    "surface_allowed": true,
+    "wallet_available": 2,
+    "wallet_consumed": 1
+  },
+  "business_intake_bot": {
+    "admin_items": 1,
+    "detail_status": "submitted",
+    "document_id": "1b4800b3-ce2e-4ffb-81c6-09ce2f95b45b",
+    "intake_id": "261b2f48-0c6e-499a-a931-f77246f1f726",
+    "status": "submitted"
+  },
+  "client": {
+    "marketplace_items": 1,
+    "messages_seen": 2,
+    "order_status_after_create": "waiting_payment",
+    "profile_phone_saved": true,
+    "terms_accepted": true
+  },
+  "ids": {
+    "ad_id": "7af384af-c5ed-4127-8355-1c74ffbfeb70",
+    "business_id": "629dc954-7168-48e8-b82d-63ad9c95c08f",
+    "order_id": "729021b9-8beb-4d89-ad8e-b4ef57d8ded1"
+  },
+  "sensitive_scan": {
+    "full_account_in_admin_order": false,
+    "storage_path_in_responses": false
+  },
+  "status": "PASS",
+  "support": {
+    "admin_support_items": 2,
+    "business_id_unchanged": true,
+    "business_ticket_id": "d347aacd-54ac-4866-b5a4-193b12049765",
+    "client_ticket_id": "bd708c03-bbfd-4821-b7c6-1cce113d7569",
+    "closed_status": "closed",
+    "order_status_after_support": "payment_confirmed"
+  },
+  "surfaces": [
+    "client_mini_app_backend",
+    "business_mini_app_backend",
+    "admin_web_backend"
+  ]
+}
