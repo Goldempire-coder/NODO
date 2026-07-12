@@ -1,0 +1,25 @@
+{
+  "status_code": 200,
+  "body": {
+    "data": {
+      "service": "NODO",
+      "version": "staging-28d-rollback-20260711210924",
+      "build_id": "staging-28d-rollback-20260711210924",
+      "environment": "staging"
+    },
+    "request_id": "req_slice28d_final_version"
+  },
+  "selected_headers": {
+    "server-timing": "app;dur=4.7893",
+    "x-content-type-options": "nosniff",
+    "x-correlation-id": "corr_a10977e8ea62484a9382ea66bf2c4b71",
+    "x-frame-options": "DENY",
+    "x-nodo-operation-id": "op_dd2f5ab7592b41f0b7b7e5e1f9813ae8",
+    "x-nodo-process-time-ms": "4.7893",
+    "x-nodo-surface": "unknown",
+    "x-railway-request-id": "G5j8b6pSTOO0XUXIHn5Ytg",
+    "x-request-id": "req_slice28d_final_version",
+    "x-hikari-trace": "mia1.0twb",
+    "x-railway-edge": "mia1"
+  }
+}

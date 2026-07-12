@@ -1,0 +1,18 @@
+[
+    {
+        "run_id":  "gha_mixed50_slice28d_fixture_20260711204719",
+        "output":  "evidence\\slice_runs\\cleanup_gha_mixed50_slice28d_fixture_20260711204719.json",
+        "exit_code":  0,
+        "mode":  "apply",
+        "applied":  null,
+        "deleted":  null
+    },
+    {
+        "run_id":  "gha_mixed100_slice28d_fixture_20260711205704",
+        "output":  "evidence\\slice_runs\\cleanup_gha_mixed100_slice28d_fixture_20260711205704.json",
+        "exit_code":  0,
+        "mode":  "apply",
+        "applied":  null,
+        "deleted":  null
+    }
+]

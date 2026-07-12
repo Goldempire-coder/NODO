@@ -1,0 +1,254 @@
+{
+  "28C2_c100": {
+    "concurrency": 100,
+    "duration_seconds": 30.3709,
+    "exit_code": 0,
+    "marketplace_read": {
+      "client_latency": {
+        "avg_ms": 1450.655,
+        "count": 300,
+        "p50_ms": 1059.5492,
+        "p95_ms": 3663.8148,
+        "p99_ms": 4944.6108
+      },
+      "profiled_requests": 300,
+      "requests": 300,
+      "response_bytes_total": 1142607,
+      "response_kb_total": 1115.8271,
+      "server_process_time": {
+        "avg_ms": 9.7482,
+        "count": 300,
+        "p50_ms": 5.3412,
+        "p95_ms": 30.7362,
+        "p99_ms": 113.8763
+      },
+      "status_counts": {
+        "200": 300
+      }
+    },
+    "order_create": {
+      "client_latency": {
+        "avg_ms": 1063.8849,
+        "count": 100,
+        "p50_ms": 1024.2116,
+        "p95_ms": 1661.7075,
+        "p99_ms": 1735.787
+      },
+      "profiled_requests": 100,
+      "requests": 100,
+      "response_bytes_total": 197077,
+      "response_kb_total": 192.458,
+      "server_process_time": {
+        "avg_ms": 243.6774,
+        "count": 100,
+        "p50_ms": 251.4967,
+        "p95_ms": 282.6614,
+        "p99_ms": 336.8978
+      },
+      "status_counts": {
+        "201": 100
+      }
+    },
+    "requests": 400,
+    "run_id": "gha_29173933951_1_mixed-read-order",
+    "status_counts": {
+      "200": 300,
+      "201": 100
+    },
+    "throughput_per_second": 13.1705,
+    "total_errors": 0
+  },
+  "28C2_c50": {
+    "concurrency": 50,
+    "duration_seconds": 16.416,
+    "exit_code": 0,
+    "marketplace_read": {
+      "client_latency": {
+        "avg_ms": 148.3699,
+        "count": 150,
+        "p50_ms": 112.7513,
+        "p95_ms": 320.3393,
+        "p99_ms": 368.8606
+      },
+      "profiled_requests": 150,
+      "requests": 150,
+      "response_bytes_total": 749484,
+      "response_kb_total": 731.918,
+      "server_process_time": {
+        "avg_ms": 19.4954,
+        "count": 150,
+        "p50_ms": 8.4101,
+        "p95_ms": 97.4856,
+        "p99_ms": 113.8678
+      },
+      "status_counts": {
+        "200": 150
+      }
+    },
+    "order_create": {
+      "client_latency": {
+        "avg_ms": 665.8083,
+        "count": 50,
+        "p50_ms": 670.4766,
+        "p95_ms": 885.12,
+        "p99_ms": 939.7325
+      },
+      "profiled_requests": 50,
+      "requests": 50,
+      "response_bytes_total": 98570,
+      "response_kb_total": 96.2598,
+      "server_process_time": {
+        "avg_ms": 350.3016,
+        "count": 50,
+        "p50_ms": 346.6987,
+        "p95_ms": 456.6227,
+        "p99_ms": 471.9346
+      },
+      "status_counts": {
+        "201": 50
+      }
+    },
+    "requests": 200,
+    "run_id": "gha_29173633187_1_mixed-read-order",
+    "status_counts": {
+      "200": 150,
+      "201": 50
+    },
+    "throughput_per_second": 12.1832,
+    "total_errors": 0
+  },
+  "28D_c100": {
+    "concurrency": 100,
+    "duration_seconds": 33.4397,
+    "exit_code": 0,
+    "marketplace_read": {
+      "client_latency": {
+        "avg_ms": 1077.3332,
+        "count": 300,
+        "p50_ms": 673.2082,
+        "p95_ms": 3291.9625,
+        "p99_ms": 3904.2116
+      },
+      "profiled_requests": 300,
+      "requests": 300,
+      "response_bytes_total": 1484604,
+      "response_kb_total": 1449.8086,
+      "server_process_time": {
+        "avg_ms": 12.0778,
+        "count": 300,
+        "p50_ms": 4.643,
+        "p95_ms": 56.6194,
+        "p99_ms": 198.9658
+      },
+      "status_counts": {
+        "200": 300
+      }
+    },
+    "order_create": {
+      "client_latency": {
+        "avg_ms": 822.8656,
+        "count": 100,
+        "p50_ms": 855.0578,
+        "p95_ms": 1203.2337,
+        "p99_ms": 1248.3403
+      },
+      "profiled_requests": 100,
+      "requests": 100,
+      "response_bytes_total": 197148,
+      "response_kb_total": 192.5273,
+      "server_process_time": {
+        "avg_ms": 394.8385,
+        "count": 100,
+        "p50_ms": 364.9831,
+        "p95_ms": 594.5846,
+        "p99_ms": 663.7188
+      },
+      "status_counts": {
+        "201": 100
+      }
+    },
+    "requests": 400,
+    "run_id": "gha_29174774724_1_mixed-read-order",
+    "status_counts": {
+      "200": 300,
+      "201": 100
+    },
+    "throughput_per_second": 11.9618,
+    "total_errors": 0
+  },
+  "28D_c50": {
+    "concurrency": 50,
+    "duration_seconds": 16.5684,
+    "exit_code": 0,
+    "marketplace_read": {
+      "client_latency": {
+        "avg_ms": 296.7764,
+        "count": 150,
+        "p50_ms": 196.1005,
+        "p95_ms": 780.4623,
+        "p99_ms": 841.798
+      },
+      "profiled_requests": 150,
+      "requests": 150,
+      "response_bytes_total": 605638,
+      "response_kb_total": 591.4434,
+      "server_process_time": {
+        "avg_ms": 19.6085,
+        "count": 150,
+        "p50_ms": 4.6307,
+        "p95_ms": 109.7004,
+        "p99_ms": 202.8411
+      },
+      "status_counts": {
+        "200": 150
+      }
+    },
+    "order_create": {
+      "client_latency": {
+        "avg_ms": 632.4073,
+        "count": 50,
+        "p50_ms": 658.5988,
+        "p95_ms": 780.5787,
+        "p99_ms": 790.3848
+      },
+      "profiled_requests": 50,
+      "requests": 50,
+      "response_bytes_total": 98492,
+      "response_kb_total": 96.1836,
+      "server_process_time": {
+        "avg_ms": 336.2522,
+        "count": 50,
+        "p50_ms": 331.1373,
+        "p95_ms": 440.2408,
+        "p99_ms": 459.3021
+      },
+      "status_counts": {
+        "201": 50
+      }
+    },
+    "requests": 200,
+    "run_id": "gha_29174473665_1_mixed-read-order",
+    "status_counts": {
+      "200": 150,
+      "201": 50
+    },
+    "throughput_per_second": 12.0712,
+    "total_errors": 0
+  },
+  "improvement_c100": {
+    "new_order_backend_p95_ms": 594.5846,
+    "new_order_client_p95_ms": 1203.2337,
+    "old_order_backend_p95_ms": 282.6614,
+    "old_order_client_p95_ms": 1661.7075,
+    "order_backend_p95_reduction_pct": -110.35,
+    "order_client_p95_reduction_pct": 27.59
+  },
+  "improvement_c50": {
+    "new_order_backend_p95_ms": 440.2408,
+    "new_order_client_p95_ms": 780.5787,
+    "old_order_backend_p95_ms": 456.6227,
+    "old_order_client_p95_ms": 885.12,
+    "order_backend_p95_reduction_pct": 3.59,
+    "order_client_p95_reduction_pct": 11.81
+  }
+}

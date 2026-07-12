@@ -1,0 +1,192 @@
+{
+  "slice": "real_services_capacity_hardening",
+  "phase": "scenario_capacity",
+  "run_id": "gha_mixed50_slice28d_fixture_20260711204719",
+  "scenario": "order-flow",
+  "fixture_mode": "db_seed_api_remote",
+  "fixture_setup_mode": "db_direct_ads",
+  "auth_mode": "fresh-claims",
+  "fixture_mode_detail": {
+    "seed": "hybrid_direct_db_seed_plus_configurable_ad_setup",
+    "measured_requests": "remote_api",
+    "invariants": "direct_db_sql",
+    "api_remote_only": false,
+    "setup_note": "Users/businesses/access/wallet/ad fixtures use direct DB helpers with marketplace shared-cache invalidation; payment-order setup still exercises app APIs before measured load."
+  },
+  "fixture_setup": {
+    "ad_setup": "db_direct_ads",
+    "direct_ads_created": 50,
+    "marketplace_cache_invalidated": true,
+    "payment_order_setup": "api"
+  },
+  "client": {
+    "max_connections": null,
+    "max_connections_effective": "max(20, scenario_concurrency)",
+    "timeout_seconds": 30.0
+  },
+  "phase_timings": {
+    "setup_seconds": 287.4697,
+    "measured_load_seconds": 0.295,
+    "invariants_seconds": 1.1572,
+    "total_seconds": 288.9219
+  },
+  "staging_guardrails": {
+    "env_file": ".local\\staging_validation_17C_LOCAL_ONLY.env",
+    "run_id": "gha_mixed50_slice28d_fixture_20260711204719",
+    "env": {
+      "APP_ENV": "staging",
+      "NODO_ENVIRONMENT_KIND": "staging",
+      "NODO_STAGING_VALIDATION": "1",
+      "NODO_STAGING_PROJECT_ID": "aqmubphdxiaokaqqgqax",
+      "NODO_PRODUCTION_PROJECT_ID": "",
+      "DATABASE_URL": "[REDACTED]",
+      "REDIS_URL": "[REDACTED]",
+      "NODO_STAGING_DB_HOST_ALLOWLIST": "aws-1-us-east-2.pooler.supabase.com",
+      "NODO_STAGING_API_HOST_ALLOWLIST": "nodo-api-production.up.railway.app",
+      "SUPABASE_URL": "https://aqmubphdxiaokaqqgqax.supabase.co",
+      "NODO_STAGING_SUPABASE_URL": "https://aqmubphdxiaokaqqgqax.supabase.co"
+    }
+  },
+  "request_target": "https://nodo-api-production.up.railway.app",
+  "cleanup": {
+    "required": true,
+    "run_id": "gha_mixed50_slice28d_fixture_20260711204719",
+    "recommended_command": "python scripts\\staging_cleanup_synthetic_run.py --env-file <staging-env> --run-id gha_mixed50_slice28d_fixture_20260711204719 --output evidence\\slice_runs\\cleanup_gha_mixed50_slice28d_fixture_20260711204719.json"
+  },
+  "targets": {
+    "businesses": 50,
+    "ads_per_business": 1,
+    "remitters": 1,
+    "marketplace_reads": 0,
+    "marketplace_concurrency": 1,
+    "order_creates": 0,
+    "same_ad_race_requests": 0,
+    "payment_confirms": 0
+  },
+  "prepared": {
+    "businesses": 50,
+    "ads": 50,
+    "payment_ads": 0,
+    "remitters": 1
+  },
+  "metrics": {
+    "duration_seconds": 1.452,
+    "throughput_per_second": 0.0,
+    "total_requests": 0,
+    "total_errors": 0,
+    "total_error_rate": 0,
+    "p50_ms": 0.0,
+    "p95_ms": 0.0,
+    "p99_ms": 0.0,
+    "endpoints": {},
+    "route_groups": {},
+    "slowest_route_groups": []
+  },
+  "latency_isolation": {
+    "enabled": true,
+    "sample_limit": 50,
+    "external": {
+      "all_requests": {
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0,
+        "count": 0
+      },
+      "route_groups": {}
+    },
+    "backend_process": {
+      "count": 0,
+      "p50_ms": 0.0,
+      "p95_ms": 0.0,
+      "p99_ms": 0.0
+    },
+    "external_minus_backend": {
+      "count": 0,
+      "p50_ms": 0.0,
+      "p95_ms": 0.0,
+      "p99_ms": 0.0
+    },
+    "server_timing": {},
+    "response_size_bytes": {
+      "count": 0,
+      "p50_ms": 0.0,
+      "p95_ms": 0.0,
+      "p99_ms": 0.0
+    },
+    "profile": {
+      "enabled": false,
+      "captured_profiles": 0,
+      "raw_profile_limit": 50,
+      "route_total": {
+        "count": 0,
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0
+      },
+      "stages": {},
+      "cache_hit_counts": {},
+      "auth_mode_counts": {},
+      "db_acquire_p95_ms": 0.0,
+      "db_query_p95_ms": 0.0,
+      "route_total_p95_ms": 0.0
+    }
+  },
+  "latency_samples": [],
+  "request_error_samples": [],
+  "request_error_summary": {
+    "total": 0,
+    "sample_limit": 100,
+    "by_classification": {},
+    "by_endpoint": {},
+    "by_group": {}
+  },
+  "profiled_steps": [],
+  "profile_summary": {
+    "enabled": false,
+    "captured_profiles": 0,
+    "raw_profile_limit": 50,
+    "route_total": {
+      "count": 0,
+      "p50_ms": 0.0,
+      "p95_ms": 0.0,
+      "p99_ms": 0.0
+    },
+    "stages": {},
+    "cache_hit_counts": {},
+    "auth_mode_counts": {},
+    "db_acquire_p95_ms": 0.0,
+    "db_query_p95_ms": 0.0,
+    "route_total_p95_ms": 0.0
+  },
+  "invariant_violations": {
+    "marketplace_read_errors": 0,
+    "order_create_errors": 0,
+    "same_ad_success_count_invalid": 0,
+    "same_ad_unexpected_status": 0,
+    "same_ad_db_rows_invalid": 0,
+    "duplicate_idempotency_response_mismatch": 0,
+    "duplicate_idempotency_db_rows_invalid": 0,
+    "fixture_insufficient_reserved_ads": 0,
+    "payment_report_setup_errors": 0,
+    "confirm_distinct_errors": 0,
+    "confirm_distinct_state_invalid": 0,
+    "confirm_same_order_success_count_invalid": 0,
+    "confirm_same_order_double_consume": 0,
+    "negative_balances": 0,
+    "double_credit_consumption": 0,
+    "db_errors": 0
+  },
+  "details": {
+    "order_flow": {
+      "status_codes": [],
+      "attempted": 0,
+      "requested": 0,
+      "reserved_for_race": 2
+    },
+    "invariants": {
+      "negative_balances": 0,
+      "double_credit_consumption": 0
+    }
+  },
+  "exit_code": 0
+}

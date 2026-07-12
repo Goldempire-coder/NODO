@@ -1,0 +1,71 @@
+{
+  "health": {
+    "body": {
+      "data": {
+        "build_id": "staging-28d-20260711204421",
+        "service": "NODO",
+        "status": "ok",
+        "version": "staging-28d-20260711204421"
+      },
+      "request_id": "req_slice28d_health"
+    },
+    "headers": {
+      "server-timing": "app;dur=1.0458",
+      "x-correlation-id": "corr_slice28d_smoke",
+      "x-nodo-operation-id": "op_slice28d_smoke",
+      "x-nodo-process-time-ms": "1.0458",
+      "x-nodo-surface": "unknown",
+      "x-request-id": "req_slice28d_health"
+    },
+    "status_code": 200
+  },
+  "ready": {
+    "body": {
+      "data": {
+        "checks": {
+          "database": {
+            "code": null,
+            "message": null,
+            "ok": true
+          },
+          "redis": {
+            "code": null,
+            "message": null,
+            "ok": true
+          }
+        },
+        "status": "ready"
+      },
+      "request_id": "req_slice28d_ready"
+    },
+    "headers": {
+      "server-timing": "app;dur=136.4344",
+      "x-correlation-id": "corr_slice28d_smoke",
+      "x-nodo-operation-id": "op_slice28d_smoke",
+      "x-nodo-process-time-ms": "136.4344",
+      "x-nodo-surface": "unknown",
+      "x-request-id": "req_slice28d_ready"
+    },
+    "status_code": 200
+  },
+  "version": {
+    "body": {
+      "data": {
+        "build_id": "staging-28d-20260711204421",
+        "environment": "staging",
+        "service": "NODO",
+        "version": "staging-28d-20260711204421"
+      },
+      "request_id": "req_slice28d_version"
+    },
+    "headers": {
+      "server-timing": "app;dur=1.8779",
+      "x-correlation-id": "corr_slice28d_smoke",
+      "x-nodo-operation-id": "op_slice28d_smoke",
+      "x-nodo-process-time-ms": "1.8779",
+      "x-nodo-surface": "unknown",
+      "x-request-id": "req_slice28d_version"
+    },
+    "status_code": 200
+  }
+}

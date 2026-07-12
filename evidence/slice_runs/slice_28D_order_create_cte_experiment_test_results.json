@@ -1,0 +1,50 @@
+{
+  "slice": "slice_28D_order_create_cte_experiment",
+  "status": "REJECTED_AND_ROLLED_BACK",
+  "local_validation": {
+    "targeted_order_tests": "15 passed, 1 warning",
+    "full_api_tests": "258 passed, 1 warning",
+    "ruff": "All checks passed",
+    "compileall": "OK",
+    "web_build": "OK"
+  },
+  "staging": {
+    "experimental_build_id": "staging-28d-20260711204421",
+    "rollback_build_id": "staging-28d-rollback-20260711210924",
+    "final_version_check": "evidence/slice_runs/slice_28D_final_version_check.json"
+  },
+  "cloud_runs": {
+    "c50": {
+      "github_run_id": "29174473665",
+      "status": "success",
+      "requests": 200,
+      "status_counts": {
+        "201": 50,
+        "200": 150
+      },
+      "order_client_p95_ms": 780.5787,
+      "order_backend_p95_ms": 440.2408
+    },
+    "c100": {
+      "github_run_id": "29174774724",
+      "status": "success",
+      "requests": 400,
+      "status_counts": {
+        "201": 100,
+        "200": 300
+      },
+      "order_client_p95_ms": 1203.2337,
+      "order_backend_p95_ms": 594.5846
+    }
+  },
+  "comparison": {
+    "c50_backend_p95_vs_28c2": "456.6227ms -> 440.2408ms",
+    "c100_backend_p95_vs_28c2": "282.6614ms -> 594.5846ms",
+    "decision": "Reject 28D CTE optimization because c100 backend p95 regressed."
+  },
+  "cleanup": {
+    "verified": true,
+    "verification_file": "evidence/slice_runs/slice_28D_cleanup_verification.json"
+  },
+  "ready_for_real_use": false
+}
