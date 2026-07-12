@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import inspect
 import json
 import os
 import time
@@ -45,11 +46,25 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.orders.postgres_create_order import PostgresCreateOrderMixin  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
     _set_env(**env_overrides)
     return TestClient(create_app())
+
+
+def test_postgres_order_create_uses_combined_start_context_and_transactional_audit() -> None:
+    assert hasattr(PostgresCreateOrderMixin, "get_order_create_start_context")
+    assert PostgresCreateOrderMixin.creates_audit_events_on_create_order is True
+    create_order_source = inspect.getsource(PostgresCreateOrderMixin.create_order)
+    start_context_source = inspect.getsource(PostgresCreateOrderMixin.get_order_create_start_context)
+
+    assert "audit_events = fields.pop" in create_order_source
+    assert "_insert_create_order_audit_events" in create_order_source
+    assert "conn.commit()" in create_order_source
+    assert "select * from orders where remitter_user_id" in start_context_source
+    assert "_order_create_context_sql" in start_context_source
 
 
 def _signed_init_data(telegram_id: int = 901, username: str = "user") -> str:
@@ -206,6 +221,46 @@ def test_create_order_invalidates_marketplace_cache_for_reserved_ad() -> None:
     assert ad["id"] not in [item["id"] for item in after_order.json()["data"]["items"]]
 
 
+def test_create_order_filters_reserved_ad_from_warm_marketplace_cache_without_second_reheat() -> None:
+    client = _client()
+    owner_one = _login(client, 913, "owner_one")
+    _, method_one = _approved_business_with_method(client, owner_one, credits=1)
+    ad_one = _create_ad(client, owner_one, method_one, key="cache_order_ad_one")
+    owner_two = _login(client, 914, "owner_two")
+    _, method_two = _approved_business_with_method(client, owner_two, credits=1)
+    ad_two = _create_ad(client, owner_two, method_two, key="cache_order_ad_two")
+    remitter_one = _login(client, 915, "remitter_one")
+    remitter_two = _login(client, 916, "remitter_two")
+    query = "/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&delivery_method=pago_movil_ve&sort=rate"
+    original_list = client.app.state.ad_repository.list_marketplace_ads
+    calls = {"count": 0}
+
+    def counted_list_marketplace_ads(**kwargs):  # type: ignore[no-untyped-def]
+        calls["count"] += 1
+        return original_list(**kwargs)
+
+    client.app.state.ad_repository.list_marketplace_ads = counted_list_marketplace_ads
+
+    warm = client.get(query, headers=_bearer(remitter_one, "req_cache_warm_two_ads"))
+    assert warm.status_code == 200
+    assert {ad_one["id"], ad_two["id"]}.issubset({item["id"] for item in warm.json()["data"]["items"]})
+    assert calls["count"] == 1
+
+    _create_order(client, remitter_one, ad_one["id"], key="cache_order_one")
+    after_first_order = client.get(query, headers=_bearer(remitter_two, "req_cache_after_first_order"))
+    assert after_first_order.status_code == 200
+    assert ad_one["id"] not in [item["id"] for item in after_first_order.json()["data"]["items"]]
+    assert ad_two["id"] in [item["id"] for item in after_first_order.json()["data"]["items"]]
+    assert calls["count"] == 2
+
+    _create_order(client, remitter_two, ad_two["id"], key="cache_order_two")
+    after_second_order = client.get(query, headers=_bearer(remitter_one, "req_cache_after_second_order"))
+    assert after_second_order.status_code == 200
+    assert ad_one["id"] not in [item["id"] for item in after_second_order.json()["data"]["items"]]
+    assert ad_two["id"] not in [item["id"] for item in after_second_order.json()["data"]["items"]]
+    assert calls["count"] == 2
+
+
 def test_create_order_internal_profile_reports_required_stages() -> None:
     client = _client(NODO_INTERNAL_PROFILING="1")
     owner = _login(client, 905, "owner_profile")
@@ -231,6 +286,60 @@ def test_create_order_internal_profile_reports_required_stages() -> None:
     assert "audit:order_created_and_ad_moved" in stages
     assert "dependency" in profile
     assert "auth" in profile["dependency"]
+
+
+def test_create_order_profile_requires_staging_env_flag_and_header() -> None:
+    client = _client(ENABLE_STAGING_PROFILING="1")
+    os.environ["APP_ENV"] = "staging"
+    owner = _login(client, 917, "owner_staging_profile")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="staging_profile_order_ad")
+    remitter = _login(client, 918, "remitter_staging_profile")
+
+    no_header = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "staging_profile_no_header"), "Content-Type": "application/json"},
+        json={"ad_id": ad["id"], "amount_usd": "50.00", "receiver_data": _receiver()},
+    )
+
+    assert no_header.status_code == 201, no_header.text
+    assert "_profile" not in no_header.json()["data"]
+
+    owner_2 = _login(client, 919, "owner_staging_profile_2")
+    _, method_id_2 = _approved_business_with_method(client, owner_2, credits=1)
+    ad_2 = _create_ad(client, owner_2, method_id_2, key="staging_profile_order_ad_2")
+    with_header = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "staging_profile_with_header"), "Content-Type": "application/json", "X-NODO-Profile": "1"},
+        json={"ad_id": ad_2["id"], "amount_usd": "50.00", "receiver_data": _receiver()},
+    )
+
+    assert with_header.status_code == 201, with_header.text
+    profile = with_header.json()["data"]["_profile"]
+    stages = {entry["stage"] for entry in profile["stages"]}
+    assert "transaction:create_order_and_move_ad" in stages
+    assert "cache:marketplace_invalidation" in stages
+    serialized = json.dumps(profile)
+    forbidden = ["account_value", "storage_path", "Authorization", "Bearer", "JWT_SECRET", "BOT_TOKEN"]
+    assert not any(value in serialized for value in forbidden)
+
+
+def test_create_order_profile_is_not_returned_in_production_with_header() -> None:
+    client = _client(ENABLE_STAGING_PROFILING="1")
+    os.environ["APP_ENV"] = "production"
+    owner = _login(client, 920, "owner_prod_profile")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="prod_profile_order_ad")
+    remitter = _login(client, 921, "remitter_prod_profile")
+
+    response = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "prod_profile_with_header"), "Content-Type": "application/json", "X-NODO-Profile": "1"},
+        json={"ad_id": ad["id"], "amount_usd": "50.00", "receiver_data": _receiver()},
+    )
+
+    assert response.status_code == 201, response.text
+    assert "_profile" not in response.json()["data"]
 
 
 def test_create_order_rejects_invalid_ad_business_amount_and_requires_idempotency_key() -> None:

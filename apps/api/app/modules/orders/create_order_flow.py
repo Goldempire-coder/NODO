@@ -30,6 +30,7 @@ class OrderCreateFlow:
         payment_or_unavailable: Callable[[str], BusinessPaymentMethodRecord],
         ad_expired: Callable[[AdRecord], bool],
         clear_marketplace_cache: Callable[[], None],
+        clear_marketplace_cache_after_order: Callable[[str], None],
     ) -> None:  # type: ignore[no-untyped-def]
         self._repository = repository
         self._ads = ad_repository
@@ -41,6 +42,7 @@ class OrderCreateFlow:
         self._payment_or_unavailable = payment_or_unavailable
         self._ad_expired = ad_expired
         self._clear_marketplace_cache = clear_marketplace_cache
+        self._clear_marketplace_cache_after_order = clear_marketplace_cache_after_order
 
     def create_order(self, *, user: UserRecord, payload: OrderCreateRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         profile = [] if profile_enabled() else None
@@ -77,11 +79,14 @@ class OrderCreateFlow:
         profile: list[dict[str, Any]] | None,
         profile_started: float,
     ) -> dict[str, Any]:
-        existing = self._existing_order_for_idempotency(user=user, payload=payload, idempotency_key=idempotency_key, profile=profile)
+        start_context = self._order_create_start_context(user=user, payload=payload, idempotency_key=idempotency_key, profile=profile)
+        existing = start_context.get("existing_order")
         if existing is not None:
+            if not self._same_create_payload(existing, payload):
+                raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
             return profile_attach({"order": public_order_payload(existing), "disclaimer": ORDER_DISCLAIMER}, profile, profile_started)
 
-        context = self._order_create_context(user=user, payload=payload, profile=profile)
+        context = start_context.get("context") or self._order_create_context(user=user, payload=payload, profile=profile)
         ad = context["ad"]
         business = context["business"]
         payment = context["payment"]
@@ -109,6 +114,27 @@ class OrderCreateFlow:
         if existing is not None and not self._same_create_payload(existing, payload):
             raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
         return existing
+
+    def _order_create_start_context(
+        self,
+        *,
+        user: UserRecord,
+        payload: OrderCreateRequest,
+        idempotency_key: str,
+        profile: list[dict[str, Any]] | None,
+    ) -> dict[str, Any]:
+        if not hasattr(self._repository, "get_order_create_start_context"):
+            existing = self._existing_order_for_idempotency(user=user, payload=payload, idempotency_key=idempotency_key, profile=profile)
+            return {"existing_order": existing, "context": None}
+        stage_started = time.perf_counter()
+        ad_id = require_uuid(payload.ad_id, "AD_NOT_FOUND")
+        start_context = self._repository.get_order_create_start_context(
+            remitter_user_id=user.id,
+            idempotency_key=idempotency_key,
+            ad_id=ad_id,
+        )
+        profile_mark(profile, "db_reads:order_create_start_context", stage_started)
+        return start_context
 
     def _available_ad_for_order(self, *, user: UserRecord, payload: OrderCreateRequest, profile: list[dict[str, Any]] | None) -> AdRecord:
         stage_started = time.perf_counter()
@@ -189,6 +215,8 @@ class OrderCreateFlow:
         create_order_fields = dict(plan.create_order_fields)
         if getattr(self._repository, "creates_initial_state_event_on_create_order", False):
             create_order_fields["initial_state_event"] = plan.initial_state_event
+        if getattr(self._repository, "creates_audit_events_on_create_order", False):
+            create_order_fields["audit_events"] = plan.audit_events
         order = self._repository.create_order(**create_order_fields)
         profile_mark(profile, "transaction:create_order_and_move_ad", stage_started)
         if not getattr(self._repository, "moves_ad_on_create_order", False):
@@ -196,7 +224,7 @@ class OrderCreateFlow:
             self._ads.set_status(ad, "in_order")
             profile_mark(profile, "repo:set_ad_in_order", stage_started)
         stage_started = time.perf_counter()
-        self._clear_marketplace_cache()
+        self._clear_marketplace_cache_after_order(ad.id)
         profile_mark(profile, "cache:marketplace_invalidation", stage_started)
         if not getattr(self._repository, "creates_initial_state_event_on_create_order", False):
             stage_started = time.perf_counter()
@@ -205,6 +233,8 @@ class OrderCreateFlow:
         return order
 
     def _write_created_order_audit(self, *, plan, order, profile: list[dict[str, Any]] | None) -> None:  # type: ignore[no-untyped-def]
+        if getattr(self._repository, "creates_audit_events_on_create_order", False):
+            return
         stage_started = time.perf_counter()
         audit_events = bind_created_order_to_audit_events(plan.audit_events, order_id=order.id)
         if hasattr(self._audit, "write_many"):

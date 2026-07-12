@@ -5,6 +5,7 @@ from typing import Any
 from app.core.errors import ApiError
 from app.modules.ads.row_mappers import ad_from_row
 from app.modules.businesses.row_mappers import business_from_row, payment_method_from_row
+from app.modules.orders.create_order_builder import bind_created_order_to_audit_events
 from app.modules.orders.models import OrderRecord, new_public_order_code
 from app.modules.orders.row_mappers import jsonb, order_from_row
 
@@ -57,62 +58,25 @@ def _prefixed_row(row, prefix: str, columns: tuple[str, ...]) -> dict[str, Any]:
 
 
 class PostgresCreateOrderMixin:
+    creates_audit_events_on_create_order = True
+
+    def get_order_create_start_context(self, *, remitter_user_id: str, idempotency_key: str, ad_id: str) -> dict[str, Any]:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            existing = conn.execute(
+                "select * from orders where remitter_user_id = %s and idempotency_key = %s limit 1",
+                (remitter_user_id, idempotency_key),
+            ).fetchone()
+            if existing is not None:
+                return {"existing_order": order_from_row(existing), "context": None}
+            row = conn.execute(self._order_create_context_sql(), (ad_id,)).fetchone()
+        return {"existing_order": None, "context": self._order_create_context_from_row(row)}
+
     def get_order_create_context(self, *, ad_id: str) -> dict[str, Any] | None:
         with self._connect() as conn:  # type: ignore[attr-defined]
-            row = conn.execute(
-                """
-                select
-                    ads.*,
-                    businesses.id as business_ctx_id,
-                    businesses.owner_user_id as business_ctx_owner_user_id,
-                    businesses.business_name as business_ctx_business_name,
-                    businesses.rif as business_ctx_rif,
-                    businesses.address as business_ctx_address,
-                    businesses.phone as business_ctx_phone,
-                    businesses.country as business_ctx_country,
-                    businesses.verification_status as business_ctx_verification_status,
-                    businesses.trust_level as business_ctx_trust_level,
-                    businesses.risk_level as business_ctx_risk_level,
-                    businesses.max_order_amount_usd as business_ctx_max_order_amount_usd,
-                    businesses.daily_limit_usd as business_ctx_daily_limit_usd,
-                    businesses.active_order_limit as business_ctx_active_order_limit,
-                    businesses.rating_avg as business_ctx_rating_avg,
-                    businesses.completed_orders_count as business_ctx_completed_orders_count,
-                    businesses.disputes_count as business_ctx_disputes_count,
-                    businesses.evasion_reports_count as business_ctx_evasion_reports_count,
-                    businesses.referral_code as business_ctx_referral_code,
-                    businesses.referral_credits_earned as business_ctx_referral_credits_earned,
-                    businesses.founder_status as business_ctx_founder_status,
-                    businesses.founder_started_at as business_ctx_founder_started_at,
-                    businesses.founder_expires_at as business_ctx_founder_expires_at,
-                    businesses.created_at as business_ctx_created_at,
-                    businesses.updated_at as business_ctx_updated_at,
-                    businesses.approved_at as business_ctx_approved_at,
-                    business_payment_methods.id as payment_ctx_id,
-                    business_payment_methods.business_id as payment_ctx_business_id,
-                    business_payment_methods.method_type as payment_ctx_method_type,
-                    business_payment_methods.network as payment_ctx_network,
-                    business_payment_methods.account_value as payment_ctx_account_value,
-                    business_payment_methods.account_masked as payment_ctx_account_masked,
-                    business_payment_methods.holder_name as payment_ctx_holder_name,
-                    business_payment_methods.verified_status as payment_ctx_verified_status,
-                    business_payment_methods.active as payment_ctx_active,
-                    business_payment_methods.created_at as payment_ctx_created_at,
-                    business_payment_methods.updated_at as payment_ctx_updated_at,
-                    (
-                        select count(*)
-                        from orders
-                        where orders.business_id = businesses.id
-                          and orders.status = 'waiting_payment'
-                    ) as active_order_count
-                from ads
-                join businesses on businesses.id = ads.business_id
-                join business_payment_methods on business_payment_methods.id = ads.payment_method_id
-                where ads.id = %s
-                limit 1
-                """,
-                (ad_id,),
-            ).fetchone()
+            row = conn.execute(self._order_create_context_sql(), (ad_id,)).fetchone()
+        return self._order_create_context_from_row(row)
+
+    def _order_create_context_from_row(self, row) -> dict[str, Any] | None:  # type: ignore[no-untyped-def]
         if row is None:
             return None
         return {
@@ -122,13 +86,69 @@ class PostgresCreateOrderMixin:
             "active_order_count": int(row["active_order_count"]),
         }
 
+    def _order_create_context_sql(self) -> str:
+        return """
+            select
+                ads.*,
+                businesses.id as business_ctx_id,
+                businesses.owner_user_id as business_ctx_owner_user_id,
+                businesses.business_name as business_ctx_business_name,
+                businesses.rif as business_ctx_rif,
+                businesses.address as business_ctx_address,
+                businesses.phone as business_ctx_phone,
+                businesses.country as business_ctx_country,
+                businesses.verification_status as business_ctx_verification_status,
+                businesses.trust_level as business_ctx_trust_level,
+                businesses.risk_level as business_ctx_risk_level,
+                businesses.max_order_amount_usd as business_ctx_max_order_amount_usd,
+                businesses.daily_limit_usd as business_ctx_daily_limit_usd,
+                businesses.active_order_limit as business_ctx_active_order_limit,
+                businesses.rating_avg as business_ctx_rating_avg,
+                businesses.completed_orders_count as business_ctx_completed_orders_count,
+                businesses.disputes_count as business_ctx_disputes_count,
+                businesses.evasion_reports_count as business_ctx_evasion_reports_count,
+                businesses.referral_code as business_ctx_referral_code,
+                businesses.referral_credits_earned as business_ctx_referral_credits_earned,
+                businesses.founder_status as business_ctx_founder_status,
+                businesses.founder_started_at as business_ctx_founder_started_at,
+                businesses.founder_expires_at as business_ctx_founder_expires_at,
+                businesses.created_at as business_ctx_created_at,
+                businesses.updated_at as business_ctx_updated_at,
+                businesses.approved_at as business_ctx_approved_at,
+                business_payment_methods.id as payment_ctx_id,
+                business_payment_methods.business_id as payment_ctx_business_id,
+                business_payment_methods.method_type as payment_ctx_method_type,
+                business_payment_methods.network as payment_ctx_network,
+                business_payment_methods.account_value as payment_ctx_account_value,
+                business_payment_methods.account_masked as payment_ctx_account_masked,
+                business_payment_methods.holder_name as payment_ctx_holder_name,
+                business_payment_methods.verified_status as payment_ctx_verified_status,
+                business_payment_methods.active as payment_ctx_active,
+                business_payment_methods.created_at as payment_ctx_created_at,
+                business_payment_methods.updated_at as payment_ctx_updated_at,
+                (
+                    select count(*)
+                    from orders
+                    where orders.business_id = businesses.id
+                      and orders.status = 'waiting_payment'
+                ) as active_order_count
+            from ads
+            join businesses on businesses.id = ads.business_id
+            join business_payment_methods on business_payment_methods.id = ads.payment_method_id
+            where ads.id = %s
+            limit 1
+        """
+
     def create_order(self, **fields: Any) -> OrderRecord:
         initial_state_event = fields.pop("initial_state_event", None)
+        audit_events = fields.pop("audit_events", None)
         with self._connect() as conn:  # type: ignore[attr-defined]
             self._move_ad_to_in_order_or_raise(conn, ad_id=fields["ad_id"])
             row = self._insert_order(conn, fields)
             if initial_state_event is not None:
                 self._insert_initial_state_event(conn, order_id=row["id"], initial_state_event=initial_state_event)
+            if audit_events is not None:
+                self._insert_create_order_audit_events(conn, order_id=str(row["id"]), audit_events=audit_events)
             conn.commit()
         return order_from_row(row)
 
@@ -198,4 +218,33 @@ class PostgresCreateOrderMixin:
                 initial_state_event["request_id"],
                 jsonb(initial_state_event["metadata_json"]),
             ),
+        )
+
+    def _insert_create_order_audit_events(self, conn, *, order_id: str, audit_events: list[dict[str, Any]]) -> None:  # type: ignore[no-untyped-def]
+        bound_events = bind_created_order_to_audit_events(audit_events, order_id=order_id)
+        if not bound_events:
+            return
+        values_sql = ", ".join(["(%s, %s, %s, %s, %s, %s, %s, now())"] * len(bound_events))
+        params: list[object] = []
+        for event in bound_events:
+            params.extend(
+                [
+                    event.get("actor_user_id"),
+                    event.get("actor_role"),
+                    event["event_type"],
+                    event["resource_type"],
+                    event.get("resource_id"),
+                    event["request_id"],
+                    jsonb(event.get("metadata_json")),
+                ]
+            )
+        conn.execute(
+            f"""
+            insert into audit_logs (
+                actor_user_id, actor_role, event_type, resource_type, resource_id,
+                request_id, metadata_json, created_at
+            )
+            values {values_sql}
+            """,
+            params,
         )
