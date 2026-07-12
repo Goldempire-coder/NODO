@@ -57,6 +57,7 @@ def _client(**env_overrides: str) -> TestClient:
 def test_postgres_order_create_uses_combined_start_context_and_transactional_audit() -> None:
     assert hasattr(PostgresCreateOrderMixin, "get_order_create_start_context")
     assert PostgresCreateOrderMixin.creates_audit_events_on_create_order is True
+    assert PostgresCreateOrderMixin.skips_idempotency_precheck_on_create_order is True
     create_order_source = inspect.getsource(PostgresCreateOrderMixin.create_order)
     start_context_source = inspect.getsource(PostgresCreateOrderMixin.get_order_create_start_context)
 

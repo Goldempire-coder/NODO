@@ -59,6 +59,7 @@ def _prefixed_row(row, prefix: str, columns: tuple[str, ...]) -> dict[str, Any]:
 
 class PostgresCreateOrderMixin:
     creates_audit_events_on_create_order = True
+    skips_idempotency_precheck_on_create_order = True
 
     def get_order_create_start_context(self, *, remitter_user_id: str, idempotency_key: str, ad_id: str) -> dict[str, Any]:
         with self._connect() as conn:  # type: ignore[attr-defined]

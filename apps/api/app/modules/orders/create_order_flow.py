@@ -79,33 +79,46 @@ class OrderCreateFlow:
         profile: list[dict[str, Any]] | None,
         profile_started: float,
     ) -> dict[str, Any]:
-        start_context = self._order_create_start_context(user=user, payload=payload, idempotency_key=idempotency_key, profile=profile)
-        existing = start_context.get("existing_order")
-        if existing is not None:
-            if not self._same_create_payload(existing, payload):
-                raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
-            return profile_attach({"order": public_order_payload(existing), "disclaimer": ORDER_DISCLAIMER}, profile, profile_started)
+        try:
+            start_context = self._order_create_start_context(user=user, payload=payload, idempotency_key=idempotency_key, profile=profile)
+            existing = start_context.get("existing_order")
+            if existing is not None:
+                if not self._same_create_payload(existing, payload):
+                    raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
+                return profile_attach({"order": public_order_payload(existing), "disclaimer": ORDER_DISCLAIMER}, profile, profile_started)
 
-        context = start_context.get("context") or self._order_create_context(user=user, payload=payload, profile=profile)
-        ad = context["ad"]
-        business = context["business"]
-        payment = context["payment"]
-        plan = build_create_order_plan(
-            user=user,
-            payload=payload,
-            ad=ad,
-            business=business,
-            payment=payment,
-            deadline=now_utc() + timedelta(minutes=30),
-            request_id=request_id,
-            idempotency_key=idempotency_key,
-        )
-        order = self._persist_create_order_plan(ad=ad, plan=plan, profile=profile)
-        self._write_created_order_audit(plan=plan, order=order, profile=profile)
-        stage_started = time.perf_counter()
-        response = {"order": public_order_payload(order), "disclaimer": ORDER_DISCLAIMER}
-        profile_mark(profile, "service:public_order_payload", stage_started)
-        return profile_attach(response, profile, profile_started)
+            context = start_context.get("context") or self._order_create_context(user=user, payload=payload, profile=profile)
+            ad = context["ad"]
+            business = context["business"]
+            payment = context["payment"]
+            plan = build_create_order_plan(
+                user=user,
+                payload=payload,
+                ad=ad,
+                business=business,
+                payment=payment,
+                deadline=now_utc() + timedelta(minutes=30),
+                request_id=request_id,
+                idempotency_key=idempotency_key,
+            )
+            order = self._persist_create_order_plan(ad=ad, plan=plan, profile=profile)
+            self._write_created_order_audit(plan=plan, order=order, profile=profile)
+            stage_started = time.perf_counter()
+            response = {"order": public_order_payload(order), "disclaimer": ORDER_DISCLAIMER}
+            profile_mark(profile, "service:public_order_payload", stage_started)
+            return profile_attach(response, profile, profile_started)
+        except ApiError as exc:
+            replay = self._existing_order_replay_after_create_conflict(
+                user=user,
+                payload=payload,
+                idempotency_key=idempotency_key,
+                profile=profile,
+                profile_started=profile_started,
+                error=exc,
+            )
+            if replay is not None:
+                return replay
+            raise
 
     def _existing_order_for_idempotency(self, *, user: UserRecord, payload: OrderCreateRequest, idempotency_key: str, profile: list[dict[str, Any]] | None):  # type: ignore[no-untyped-def]
         stage_started = time.perf_counter()
@@ -123,6 +136,8 @@ class OrderCreateFlow:
         idempotency_key: str,
         profile: list[dict[str, Any]] | None,
     ) -> dict[str, Any]:
+        if getattr(self._repository, "skips_idempotency_precheck_on_create_order", False):
+            return {"existing_order": None, "context": None}
         if not hasattr(self._repository, "get_order_create_start_context"):
             existing = self._existing_order_for_idempotency(user=user, payload=payload, idempotency_key=idempotency_key, profile=profile)
             return {"existing_order": existing, "context": None}
@@ -135,6 +150,25 @@ class OrderCreateFlow:
         )
         profile_mark(profile, "db_reads:order_create_start_context", stage_started)
         return start_context
+
+    def _existing_order_replay_after_create_conflict(
+        self,
+        *,
+        user: UserRecord,
+        payload: OrderCreateRequest,
+        idempotency_key: str,
+        profile: list[dict[str, Any]] | None,
+        profile_started: float,
+        error: ApiError,
+    ) -> dict[str, Any] | None:
+        if not getattr(self._repository, "skips_idempotency_precheck_on_create_order", False):
+            return None
+        if error.code not in {"AD_NOT_AVAILABLE", "IDEMPOTENCY_CONFLICT"}:
+            return None
+        existing = self._existing_order_for_idempotency(user=user, payload=payload, idempotency_key=idempotency_key, profile=profile)
+        if existing is None:
+            return None
+        return profile_attach({"order": public_order_payload(existing), "disclaimer": ORDER_DISCLAIMER}, profile, profile_started)
 
     def _available_ad_for_order(self, *, user: UserRecord, payload: OrderCreateRequest, profile: list[dict[str, Any]] | None) -> AdRecord:
         stage_started = time.perf_counter()
