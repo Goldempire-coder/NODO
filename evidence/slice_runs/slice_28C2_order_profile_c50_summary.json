@@ -1,0 +1,333 @@
+{
+  "run_id": "gha_29173633187_1_mixed-read-order",
+  "scenario": "mixed-read-order",
+  "status_counts": {
+    "201": 50,
+    "200": 150
+  },
+  "total_errors": 0,
+  "requests": 200,
+  "concurrency": 50,
+  "profiled_requests_by_operation": {
+    "order_create": 50,
+    "marketplace_read": 150
+  },
+  "operations": {
+    "marketplace_read": {
+      "requests": 150,
+      "client_latency": {
+        "count": 150,
+        "p50_ms": 112.7513,
+        "p95_ms": 320.3393,
+        "p99_ms": 368.8606,
+        "avg_ms": 148.3699
+      },
+      "server_process_time": {
+        "count": 150,
+        "p50_ms": 8.4101,
+        "p95_ms": 97.4856,
+        "p99_ms": 113.8678,
+        "avg_ms": 19.4954
+      },
+      "status_counts": {
+        "200": 150
+      },
+      "response_bytes_total": 749484,
+      "response_kb_total": 731.918,
+      "profiled_requests": 150
+    },
+    "order_create": {
+      "requests": 50,
+      "client_latency": {
+        "count": 50,
+        "p50_ms": 670.4766,
+        "p95_ms": 885.12,
+        "p99_ms": 939.7325,
+        "avg_ms": 665.8083
+      },
+      "server_process_time": {
+        "count": 50,
+        "p50_ms": 346.6987,
+        "p95_ms": 456.6227,
+        "p99_ms": 471.9346,
+        "avg_ms": 350.3016
+      },
+      "status_counts": {
+        "201": 50
+      },
+      "response_bytes_total": 98570,
+      "response_kb_total": 96.2598,
+      "profiled_requests": 50
+    }
+  },
+  "order_stage_latency": {
+    "auth:decode_access_token": {
+      "count": 50,
+      "p50_ms": 0.0715,
+      "p95_ms": 0.105,
+      "p99_ms": 0.3495,
+      "avg_ms": 0.0758
+    },
+    "auth:get_user_by_id": {
+      "count": 50,
+      "p50_ms": 100.6788,
+      "p95_ms": 183.4143,
+      "p99_ms": 184.3808,
+      "avg_ms": 105.5773
+    },
+    "auth:require_remitter": {
+      "count": 50,
+      "p50_ms": 0.0019,
+      "p95_ms": 0.0031,
+      "p99_ms": 0.0044,
+      "avg_ms": 0.002
+    },
+    "auth:status_check": {
+      "count": 50,
+      "p50_ms": 0.0204,
+      "p95_ms": 0.0309,
+      "p99_ms": 0.0357,
+      "avg_ms": 0.021
+    },
+    "auth:user_cache_get": {
+      "count": 50,
+      "p50_ms": 0.0076,
+      "p95_ms": 0.0128,
+      "p99_ms": 0.0191,
+      "avg_ms": 0.0079
+    },
+    "auth:user_cache_set": {
+      "count": 50,
+      "p50_ms": 0.0627,
+      "p95_ms": 0.0907,
+      "p99_ms": 0.0987,
+      "avg_ms": 0.0618
+    },
+    "auth:validate_header": {
+      "count": 50,
+      "p50_ms": 0.006,
+      "p95_ms": 0.0122,
+      "p99_ms": 0.0241,
+      "avg_ms": 0.0068
+    },
+    "cache:marketplace_invalidation": {
+      "count": 50,
+      "p50_ms": 7.0349,
+      "p95_ms": 40.3854,
+      "p99_ms": 43.5556,
+      "avg_ms": 13.652
+    },
+    "db_reads:order_create_context": {
+      "count": 50,
+      "p50_ms": 69.4115,
+      "p95_ms": 194.2443,
+      "p99_ms": 209.0475,
+      "avg_ms": 83.6315
+    },
+    "idempotency:get_or_lock": {
+      "count": 50,
+      "p50_ms": 3.2707,
+      "p95_ms": 28.4132,
+      "p99_ms": 37.198,
+      "avg_ms": 6.6206
+    },
+    "idempotency:store_and_release_lock": {
+      "count": 50,
+      "p50_ms": 3.5061,
+      "p95_ms": 8.7282,
+      "p99_ms": 24.6189,
+      "avg_ms": 4.7955
+    },
+    "rate_limit:order_create": {
+      "count": 50,
+      "p50_ms": 2.5524,
+      "p95_ms": 32.7507,
+      "p99_ms": 39.1103,
+      "avg_ms": 5.6023
+    },
+    "service:public_order_payload": {
+      "count": 50,
+      "p50_ms": 0.0355,
+      "p95_ms": 0.0705,
+      "p99_ms": 0.0809,
+      "avg_ms": 0.0385
+    },
+    "transaction:create_order_and_move_ad": {
+      "count": 50,
+      "p50_ms": 118.9595,
+      "p95_ms": 164.235,
+      "p99_ms": 168.2073,
+      "avg_ms": 120.2726
+    }
+  },
+  "marketplace_stage_latency": {
+    "auth:marketplace_claim_user": {
+      "count": 150,
+      "p50_ms": 0.0177,
+      "p95_ms": 0.0257,
+      "p99_ms": 0.0387,
+      "avg_ms": 0.0179
+    },
+    "auth:marketplace_decode_access_token": {
+      "count": 150,
+      "p50_ms": 0.0752,
+      "p95_ms": 0.1082,
+      "p99_ms": 0.2072,
+      "avg_ms": 0.0777
+    },
+    "auth:marketplace_validate_header": {
+      "count": 150,
+      "p50_ms": 0.0063,
+      "p95_ms": 0.0107,
+      "p99_ms": 0.0245,
+      "avg_ms": 0.0068
+    },
+    "cache:hit": {
+      "count": 155,
+      "p50_ms": 0.0005,
+      "p95_ms": 0.0007,
+      "p99_ms": 0.0009,
+      "avg_ms": 0.0006
+    },
+    "cache:key_build": {
+      "count": 150,
+      "p50_ms": 0.0046,
+      "p95_ms": 0.007,
+      "p99_ms": 0.0105,
+      "avg_ms": 0.0049
+    },
+    "cache:local_get": {
+      "count": 155,
+      "p50_ms": 0.1275,
+      "p95_ms": 0.2172,
+      "p99_ms": 0.3045,
+      "avg_ms": 0.1342
+    },
+    "cache:lock_wait": {
+      "count": 10,
+      "p50_ms": 31.5655,
+      "p95_ms": 64.6652,
+      "p99_ms": 64.6652,
+      "avg_ms": 34.8234
+    },
+    "cache:marker_get": {
+      "count": 149,
+      "p50_ms": 2.9609,
+      "p95_ms": 87.931,
+      "p99_ms": 106.9524,
+      "avg_ms": 11.6919
+    },
+    "cache:marketplace_unavailable_filter": {
+      "count": 149,
+      "p50_ms": 3.0026,
+      "p95_ms": 87.9643,
+      "p99_ms": 106.9984,
+      "avg_ms": 11.7335
+    },
+    "cache:marketplace_unavailable_filtered": {
+      "count": 147,
+      "p50_ms": 0.0005,
+      "p95_ms": 0.0009,
+      "p99_ms": 0.0017,
+      "avg_ms": 0.0006
+    },
+    "cache:set_local": {
+      "count": 1,
+      "p50_ms": 0.2541,
+      "p95_ms": 0.2541,
+      "p99_ms": 0.2541,
+      "avg_ms": 0.2541
+    },
+    "cache:set_shared": {
+      "count": 1,
+      "p50_ms": 5.6119,
+      "p95_ms": 5.6119,
+      "p99_ms": 5.6119,
+      "avg_ms": 5.6119
+    },
+    "cache:shared_get": {
+      "count": 9,
+      "p50_ms": 2.9782,
+      "p95_ms": 34.848,
+      "p99_ms": 34.848,
+      "avg_ms": 10.5574
+    },
+    "cache:version_cached": {
+      "count": 154,
+      "p50_ms": 0.0002,
+      "p95_ms": 0.0004,
+      "p99_ms": 0.0005,
+      "avg_ms": 0.0005
+    },
+    "cache:version_lookup": {
+      "count": 2,
+      "p50_ms": 1.9397,
+      "p95_ms": 2.4563,
+      "p99_ms": 2.4563,
+      "avg_ms": 2.198
+    },
+    "db:acquire": {
+      "count": 1,
+      "p50_ms": 0.0136,
+      "p95_ms": 0.0136,
+      "p99_ms": 0.0136,
+      "avg_ms": 0.0136
+    },
+    "db:query:list_marketplace_ads_with_businesses": {
+      "count": 1,
+      "p50_ms": 44.2261,
+      "p95_ms": 44.2261,
+      "p99_ms": 44.2261,
+      "avg_ms": 44.2261
+    },
+    "db:row_map:list_marketplace_ads_with_businesses": {
+      "count": 1,
+      "p50_ms": 0.5578,
+      "p95_ms": 0.5578,
+      "p99_ms": 0.5578,
+      "avg_ms": 0.5578
+    },
+    "repo:list_marketplace_ads_with_businesses": {
+      "count": 1,
+      "p50_ms": 56.4346,
+      "p95_ms": 56.4346,
+      "p99_ms": 56.4346,
+      "avg_ms": 56.4346
+    },
+    "service:marketplace_access": {
+      "count": 150,
+      "p50_ms": 0.0018,
+      "p95_ms": 0.0034,
+      "p99_ms": 0.0046,
+      "avg_ms": 0.002
+    },
+    "service:payload": {
+      "count": 1,
+      "p50_ms": 0.3523,
+      "p95_ms": 0.3523,
+      "p99_ms": 0.3523,
+      "avg_ms": 0.3523
+    },
+    "service:rank": {
+      "count": 1,
+      "p50_ms": 0.0032,
+      "p95_ms": 0.0032,
+      "p99_ms": 0.0032,
+      "avg_ms": 0.0032
+    },
+    "service:rate_limit": {
+      "count": 150,
+      "p50_ms": 0.0083,
+      "p95_ms": 0.0148,
+      "p99_ms": 0.0255,
+      "avg_ms": 0.0089
+    },
+    "service:validate_search_params": {
+      "count": 150,
+      "p50_ms": 0.0022,
+      "p95_ms": 0.0031,
+      "p99_ms": 0.0043,
+      "avg_ms": 0.0023
+    }
+  }
+}

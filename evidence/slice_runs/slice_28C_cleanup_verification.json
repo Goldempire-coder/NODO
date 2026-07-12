@@ -1,0 +1,36 @@
+{
+  "run_ids": [
+    "gha_29173362553_1_mixed-read-order",
+    "gha_mixed50_slice28c_fixture_20260711200748",
+    "gha_29173633187_1_mixed-read-order",
+    "gha_mixed50_slice28c2_fixture_20260711201814",
+    "gha_29173933951_1_mixed-read-order",
+    "gha_mixed100_slice28c2_fixture_20260711202458"
+  ],
+  "counts": {
+    "gha_29173362553_1_mixed-read-order": {
+      "businesses": 0,
+      "ads_by_business": 0
+    },
+    "gha_mixed50_slice28c_fixture_20260711200748": {
+      "businesses": 0,
+      "ads_by_business": 0
+    },
+    "gha_29173633187_1_mixed-read-order": {
+      "businesses": 0,
+      "ads_by_business": 0
+    },
+    "gha_mixed50_slice28c2_fixture_20260711201814": {
+      "businesses": 0,
+      "ads_by_business": 0
+    },
+    "gha_29173933951_1_mixed-read-order": {
+      "businesses": 0,
+      "ads_by_business": 0
+    },
+    "gha_mixed100_slice28c2_fixture_20260711202458": {
+      "businesses": 0,
+      "ads_by_business": 0
+    }
+  }
+}

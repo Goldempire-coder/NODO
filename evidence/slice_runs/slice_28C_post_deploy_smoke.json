@@ -1,0 +1,29 @@
+﻿{
+    "version":  {
+                    "data":  {
+                                 "service":  "NODO",
+                                 "version":  "staging-28c-20260711200635",
+                                 "build_id":  "staging-28c-20260711200635",
+                                 "environment":  "staging"
+                             },
+                    "request_id":  "req_slice28c_version"
+                },
+    "ready":  {
+                  "data":  {
+                               "status":  "ready",
+                               "checks":  {
+                                              "database":  {
+                                                               "ok":  true,
+                                                               "code":  null,
+                                                               "message":  null
+                                                           },
+                                              "redis":  {
+                                                            "ok":  true,
+                                                            "code":  null,
+                                                            "message":  null
+                                                        }
+                                          }
+                           },
+                  "request_id":  "req_slice28c_version"
+              }
+}
