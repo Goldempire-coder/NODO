@@ -1,0 +1,26 @@
+{
+  "run_ids": [
+    "gha_29172604417_1_mixed-read-order",
+    "gha_mixed50_slice28b_retry_fixture_20260711193850",
+    "gha_29172904002_1_mixed-read-order",
+    "gha_mixed100_slice28b_retry_fixture_20260711194620"
+  ],
+  "counts": {
+    "gha_29172604417_1_mixed-read-order": {
+      "businesses": 0,
+      "ads_by_business": 0
+    },
+    "gha_mixed50_slice28b_retry_fixture_20260711193850": {
+      "businesses": 0,
+      "ads_by_business": 0
+    },
+    "gha_29172904002_1_mixed-read-order": {
+      "businesses": 0,
+      "ads_by_business": 0
+    },
+    "gha_mixed100_slice28b_retry_fixture_20260711194620": {
+      "businesses": 0,
+      "ads_by_business": 0
+    }
+  }
+}

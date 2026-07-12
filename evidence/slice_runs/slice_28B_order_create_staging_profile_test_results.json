@@ -1,0 +1,76 @@
+{
+  "slice": "slice_28B_order_create_staging_profile",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "local_validations": [
+    {
+      "command": "python -m pytest apps\\api\\tests\\test_staging_validation_tooling.py -q --tb=short -k \"cloud_load_runner_order_create_adds_profile_header_when_enabled or cloud_load_runner_mixed_marketplace_profiles_are_captured\"",
+      "result": "2 passed, 53 deselected, 1 warning"
+    },
+    {
+      "command": "python -m pytest apps\\api\\tests\\test_order_creation.py -q --tb=short -k \"profile\"",
+      "result": "3 passed, 1 warning"
+    },
+    {
+      "command": "python -m pytest apps\\api\\tests\\test_staging_validation_tooling.py -q --tb=short -k \"cloud_load_runner\"",
+      "result": "4 passed, 51 deselected, 1 warning"
+    },
+    {
+      "command": "python -m pytest apps\\api\\tests\\test_order_creation.py apps\\api\\tests\\test_staging_validation_tooling.py -q --tb=short",
+      "result": "69 passed, 1 warning"
+    },
+    {
+      "command": "python -m pytest apps\\api\\tests -q",
+      "result": "257 passed, 1 warning"
+    },
+    {
+      "command": "python -m ruff check apps\\api scripts",
+      "result": "OK"
+    },
+    {
+      "command": "python -m compileall apps\\api apps\\web\\src scripts",
+      "result": "OK"
+    },
+    {
+      "command": "corepack pnpm --filter @nodo/web build",
+      "result": "OK"
+    }
+  ],
+  "cloud_runs": [
+    {
+      "github_actions_run_id": "29172604417",
+      "scenario": "mixed-read-order",
+      "concurrency": 50,
+      "requests": 200,
+      "status_counts": {
+        "201": 50,
+        "200": 150
+      },
+      "total_errors": 0,
+      "profiled_requests_by_operation": {
+        "order_create": 50,
+        "marketplace_read": 150
+      },
+      "order_create_backend_p95_ms": 571.6427,
+      "marketplace_read_backend_p95_ms": 97.7111
+    },
+    {
+      "github_actions_run_id": "29172904002",
+      "scenario": "mixed-read-order",
+      "concurrency": 100,
+      "requests": 400,
+      "status_counts": {
+        "201": 100,
+        "200": 300
+      },
+      "total_errors": 0,
+      "profiled_requests_by_operation": {
+        "order_create": 100,
+        "marketplace_read": 300
+      },
+      "order_create_backend_p95_ms": 977.2929,
+      "marketplace_read_backend_p95_ms": 172.2158
+    }
+  ],
+  "cleanup_verified": true,
+  "production_ready_declared": false
+}
