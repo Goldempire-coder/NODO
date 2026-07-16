@@ -242,7 +242,7 @@ class OrderNotificationService:
                 "notification_type": notification_type,
                 "order_id": order.id,
                 "recipient": logical_recipient,
-                "created": created,
+                "notification_created": created,
                 "request_id": request_id,
             },
         )

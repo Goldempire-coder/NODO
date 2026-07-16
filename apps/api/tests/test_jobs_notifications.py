@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
 from datetime import timedelta
@@ -302,6 +303,20 @@ def test_slice_36_immediate_order_notifications_are_enqueued_deduped_and_private
     assert "storage_path" not in combined
     assert "signed_url" not in combined
     assert BOT_TOKEN not in combined
+
+
+def test_slice_36_notification_enqueue_logging_does_not_break_success_response(caplog) -> None:  # type: ignore[no-untyped-def]
+    caplog.set_level(logging.INFO, logger="app.modules.notifications.order_notifications")
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    _, _, _, _, order = _seed_order(client, owner_id=1104, remitter_id=1105)
+
+    assert order["public_order_code"].startswith("NODO-")
+    assert any(
+        record.name == "app.modules.notifications.order_notifications"
+        and record.getMessage() == "notification_job_enqueued"
+        and getattr(record, "notification_created", None) is True
+        for record in caplog.records
+    )
 
 
 def test_slice_36_dispute_enqueues_parties_and_admin_support_without_resolving() -> None:
