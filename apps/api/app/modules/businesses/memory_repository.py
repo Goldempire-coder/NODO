@@ -64,6 +64,15 @@ class InMemoryBusinessRepository(
             business.updated_at = utc_now()
             return business
 
+    def update_business_accepting_orders(self, business_id: str, accepting_orders: bool) -> BusinessRecord | None:
+        with self._lock:
+            business = self.businesses.get(business_id)
+            if business is None:
+                return None
+            business.is_accepting_orders = accepting_orders
+            business.updated_at = utc_now()
+            return business
+
     def get_business(self, business_id: str) -> BusinessRecord | None:
         return self.businesses.get(business_id)
 

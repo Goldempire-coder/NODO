@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 from pathlib import Path
 
 from app.shared.db import connection as db_connection
@@ -77,6 +78,48 @@ def test_slice_11_scripts_and_gitignore_exist() -> None:
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert ".local/" in gitignore
     assert "!.env.local.example" in gitignore
+
+
+def test_slice_31c_local_synthetic_backup_restore_tooling_exists_and_is_local_only() -> None:
+    script_path = ROOT / "scripts" / "local_synthetic_backup_restore.py"
+    source = script_path.read_text(encoding="utf-8")
+
+    assert "slice_31C_local_synthetic_backup_restore_tooling" in source
+    assert "APP_ENV\") != \"local\"" in source
+    assert "assert_local_database_url" in source
+    assert "nodo_31c_" in source
+    assert '"docker",' in source
+    assert '"exec",' in source
+    assert "pg_dump" in source
+    assert "pg_restore" in source
+    assert "supabase.co" not in source.lower()
+    assert "READY_FOR_REAL_USE" not in source
+
+
+def test_slice_31c_database_names_are_generated_and_safe() -> None:
+    import importlib.util
+
+    script_path = ROOT / "scripts" / "local_synthetic_backup_restore.py"
+    scripts_path = str(ROOT / "scripts")
+    if scripts_path not in sys.path:
+        sys.path.insert(0, scripts_path)
+    spec = importlib.util.spec_from_file_location("local_synthetic_backup_restore", script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    source = module.build_local_database_name("slice31c-test_001", "source")
+    restore = module.build_local_database_name("slice31c-test_001", "restore")
+    assert source == "nodo_31c_source_slice31c_test_001"
+    assert restore == "nodo_31c_restore_slice31c_test_001"
+
+    for bad in ["prod", "../prod", "x" * 100, "bad.name"]:
+        try:
+            module.build_local_database_name(bad, "source")
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("unsafe 31C run_id must be rejected")
 
 
 def test_no_ready_for_real_use_claim_in_slice_11_artifacts() -> None:

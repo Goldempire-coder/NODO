@@ -53,8 +53,33 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             row = conn.execute(sql, params).fetchone()
         return row is not None
 
-    def update_ad(self, ad: AdRecord, *, rate_bs_per_usd: Decimal | None, amount_min_usd: Decimal | None, amount_max_usd: Decimal | None) -> AdRecord:
+    def business_open_exposure_usd(self, *, business_id: str, exclude_ad_id: str | None = None) -> Decimal:
+        sql = """
+            select coalesce(sum(amount_max_usd), 0) as open_exposure
+            from ads
+            where business_id = %s
+              and status in ('active', 'in_order')
+        """
+        params: list[object] = [business_id]
+        if exclude_ad_id:
+            sql += " and id <> %s"
+            params.append(exclude_ad_id)
+        with self._connect() as conn:
+            row = conn.execute(sql, params).fetchone()
+        return Decimal(str(row["open_exposure"])) if row else Decimal("0.00")
+
+    def update_ad(
+        self,
+        ad: AdRecord,
+        *,
+        payment_method_id: str | None,
+        rate_bs_per_usd: Decimal | None,
+        amount_min_usd: Decimal | None,
+        amount_max_usd: Decimal | None,
+    ) -> AdRecord:
         updates: dict[str, object] = {}
+        if payment_method_id is not None:
+            updates["payment_method_id"] = payment_method_id
         if rate_bs_per_usd is not None:
             updates["rate_bs_per_usd"] = rate_bs_per_usd
             updates["last_rate_updated_at"] = "now()"
@@ -97,10 +122,14 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
         if not eligible_business_ids:
             return [], None
         sql = """
-            select * from ads
-            where business_id = any(%s)
-              and status = 'active'
-              and expires_at > now()
+            select ads.* from ads
+            join business_payment_methods on business_payment_methods.id = ads.payment_method_id
+            where ads.business_id = any(%s)
+              and ads.status = 'active'
+              and ads.expires_at > now()
+              and business_payment_methods.business_id = ads.business_id
+              and business_payment_methods.verified_status = 'approved'
+              and business_payment_methods.active = true
         """
         params: list[object] = [list(eligible_business_ids)]
         if payment_method is not None:
@@ -135,10 +164,15 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             select ads.*
             from ads
             join businesses on businesses.id = ads.business_id
+            join business_payment_methods on business_payment_methods.id = ads.payment_method_id
             where ads.status = 'active'
               and ads.expires_at > now()
               and businesses.verification_status = 'approved'
               and businesses.risk_level not in ('restricted', 'high_risk')
+              and businesses.is_accepting_orders = true
+              and business_payment_methods.business_id = ads.business_id
+              and business_payment_methods.verified_status = 'approved'
+              and business_payment_methods.active = true
         """
         params: list[object] = []
         if payment_method is not None:
@@ -182,9 +216,11 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
                 businesses.verification_status as business_verification_status,
                 businesses.trust_level as business_trust_level,
                 businesses.risk_level as business_risk_level,
+                businesses.min_order_amount_usd as business_min_order_amount_usd,
                 businesses.max_order_amount_usd as business_max_order_amount_usd,
                 businesses.daily_limit_usd as business_daily_limit_usd,
                 businesses.active_order_limit as business_active_order_limit,
+                businesses.is_accepting_orders as business_is_accepting_orders,
                 businesses.rating_avg as business_rating_avg,
                 businesses.completed_orders_count as business_completed_orders_count,
                 businesses.disputes_count as business_disputes_count,
@@ -199,10 +235,15 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
                 businesses.approved_at as business_approved_at
             from ads
             join businesses on businesses.id = ads.business_id
+            join business_payment_methods on business_payment_methods.id = ads.payment_method_id
             where ads.status = 'active'
               and ads.expires_at > now()
               and businesses.verification_status = 'approved'
               and businesses.risk_level not in ('restricted', 'high_risk')
+              and businesses.is_accepting_orders = true
+              and business_payment_methods.business_id = ads.business_id
+              and business_payment_methods.verified_status = 'approved'
+              and business_payment_methods.active = true
         """
         params: list[object] = []
         if payment_method is not None:
@@ -271,9 +312,11 @@ def _business_from_marketplace_row(row) -> BusinessRecord:  # type: ignore[no-un
         verification_status=row["business_verification_status"],
         trust_level=row["business_trust_level"],
         risk_level=row["business_risk_level"],
+        min_order_amount_usd=Decimal(str(row["business_min_order_amount_usd"])),
         max_order_amount_usd=Decimal(str(row["business_max_order_amount_usd"])),
         daily_limit_usd=Decimal(str(row["business_daily_limit_usd"])),
         active_order_limit=row["business_active_order_limit"],
+        is_accepting_orders=bool(row["business_is_accepting_orders"]),
         rating_avg=Decimal(str(row["business_rating_avg"])) if row["business_rating_avg"] is not None else None,
         completed_orders_count=row["business_completed_orders_count"],
         disputes_count=row["business_disputes_count"],

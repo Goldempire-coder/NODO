@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+import time
 from datetime import timedelta
 from typing import Any
+from urllib.parse import parse_qsl
 
 from app.auth.jwt import create_access_token, create_refresh_token, hash_refresh_token
 from app.auth.telegram import validate_telegram_init_data
@@ -35,10 +38,22 @@ class AuthService:
         ):
             raise ApiError("RATE_LIMITED", status_code=429)
 
-    def login_with_telegram(self, *, init_data: str, request_id: str, ip_address: str | None, user_agent: str | None) -> dict:
+    def login_with_telegram(
+        self,
+        *,
+        init_data: str,
+        surface: str | None = None,
+        request_id: str,
+        ip_address: str | None,
+        user_agent: str | None,
+    ) -> dict:
         bot_token, jwt_secret, jwt_refresh_secret = self._require_auth_secrets()
         self._check_rate_limit(f"auth:{ip_address or 'unknown'}")
-        telegram_user = self._validate_telegram_login(init_data=init_data, bot_token=bot_token, request_id=request_id)
+        telegram_user = self._validate_telegram_login(
+            init_data=init_data,
+            bot_tokens=self._telegram_auth_bot_tokens(default_bot_token=bot_token, surface=surface),
+            request_id=request_id,
+        )
         user, created = self._repository.upsert_telegram_user(
             telegram_id=telegram_user.telegram_id,
             username=telegram_user.username,
@@ -62,24 +77,74 @@ class AuthService:
             "user": public_user_payload(user),
         }
 
-    def _validate_telegram_login(self, *, init_data: str, bot_token: str, request_id: str) -> Any:
+    def _telegram_auth_bot_tokens(self, *, default_bot_token: str, surface: str | None) -> list[str]:
+        tokens = [default_bot_token]
+        if surface == "business_mini_app" and self._settings.business_intake_bot_token:
+            tokens.append(self._settings.business_intake_bot_token)
+        return list(dict.fromkeys(tokens))
+
+    def _validate_telegram_login(self, *, init_data: str, bot_tokens: list[str], request_id: str) -> Any:
+        last_error: ApiError | None = None
+        for bot_token in bot_tokens:
+            try:
+                return validate_telegram_init_data(
+                    init_data,
+                    bot_token,
+                    self._settings.auth_init_data_max_age_seconds,
+                )
+            except ApiError as exc:
+                last_error = exc
+        self._audit.write(
+            event_type="auth_failed",
+            actor_user_id=None,
+            actor_role=None,
+            resource_type="auth",
+            resource_id=None,
+            request_id=request_id,
+            metadata_json={
+                "reason": "telegram_init_data_rejected",
+                "last_error_code": last_error.code if last_error is not None else None,
+                "token_attempts": len(bot_tokens),
+                "init_data": self._safe_init_data_diagnostics(init_data),
+            },
+        )
+        if last_error is not None:
+            raise last_error
+        raise ApiError("TELEGRAM_INIT_DATA_INVALID", status_code=401)
+
+    def _safe_init_data_diagnostics(self, init_data: str) -> dict[str, Any]:
+        diagnostics: dict[str, Any] = {
+            "length": len(init_data or ""),
+            "keys": [],
+            "has_hash": False,
+            "has_user": False,
+            "has_auth_date": False,
+        }
         try:
-            return validate_telegram_init_data(
-                init_data,
-                bot_token,
-                self._settings.auth_init_data_max_age_seconds,
-            )
-        except ApiError:
-            self._audit.write(
-                event_type="auth_failed",
-                actor_user_id=None,
-                actor_role=None,
-                resource_type="auth",
-                resource_id=None,
-                request_id=request_id,
-                metadata_json={"reason": "telegram_init_data_rejected"},
-            )
-            raise
+            pairs = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=False))
+        except ValueError:
+            diagnostics["parse_error"] = True
+            return diagnostics
+
+        keys = sorted(pairs)
+        diagnostics["keys"] = keys
+        diagnostics["has_hash"] = "hash" in pairs
+        diagnostics["has_user"] = "user" in pairs
+        diagnostics["has_auth_date"] = "auth_date" in pairs
+        if "auth_date" in pairs:
+            try:
+                auth_date = int(pairs["auth_date"])
+                diagnostics["auth_age_seconds"] = int(time.time()) - auth_date
+                diagnostics["auth_date_in_future"] = auth_date > int(time.time()) + 60
+            except ValueError:
+                diagnostics["auth_date_invalid"] = True
+        if "user" in pairs:
+            try:
+                user_payload = json.loads(pairs["user"])
+                diagnostics["telegram_user_id"] = int(user_payload["id"])
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                diagnostics["user_parse_error"] = True
+        return diagnostics
 
     def _ensure_login_user_allowed(self, *, user: UserRecord, request_id: str) -> None:
         if user.status == "blocked":
@@ -157,12 +222,15 @@ class AuthService:
             ttl_seconds=self._settings.access_token_ttl_seconds,
         )
         next_refresh_token = create_refresh_token()
-        self._repository.rotate_session(
+        rotated = self._repository.rotate_session_if_current(
             session,
+            current_refresh_token_hash=refresh_hash,
             refresh_token_hash=hash_refresh_token(next_refresh_token, jwt_refresh_secret),
             access_token_jti=access_token_jti,
             expires_at=utc_now() + timedelta(seconds=self._settings.refresh_token_ttl_seconds),
         )
+        if not rotated:
+            raise ApiError("SESSION_EXPIRED", status_code=401)
         self._audit.write(
             event_type="session_refreshed",
             actor_user_id=user.id,
@@ -178,18 +246,19 @@ class AuthService:
             "expires_in": self._settings.access_token_ttl_seconds,
         }
 
-    def logout(self, *, refresh_token: str, user: UserRecord, request_id: str) -> dict:
+    def logout(self, *, refresh_token: str, request_id: str) -> dict:
         _, _, jwt_refresh_secret = self._require_auth_secrets()
         refresh_hash = hash_refresh_token(refresh_token, jwt_refresh_secret)
         session = self._repository.get_session_by_refresh_hash(refresh_hash)
-        if session is not None and session.user_id == user.id and session.status != "revoked":
+        user = self._repository.get_user_by_id(session.user_id) if session is not None else None
+        if session is not None and session.status != "revoked":
             self._repository.revoke_session(session)
         self._audit.write(
             event_type="user_logout",
-            actor_user_id=user.id,
-            actor_role=user.role,
+            actor_user_id=user.id if user else None,
+            actor_role=user.role if user else None,
             resource_type="user",
-            resource_id=user.id,
+            resource_id=user.id if user else None,
             request_id=request_id,
         )
         return {"logged_out": True}

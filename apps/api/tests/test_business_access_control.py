@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import time
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
@@ -43,6 +44,9 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.businesses.models import utc_now  # noqa: E402
+from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.businesses.row_mappers import access_link_from_row  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -118,11 +122,50 @@ def _link_business(client: TestClient, admin: dict, business: dict, owner: dict,
         json={"user_id": owner["user"]["id"], "role_in_business": "owner", "reason": "admin approved owner access"},
     )
     assert response.status_code == 201, response.text
-    return response.json()["data"]["access_link"]
+    link = response.json()["data"]["access_link"]
+    client.app.state.business_repository.set_access_link_pin_hash(link_id=link["id"], pin_hash=hash_pin("1234"))
+    client.app.state.business_repository.mark_access_link_pin_verified(link_id=link["id"], unlocked_until=utc_now() + timedelta(minutes=15))
+    return link
 
 
 def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
+
+
+def test_access_link_mapper_coerces_pin_timestamp_strings() -> None:
+    unlocked_until = (utc_now() + timedelta(minutes=10)).isoformat()
+    locked_until = (utc_now() + timedelta(minutes=20)).isoformat()
+
+    link = access_link_from_row(
+        {
+            "id": "link-1",
+            "business_id": "business-1",
+            "user_id": "user-1",
+            "telegram_id_snapshot": 12345,
+            "role_in_business": "owner",
+            "status": "active",
+            "linked_by_admin_id": None,
+            "linked_at": utc_now(),
+            "suspended_at": None,
+            "blocked_at": None,
+            "revoked_at": None,
+            "reason": None,
+            "business_pin_hash": "hash",
+            "business_pin_set_at": unlocked_until,
+            "business_pin_verified_at": unlocked_until,
+            "business_pin_unlocked_until": unlocked_until,
+            "business_pin_failed_attempts": 0,
+            "business_pin_locked_until": locked_until,
+            "created_at": utc_now(),
+            "updated_at": utc_now(),
+        }
+    )
+
+    assert link.business_pin_set_at is not None
+    assert link.business_pin_verified_at is not None
+    assert link.business_pin_unlocked_until is not None
+    assert link.business_pin_locked_until is not None
+    assert link.business_pin_unlocked_until > utc_now()
 
 
 def test_surface_session_allows_approved_business_with_active_link() -> None:
@@ -142,6 +185,247 @@ def test_surface_session_allows_approved_business_with_active_link() -> None:
     assert data["business"]["id"] == business["id"]
     assert "telegram_id" not in data["user"]
     assert "business.ads.create" in data["capabilities"]
+
+
+def test_business_availability_requires_pin_and_idempotency() -> None:
+    client = _client()
+    admin = _admin_login(client, 14120)
+    owner_without_pin = _login(client, 14121, "owner_availability_no_pin")
+    business_without_pin = _create_approved_business(client, owner_without_pin)
+    link_response = client.post(
+        f"/api/v1/admin/businesses/{business_without_pin['id']}/access-links",
+        headers={**_headers(admin, "link_availability_no_pin"), "Content-Type": "application/json"},
+        json={"user_id": owner_without_pin["user"]["id"], "role_in_business": "owner", "reason": "admin approved owner access"},
+    )
+    assert link_response.status_code == 201, link_response.text
+
+    locked = client.patch(
+        "/api/v1/business/availability",
+        headers={**_headers(owner_without_pin, "availability_without_pin"), "Content-Type": "application/json"},
+        json={"accepting_orders": False},
+    )
+    assert locked.status_code == 423
+    assert locked.json()["error"]["code"] == "BUSINESS_PIN_NOT_SET"
+
+    owner = _login(client, 14122, "owner_availability")
+    business = _create_approved_business(client, owner)
+    _link_business(client, admin, business, owner, key="link_availability")
+
+    missing_idempotency = client.patch(
+        "/api/v1/business/availability",
+        headers={**_bearer(owner, "availability_missing_idempotency"), "Content-Type": "application/json"},
+        json={"accepting_orders": False},
+    )
+    assert missing_idempotency.status_code == 400
+    assert missing_idempotency.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
+
+    headers = {**_headers(owner, "availability_offline_once"), "Content-Type": "application/json"}
+    updated = client.patch("/api/v1/business/availability", headers=headers, json={"accepting_orders": False})
+    replay = client.patch("/api/v1/business/availability", headers=headers, json={"accepting_orders": False})
+
+    assert updated.status_code == 200, updated.text
+    assert replay.status_code == 200, replay.text
+    assert updated.json()["data"]["business"]["is_accepting_orders"] is False
+    assert replay.json()["data"]["business"]["is_accepting_orders"] is False
+    assert client.app.state.business_repository.get_business(business["id"]).is_accepting_orders is False
+
+
+def test_business_payment_methods_require_idempotency_key() -> None:
+    client = _client()
+    owner = _login(client, 14123, "owner_zelle_idempotency")
+    business = _create_approved_business(client, owner)
+    admin = _admin_login(client, 14124)
+    _link_business(client, admin, business, owner, key="link_zelle_idempotency")
+    payment = client.app.state.business_repository.add_payment_method(
+        business_id=business["id"],
+        method_type="zelle",
+        network=None,
+        account_value="owner-zelle@example.com",
+        account_masked="***.com",
+        holder_name="Owner Zelle",
+    )
+    payment.verified_status = "approved"
+    payment.active = True
+
+    create_without_key = client.post(
+        "/api/v1/business/payment-methods",
+        headers={**_bearer(owner, "zelle_create_without_key"), "Content-Type": "application/json"},
+        json={"zelle_account": "new-zelle@example.com", "holder_name": "New Zelle"},
+    )
+    update_without_key = client.patch(
+        f"/api/v1/business/payment-methods/{payment.id}",
+        headers={**_bearer(owner, "zelle_update_without_key"), "Content-Type": "application/json"},
+        json={"holder_name": "Updated Holder"},
+    )
+    delete_without_key = client.delete(
+        f"/api/v1/business/payment-methods/{payment.id}",
+        headers=_bearer(owner, "zelle_delete_without_key"),
+    )
+
+    for response in (create_without_key, update_without_key, delete_without_key):
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
+
+
+def test_business_can_self_manage_usdt_trc20_method_and_publish_ad() -> None:
+    client = _client()
+    owner = _login(client, 14125, "owner_usdt_method")
+    business = _create_approved_business(client, owner)
+    admin = _admin_login(client, 14126)
+    _link_business(client, admin, business, owner, key="link_usdt_method")
+    client.app.state.ad_repository.grant_test_credits(business_id=business["id"], amount=2, created_by=owner["user"]["id"])
+
+    invalid_wallet = "T" + ("O" * 33)
+    invalid = client.post(
+        "/api/v1/business/payment-methods",
+        headers={**_headers(owner, "create_invalid_usdt_trc20_method"), "Content-Type": "application/json"},
+        json={"method_type": "usdt_trc20", "account_value": invalid_wallet, "holder_name": "Wallet USDT Invalid"},
+    )
+    assert invalid.status_code == 400
+    assert invalid.json()["error"]["code"] == "PAYMENT_METHOD_INVALID"
+
+    wallet = "TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7"
+    created = client.post(
+        "/api/v1/business/payment-methods",
+        headers={**_headers(owner, "create_usdt_trc20_method"), "Content-Type": "application/json"},
+        json={"method_type": "usdt_trc20", "account_value": wallet, "holder_name": "Wallet USDT Principal"},
+    )
+    assert created.status_code == 201, created.text
+    method = created.json()["data"]["payment_method"]
+    assert method["receive_method"] == "usdt_trc20"
+    assert method["receive_display"] == "USDT TRC20"
+    assert method["network"] == "TRC20"
+    assert method["masked_account"].endswith("YjU7")
+    assert wallet not in created.text
+
+    listed = client.get("/api/v1/business/payment-methods", headers=_bearer(owner, "list_usdt_methods"))
+    assert listed.status_code == 200, listed.text
+    assert any(item["id"] == method["id"] and item["receive_method"] == "usdt_trc20" for item in listed.json()["data"])
+
+    ad = client.post(
+        "/api/v1/business/ads",
+        headers={**_headers(owner, "create_usdt_ad"), "Content-Type": "application/json"},
+        json={
+            "payment_method_id": method["id"],
+            "payment_method": "usdt_trc20",
+            "delivery_method": "pago_movil_ve",
+            "rate_bs_per_usd": "39.5000",
+            "amount_min_usd": "20.00",
+            "amount_max_usd": "100.00",
+        },
+    )
+    assert ad.status_code == 201, ad.text
+    assert ad.json()["data"]["ad"]["payment_method"] == "usdt_trc20"
+
+
+def test_business_pin_is_required_for_sensitive_business_mutations() -> None:
+    client = _client()
+    owner = _login(client, 14102, "owner_pin")
+    business = _create_approved_business(client, owner)
+    admin = _admin_login(client, 14103)
+    link_response = client.post(
+        f"/api/v1/admin/businesses/{business['id']}/access-links",
+        headers={**_headers(admin, "link_pin"), "Content-Type": "application/json"},
+        json={"user_id": owner["user"]["id"], "role_in_business": "owner", "reason": "admin approved owner access"},
+    )
+    assert link_response.status_code == 201, link_response.text
+    payment = client.app.state.business_repository.add_payment_method(
+        business_id=business["id"],
+        method_type="zelle",
+        network=None,
+        account_value="owner@example.com",
+        account_masked="***.com",
+        holder_name="Owner Test",
+    )
+    payment.verified_status = "approved"
+    payment.active = True
+    client.app.state.ad_repository.grant_test_credits(business_id=business["id"], amount=2, created_by=owner["user"]["id"])
+
+    session = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_surface_pin"))
+    assert session.status_code == 200
+    access_link = session.json()["data"]["business"]["access_link"]
+    assert access_link["pin_required"] is True
+    assert access_link["pin_configured"] is False
+    assert access_link["pin_unlocked"] is False
+
+    blocked = client.post(
+        "/api/v1/business/ads",
+        headers={**_headers(owner, "pin_missing_ad"), "Content-Type": "application/json"},
+        json={
+            "payment_method_id": payment.id,
+            "payment_method": "zelle",
+            "delivery_method": "pago_movil_ve",
+            "rate_bs_per_usd": "39.5000",
+            "amount_min_usd": "20.00",
+            "amount_max_usd": "100.00",
+        },
+    )
+    assert blocked.status_code == 423
+    assert blocked.json()["error"]["code"] == "BUSINESS_PIN_NOT_SET"
+    assert blocked.json()["error"]["message"] == "Crea tu PIN para proteger esta accion."
+
+    setup = client.post(
+        "/api/v1/business/security/pin/setup",
+        headers={**_bearer(owner, "req_pin_setup"), "Content-Type": "application/json"},
+        json={"pin": "1234"},
+    )
+    assert setup.status_code == 200, setup.text
+    assert setup.json()["data"]["pin"]["configured"] is True
+    assert setup.json()["data"]["pin"]["unlocked"] is True
+    assert "1234" not in setup.text
+
+    allowed = client.post(
+        "/api/v1/business/ads",
+        headers={**_headers(owner, "pin_allowed_ad"), "Content-Type": "application/json"},
+        json={
+            "payment_method_id": payment.id,
+            "payment_method": "zelle",
+            "delivery_method": "pago_movil_ve",
+            "rate_bs_per_usd": "39.5000",
+            "amount_min_usd": "20.00",
+            "amount_max_usd": "100.00",
+        },
+    )
+    assert allowed.status_code == 201, allowed.text
+
+    locked = client.post("/api/v1/business/security/pin/lock", headers=_bearer(owner, "req_pin_lock"))
+    assert locked.status_code == 200
+    blocked_after_lock = client.post(
+        "/api/v1/business/ads",
+        headers={**_headers(owner, "pin_locked_ad"), "Content-Type": "application/json"},
+        json={
+            "payment_method_id": payment.id,
+            "payment_method": "zelle",
+            "delivery_method": "pago_movil_ve",
+            "rate_bs_per_usd": "39.5000",
+            "amount_min_usd": "101.00",
+            "amount_max_usd": "500.00",
+        },
+    )
+    assert blocked_after_lock.status_code == 423
+    assert blocked_after_lock.json()["error"]["code"] == "BUSINESS_PIN_REQUIRED"
+    assert blocked_after_lock.json()["error"]["message"] == "Desbloquea tu PIN para completar esta accion."
+
+    bad_pin = client.post(
+        "/api/v1/business/security/pin/verify",
+        headers={**_bearer(owner, "req_bad_pin"), "Content-Type": "application/json"},
+        json={"pin": "9999"},
+    )
+    assert bad_pin.status_code == 403
+    assert bad_pin.json()["error"]["code"] == "BUSINESS_PIN_INVALID"
+    assert bad_pin.json()["error"]["message"] == "PIN incorrecto."
+    ok_pin = client.post(
+        "/api/v1/business/security/pin/verify",
+        headers={**_bearer(owner, "req_ok_pin"), "Content-Type": "application/json"},
+        json={"pin": "1234"},
+    )
+    assert ok_pin.status_code == 200
+    assert ok_pin.json()["data"]["pin"]["unlocked"] is True
+    assert "1234" not in ok_pin.text
+    for event in client.app.state.audit_writer.events:
+        metadata_text = json.dumps(event.metadata_json or {}, default=str)
+        assert "1234" not in metadata_text
+        assert "9999" not in metadata_text
 
 
 def test_surface_session_denies_remitter_and_business_owner_without_link() -> None:

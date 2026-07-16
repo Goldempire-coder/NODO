@@ -31,6 +31,14 @@ Roles post-MVP:
 - business_operator
 - support_readonly
 
+Roles internos staff (no son `users.role`; viven en `staff_profiles.staff_role`):
+
+- support_agent
+- support_lead
+- operations_readonly
+- admin
+- super_admin
+
 ## Reglas
 
 - `remitter` crea ordenes y reporta pagos.
@@ -39,8 +47,12 @@ Roles post-MVP:
 - `super_admin` maneja permisos criticos y roles admin.
 - `support` ve casos y escala, sin acciones criticas.
 - `guest` no se guarda en DB; representa una request sin sesion valida.
+- La delegacion interna 20C no agrega nuevos valores persistidos a `users.role`; usa `staff_profiles` y `staff_permissions`.
+- Staff activo requiere `users.status = active` y `staff_profiles.status = active`.
+- Revocar staff no bloquea necesariamente el usuario; bloquear usuario sigue el contrato de admin users.
 
 ## Prohibido
 
 - No usar `business` como rol persistente.
 - No usar whitelist informal como unico control admin.
+- No usar solo `users.role = support` para delegar permisos finos de empleados.

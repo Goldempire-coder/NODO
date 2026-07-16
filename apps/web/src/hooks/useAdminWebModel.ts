@@ -10,6 +10,9 @@ import { useAdminBusinessIntakeModel } from "./admin-web/useAdminBusinessIntakeM
 import { useAdminCreditsModel } from "./admin-web/useAdminCreditsModel";
 import { useAdminOverviewModel } from "./admin-web/useAdminOverviewModel";
 import { useAdminOrdersDisputesModel } from "./admin-web/useAdminOrdersDisputesModel";
+import { useAdminUsersModel } from "./admin-web/useAdminUsersModel";
+import { useAdminSupportModel } from "./admin-web/useAdminSupportModel";
+import { useAdminStaffModel } from "./admin-web/useAdminStaffModel";
 import type { PublicUser } from "../types/auth";
 
 export function useAdminWebModel({ token, user }: { user: PublicUser; token: string }) {
@@ -84,6 +87,34 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setView
   });
 
+  const users = useAdminUsersModel({
+    adminMutable,
+    queueCriticalAction: criticalAction.queueCriticalAction,
+    reason: criticalAction.reason,
+    request,
+    setBusy,
+    setNotice,
+    setReason: criticalAction.setReason,
+    setView
+  });
+
+  const support = useAdminSupportModel({
+    request,
+    setBusy,
+    setNotice,
+    setView
+  });
+
+  const staff = useAdminStaffModel({
+    request,
+    setBusy,
+    setNotice,
+    setView,
+    queueCriticalAction: criticalAction.queueCriticalAction,
+    reason: criticalAction.reason,
+    setReason: criticalAction.setReason
+  });
+
   useEffect(() => {
     void overview.loadDashboard();
   }, [overview.loadDashboard]);
@@ -92,6 +123,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     () => [
       { view: "dashboard" as const, label: "Dashboard", action: overview.loadDashboard },
       { view: "businesses" as const, label: "Negocios", action: businessIntake.loadPendingBusinesses },
+      { view: "users" as const, label: "Usuarios", action: () => users.loadUsers() },
       { view: "orders" as const, label: "Ordenes", action: () => ordersDisputes.loadOrders("") },
       { view: "disputes" as const, label: "Disputas", action: () => ordersDisputes.loadDisputes("open") },
       { view: "credit-purchases" as const, label: "Creditos", action: () => credits.loadCreditPurchases("pending_manual_review") },
@@ -99,9 +131,10 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { view: "metrics" as const, label: "Metricas", action: overview.loadMetrics },
       { view: "jobs" as const, label: "Jobs", action: overview.loadJobs },
       { view: "intake" as const, label: "Intake", action: () => businessIntake.loadBusinessIntakes("submitted") },
-      { view: "support-placeholder" as const, label: "Soporte", action: () => setView("support-placeholder") }
+      { view: "support" as const, label: "Soporte", action: () => support.loadSupportTickets("") },
+      { view: "staff" as const, label: "Staff", action: () => staff.loadStaff("") }
     ],
-    [audit.loadAuditLogs, businessIntake.loadBusinessIntakes, businessIntake.loadPendingBusinesses, credits.loadCreditPurchases, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.loadDashboard, overview.loadJobs, overview.loadMetrics]
+    [audit.loadAuditLogs, businessIntake.loadBusinessIntakes, businessIntake.loadPendingBusinesses, credits.loadCreditPurchases, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.loadDashboard, overview.loadJobs, overview.loadMetrics, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
   );
 
   return {
@@ -116,6 +149,10 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     metrics: overview.metrics,
     businesses: businessIntake.businesses,
     selectedBusiness: businessIntake.selectedBusiness,
+    businessAccessLinks: businessIntake.businessAccessLinks,
+    businessCapacityDraft: businessIntake.businessCapacityDraft,
+    users: users.users,
+    selectedUser: users.selectedUser,
     orders: ordersDisputes.orders,
     selectedOrder: ordersDisputes.selectedOrder,
     disputes: ordersDisputes.disputes,
@@ -127,8 +164,27 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     jobRuns: overview.jobRuns,
     businessIntakes: businessIntake.businessIntakes,
     selectedBusinessIntake: businessIntake.selectedBusinessIntake,
+    supportTickets: support.supportTickets,
+    selectedSupportTicket: support.selectedSupportTicket,
+    supportFilter: support.supportFilter,
+    setSupportFilter: support.setSupportFilter,
+    supportReply: support.supportReply,
+    setSupportReply: support.setSupportReply,
+    supportAssigneeId: support.supportAssigneeId,
+    setSupportAssigneeId: support.setSupportAssigneeId,
+    supportAttachmentUrl: support.supportAttachmentUrl,
+    staff: staff.staff,
+    selectedStaff: staff.selectedStaff,
+    staffActivity: staff.staffActivity,
+    staffFilters: staff.staffFilters,
+    setStaffFilters: staff.setStaffFilters,
+    staffInvite: staff.staffInvite,
+    setStaffInvite: staff.setStaffInvite,
     businessFilter: businessIntake.businessFilter,
     setBusinessFilter: businessIntake.setBusinessFilter,
+    setBusinessCapacityDraft: businessIntake.setBusinessCapacityDraft,
+    userFilters: users.userFilters,
+    setUserFilters: users.setUserFilters,
     intakeFilter: businessIntake.intakeFilter,
     setIntakeFilter: businessIntake.setIntakeFilter,
     orderFilter: ordersDisputes.orderFilter,
@@ -160,7 +216,14 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     loadPendingBusinesses: businessIntake.loadPendingBusinesses,
     openBusiness: businessIntake.openBusiness,
     reviewBusiness: businessIntake.reviewBusiness,
+    changeBusinessStatus: businessIntake.changeBusinessStatus,
+    submitBusinessCapacity: businessIntake.submitBusinessCapacity,
     openDocument: businessIntake.openDocument,
+    createBusinessOwnerAccessLink: businessIntake.createBusinessOwnerAccessLink,
+    changeBusinessAccessLink: businessIntake.changeBusinessAccessLink,
+    loadUsers: users.loadUsers,
+    openUser: users.openUser,
+    changeUserStatus: users.changeUserStatus,
     loadOrders: ordersDisputes.loadOrders,
     openOrder: ordersDisputes.openOrder,
     loadDisputes: ordersDisputes.loadDisputes,
@@ -174,8 +237,20 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     dryRunJobs: overview.dryRunJobs,
     loadBusinessIntakes: businessIntake.loadBusinessIntakes,
     openBusinessIntake: businessIntake.openBusinessIntake,
+    approveBusinessFromIntake: businessIntake.approveBusinessFromIntake,
     createBusinessFromIntake: businessIntake.createBusinessFromIntake,
     deleteBusinessIntake: businessIntake.deleteBusinessIntake,
+    loadSupportTickets: support.loadSupportTickets,
+    openSupportTicket: support.openSupportTicket,
+    replySupportTicket: support.replySupportTicket,
+    assignSupportTicket: support.assignSupportTicket,
+    changeSupportStatus: support.changeSupportStatus,
+    openSupportAttachment: support.openSupportAttachment,
+    loadStaff: staff.loadStaff,
+    openStaff: staff.openStaff,
+    submitStaffInvite: staff.submitStaffInvite,
+    changeStaffStatus: staff.changeStaffStatus,
+    replaceStaffPermissions: staff.replaceStaffPermissions,
     confirmPendingAction: criticalAction.confirmPendingAction
   };
 }

@@ -1,4 +1,7 @@
 packages:
   - "apps/*"
 allowBuilds:
-  sharp: set this to true or false
+  sharp: true
+overrides:
+  valibot: 1.2.0
+  postcss: 8.5.10

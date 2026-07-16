@@ -77,3 +77,46 @@ No se permite declarar un slice listo sin revisar lineas exactas.
 | Orden | Slice | Objetivo | Dependencias | Estado contractual |
 |---|---|---|---|---|
 | 15 | slice_15_scalability_runtime_hardening | Escalabilidad runtime: marketplace reads, cache, auth liviana no sensible, workers/pool y stress progresivo | 00-14D2 | READY_FOR_OWNER_APPROVAL_TO_BUILD_15 |
+
+## Slice 19
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 19 | slice_19_base_usdc_usdt_credit_topups | Compra/acreditacion de creditos con Base USDC on-chain; USDT Base fuera de MVP hasta contrato oficial | 00-18,08,14B1 | READY_FOR_OWNER_APPROVAL_TO_BUILD_19 |
+
+## Slice 20A
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 20A | slice_20A_admin_users_business_control | Centro de Operaciones: control admin de usuarios, negocios y access links | 00-19,14B1,14C | READY_FOR_OWNER_APPROVAL_TO_BUILD_20A |
+
+## Slice 20B
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 20B | slice_20B_support_ticket_center | Centro de soporte real para cliente, negocio y Admin Web; tickets, mensajes, adjuntos privados, asignacion, escalamiento y cierre sin mezclar disputa formal | 00-20A,14A,14B,14C | READY_FOR_OWNER_APPROVAL_TO_BUILD_20B |
+
+## Slice 20C
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 20C | slice_20C_internal_staff_roles | Delegacion interna segura: staff_profiles, staff_permissions, staff_invites, permisos minimos, audit y Admin Web staff center | 00-20B,14C,20A | READY_FOR_OWNER_APPROVAL_TO_BUILD_20C |
+
+## Slice 24
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 24 | slice_24_observability_debuggability | Observabilidad segura: correlation IDs, request logs, breadcrumbs, session replay estructurado sin video, retencion, masking, Admin Web diagnostics | 00-23,20B,20C | READY_FOR_OWNER_APPROVAL_TO_BUILD_24 |
+
+## Slice 31
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 31A | slice_31A_backup_restore_disaster_recovery_report_first | Auditoria report-first de backup, restore y disaster recovery sin ejecutar acciones reales | 00-30 | REPORT_READY |
+| 31B | slice_31B_backup_restore_contracts_and_sops | Contratos, SOPs y runbooks de backup/restore/DR; sin scripts, sin backups reales y sin restore | 31A | READY_FOR_OWNER_REVIEW |
+
+## Slice 35
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 35 | slice_35_business_mini_app_afos_hardening | Endurecimiento AFOS de Mini App Negocio: arquitectura limpia, matriz de acciones sensibles, observabilidad segura, fluidez de pantallas y evidencia de controles sin tocar cliente app, deploy ni produccion | 14B,19,20B,24,34T-34Z | READY_FOR_OWNER_APPROVAL_TO_BUILD_35 |

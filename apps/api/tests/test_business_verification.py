@@ -222,6 +222,10 @@ def test_create_business_promotes_owner_and_blocks_duplicate_active_business() -
 
     assert business["verification_status"] == "pending"
     assert business["trust_level"] == "new"
+    assert business["min_order_amount_usd"] == "20.00"
+    assert business["max_order_amount_usd"] == "100.00"
+    assert business["daily_limit_usd"] == "1000.00"
+    assert business["active_order_limit"] == 1
     assert client.app.state.user_repository.get_user_by_id(login["user"]["id"]).role == "business_owner"
     duplicate = client.post(
         "/api/v1/businesses",
@@ -242,9 +246,16 @@ def test_owner_cannot_edit_other_business_or_admin_fields() -> None:
     response = client.put(
         f"/api/v1/businesses/{business['id']}",
         headers={**_headers(other_login, "edit_other"), "Content-Type": "application/json", "X-NODO-Test-Fixture": "business_create"},
-        json={"business_name": "Nombre ajeno", "verification_status": "approved", "trust_level": "pro"},
+        json={"business_name": "Nombre ajeno"},
     )
     assert response.status_code == 403
+    admin_fields = client.put(
+        f"/api/v1/businesses/{business['id']}",
+        headers={**_headers(owner_login, "edit_admin_fields"), "Content-Type": "application/json", "X-NODO-Test-Fixture": "business_create"},
+        json={"business_name": "Nombre propio", "verification_status": "approved", "trust_level": "pro"},
+    )
+    assert admin_fields.status_code == 422
+    assert admin_fields.json()["error"]["code"] == "VALIDATION_ERROR"
     stored = client.app.state.business_repository.get_business(business["id"])
     assert stored.verification_status == "pending"
     assert stored.trust_level == "new"
@@ -375,6 +386,70 @@ def test_admin_pending_pagination_support_readonly_and_approve_reject_permission
     )
     assert reject_after_approve.status_code == 409
     assert reject_after_approve.json()["error"]["code"] == "BUSINESS_STATUS_INVALID"
+
+
+def test_admin_can_set_business_capacity_limits_with_reason_and_audit() -> None:
+    client = _client()
+    owner_login = _login(client, 304, "owner_capacity")
+    support_login = _login(client, 305, "support_capacity")
+    admin_login = _login(client, 306, "admin_capacity")
+    _set_role(client, support_login["user"]["id"], "support")
+    _set_role(client, admin_login["user"]["id"], "admin")
+    business = _create_business(client, owner_login, "capacity_business")
+
+    support_update = client.post(
+        f"/api/v1/admin/businesses/{business['id']}/capacity",
+        headers={**_headers(support_login, "support_capacity"), "Content-Type": "application/json"},
+        json={
+            "trust_level": "plus",
+            "min_order_amount_usd": "100.00",
+            "max_order_amount_usd": "500.00",
+            "daily_limit_usd": "5000.00",
+            "active_order_limit": 2,
+            "reason": "No debe modificar limites",
+        },
+    )
+    assert support_update.status_code == 403
+
+    invalid = client.post(
+        f"/api/v1/admin/businesses/{business['id']}/capacity",
+        headers={**_headers(admin_login, "bad_capacity"), "Content-Type": "application/json"},
+        json={
+            "trust_level": "plus",
+            "min_order_amount_usd": "500.00",
+            "max_order_amount_usd": "100.00",
+            "daily_limit_usd": "5000.00",
+            "active_order_limit": 2,
+            "reason": "Rango invertido",
+        },
+    )
+    assert invalid.status_code == 400
+    assert invalid.json()["error"]["code"] == "BUSINESS_LIMITS_INVALID"
+
+    updated = client.post(
+        f"/api/v1/admin/businesses/{business['id']}/capacity",
+        headers={**_headers(admin_login, "capacity_update"), "Content-Type": "application/json"},
+        json={
+            "trust_level": "plus",
+            "min_order_amount_usd": "100.00",
+            "max_order_amount_usd": "500.00",
+            "daily_limit_usd": "5000.00",
+            "active_order_limit": 2,
+            "reason": "Historial limpio y operaciones exitosas",
+        },
+    )
+
+    assert updated.status_code == 200, updated.text
+    payload = updated.json()["data"]["business"]
+    assert payload["trust_level"] == "plus"
+    assert payload["min_order_amount_usd"] == "100.00"
+    assert payload["max_order_amount_usd"] == "500.00"
+    assert payload["daily_limit_usd"] == "5000.00"
+    assert payload["active_order_limit"] == 2
+    stored = client.app.state.business_repository.get_business(business["id"])
+    assert stored.trust_level == "plus"
+    assert str(stored.min_order_amount_usd) == "100.00"
+    assert "business_capacity_updated" in _event_types(client)
 
 
 def test_signed_url_requires_admin_reason_audits_and_is_not_persisted() -> None:

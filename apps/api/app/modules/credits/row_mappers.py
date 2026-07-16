@@ -11,6 +11,13 @@ def decimal_from_row_value(value: object) -> Decimal:
     return Decimal(str(value))
 
 
+def _optional(row, key: str, default=None):  # type: ignore[no-untyped-def]
+    try:
+        return row[key]
+    except (KeyError, IndexError):
+        return default
+
+
 def purchase_from_row(row) -> CreditPurchaseRecord:  # type: ignore[no-untyped-def]
     return CreditPurchaseRecord(
         id=str(row["id"]),
@@ -27,6 +34,22 @@ def purchase_from_row(row) -> CreditPurchaseRecord:  # type: ignore[no-untyped-d
         manual_payment_reference=row["manual_payment_reference"],
         manual_tx_hash=row["manual_tx_hash"],
         manual_network=row["manual_network"],
+        chain_id=_optional(row, "chain_id"),
+        network=_optional(row, "network"),
+        token_symbol=_optional(row, "token_symbol"),
+        token_contract_address=_optional(row, "token_contract_address"),
+        token_decimals=_optional(row, "token_decimals"),
+        expected_amount_units=int(_optional(row, "expected_amount_units")) if _optional(row, "expected_amount_units") is not None else None,
+        destination_wallet_address=_optional(row, "destination_wallet_address"),
+        tx_hash=_optional(row, "tx_hash"),
+        tx_amount_units=int(_optional(row, "tx_amount_units")) if _optional(row, "tx_amount_units") is not None else None,
+        tx_from_address=_optional(row, "tx_from_address"),
+        tx_to_address=_optional(row, "tx_to_address"),
+        tx_block_number=_optional(row, "tx_block_number"),
+        tx_log_index=_optional(row, "tx_log_index"),
+        confirmations=_optional(row, "confirmations"),
+        verification_source=_optional(row, "verification_source"),
+        verification_status=_optional(row, "verification_status"),
         proof_file_id=str(row["proof_file_id"]) if row["proof_file_id"] else None,
         approved_by_admin_id=str(row["approved_by_admin_id"]) if row["approved_by_admin_id"] else None,
         rejected_by_admin_id=str(row["rejected_by_admin_id"]) if row["rejected_by_admin_id"] else None,
@@ -38,6 +61,10 @@ def purchase_from_row(row) -> CreditPurchaseRecord:  # type: ignore[no-untyped-d
         rejected_at=row["rejected_at"],
         failed_at=row["failed_at"],
         expired_at=row["expired_at"],
+        detected_at=_optional(row, "detected_at"),
+        verified_at=_optional(row, "verified_at"),
+        credited_at=_optional(row, "credited_at"),
+        expires_at=_optional(row, "expires_at"),
     )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from decimal import Decimal
 
 from psycopg.types.json import Jsonb
@@ -12,6 +13,26 @@ from app.modules.businesses.models import (
     BusinessVerificationSubmissionRecord,
     FileAssetRecord,
 )
+
+
+def _row_get(row, key: str, default=None):  # type: ignore[no-untyped-def]
+    if hasattr(row, "get"):
+        return row.get(key, default)
+    try:
+        return row[key]
+    except (KeyError, IndexError):
+        return default
+
+
+def _datetime_from_row_value(value: object) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        normalized = value.replace("Z", "+00:00")
+        return datetime.fromisoformat(normalized)
+    return value  # type: ignore[return-value]
 
 
 def business_from_row(row) -> BusinessRecord:  # type: ignore[no-untyped-def]
@@ -26,9 +47,11 @@ def business_from_row(row) -> BusinessRecord:  # type: ignore[no-untyped-def]
         verification_status=row["verification_status"],
         trust_level=row["trust_level"],
         risk_level=row["risk_level"],
+        min_order_amount_usd=Decimal(str(row["min_order_amount_usd"])),
         max_order_amount_usd=Decimal(str(row["max_order_amount_usd"])),
         daily_limit_usd=Decimal(str(row["daily_limit_usd"])),
         active_order_limit=row["active_order_limit"],
+        is_accepting_orders=bool(_row_get(row, "is_accepting_orders", True)),
         rating_avg=Decimal(str(row["rating_avg"])) if row["rating_avg"] is not None else None,
         completed_orders_count=row["completed_orders_count"],
         disputes_count=row["disputes_count"],
@@ -80,6 +103,12 @@ def access_link_from_row(row) -> BusinessAccessLinkRecord:  # type: ignore[no-un
         blocked_at=row["blocked_at"],
         revoked_at=row["revoked_at"],
         reason=row["reason"],
+        business_pin_hash=_row_get(row, "business_pin_hash"),
+        business_pin_set_at=_datetime_from_row_value(_row_get(row, "business_pin_set_at")),
+        business_pin_verified_at=_datetime_from_row_value(_row_get(row, "business_pin_verified_at")),
+        business_pin_unlocked_until=_datetime_from_row_value(_row_get(row, "business_pin_unlocked_until")),
+        business_pin_failed_attempts=int(_row_get(row, "business_pin_failed_attempts", 0) or 0),
+        business_pin_locked_until=_datetime_from_row_value(_row_get(row, "business_pin_locked_until")),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )

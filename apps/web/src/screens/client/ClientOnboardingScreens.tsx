@@ -91,6 +91,9 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
           <Button mode="filled" stretched onClick={() => setView("marketplace-search")}>
             Ir al marketplace
           </Button>
+          <Button mode="outline" stretched onClick={() => setView("support")}>
+            Soporte NODO
+          </Button>
         </div>
       ) : null}
     </>

@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import time
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
@@ -43,6 +44,8 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.businesses.models import utc_now  # noqa: E402
+from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -100,7 +103,7 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
     stored_business.approved_at = stored_business.updated_at
     stored_business.max_order_amount_usd = stored_business.max_order_amount_usd * 20
     stored_user = client.app.state.user_repository.get_user_by_id(login["user"]["id"])
-    client.app.state.business_repository.create_access_link(
+    link = client.app.state.business_repository.create_access_link(
         business_id=business["id"],
         user_id=login["user"]["id"],
         telegram_id_snapshot=stored_user.telegram_id,
@@ -108,6 +111,8 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
         linked_by_admin_id=login["user"]["id"],
         reason="test_active_business_access",
     )
+    client.app.state.business_repository.set_access_link_pin_hash(link_id=link.id, pin_hash=hash_pin("1234"))
+    client.app.state.business_repository.mark_access_link_pin_verified(link_id=link.id, unlocked_until=utc_now() + timedelta(minutes=15))
     payment = client.app.state.business_repository.add_payment_method(
         business_id=business["id"],
         method_type="zelle",
@@ -223,6 +228,72 @@ def test_business_list_detail_only_own_and_guest_blocked() -> None:
     assert "account_value" not in detail.text
     assert foreign.status_code == 404
     assert guest_list.status_code == 403
+
+
+def test_business_orders_history_filter_and_public_order_code_for_claims() -> None:
+    client = _client()
+    owner, _, _, _, order = _seed_reported_order(client, owner_id=705, remitter_id=706)
+    confirm = client.post(
+        f"/api/v1/business/orders/{order['id']}/confirm-payment",
+        headers={**_headers(owner, "confirm_for_history"), "Content-Type": "application/json"},
+        json={"reason": "Pago recibido"},
+    )
+    assert confirm.status_code == 200, confirm.text
+    delivered = client.post(
+        f"/api/v1/business/orders/{order['id']}/mark-delivered",
+        headers={**_headers(owner, "deliver_for_history"), "Content-Type": "application/json"},
+        json={"reason": "Pago movil enviado"},
+    )
+    assert delivered.status_code == 200, delivered.text
+
+    history = client.get("/api/v1/business/orders?status=history&limit=20", headers=_bearer(owner, "req_business_orders_history"))
+    completed = client.get("/api/v1/business/orders?status=completed&limit=20", headers=_bearer(owner, "req_business_orders_completed"))
+
+    assert history.status_code == 200, history.text
+    assert completed.status_code == 200, completed.text
+    history_items = history.json()["data"]["items"]
+    assert [item["public_order_code"] for item in history_items] == [order["public_order_code"]]
+    assert history_items[0]["status"] == "delivered"
+
+
+def test_business_offline_hides_marketplace_ad_and_blocks_direct_order_creation() -> None:
+    client = _client()
+    owner = _login(client, 707, "owner_707")
+    business, method_id = _approved_business_with_method(client, owner, credits=2)
+    ad = _create_ad(client, owner, method_id, key="ad_offline")
+    remitter = _login(client, 708, "remitter_708")
+
+    before = client.get("/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&limit=20", headers=_bearer(remitter, "req_ads_before_offline"))
+    assert before.status_code == 200, before.text
+    assert ad["id"] in {item["id"] for item in before.json()["data"]["items"]}
+
+    offline = client.patch(
+        "/api/v1/business/availability",
+        headers={**_headers(owner, "req_business_offline"), "Content-Type": "application/json"},
+        json={"accepting_orders": False},
+    )
+    assert offline.status_code == 200, offline.text
+    assert offline.json()["data"]["business"]["is_accepting_orders"] is False
+    assert client.app.state.business_repository.get_business(business["id"]).is_accepting_orders is False
+
+    hidden = client.get("/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&limit=20", headers=_bearer(remitter, "req_ads_after_offline"))
+    detail = client.get(f"/api/v1/ads/{ad['id']}", headers=_bearer(remitter, "req_ad_detail_offline"))
+    blocked_order = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "order_offline"), "Content-Type": "application/json"},
+        json={
+            "ad_id": ad["id"],
+            "amount_usd": "50.00",
+            "receiver_data": {"bank": "Banco", "phone": "+584121234567", "document": "V12345678", "holder": "Receptor Test"},
+        },
+    )
+
+    assert hidden.status_code == 200, hidden.text
+    assert ad["id"] not in {item["id"] for item in hidden.json()["data"]["items"]}
+    assert detail.status_code == 404
+    assert blocked_order.status_code == 409
+    assert blocked_order.json()["error"]["code"] == "BUSINESS_OFFLINE"
+    assert "business_accepting_orders_updated" in _event_types(client)
 
 
 def test_confirm_payment_consumes_once_accepts_report_archives_ad_and_sets_deadlines() -> None:

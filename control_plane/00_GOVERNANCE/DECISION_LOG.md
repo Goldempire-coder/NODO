@@ -134,3 +134,45 @@ Este archivo registra decisiones aprobadas por el owner. Si otro documento contr
 |---|---|---|
 | 2026-07-10 | Se crea `00_GOVERNANCE/ENGINEERING_GUARDRAILS.md` como guardrail oficial obligatorio para arquitectura, seguridad, datos, performance, costos, concurrencia, UX, observabilidad, red team y release gates en todo NODO. | aprobado |
 | 2026-07-10 | `ENGINEERING_GUARDRAILS.md` queda agregado al orden de autoridad documental justo despues de `SOURCE_OF_TRUTH.md`; un cambio que compila pero viola estos guardrails debe rechazarse hasta tener evidencia o rediseno. | aprobado |
+
+## 2026-07-10 - Slice 19 Base USDC credit topups
+
+| Fecha | Decision | Estado |
+|---|---|---|
+| 2026-07-10 | Slice 19 crea compra/acreditacion de creditos publicitarios con pagos on-chain en Base mainnet, `chain_id = 8453`. | aprobado |
+| 2026-07-10 | MVP de slice 19 acepta solo USDC nativo en Base con contrato `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` y decimals `6`. | aprobado |
+| 2026-07-10 | USDT Base queda fuera del MVP hasta verificacion oficial contractual; prohibido aceptar tokens por simbolo/nombre solamente. | aprobado |
+| 2026-07-10 | `NODO_CREDIT_RECEIVING_WALLET_BASE` es direccion publica destino; private keys, seed phrases, mnemonics y signing keys quedan prohibidos en backend, frontend, Railway, GitHub, Cursor, logs y evidencia. | aprobado |
+| 2026-07-10 | Stripe/Zelle/USDT TRC20 manual quedan como fallback/legacy si backend los habilita; USDT TRC20 manual no se mezcla con Base. | aprobado |
+| 2026-07-10 | Acreditacion on-chain requiere verifier backend, unique por `chain_id + tx_hash + tx_log_index`, ledger `purchase` y wallet update en transaccion exact-once. | aprobado |
+| 2026-07-10 | Bot/admin privado solo notifica pagos on-chain; no decide, no acredita y no reemplaza verifier/ledger/backend. | aprobado |
+
+## 2026-07-10 - Slice 20A Admin users and business access control
+
+| Fecha | Decision | Estado |
+|---|---|---|
+| 2026-07-10 | Slice 20A contrata el primer corte del Centro de Operaciones NODO para buscar/ver usuarios, controlar estados de usuario y administrar `business_access_links` desde Admin Web. | aprobado |
+| 2026-07-10 | `users.status` conserva el enum canonico existente `active`, `restricted`, `blocked`, `dormant`; la accion admin `suspend` mapea a `restricted` y no introduce enum nuevo. | aprobado |
+| 2026-07-10 | Support puede ver usuarios y access links solo en modo lectura/enmascarado; `admin` y `super_admin` pueden mutar segun RBAC con reason, `Idempotency-Key` y audit. | aprobado |
+| 2026-07-10 | Slice 20B separa soporte real de chat operativo y disputa formal: tickets pueden ser generales o ligados a orden/anuncio/credito, pero no cambian estados de orden, creditos, anuncios, disputas, usuarios ni access links. | aprobado |
+| 2026-07-10 | Support puede responder, asignar, escalar, resolver, cerrar tickets y ver adjuntos privados con signed URL corta segun RBAC; no puede ejecutar acciones criticas de dominio desde soporte. | aprobado |
+| 2026-07-10 | Admin no puede bloquear/suspender/reactivar usuarios admin/super_admin salvo permiso super_admin; nadie puede bloquear el ultimo super_admin activo. | aprobado |
+| 2026-07-11 | Slice 20C contrata delegacion interna con `staff_profiles`, `staff_permissions` y `staff_invites`; `users.role` sigue como rol base y no se usa solo para granularidad staff. | aprobado |
+| 2026-07-11 | Roles internos staff activos: `support_agent`, `support_lead`, `operations_readonly`, `admin` y `super_admin`; staff delegado queda limitado a soporte/lecturas enmascaradas segun permisos y scopes. | aprobado |
+| 2026-07-11 | Staff delegado no puede bloquear/suspender usuarios, cambiar roles, mutar `business_access_links`, aprobar/rechazar negocios o creditos, ajustar creditos, resolver disputas ni mutar ordenes/anuncios/creditos. | aprobado |
+## 2026-07-11 - slice_24_observability_debuggability contracts
+
+Decision:
+
+- NODO observability queda contratada como diagnostico operacional seguro, no como audit formal ni ledger financiero.
+- MVP permitido: `local_only_ring_buffer + backend_persisted_events`, deshabilitado por defecto y habilitable por env solo local/staging inicialmente.
+- No se autoriza proveedor externo SaaS de observability en este slice.
+- Se crea modelo canonico de correlacion con `request_id`, `correlation_id`, `operation_id`, `session_id`, `surface`, version/build y referencias redaccionadas.
+- Session replay sera estructurado sin video, sin DOM completo y sin payloads privados.
+- Observability persistida tendra TTL, limites de costo, rate limit y masking por rol.
+
+Estado:
+
+```txt
+READY_FOR_OWNER_APPROVAL_TO_BUILD_24
+```

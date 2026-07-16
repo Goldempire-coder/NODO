@@ -24,12 +24,20 @@ user.role derived_only:
 Regla:
 - `guest` no se persiste en DB; representa una request sin sesion valida.
 - `super_admin` si puede persistirse en DB para owner/sistema con permisos criticos.
+- `support_agent`, `support_lead` y `operations_readonly` no son `users.role`; son `staff_profiles.staff_role`.
 
 user.status:
 - active
 - restricted
 - blocked
 - dormant
+
+Reglas:
+- `active`: usuario puede usar superficies segun rol, RBAC y surface/session.
+- `restricted`: usuario suspendido operacionalmente; no puede entrar a superficies sensibles ni operar, salvo contrato futuro explicito.
+- `blocked`: bloqueo fuerte; no puede autenticar/operar ni refrescar sesion.
+- `dormant`: usuario inactivo; puede reactivarse por admin si contrato lo permite.
+- `suspend_user` en slice 20A setea `restricted`; no existe `users.status = suspended`.
 
 session.status:
 - active
@@ -185,14 +193,24 @@ credit_purchase.payment_method:
 - stripe_checkout
 - zelle_manual_admin_approved
 - usdt_manual_admin_approved
+- base_usdc_onchain
+
+credit_purchase.payment_method post_mvp_or_disabled:
+- base_usdt_onchain (no activo MVP)
 
 credit_purchase.status:
 - created
 - pending_payment
 - pending_manual_review
+- pending_onchain_confirmation
+- detected
+- verified
+- credited
+- under_review
 - paid
 - approved
 - rejected
+- verification_failed
 - failed
 - expired
 
@@ -213,6 +231,7 @@ referral_event.status:
 
 job_runs.job_type:
 - expire_and_escalate_orders
+- verify_base_usdc_credit_purchases
 
 job_runs.status:
 - started
@@ -318,18 +337,29 @@ Regla:
 support_ticket.status:
 - open
 - waiting_user
-- waiting_business
 - waiting_support
 - escalated
-- linked_to_dispute
 - resolved
 - closed
 
 support_ticket.scope:
 - client_general
-- order_support
+- client_order
 - business_general
+- business_order
+- business_ad
+- business_credit
 - admin_internal
+
+support_ticket.category:
+- technical_issue
+- account_access
+- order_help
+- payment_report_help
+- business_access
+- credits_help
+- suspicious_activity
+- other
 
 support_message.visibility:
 - participants
@@ -339,13 +369,112 @@ support_message.visibility:
 support_event.type:
 - support_ticket_created
 - support_message_created
+- support_attachment_uploaded
+- support_attachment_viewed
+- support_ticket_assigned
 - support_ticket_escalated
 - support_ticket_linked_to_dispute
 - support_ticket_resolved
 - support_ticket_closed
+
+staff_profile.staff_role:
+- support_agent
+- support_lead
+- operations_readonly
+- admin
+- super_admin
+
+staff_profile.status:
+- active
+- suspended
+- revoked
+
+staff_permission.permission:
+- view_support_queue
+- view_assigned_support_tickets
+- reply_support_ticket
+- assign_support_ticket
+- escalate_support_ticket
+- resolve_support_ticket
+- close_support_ticket
+- view_support_attachment
+- view_users_masked
+- view_businesses_masked
+- view_orders_masked
+- view_audit_limited
+- view_metrics_limited
+
+staff_permission.scope:
+- assigned_only
+- queue_scope
+- category_scope
+- global_readonly
+
+staff_permission.status:
+- active
+- revoked
+
+staff_invite.status:
+- pending
+- accepted
+- expired
+- revoked
+
+staff_audit_event.type:
+- staff_invite_created
+- staff_invite_expired
+- staff_activated
+- staff_suspended
+- staff_revoked
+- staff_permissions_updated
+- staff_activity_viewed
+- staff_ticket_assigned
+- staff_access_denied
 
 Prohibidos slice 14:
 - admin_web dentro de Mini App Cliente
 - business_intake que cree negocio approved automaticamente
 - support_ticket que cambie order.status sin disputa formal
 
+## Observability enums - slice 24
+
+`observability_mode`:
+
+- `disabled`
+- `local_only`
+- `persisted`
+- `logs_only`
+
+`observability_event_type`:
+
+- `view_changed`
+- `action_clicked`
+- `form_submitted`
+- `api_request_started`
+- `api_request_completed`
+- `api_request_failed`
+- `auth_refresh_started`
+- `auth_refresh_completed`
+- `auth_refresh_failed`
+- `offline`
+- `online`
+- `visible_error_shown`
+- `critical_operation_started`
+- `critical_operation_completed`
+- `critical_operation_failed`
+- `backend_request_completed`
+- `backend_request_failed`
+- `storage_failure`
+- `cache_failure`
+- `db_pool_saturation`
+- `rate_limit_triggered`
+- `idempotency_conflict`
+- `webhook_received`
+- `watcher_step_failed`
+
+`observability_severity`:
+
+- `debug`
+- `info`
+- `warn`
+- `error`

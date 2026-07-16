@@ -6,10 +6,10 @@ slice: business_app
 status: DRAFT_CONTROLLED
 
 purpose:
-Read official approved Zelle/USDT methods for the business.
+Manage Zelle and USDT TRC20 methods for the approved business.
 
 scope note:
-In 14B this screen is read-only or a governed placeholder. The business cannot create, edit, approve, disable or delete payment methods from the Mini App Negocio.
+The business can add, edit and delete its own Zelle and USDT TRC20 methods from the Mini App Negocio. Backend remains authoritative for approval status, ownership, PIN, idempotency and masking.
 
 route:
 /business/payment-methods
@@ -32,8 +32,8 @@ read strategy:
 - Use empty state when list is empty.
 
 write strategy:
-- No writes in 14B.
-- Method creation, edit, approval, disable and delete are admin-controlled outside this business mini app scope.
+- Add, edit and delete only through approved API endpoints.
+- All mutations require backend validation, unlocked business PIN and Idempotency-Key.
 
 Telegram UI rules:
 - Use @telegram-apps/telegram-ui where possible.
@@ -42,10 +42,10 @@ Telegram UI rules:
 - Use MainButton only for primary CTA.
 
 MainButton behavior:
-None in 14B.
+None.
 
 validation:
-- Only display backend-approved active methods.
+- Only display own active methods returned by backend.
 - Show empty state if there are no approved methods.
 - Do not allow manual IDs or self-service method management.
 
@@ -61,11 +61,13 @@ states:
 - success where applicable
 
 audit events:
-none for normal read; denied access may audit surface_access_denied
+business_payment_method_self_added
+business_payment_method_self_updated
+business_payment_method_self_deleted
 
 QA checklist:
-Sensitive data masked
-No create/edit/delete controls in 14B
+Sensitive data masked outside own edit context
+Create/edit/delete controls require PIN and backend success
 No manual payment_method_id input
-No account_value display
+No full account_value in marketplace/client responses
 No storage_path display

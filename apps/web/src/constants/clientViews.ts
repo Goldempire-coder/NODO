@@ -12,7 +12,8 @@ export const CLIENT_VIEWS = [
   "report-payment",
   "my-orders",
   "messages",
-  "order-chat"
+  "order-chat",
+  "support"
 ] as const;
 
 export type ClientView = (typeof CLIENT_VIEWS)[number];

@@ -8,7 +8,7 @@ from app.modules.businesses.models import BusinessRecord
 from app.modules.credits.admin_actions import CreditAdminActions
 from app.modules.credits.business_purchases import CreditBusinessPurchases
 from app.modules.credits.business_referrals import CREDITS_DISCLAIMER, CreditBusinessReferrals
-from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest, ReferralApplyRequest, StripeCheckoutRequest
+from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest, BaseUsdcPaymentRequest, BaseUsdcTxHashRequest, ReferralApplyRequest, StripeCheckoutRequest
 from app.modules.credits.serializers import ledger_public, purchase_public
 from app.modules.credits.stripe_webhook import parse_stripe_webhook_event
 from app.modules.users.models import UserRecord
@@ -25,6 +25,7 @@ class CreditService:
         rate_limiter,
         idempotency_store,
         storage,
+        onchain_verifier,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
@@ -33,12 +34,14 @@ class CreditService:
         self._rate_limiter = rate_limiter
         self._idempotency = idempotency_store
         self._storage = storage
+        self._onchain_verifier = onchain_verifier
         self._business_purchases = CreditBusinessPurchases(
             settings=self._settings,
             repository=self._repository,
             audit_writer=self._audit,
             idempotency_store=self._idempotency,
             storage=self._storage,
+            onchain_verifier=self._onchain_verifier,
             rate_limit=self._rate_limit,
             require_idempotency_key=self._require_idempotency_key,
         )
@@ -106,8 +109,26 @@ class CreditService:
         }
 
     def create_stripe_checkout(self, *, user: UserRecord, payload: StripeCheckoutRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        if not self._settings.legacy_credit_payment_methods_enabled:
+            raise ApiError("CREDIT_PAYMENT_METHOD_DISABLED", status_code=410)
         business = self._owner_business(user)
         return self._business_purchases.create_stripe_checkout(user=user, business=business, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
+
+    def create_base_usdc_payment(self, *, user: UserRecord, payload: BaseUsdcPaymentRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        business = self._owner_business(user)
+        return self._business_purchases.create_base_usdc_payment(user=user, business=business, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
+
+    def purchase_detail(self, *, user: UserRecord, purchase_id: str) -> dict[str, Any]:
+        business = self._owner_business(user)
+        self._rate_limit("purchase_detail", business.id)
+        purchase = self._repository.get_purchase(purchase_id)
+        if purchase is None or purchase.business_id != business.id:
+            raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
+        return {"purchase": purchase_public(purchase), "disclaimer": CREDITS_DISCLAIMER}
+
+    def submit_base_usdc_tx_hash(self, *, user: UserRecord, purchase_id: str, payload: BaseUsdcTxHashRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        business = self._owner_business(user)
+        return self._business_purchases.submit_base_usdc_tx_hash(user=user, business=business, purchase_id=purchase_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
 
     def create_manual_payment(
         self,
@@ -124,6 +145,8 @@ class CreditService:
         request_id: str,
         idempotency_key: str | None,
     ) -> dict[str, Any]:
+        if not self._settings.legacy_credit_payment_methods_enabled:
+            raise ApiError("CREDIT_PAYMENT_METHOD_DISABLED", status_code=410)
         business = self._owner_business(user)
         return self._business_purchases.create_manual_payment(
             user=user,
@@ -177,6 +200,9 @@ class CreditService:
 
     def admin_list_purchases(self, *, user: UserRecord, status: str | None, business_id: str | None, cursor: str | None, limit: int) -> dict[str, Any]:
         return self._admin_actions.list_purchases(user=user, status=status, business_id=business_id, cursor=cursor, limit=limit)
+
+    def admin_purchase_detail(self, *, user: UserRecord, purchase_id: str) -> dict[str, Any]:
+        return self._admin_actions.purchase_detail(user=user, purchase_id=purchase_id)
 
     def admin_approve_purchase(self, *, user: UserRecord, purchase_id: str, payload: AdminReviewCreditPurchaseRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         return self._admin_actions.approve_purchase(user=user, purchase_id=purchase_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)

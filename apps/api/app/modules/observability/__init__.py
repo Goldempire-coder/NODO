@@ -1,0 +1,1 @@
+"""Frontend observability ingestion module."""

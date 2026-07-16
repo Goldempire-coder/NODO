@@ -1,5 +1,5 @@
 import type { AuthenticatedRequest } from "./client";
-import type { AdFormState } from "../types/ads";
+import type { AdFormState, AdUpdatePayload } from "../types/ads";
 
 export function listBusinessAds<T>(request: AuthenticatedRequest, limit = 20) {
   return request<T>(`/api/v1/business/ads?limit=${limit}`);
@@ -20,9 +20,20 @@ export function createBusinessAd<T>(request: AuthenticatedRequest, payload: AdFo
   });
 }
 
-export function mutateBusinessAd<T>(request: AuthenticatedRequest, adId: string, action: "pause" | "archive", idempotencyKey: string) {
+export function mutateBusinessAd<T>(request: AuthenticatedRequest, adId: string, action: "pause" | "archive" | "reactivate" | "republish", idempotencyKey: string) {
   return request<T>(`/api/v1/business/ads/${adId}/${action}`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey }
+  });
+}
+
+export function updateBusinessAd<T>(request: AuthenticatedRequest, adId: string, payload: AdUpdatePayload, idempotencyKey: string) {
+  return request<T>(`/api/v1/business/ads/${adId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
   });
 }

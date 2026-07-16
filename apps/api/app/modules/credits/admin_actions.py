@@ -34,6 +34,11 @@ class CreditAdminActions:
         items, next_cursor = self._repository.list_purchases(status=status, business_id=business_id, cursor=cursor, limit=limit)
         return {"items": [purchase_public(item, admin=True) for item in items], "next_cursor": next_cursor}
 
+    def purchase_detail(self, *, user: UserRecord, purchase_id: str) -> dict[str, Any]:
+        require_admin_view(user)
+        self._rate_limit("admin_purchase_detail", user.id)
+        return {"purchase": purchase_public(self._purchase_or_404(purchase_id), admin=True)}
+
     def approve_purchase(self, *, user: UserRecord, purchase_id: str, payload: AdminReviewCreditPurchaseRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         require_admin_mutation(user)
         self._rate_limit("admin_approve_purchase", user.id)
@@ -62,7 +67,8 @@ class CreditAdminActions:
         def compute() -> dict[str, Any]:
             purchase = self._purchase_or_404(purchase_id)
             updated = self._repository.reject_purchase(purchase=purchase, admin_user_id=user.id, reason=payload.reason)
-            self._audit.write(event_type="manual_credit_payment_rejected", actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"reason": payload.reason})
+            event_type = "onchain_credit_purchase_rejected" if purchase.payment_method == "base_usdc_onchain" else "manual_credit_payment_rejected"
+            self._audit.write(event_type=event_type, actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"reason": payload.reason})
             return {"purchase": purchase_public(updated, admin=True)}
 
         return self._idempotency.replay_or_store(

@@ -20,6 +20,9 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - `users.role` CHECK contra roles oficiales.
 - `users.phone` nullable, no unique global salvo que se active verificacion futura.
 - Un usuario puede tener perfil remitente y negocio, pero los permisos se derivan por rol y ownership.
+- En 20A, suspender usuario usa `users.status = restricted`; no se agrega `suspended` a `users.status`.
+- `blocked` no borra ni trunca datos asociados; la denegacion ocurre en auth/surface policies.
+- Mutaciones admin de `users.status` requieren audit/idempotency/reason a nivel servicio.
 
 ## Sesiones
 
@@ -41,6 +44,10 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - `businesses.approved_at` solo puede existir si `verification_status` es `approved`.
 - `businesses.business_name` not null despues de enviar verificacion.
 - `businesses.country` default `VE` para operacion inicial de entrega.
+- `businesses.min_order_amount_usd >= 0`.
+- `businesses.max_order_amount_usd >= businesses.min_order_amount_usd`.
+- `businesses.daily_limit_usd >= 0`.
+- `businesses.active_order_limit >= 0`.
 - No puede existir mas de un negocio activo con el mismo owner y mismo nombre normalizado sin revision admin.
 
 ## Vinculo de acceso negocio
@@ -60,6 +67,7 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - Solo puede existir un link `active` por `(business_id, user_id, role_in_business)` en MVP.
 - Solo puede existir un owner activo por negocio en MVP.
 - Para acceder a `business_mini_app`, `users.telegram_id` debe coincidir con `telegram_id_snapshot` del link activo y con el Telegram initData validado.
+- 20A no hard-deletea `business_access_links`; revoke/block/suspend son cambios de estado auditados.
 
 ## Verificacion de negocios
 
@@ -111,7 +119,7 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - `ads.status` CHECK contra enum oficial.
 - `ads.payment_method` CHECK IN (`zelle`, `usdt_trc20`).
 - `ads.delivery_method` CHECK IN (`pago_movil_ve`).
-- `ads.amount_min_usd >= 20`.
+- `ads.amount_min_usd >= businesses.min_order_amount_usd` por validacion de servicio.
 - `ads.amount_max_usd >= ads.amount_min_usd`.
 - `ads.amount_max_usd <= 2000` para MVP salvo contrato futuro de revision manual.
 - `ads.amount_max_usd <= businesses.max_order_amount_usd` salvo override admin auditado.
@@ -245,6 +253,16 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - `credit_purchases.idempotency_key` participa en unique parcial por `business_id` cuando no sea null.
 - `credit_purchases.stripe_event_id`, `stripe_checkout_session_id` y `stripe_payment_intent_id` deben ser unique parciales cuando no sean null.
 - `credit_purchases.admin_note` es obligatorio para approve/reject manual.
+- Compra on-chain Base usa `payment_method = base_usdc_onchain`.
+- Compra on-chain Base requiere `chain_id = 8453`, `network = base_mainnet`, `token_symbol = USDC`, `token_contract_address = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, `token_decimals = 6`.
+- Compra on-chain Base requiere `destination_wallet_address`, `expected_amount_units` y `expires_at`.
+- `expected_amount_units` y `tx_amount_units` deben usar `numeric(78,0)`.
+- EVM values (`token_contract_address`, `destination_wallet_address`, `tx_hash`, `tx_from_address`, `tx_to_address`) deben persistirse/compararse normalizados lowercase; constraints o queries deben usar `lower(...)` o politica canonica equivalente.
+- `credit_purchase_onchain_payments(chain_id, tx_hash, tx_log_index)` debe ser unique.
+- `credit_purchase_onchain_payments.tx_amount_units > 0`.
+- No puede existir doble ledger `purchase` para el mismo `related_credit_purchase_id`.
+- `credited` requiere ledger `purchase` y `credited_at`.
+- `base_usdt_onchain` no es metodo activo MVP.
 - Founder access usa campos canonicos en `businesses`: `founder_status`, `founder_started_at`, `founder_expires_at`; tabla `founder_access` no es activa en MVP.
 - Founder access requiere fecha de inicio, fecha de expiracion y limite de riesgo.
 - `referral_codes.business_id` unique FK businesses(id).
@@ -265,6 +283,29 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - Ajustes manuales de credito requieren doble registro: ledger + audit log.
 - Resolver disputas requiere reason no vacio, `dispute_events` y audit log.
 - `system_metrics` no es tabla activa en slice 09; las metricas admin son read model calculado desde tablas existentes.
+
+## Staff interno
+
+- `staff_profiles.id` uuid primary key.
+- `staff_profiles.user_id` FK users(id).
+- `staff_profiles.staff_role` CHECK IN (`support_agent`, `support_lead`, `operations_readonly`, `admin`, `super_admin`).
+- `staff_profiles.status` CHECK IN (`active`, `suspended`, `revoked`).
+- `staff_profiles.created_by_super_admin_id` FK users(id) not null.
+- `staff_profiles.reason` obligatorio cuando `status in ('suspended', 'revoked')`.
+- `staff_profiles.suspended_at` obligatorio cuando `status = 'suspended'`.
+- `staff_profiles.revoked_at` obligatorio cuando `status = 'revoked'`.
+- Solo puede existir un `staff_profiles.status = active` por `user_id`.
+- `staff_permissions.staff_profile_id` FK staff_profiles(id).
+- `staff_permissions.permission` CHECK contra permisos canonicos de staff.
+- `staff_permissions.scope` CHECK IN (`assigned_only`, `queue_scope`, `category_scope`, `global_readonly`).
+- `staff_permissions.status` CHECK IN (`active`, `revoked`).
+- `staff_permissions.reason` not null.
+- Solo puede existir un permiso activo por `(staff_profile_id, permission, scope, scope_value)`.
+- `staff_invites.status` CHECK IN (`pending`, `accepted`, `expired`, `revoked`).
+- `staff_invites.reason` not null.
+- `staff_invites.expires_at` not null.
+- `staff_invites.invite_code_hash` puede existir, pero nunca token/codigo plano.
+- Ninguna constraint staff debe permitir hard delete de usuarios, tickets o audit.
 
 ## Integridad operacional
 
@@ -327,14 +368,39 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - Video queda post-MVP y `video/*` debe rechazarse con `BOT_UPLOAD_INVALID`.
 - `support_tickets.status` CHECK contra enum oficial.
 - `support_tickets.scope` CHECK contra enum oficial.
-- `support_tickets.created_by_user_id` FK users(id).
+- `support_tickets.requester_user_id` FK users(id).
+- `support_tickets.requester_role` CHECK contra roles oficiales.
+- `support_tickets.requester_surface` CHECK IN (`client_mini_app`, `business_mini_app`, `admin_web`).
 - `support_tickets.business_id` FK businesses(id) nullable.
 - `support_tickets.order_id` FK orders(id) nullable.
+- `support_tickets.ad_id` FK ads(id) nullable.
+- `support_tickets.credit_purchase_id` FK credit_purchases(id) nullable.
 - `support_tickets.dispute_id` FK disputes(id) nullable.
-- `support_tickets.dispute_id` obligatorio cuando `status = linked_to_dispute`.
+- `support_tickets.ad_id` solo se permite cuando `scope = business_ad`.
+- `support_tickets.credit_purchase_id` solo se permite cuando `scope = business_credit`.
+- `support_tickets.order_id` solo se permite cuando `scope in ('client_order', 'business_order')`.
+- `support_tickets.dispute_id` en 20B solo referencia disputa existente; soporte no crea ni resuelve disputa.
 - `support_messages.ticket_id` FK support_tickets(id).
 - `support_messages.sender_user_id` FK users(id).
 - `support_messages.sender_role` CHECK contra roles oficiales.
+- `support_messages.visibility` CHECK contra enum oficial.
 - `support_ticket_events.ticket_id` FK support_tickets(id).
 - `file_assets.resource_type IN ('support_ticket', 'support_message')` para adjuntos de soporte.
+- `file_assets.file_type = support_attachment` para adjuntos de soporte.
+- MIME permitido para adjuntos de soporte: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`.
+- Tamano maximo de adjuntos de soporte: 5 MB.
 - `storage_path` nunca se expone en API publica, frontend, logs ni audit metadata.
+## Observability constraints - slice 24
+
+La futura tabla `observability_events` debe cumplir:
+
+- `event_id` unico.
+- `expires_at` obligatorio.
+- `severity` limitado a `debug|info|warn|error`.
+- `surface` limitado a superficies contratadas.
+- `duration_ms >= 0` cuando exista.
+- `status_code` entre `100` y `599` cuando exista.
+- `route_template` no puede ser URL cruda con query sensible.
+- `metadata_json` debe estar redaccionado antes de persistir.
+
+Prohibido persistir tokens, secrets, `storage_path`, `account_value`, signed URLs, full tx hash, documentos completos o mensajes completos.

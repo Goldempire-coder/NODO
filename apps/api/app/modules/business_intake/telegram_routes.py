@@ -51,7 +51,13 @@ async def business_intake_telegram_webhook(secret: str, request: Request) -> dic
         provided_secret=secret,
         bot_token=request.app.state.settings.business_intake_bot_token,
     )
-    update = await request.json()
+    try:
+        update = await request.json()
+    except ValueError as exc:
+        raise ApiError("BOT_INPUT_INVALID", status_code=400) from exc
+    if not isinstance(update, dict):
+        raise ApiError("BOT_INPUT_INVALID", status_code=400)
+
     intake_service = service(request)
     try:
         result = await intake_service.process_telegram_update(

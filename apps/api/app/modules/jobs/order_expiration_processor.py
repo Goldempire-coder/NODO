@@ -80,9 +80,29 @@ class OrderExpirationProcessor(OrderCompletionMixin, OrderDisputeEscalationMixin
         self._orders.update_order(order, status="cancelled", cancel_reason="payment_not_reported_in_time")
         business = self._businesses.get_business(order.business_id)
         if ad is not None:
-            new_ad_status = "expired" if ad.expires_at and ad.expires_at <= now else "active"
-            self._ads.set_status(ad, new_ad_status)
-            self._ads.release_hold(ad=ad, created_by=None, reason="payment_not_reported_in_time", related_order_id=order.id, source="jobs")
+            if ad.expires_at and ad.expires_at <= now:
+                ledger = self._ads.expire_hold(ad=ad, created_by=None, reason="ad_expired_after_order_without_purchase", related_order_id=order.id, source="jobs")
+                self._audit.write(
+                    event_type="ad_expired",
+                    actor_user_id=None,
+                    actor_role=None,
+                    resource_type="ad",
+                    resource_id=ad.id,
+                    request_id=request_id,
+                    metadata_json={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE, "order_id": order.id},
+                )
+                if ledger is not None:
+                    self._audit.write(
+                        event_type="credits_consumed",
+                        actor_user_id=None,
+                        actor_role=None,
+                        resource_type="ad",
+                        resource_id=ad.id,
+                        request_id=request_id,
+                        metadata_json={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE, "ledger_id": ledger.id, "amount": ledger.amount, "order_id": order.id},
+                    )
+            else:
+                self._ads.set_status(ad, "active")
         self._state_event(order.id, previous, "cancelled", "order_cancelled_payment_not_reported", "payment_not_reported_in_time", request_id)
         self._audit.write(
             event_type="order_cancelled_payment_not_reported",

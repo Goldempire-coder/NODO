@@ -1,6 +1,6 @@
 import type { AdminBusinessDetail } from "../../types/admin";
 
-export type BusinessIntakeView = "businesses" | "business-detail" | "intake" | "intake-detail";
+export type BusinessIntakeView = "businesses" | "business-detail" | "intake" | "intake-detail" | "users" | "user-detail";
 
 export type ListResponse<T> = {
   items: T[];

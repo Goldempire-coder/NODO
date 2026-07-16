@@ -3,9 +3,11 @@ import { BusinessAccessPanel } from "./BusinessAccessPanel";
 import { ArchivedAdsScreen, CreateAdScreen, MyAdsScreen, PaymentMethodsScreen } from "./BusinessAdsScreens";
 import { BusinessChatScreen } from "./BusinessChatScreen";
 import { BusinessDashboardScreen } from "./BusinessDashboardScreen";
-import { BuyCreditsScreen, CreditPaymentPendingScreen, CreditsDashboardScreen, CreditsLedgerScreen, ReferralProgramScreen } from "./BusinessCreditsScreens";
+import { BuyCreditsScreen, CreditPaymentPendingScreen, CreditsDashboardScreen, ReferralProgramScreen } from "./BusinessCreditsScreens";
 import { BusinessOrderDetailScreen, IncomingOrdersScreen } from "./BusinessOrdersScreens";
-import { BusinessSettingsScreen } from "./BusinessSettingsScreen";
+import { BusinessPinScreen } from "./BusinessPinScreen";
+import { BusinessRulesScreen, BusinessSettingsScreen } from "./BusinessSettingsScreen";
+import { BusinessSupportScreen } from "./BusinessSupportScreen";
 
 export function BusinessMiniAppScreens({ model }: { model: BusinessMiniAppModel }) {
   if (model.accessState !== "ready") {
@@ -13,6 +15,8 @@ export function BusinessMiniAppScreens({ model }: { model: BusinessMiniAppModel 
   }
 
   switch (model.view) {
+    case "business-pin":
+      return <BusinessPinScreen model={model} />;
     case "create-ad":
       return <CreateAdScreen model={model} />;
     case "my-ads":
@@ -33,12 +37,14 @@ export function BusinessMiniAppScreens({ model }: { model: BusinessMiniAppModel 
       return <BuyCreditsScreen model={model} />;
     case "credit-payment-pending":
       return <CreditPaymentPendingScreen model={model} />;
-    case "credits-ledger":
-      return <CreditsLedgerScreen model={model} />;
     case "referrals":
       return <ReferralProgramScreen model={model} />;
     case "business-settings":
       return <BusinessSettingsScreen model={model} />;
+    case "business-rules":
+      return <BusinessRulesScreen />;
+    case "business-support":
+      return <BusinessSupportScreen model={model} />;
     case "business-dashboard":
     default:
       return <BusinessDashboardScreen model={model} />;

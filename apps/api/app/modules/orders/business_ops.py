@@ -12,6 +12,9 @@ from app.modules.orders.order_copy import ORDER_DISCLAIMER
 from app.modules.orders.serializers import business_order_payload, business_payment_report_payload, business_receiver_payload
 from app.modules.users.models import UserRecord
 
+BUSINESS_OPEN_ORDER_STATUSES = {"waiting_payment", "payment_reported", "payment_rejected", "payment_confirmed", "disputed"}
+BUSINESS_HISTORY_ORDER_STATUSES = {"delivered", "completed", "cancelled"}
+
 
 class OrderBusinessOps(OrderBusinessPaymentConfirmationMixin, OrderBusinessActionsMixin):
     def __init__(
@@ -34,10 +37,15 @@ class OrderBusinessOps(OrderBusinessPaymentConfirmationMixin, OrderBusinessActio
     def business_orders(self, *, user: UserRecord, status: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         business = self._approved_business_for_owner(user)
         self._rate_limit("business_orders", user)
-        allowed_statuses = {None, "payment_reported", "payment_rejected", "payment_confirmed", "delivered", "disputed"}
+        allowed_statuses = {None, "open", "history", "waiting_payment", "payment_reported", "payment_rejected", "payment_confirmed", "delivered", "completed", "cancelled", "disputed"}
         if status not in allowed_statuses:
             raise ApiError("VALIDATION_ERROR", status_code=422)
-        items, next_cursor = self._repository.list_for_business(business_id=business.id, status=status, cursor=cursor, limit=limit)
+        if status == "open":
+            items, next_cursor = self._repository.list_for_business_statuses(business_id=business.id, statuses=BUSINESS_OPEN_ORDER_STATUSES, cursor=cursor, limit=limit)
+        elif status == "history":
+            items, next_cursor = self._repository.list_for_business_statuses(business_id=business.id, statuses=BUSINESS_HISTORY_ORDER_STATUSES, cursor=cursor, limit=limit)
+        else:
+            items, next_cursor = self._repository.list_for_business(business_id=business.id, status=status, cursor=cursor, limit=limit)
         return {
             "items": [business_order_payload(order, list_view=True) for order in items],
             "next_cursor": next_cursor,

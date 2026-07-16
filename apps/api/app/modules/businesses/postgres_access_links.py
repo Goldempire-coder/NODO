@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.core.errors import ApiError
 from app.modules.businesses.models import BUSINESS_ACCESS_ROLES, BUSINESS_ACCESS_STATUSES, BusinessAccessLinkRecord
 from app.modules.businesses.row_mappers import access_link_from_row
@@ -51,6 +53,76 @@ class PostgresBusinessAccessLinksMixin:
                 returning *
                 """,
                 (business_id, user_id, telegram_id_snapshot, role_in_business, linked_by_admin_id, reason),
+            ).fetchone()
+            conn.commit()
+        return access_link_from_row(row)
+
+    def set_access_link_pin_hash(self, *, link_id: str, pin_hash: str) -> BusinessAccessLinkRecord:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            row = conn.execute(
+                """
+                update business_access_links
+                set business_pin_hash = %s,
+                    business_pin_set_at = now(),
+                    business_pin_verified_at = null,
+                    business_pin_unlocked_until = null,
+                    business_pin_failed_attempts = 0,
+                    business_pin_locked_until = null,
+                    updated_at = now()
+                where id = %s
+                returning *
+                """,
+                (pin_hash, link_id),
+            ).fetchone()
+            conn.commit()
+        return access_link_from_row(row)
+
+    def mark_access_link_pin_verified(self, *, link_id: str, unlocked_until: datetime) -> BusinessAccessLinkRecord:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            row = conn.execute(
+                """
+                update business_access_links
+                set business_pin_verified_at = now(),
+                    business_pin_unlocked_until = %s,
+                    business_pin_failed_attempts = 0,
+                    business_pin_locked_until = null,
+                    updated_at = now()
+                where id = %s
+                returning *
+                """,
+                (unlocked_until, link_id),
+            ).fetchone()
+            conn.commit()
+        return access_link_from_row(row)
+
+    def record_access_link_pin_failure(self, *, link_id: str, failed_attempts: int, locked_until: datetime | None) -> BusinessAccessLinkRecord:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            row = conn.execute(
+                """
+                update business_access_links
+                set business_pin_failed_attempts = %s,
+                    business_pin_locked_until = %s,
+                    business_pin_unlocked_until = null,
+                    updated_at = now()
+                where id = %s
+                returning *
+                """,
+                (failed_attempts, locked_until, link_id),
+            ).fetchone()
+            conn.commit()
+        return access_link_from_row(row)
+
+    def lock_access_link_pin(self, *, link_id: str) -> BusinessAccessLinkRecord:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            row = conn.execute(
+                """
+                update business_access_links
+                set business_pin_unlocked_until = null,
+                    updated_at = now()
+                where id = %s
+                returning *
+                """,
+                (link_id,),
             ).fetchone()
             conn.commit()
         return access_link_from_row(row)

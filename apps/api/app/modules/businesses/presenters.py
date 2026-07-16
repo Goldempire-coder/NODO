@@ -25,7 +25,13 @@ def mask_phone(value: str | None) -> str | None:
 
 
 def mask_account(value: str) -> str:
-    return f"***{value[-4:]}" if len(value) > 4 else "***"
+    compact = value.strip()
+    if "@" in compact:
+        local, _, domain = compact.partition("@")
+        safe_local = f"{local[:2]}***" if len(local) > 2 else "***"
+        safe_domain = domain if domain else "***"
+        return f"{safe_local}@{safe_domain}"
+    return f"***{compact[-4:]}" if len(compact) > 4 else "***"
 
 
 def decimal_text(value: Decimal) -> str:
@@ -34,12 +40,13 @@ def decimal_text(value: Decimal) -> str:
 
 def payment_method_display(method: BusinessPaymentMethodRecord, *, business: BusinessRecord) -> dict[str, str | bool | dict[str, str] | None]:
     receive_display = "USDT TRC20" if method.method_type == "usdt_trc20" else "Zelle"
-    delivery_display = "Pago Móvil"
+    delivery_display = "Pago Movil"
     delivery_currency = "Bs."
     return {
         "id": method.id,
-        "label": f"Recibo {receive_display} → Entrego {delivery_display} {delivery_currency}",
+        "label": f"{receive_display} -> {delivery_display}",
         "receive_method": method.method_type,
+        "network": method.network,
         "delivery_method": "pago_movil_ve",
         "receive_display": receive_display,
         "delivery_display": delivery_display,
@@ -47,10 +54,11 @@ def payment_method_display(method: BusinessPaymentMethodRecord, *, business: Bus
         "status": method.verified_status,
         "is_available": method.active and method.verified_status == "approved",
         "limits": {
-            "min_amount_usd": "20.00",
+            "min_amount_usd": decimal_text(business.min_order_amount_usd),
             "max_amount_usd": decimal_text(business.max_order_amount_usd),
         },
         "masked_account": method.account_masked,
+        "holder_name": method.holder_name,
     }
 
 
@@ -66,9 +74,11 @@ def business_payload(business: BusinessRecord, *, admin: bool = False) -> dict[s
         "verification_status": business.verification_status,
         "trust_level": business.trust_level,
         "risk_level": business.risk_level,
+        "min_order_amount_usd": decimal_text(business.min_order_amount_usd),
         "max_order_amount_usd": decimal_text(business.max_order_amount_usd),
         "daily_limit_usd": decimal_text(business.daily_limit_usd),
         "active_order_limit": business.active_order_limit,
+        "is_accepting_orders": business.is_accepting_orders,
         "approved_at": business.approved_at.isoformat() if business.approved_at else None,
         "created_at": business.created_at.isoformat(),
         "updated_at": business.updated_at.isoformat(),

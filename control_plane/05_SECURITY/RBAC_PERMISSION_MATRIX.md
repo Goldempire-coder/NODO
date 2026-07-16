@@ -73,19 +73,40 @@ Post-MVP:
 
 | Actor | Accion | Recurso | Estado requerido | Audit | Permitido |
 | --- | --- | --- | --- | --- | --- |
-| remitter | create_support_ticket | support_ticket | own scope/order when applicable | support_ticket_created | yes |
-| business_owner | create_support_ticket | support_ticket | own business/order when applicable | support_ticket_created | yes |
-| remitter | create_support_message | own ticket | ticket open/waiting_user/waiting_support | support_message_created | yes |
-| business_owner | create_support_message | own business ticket | ticket open/waiting_business/waiting_support | support_message_created | yes |
-| support | create_support_message | support ticket | support active | support_message_created | yes |
-| admin | create_support_message | support ticket | admin active | support_message_created | yes |
-| super_admin | create_support_message | support ticket | super_admin active | support_message_created | yes |
+| remitter | create_support_ticket | support_ticket | own client_general/client_order scope | support_ticket_created | yes |
+| business_owner | create_support_ticket | support_ticket | own business_general/business_order/business_ad/business_credit scope | support_ticket_created | yes |
+| remitter | view_support_ticket_detail | own ticket | own requester_user_id or own order | no | yes |
+| business_owner | view_support_ticket_detail | own business ticket | own business/order/ad/credit_purchase | no | yes |
+| remitter | create_support_message | own ticket | ticket open/waiting_user/waiting_support/escalated | support_message_created | yes |
+| business_owner | create_support_message | own business ticket | ticket open/waiting_user/waiting_support/escalated | support_message_created | yes |
+| remitter | upload_support_attachment | own ticket/message | MIME allowed, max 5 MB, ticket open/waiting_user/waiting_support/escalated | support_attachment_uploaded | yes |
+| business_owner | upload_support_attachment | own business ticket/message | MIME allowed, max 5 MB, own business resource | support_attachment_uploaded | yes |
+| support | view_support_ticket_detail | support ticket | support active, masked where required | no | yes |
+| admin | view_support_ticket_detail | support ticket | admin active | no | yes |
+| super_admin | view_support_ticket_detail | support ticket | super_admin active | no | yes |
+| support | create_support_message | support ticket | support active, ticket open/waiting_user/waiting_support/escalated | support_message_created | yes |
+| admin | create_support_message | support ticket | admin active, ticket open/waiting_user/waiting_support/escalated | support_message_created | yes |
+| super_admin | create_support_message | support ticket | super_admin active, ticket open/waiting_user/waiting_support/escalated | support_message_created | yes |
+| support | assign_support_ticket | support ticket | support active, assignee support/admin/super_admin, reason optional | support_ticket_assigned | yes |
+| admin | assign_support_ticket | support ticket | admin active, assignee support/admin/super_admin | support_ticket_assigned | yes |
+| super_admin | assign_support_ticket | support ticket | super_admin active, assignee support/admin/super_admin | support_ticket_assigned | yes |
 | support | escalate_support_ticket | support ticket | support active, reason required | support_ticket_escalated | yes |
 | admin | escalate_support_ticket | support ticket | admin active, reason required | support_ticket_escalated | yes |
 | super_admin | escalate_support_ticket | support ticket | super_admin active, reason required | support_ticket_escalated | yes |
 | support | resolve_support_ticket | support ticket | support active, reason required | support_ticket_resolved | yes |
 | admin | resolve_support_ticket | support ticket | admin active, reason required | support_ticket_resolved | yes |
 | super_admin | resolve_support_ticket | support ticket | super_admin active, reason required | support_ticket_resolved | yes |
+| support | close_support_ticket | support ticket | support active, resolved/escalated/waiting_support, reason required | support_ticket_closed | yes |
+| admin | close_support_ticket | support ticket | admin active, reason required | support_ticket_closed | yes |
+| super_admin | close_support_ticket | support ticket | super_admin active, reason required | support_ticket_closed | yes |
+| support | view_support_attachment | support attachment | support active, ticket visible, signed URL short-lived | support_attachment_viewed | yes |
+| admin | view_support_attachment | support attachment | admin active, ticket visible, signed URL short-lived | support_attachment_viewed | yes |
+| super_admin | view_support_attachment | support attachment | super_admin active, ticket visible, signed URL short-lived | support_attachment_viewed | yes |
+| support | create_formal_dispute_from_support | dispute | any | no | no |
+| support | change_order_from_support | order | any | no | no |
+| support | change_credit_from_support | credit_wallet/credit_purchase | any | no | no |
+| support | change_ad_from_support | ad | any | no | no |
+| support | change_user_or_business_access_from_support | user/business_access_link | any | no | no |
 
 ## Remitente
 
@@ -133,6 +154,8 @@ Post-MVP:
 | business_owner | create_order_message | own business order | payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | message_created/dispute_message_created | yes |
 | business_owner | upload_message_attachment | own business order | payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | message_attachment_uploaded | yes |
 | business_owner | buy_credits_stripe | own business | approved | credit_checkout_created | yes |
+| business_owner | buy_credits_base_usdc | own business | approved, active business access link | onchain_credit_purchase_created | yes |
+| business_owner | submit_onchain_credit_tx_hash | own credit purchase | approved, active business access link, purchase own and non-terminal | onchain_tx_hash_submitted | yes |
 | business_owner | submit_manual_credit_payment | own business | approved | manual_credit_payment_submitted | yes |
 | business_owner | view_credit_wallet | own business wallet | approved business | no | yes |
 | business_owner | view_credit_ledger | own business wallet | approved business | no | yes |
@@ -147,6 +170,9 @@ Post-MVP:
 
 | Actor | Accion | Recurso | Estado requerido | Audit | Permitido |
 | --- | --- | --- | --- | --- | --- |
+| admin | view_business_access_links | business_access_link | admin active | no | yes |
+| super_admin | view_business_access_links | business_access_link | super_admin active | no | yes |
+| support | view_business_access_links | business_access_link | support active, masked/read-only | no | yes |
 | admin | link_business_user | business_access_link | admin active, business approved or pending with explicit reason, Telegram user known | business_access_linked | yes |
 | super_admin | link_business_user | business_access_link | super_admin active, business approved or pending with explicit reason, Telegram user known | business_access_linked | yes |
 | support | link_business_user | business_access_link | any | no | no |
@@ -164,6 +190,21 @@ Post-MVP:
 | Actor | Accion | Recurso | Estado requerido | Audit | Permitido |
 | --- | --- | --- | --- | --- | --- |
 | admin | view_admin_dashboard | system | admin active | admin_viewed_dashboard | yes |
+| admin | view_admin_users | users | admin active | admin_user_list_viewed | yes |
+| super_admin | view_admin_users | users | super_admin active | admin_user_list_viewed | yes |
+| support | view_admin_users | users | support active, masked/read-only | no | yes |
+| admin | view_admin_user_detail | user | admin active | admin_user_detail_viewed | yes |
+| super_admin | view_admin_user_detail | user | super_admin active | admin_user_detail_viewed | yes |
+| support | view_admin_user_detail | user | support active, masked/read-only | no | yes |
+| admin | suspend_user | user | active user, reason required, cannot mutate admin/super_admin | user_suspended | yes |
+| super_admin | suspend_user | user | active user, reason required, cannot suspend last active super_admin | user_suspended | yes |
+| support | suspend_user | user | any | no | no |
+| admin | reactivate_user | user | restricted/dormant user, reason required, cannot mutate admin/super_admin | user_reactivated | yes |
+| super_admin | reactivate_user | user | restricted/dormant user, reason required | user_reactivated | yes |
+| support | reactivate_user | user | any | no | no |
+| admin | block_user | user | active/restricted/dormant user, reason required, cannot mutate admin/super_admin | user_blocked | yes |
+| super_admin | block_user | user | active/restricted/dormant user, reason required, cannot block last active super_admin | user_blocked | yes |
+| support | block_user | user | any | no | no |
 | admin | view_pending_businesses | businesses | admin active | no | yes |
 | super_admin | view_pending_businesses | businesses | super_admin active | no | yes |
 | support | view_pending_businesses | businesses | support active | no | yes |
@@ -187,11 +228,13 @@ Post-MVP:
 | support | block_business | business | any | no | no |
 | admin | approve_manual_credit_payment | credit purchase | pending_manual_review | manual_credit_payment_approved | yes |
 | admin | reject_manual_credit_payment | credit purchase | pending_manual_review | manual_credit_payment_rejected | yes |
+| admin | reject_onchain_credit_payment | credit purchase | under_review, reason required | onchain_payment_rejected | yes |
 | admin | adjust_credits | business wallet | any | credit_adjusted_by_admin | yes |
 | admin | view_credit_purchases | credit purchases | admin active | no | yes |
 | admin | view_credit_purchase_detail | credit purchase | admin active | no | yes |
 | super_admin | approve_manual_credit_payment | credit purchase | pending_manual_review | manual_credit_payment_approved | yes |
 | super_admin | reject_manual_credit_payment | credit purchase | pending_manual_review | manual_credit_payment_rejected | yes |
+| super_admin | reject_onchain_credit_payment | credit purchase | under_review, reason required | onchain_payment_rejected | yes |
 | super_admin | adjust_credits | business wallet | any, reason required | credit_adjusted_by_admin | yes |
 | super_admin | view_credit_purchases | credit purchases | super_admin active | no | yes |
 | super_admin | view_credit_purchase_detail | credit purchase | super_admin active | no | yes |
@@ -199,6 +242,7 @@ Post-MVP:
 | support | view_credit_purchase_detail | credit purchase | support active, masked proof metadata only | no | yes |
 | support | approve_manual_credit_payment | credit purchase | any | no | no |
 | support | reject_manual_credit_payment | credit purchase | any | no | no |
+| support | reject_onchain_credit_payment | credit purchase | any | no | no |
 | support | adjust_credits | business wallet | any | no | no |
 | admin | view_disputes | disputes | admin active | no | yes |
 | admin | view_dispute_detail | dispute | admin active | no | yes |
@@ -231,6 +275,47 @@ Post-MVP:
 | support_readonly | approve_business | business | any | no | no |
 | support_readonly | adjust_credits | wallet | any | no | no |
 | support_readonly | resolve_dispute | dispute | any | no | no |
+
+## Staff interno 20C
+
+`users.role` sigue siendo rol base. La granularidad de empleados usa `staff_profiles.staff_role` y `staff_permissions`.
+
+| Actor staff | Accion | Recurso | Estado requerido | Audit | Permitido |
+| --- | --- | --- | --- | --- | --- |
+| support_agent | view_assigned_support_tickets | support_ticket | user active, staff active, permission active, assigned_only | no | yes |
+| support_agent | reply_support_ticket | support_ticket | ticket assigned or permitted queue, permission active | support_message_created | yes |
+| support_agent | view_support_attachment | support_attachment | permission active, reason required | support_attachment_viewed | yes |
+| support_agent | view_support_queue | support_ticket | permission active, queue/category scope | no | yes when granted |
+| support_lead | view_support_queue | support_ticket | user active, staff active, permission active | no | yes |
+| support_lead | assign_support_ticket | support_ticket | permission active, reason required | staff_ticket_assigned | yes |
+| support_lead | escalate_support_ticket | support_ticket | permission active, reason required | support_ticket_escalated | yes |
+| support_lead | resolve_support_ticket | support_ticket | permission active, reason required | support_ticket_resolved | yes |
+| support_lead | close_support_ticket | support_ticket | permission active, reason required | support_ticket_closed | yes |
+| operations_readonly | view_users_masked | users | permission active | no | yes |
+| operations_readonly | view_businesses_masked | businesses | permission active | no | yes |
+| operations_readonly | view_orders_masked | orders | permission active | no | yes |
+| operations_readonly | view_audit_limited | audit_logs | permission active | staff_activity_viewed | yes |
+| operations_readonly | view_metrics_limited | metrics | permission active | no | yes |
+| support_agent | block_user | users | any | no | no |
+| support_agent | suspend_user | users | any | no | no |
+| support_agent | change_user_role | users | any | no | no |
+| support_agent | mutate_business_access_links | business_access_links | any | no | no |
+| support_agent | approve_business | businesses | any | no | no |
+| support_agent | approve_credit_payment | credit_purchases | any | no | no |
+| support_agent | manual_credit_adjustment | credit_wallets | any | no | no |
+| support_agent | resolve_dispute | disputes | any | no | no |
+| support_agent | mutate_orders | orders | any | no | no |
+| support_agent | mutate_ads | ads | any | no | no |
+| support_agent | mutate_credits | credits | any | no | no |
+| support_lead | block_user | users | any | no | no |
+| support_lead | mutate_business_access_links | business_access_links | any | no | no |
+| support_lead | approve_credit_payment | credit_purchases | any | no | no |
+| support_lead | resolve_dispute | disputes | any | no | no |
+| operations_readonly | any_mutation | any | any | no | no |
+| super_admin | manage_staff_profiles | staff | user active, reason/idempotency required | staff_activated/staff_suspended/staff_revoked | yes |
+| super_admin | manage_staff_permissions | staff_permissions | reason/idempotency required | staff_permissions_updated | yes |
+| admin | view_staff_profiles | staff | admin active | no | yes when granted |
+| admin | manage_staff_permissions | staff_permissions | any | no | no |
 
 ## Reglas obligatorias
 

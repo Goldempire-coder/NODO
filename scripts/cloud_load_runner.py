@@ -19,6 +19,10 @@ import httpx
 from local_hardening_common import write_json
 
 
+PRODUCT_GATE_MAX_CONCURRENCY = 50
+RUN_PURPOSES = ("product-gate", "infra-probe")
+
+
 @dataclass(frozen=True)
 class RequestSpec:
     method: str
@@ -74,12 +78,15 @@ class CloudLoadRunner:
         delivery_method: str,
         profile_marketplace: bool,
         order_ad_ids: list[str],
+        run_purpose: str = "product-gate",
     ) -> None:
+        validate_staging_concurrency_policy(concurrency=concurrency, run_purpose=run_purpose)
         self.base_url = base_url.rstrip("/")
         self.scenario = scenario
         self.run_id = run_id
         self.requests = requests
         self.concurrency = concurrency
+        self.run_purpose = run_purpose
         self.timeout_seconds = timeout_seconds
         self.bot_token = bot_token
         self.remitters = remitters
@@ -123,6 +130,11 @@ class CloudLoadRunner:
             "target": self.base_url,
             "requests": self.requests,
             "concurrency": self.concurrency,
+            "run_purpose": self.run_purpose,
+            "staging_concurrency_policy": staging_concurrency_policy_payload(
+                concurrency=self.concurrency,
+                run_purpose=self.run_purpose,
+            ),
             "duration_seconds": duration_seconds,
             "throughput_per_second": round(self.requests / duration_seconds, 4) if duration_seconds > 0 else 0.0,
             "total_errors": total_errors,
@@ -413,6 +425,7 @@ class CloudLoadRunner:
         return {
             "scenario": self.scenario,
             "concurrency": self.concurrency,
+            "run_purpose": self.run_purpose,
             "requests": self.requests,
             "status_counts": dict(self.statuses),
             "client_p95_ms": _percentiles(self.client_latencies)["p95_ms"],
@@ -424,12 +437,38 @@ class CloudLoadRunner:
         }
 
 
+def validate_staging_concurrency_policy(*, concurrency: int, run_purpose: str) -> None:
+    if run_purpose not in RUN_PURPOSES:
+        raise RuntimeError(f"unsupported run purpose {run_purpose}")
+    if run_purpose == "product-gate" and concurrency > PRODUCT_GATE_MAX_CONCURRENCY:
+        raise RuntimeError(
+            "staging product gates are capped at c50; use --run-purpose infra-probe for c100+ transport diagnostics"
+        )
+
+
+def staging_concurrency_policy_payload(*, concurrency: int, run_purpose: str) -> dict[str, Any]:
+    return {
+        "product_gate_max_concurrency": PRODUCT_GATE_MAX_CONCURRENCY,
+        "run_purpose": run_purpose,
+        "classification": "product_gate" if run_purpose == "product-gate" else "infrastructure_transport_probe",
+        "c100_plus_blocks_product": False,
+        "c100_plus_requires_infra_probe": concurrency > PRODUCT_GATE_MAX_CONCURRENCY,
+        "diagnosis": {
+            "connection_transport_limit": "identified_locally",
+            "github_actions_corroboration": "pending_blocked_by_github_actions_tooling",
+            "marketplace_product": "not_primary_bottleneck",
+            "db_cache_frontend": "not_primary_bottleneck",
+        },
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--scenario", choices=["health", "ready", "version", "marketplace", "order-create", "mixed-read-order"], default="health")
     parser.add_argument("--requests", type=int, default=200)
     parser.add_argument("--concurrency", type=int, default=50)
+    parser.add_argument("--run-purpose", choices=RUN_PURPOSES, default="product-gate")
     parser.add_argument("--timeout-seconds", type=float, default=30.0)
     parser.add_argument("--run-id", default=f"cloud_load_{int(time.time())}")
     parser.add_argument("--output", required=True)
@@ -443,22 +482,24 @@ def main() -> int:
     args = parser.parse_args()
     bot_token = os.environ.get(args.bot_token_env)
     order_ad_ids = [item.strip() for item in args.order_ad_ids.split(",") if item.strip()]
-    runner = CloudLoadRunner(
-        base_url=args.base_url,
-        scenario=args.scenario,
-        run_id=args.run_id,
-        requests=args.requests,
-        concurrency=args.concurrency,
-        timeout_seconds=args.timeout_seconds,
-        bot_token=bot_token,
-        remitters=args.remitters,
-        amount_usd=args.amount_usd,
-        payment_method=args.payment_method,
-        delivery_method=args.delivery_method,
-        profile_marketplace=args.profile_marketplace,
-        order_ad_ids=order_ad_ids,
-    )
+    runner: CloudLoadRunner | None = None
     try:
+        runner = CloudLoadRunner(
+            base_url=args.base_url,
+            scenario=args.scenario,
+            run_id=args.run_id,
+            requests=args.requests,
+            concurrency=args.concurrency,
+            timeout_seconds=args.timeout_seconds,
+            bot_token=bot_token,
+            remitters=args.remitters,
+            amount_usd=args.amount_usd,
+            payment_method=args.payment_method,
+            delivery_method=args.delivery_method,
+            profile_marketplace=args.profile_marketplace,
+            order_ad_ids=order_ad_ids,
+            run_purpose=args.run_purpose,
+        )
         payload = asyncio.run(runner.run())
     except RuntimeError as exc:
         payload = {
@@ -468,10 +509,17 @@ def main() -> int:
             "target": args.base_url,
             "requests": args.requests,
             "concurrency": args.concurrency,
+            "run_purpose": args.run_purpose,
+            "staging_concurrency_policy": staging_concurrency_policy_payload(
+                concurrency=args.concurrency,
+                run_purpose=args.run_purpose,
+            )
+            if args.run_purpose in RUN_PURPOSES
+            else {"run_purpose": args.run_purpose},
             "status_counts": {},
             "error_counts": {type(exc).__name__: 1},
             "failure": str(exc),
-            "cost_units": runner._cost_units(setup_requests=0),
+            "cost_units": runner._cost_units(setup_requests=0) if runner else {},
             "cleanup": {"required": False, "run_id": None, "note": None},
             "exit_code": 1,
         }

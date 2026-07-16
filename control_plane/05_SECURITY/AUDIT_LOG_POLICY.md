@@ -27,6 +27,15 @@ Events:
 - support_ticket_linked_to_dispute
 - support_ticket_resolved
 - support_ticket_closed
+- staff_invite_created
+- staff_invite_expired
+- staff_activated
+- staff_suspended
+- staff_revoked
+- staff_permissions_updated
+- staff_activity_viewed
+- staff_ticket_assigned
+- staff_access_denied
 - surface_access_denied
 
 Audit payloads must not include raw documents, full support messages, storage paths, signed URLs, tokens, secrets, account values or private evidence.
@@ -109,3 +118,23 @@ Si una feature sensible no puede auditarse, Builder debe reportar:
 ```txt
 BLOCKED_BY_SECURITY_GAP
 ```
+
+## Audit vs Observability - slice 24
+
+Audit formal and observability are separate:
+
+- audit formal is durable and records sensitive actions, state changes, actors and reasons;
+- observability is operational diagnostics with TTL, sampling and redaction;
+- audit must not store session replay payloads;
+- observability must not be used as financial ledger or compliance source of truth.
+
+Audit events required for observability admin access:
+
+- `observability_events_viewed`
+- `observability_session_viewed`
+- `observability_export_created`
+- `observability_retention_cleanup_run`
+- `observability_access_denied`
+- `observability_config_changed`
+
+Ingesting every breadcrumb must not create audit spam.

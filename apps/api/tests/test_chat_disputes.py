@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import time
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
@@ -43,6 +44,8 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.businesses.models import utc_now  # noqa: E402
+from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -100,7 +103,7 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
     stored_business.approved_at = stored_business.updated_at
     stored_business.max_order_amount_usd = stored_business.max_order_amount_usd * 20
     stored_user = client.app.state.user_repository.get_user_by_id(login["user"]["id"])
-    client.app.state.business_repository.create_access_link(
+    link = client.app.state.business_repository.create_access_link(
         business_id=business["id"],
         user_id=login["user"]["id"],
         telegram_id_snapshot=stored_user.telegram_id,
@@ -108,6 +111,8 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
         linked_by_admin_id=login["user"]["id"],
         reason="test_active_business_access",
     )
+    client.app.state.business_repository.set_access_link_pin_hash(link_id=link.id, pin_hash=hash_pin("1234"))
+    client.app.state.business_repository.mark_access_link_pin_verified(link_id=link.id, unlocked_until=utc_now() + timedelta(minutes=15))
     payment = client.app.state.business_repository.add_payment_method(
         business_id=business["id"],
         method_type="zelle",

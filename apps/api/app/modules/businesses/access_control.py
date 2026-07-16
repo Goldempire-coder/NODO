@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import ApiError
-from app.modules.businesses.models import BusinessAccessLinkRecord, BusinessRecord
+from app.modules.businesses.models import BusinessAccessLinkRecord, BusinessRecord, utc_now
 from app.modules.users.models import UserRecord
 
 
@@ -63,17 +63,25 @@ def public_business_for_surface(business: BusinessRecord, link: BusinessAccessLi
         "verification_status": business.verification_status,
         "trust_level": business.trust_level,
         "risk_level": business.risk_level,
+        "min_order_amount_usd": f"{business.min_order_amount_usd:.2f}",
         "max_order_amount_usd": f"{business.max_order_amount_usd:.2f}",
         "daily_limit_usd": f"{business.daily_limit_usd:.2f}",
         "active_order_limit": business.active_order_limit,
         "approved_at": business.approved_at.isoformat() if business.approved_at else None,
     }
     if link is not None:
+        pin_locked = link.business_pin_locked_until is not None and link.business_pin_locked_until > utc_now()
+        pin_unlocked = link.business_pin_unlocked_until is not None and link.business_pin_unlocked_until > utc_now()
         payload["access_link"] = {
             "id": link.id,
             "status": link.status,
             "role_in_business": link.role_in_business,
             "linked_at": link.linked_at.isoformat(),
+            "pin_required": True,
+            "pin_configured": link.business_pin_hash is not None,
+            "pin_unlocked": pin_unlocked,
+            "pin_locked_until": link.business_pin_locked_until.isoformat() if pin_locked else None,
+            "pin_unlocked_until": link.business_pin_unlocked_until.isoformat() if pin_unlocked else None,
         }
     return payload
 

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 
 from app.auth.dependencies import require_current_user
 from app.modules.businesses.route_dependencies import business_service, request_id
-from app.modules.businesses.schemas import AdminReasonRequest
+from app.modules.businesses.schemas import AdminBusinessCapacityUpdateRequest, AdminReasonRequest
 from app.modules.users.models import UserRecord
 
 router = APIRouter(tags=["admin-businesses"])
@@ -75,6 +75,26 @@ def admin_approve_business(
     }
 
 
+@router.post("/admin/businesses/{business_id}/capacity")
+def admin_update_business_capacity(
+    business_id: str,
+    payload: AdminBusinessCapacityUpdateRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": business_service(request).update_business_capacity(
+            user=user,
+            business_id=business_id,
+            payload=payload,
+            request_id=request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": request_id(request),
+    }
+
+
 @router.post("/admin/businesses/{business_id}/reject")
 def admin_reject_business(
     business_id: str,
@@ -85,6 +105,66 @@ def admin_reject_business(
 ) -> dict:
     return {
         "data": business_service(request).reject(
+            user=user,
+            business_id=business_id,
+            reason=payload.reason,
+            request_id=request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": request_id(request),
+    }
+
+
+@router.post("/admin/businesses/{business_id}/suspend")
+def admin_suspend_business(
+    business_id: str,
+    payload: AdminReasonRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": business_service(request).suspend_business(
+            user=user,
+            business_id=business_id,
+            reason=payload.reason,
+            request_id=request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": request_id(request),
+    }
+
+
+@router.post("/admin/businesses/{business_id}/reactivate")
+def admin_reactivate_business(
+    business_id: str,
+    payload: AdminReasonRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": business_service(request).reactivate_business(
+            user=user,
+            business_id=business_id,
+            reason=payload.reason,
+            request_id=request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": request_id(request),
+    }
+
+
+@router.post("/admin/businesses/{business_id}/block")
+def admin_block_business(
+    business_id: str,
+    payload: AdminReasonRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": business_service(request).block_business(
             user=user,
             business_id=business_id,
             reason=payload.reason,

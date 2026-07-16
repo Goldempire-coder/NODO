@@ -123,3 +123,23 @@ Public env must only contain non-secret values:
 - REDIS_URL in frontend
 - R2_SECRET_ACCESS_KEY in frontend
 - hardcoded secrets in docs, tests or examples
+## Observability - slice 24
+
+Backend variables:
+
+- `OBSERVABILITY_INGEST_ENABLED`: `0|1`, default `0`.
+- `OBSERVABILITY_MODE`: `disabled|local_only|persisted|logs_only`, default `disabled`.
+- `OBSERVABILITY_SAMPLE_RATE`: decimal `0` to `1`, default `0`.
+- `OBSERVABILITY_EVENT_TTL_DAYS`: default `7` for staging.
+- `OBSERVABILITY_MAX_EVENTS_PER_SESSION`: default `500`.
+- `OBSERVABILITY_MAX_BATCH_EVENTS`: default `20`.
+- `OBSERVABILITY_MAX_EVENT_BYTES`: default `2048`.
+
+Frontend public variables:
+
+- `NEXT_PUBLIC_APP_VERSION`
+- `NEXT_PUBLIC_NODO_BUILD_ID`
+- `NEXT_PUBLIC_OBSERVABILITY_ENABLED`
+- `NEXT_PUBLIC_OBSERVABILITY_MODE`
+
+Public frontend variables must not include secrets. Backend can reject ingestion even if frontend collection is enabled.

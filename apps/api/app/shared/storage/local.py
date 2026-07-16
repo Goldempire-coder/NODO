@@ -49,6 +49,10 @@ class LocalFilePrivateStorage:
         suffix = self._safe_suffix(file_name)
         return self._write(f"private/business_intake/{intake_id}/{file_id}.{suffix}", content)
 
+    def store_support_attachment(self, *, ticket_id: str, file_id: str, file_name: str, content: bytes) -> StoredPrivateFile:
+        suffix = self._safe_suffix(file_name)
+        return self._write(f"private/support/{ticket_id}/{file_id}.{suffix}", content)
+
     def signed_view_url(self, *, storage_path: str, expires_in: int) -> str:
         path = (self._root / storage_path).resolve()
         if self._root not in path.parents or not path.exists():

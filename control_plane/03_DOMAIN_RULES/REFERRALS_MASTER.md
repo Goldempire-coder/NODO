@@ -18,7 +18,7 @@ contratos activos.
 - El codigo se genera de forma idempotente al aprobar el negocio o al primer
   acceso a `GET /api/v1/business/referrals`.
 - Un negocio puede aplicar un codigo de referido una sola vez antes de recibir
-  bonus propio o antes de su primera compra aprobada de creditos.
+  bonus propio o antes de su primera compra calificable de creditos.
 - Self-referral esta prohibido.
 - Un mismo referred_business_id no puede generar mas de un bonus activo.
 - Un mismo credit_purchase no puede generar mas de un referral bonus.
@@ -29,10 +29,18 @@ contratos activos.
 - Cap por negocio referrer: 20 creditos por referrals en MVP.
 - El bonus se acredita cuando el negocio referido:
   - esta `business.verification_status = approved`
-  - tiene su primera `credit_purchases.status = approved`
+  - tiene su primera compra calificable de creditos
   - no es self-referral
   - no excede el cap
 - La acreditacion escribe `credits_ledger.type = referral_bonus`.
+
+Compra calificable:
+
+- `credit_purchases.status = approved` para Stripe/manual legacy.
+- `credit_purchases.status = credited` para Base USDC on-chain.
+- En ambos casos debe existir `credits_ledger.type = purchase` exact-once con `related_credit_purchase_id = credit_purchases.id`.
+
+Una compra con status `verified`, `detected`, `pending_onchain_confirmation`, `under_review`, `expired`, `rejected` o `verification_failed` no califica referral.
 
 ## Ledger
 
@@ -42,7 +50,7 @@ contratos activos.
 - amount = bonus credits
 - related_referral_id = referral_events.id
 - related_credit_purchase_id = credit_purchases.id
-- reason = referral_bonus_first_approved_purchase
+- reason = referral_bonus_first_qualifying_purchase
 - source = referral_events
 - reference_type = referral_event
 - reference_id = referral_events.id
@@ -95,6 +103,6 @@ Eventos:
 
 - Self-referral.
 - Doble bonus por el mismo referred_business_id.
-- Doble bonus por la misma compra aprobada.
+- Doble bonus por la misma compra calificable.
 - Bonus que haga wallet inconsistente.
 - Prometer ganancias monetarias, fondos protegidos o garantia de remesas.

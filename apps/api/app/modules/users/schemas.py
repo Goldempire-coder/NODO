@@ -2,18 +2,19 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
-class TelegramAuthRequest(BaseModel):
-    init_data: str
+from app.shared.validation import StrictRequestModel
 
 
-class RefreshRequest(BaseModel):
-    refresh_token: str
+class TelegramAuthRequest(StrictRequestModel):
+    init_data: str = Field(min_length=1, max_length=8192)
 
 
-class LogoutRequest(BaseModel):
-    refresh_token: str
+class RefreshRequest(StrictRequestModel):
+    refresh_token: str = Field(min_length=16, max_length=512)
 
+
+class LogoutRequest(StrictRequestModel):
+    refresh_token: str = Field(min_length=16, max_length=512)
 
 class PublicUser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -31,11 +32,11 @@ class PublicUser(BaseModel):
     terms_version: str | None = None
 
 
-class TermsAcceptanceRequest(BaseModel):
-    terms_version: str = "2026-07-06"
+class TermsAcceptanceRequest(StrictRequestModel):
+    terms_version: str = Field(default="2026-07-06", min_length=1, max_length=32)
 
 
-class UserProfileUpdateRequest(BaseModel):
+class UserProfileUpdateRequest(StrictRequestModel):
     first_name: str = Field(min_length=2, max_length=80)
     phone: str = Field(min_length=7, max_length=24, pattern=r"^\+?[0-9][0-9 ()-]{5,22}[0-9]$")
 

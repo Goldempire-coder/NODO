@@ -9,8 +9,10 @@ import { useBusinessAccessModel } from "./business-mini-app/useBusinessAccessMod
 import { useBusinessAdsModel } from "./business-mini-app/useBusinessAdsModel";
 import { useBusinessChatModel } from "./business-mini-app/useBusinessChatModel";
 import { useBusinessCreditsModel } from "./business-mini-app/useBusinessCreditsModel";
+import { useBusinessHomeSummaryModel } from "./business-mini-app/useBusinessHomeSummaryModel";
 import { useBusinessOrdersModel } from "./business-mini-app/useBusinessOrdersModel";
 import { useBusinessTelegramControls } from "./business-mini-app/useBusinessTelegramControls";
+import { useSurfaceSupportModel } from "./useSurfaceSupportModel";
 
 export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; token: string }) {
   const [view, setCurrentView] = useState<BusinessMiniAppView>("business-dashboard");
@@ -19,7 +21,11 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   const [busy, setBusy] = useState(false);
 
   const request = useCallback(
-    async (path: string, options: RequestInit = {}) => apiRequest<any>(path, token, options),
+    async (path: string, options: RequestInit = {}) => {
+      const headers = new Headers(options.headers || {});
+      headers.set("X-NODO-Surface", "business_mini_app");
+      return apiRequest<any>(path, token, { ...options, headers });
+    },
     [token]
   );
 
@@ -44,19 +50,28 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
 
   const canGoBack = useMemo(() => !ROOT_BUSINESS_VIEWS.has(view), [view]);
 
-  const access = useBusinessAccessModel({ request, setBusy, setNotice });
+  const access = useBusinessAccessModel({ request, setBusy, setNotice, setView });
+  const credits = useBusinessCreditsModel({ business: access.business, request, setBusy, setNotice, setView });
   const ads = useBusinessAdsModel({
     adForm: access.adForm,
     business: access.business,
     request,
+    refreshCreditWallet: credits.refreshCreditWallet,
     setAdForm: access.setAdForm,
-    setBusy,
     setNotice,
     setView
   });
   const orders = useBusinessOrdersModel({ request, setBusy, setNotice, setView });
-  const credits = useBusinessCreditsModel({ request, setBusy, setNotice, setView });
   const chat = useBusinessChatModel({ request, setBusy, setNotice, setView });
+  const support = useSurfaceSupportModel({ request, setBusy, setNotice });
+  const homeSummary = useBusinessHomeSummaryModel({
+    accessState: access.accessState,
+    refreshBusinessOrders: orders.refreshBusinessOrders,
+    refreshCreditWallet: credits.refreshCreditWallet,
+    refreshMyAds: ads.refreshMyAds,
+    setCurrentView,
+    view
+  });
 
   useEffect(() => {
     void access.loadBusinessProfile();
@@ -64,7 +79,7 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
 
   useBusinessTelegramControls({
     adForm: access.adForm,
-    busy,
+    busy: busy || ads.savingAdId === "new",
     canGoBack,
     createAd: ads.createAd,
     goBack,
@@ -75,16 +90,19 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     user,
     view,
     setView,
+    loadHomeSummary: homeSummary.loadHomeSummary,
     goBack,
     canGoBack,
     notice,
     setNotice,
     busy,
+    homeSummaryState: homeSummary.homeSummaryState,
     ...access,
     ...ads,
     ...orders,
     ...credits,
-    ...chat
+    ...chat,
+    ...support
   };
 }
 

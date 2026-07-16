@@ -7,7 +7,7 @@ from app.modules.credits.schemas import ReferralApplyRequest
 from app.modules.credits.serializers import referral_public
 from app.modules.users.models import UserRecord
 
-CREDITS_DISCLAIMER = "Los creditos sirven para publicar anuncios dentro de NODO. Los pagos manuales se acreditan despues de revision."
+CREDITS_DISCLAIMER = "Asegurate de usar la red Base para comprar tus creditos."
 
 
 class CreditBusinessReferrals:

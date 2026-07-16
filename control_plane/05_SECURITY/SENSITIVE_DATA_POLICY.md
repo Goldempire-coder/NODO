@@ -15,6 +15,8 @@ Rules:
 - Admin/support list views use masked summaries.
 - Signed URLs must be short-lived and permission checked.
 - Audit metadata must not copy full message bodies, documents, signed URLs or private evidence.
+- Staff 20C list/detail views use masked summaries by default.
+- Staff activity read model must redact support message bodies, Telegram IDs, phones, storage paths, account values, tokens and signed URLs.
 
 Contrato de datos sensibles.
 
@@ -32,7 +34,10 @@ Minimizar exposicion de datos personales, bancarios, comprobantes y evidencia de
 - cuentas Zelle
 - telefonos de pago movil
 - wallets USDT
+- wallet publica de recepcion Base cuando no sea necesaria para el flujo de compra
 - TxID/hash completos
+- RPC provider URLs/API keys
+- raw on-chain provider responses
 - comprobantes
 - payment evidence URLs
 - full payment instructions
@@ -61,8 +66,13 @@ Minimizar exposicion de datos personales, bancarios, comprobantes y evidencia de
 - Business payment method selector responses may return `id`, method labels, limits and masked account metadata only; they must never return full `account_value`, full bank data or `storage_path`.
 - Credit purchase manual proofs use private `file_assets`; API/frontend/logs/audit must never expose `storage_path`.
 - Stripe checkout/session/event identifiers may be stored internally for idempotency, but secrets and raw webhook signatures must never be returned to frontend or logged.
+- Base USDC tx hashes may be stored internally for idempotency and duplicate prevention; UI/list/audit/logs must use masked/truncated display unless detail access is explicitly authorized.
+- On-chain provider raw responses, RPC keys, private keys, seed phrases and mnemonics must never be returned, logged or stored in audit metadata.
 - Referral codes may be shown to the owning business; fraud/prevention metadata must stay internal.
 - Admin console list/detail responses must mask sensitive fields by default.
+- Admin user list/detail responses must mask `phone` and `telegram_id` by default.
+- Full `telegram_id` in admin user endpoints is allowed only for `admin` and `super_admin`; `support` receives masked values only.
+- Admin user endpoints must never return session internals, refresh token hashes, raw Authorization headers, tokens or secrets.
 - Admin dispute resolution must not expose or log full payment instructions,
   `account_value`, `storage_path`, signed URLs, tokens or secrets.
 - Support admin views are read-only and masked unless a later contract grants
@@ -107,6 +117,11 @@ account/payment_ref: mostrar ultimos 4 cuando aplique
 - Para `credit_purchase_proof`, MIME permitido: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`.
 - Para `credit_purchase_proof`, maximo 5 MB.
 - `credit_purchase_proof` solo puede leerse mediante metadata publica o signed URL corta autorizada para admin/super_admin review.
+- Para `support_attachment`, MIME permitido: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`.
+- Para `support_attachment`, maximo 5 MB.
+- Los adjuntos de soporte usan `file_assets.resource_type = support_ticket|support_message` y `file_type = support_attachment`.
+- Las APIs de soporte devuelven metadata segura; signed URL de lectura requiere RBAC, expira rapidamente y no se persiste.
+- Audit/logs de soporte no copian cuerpos completos de mensajes, signed URLs, `storage_path`, evidencia privada ni datos bancarios completos.
 
 ## Verificacion de negocio
 
@@ -134,3 +149,24 @@ Si una pantalla/API expone datos sensibles sin permiso, Builder debe reportar:
 ```txt
 BLOCKED_BY_SECURITY_GAP
 ```
+## Observability sensitive data - slice 24
+
+Observability events, breadcrumbs, structured logs and diagnostic exports must never include:
+
+- Authorization/Cookie headers;
+- access or refresh tokens;
+- Telegram initData completo;
+- bot tokens;
+- JWT secrets;
+- service role keys;
+- private keys, seed phrases or mnemonics;
+- `account_value`;
+- `storage_path`;
+- signed URLs;
+- full tx hash;
+- full phone unless a future contract explicitly allows reveal;
+- documents;
+- full chat/ticket messages;
+- full payment instructions.
+
+Allowed diagnostic fields are route templates, status, duration, safe error code, screen/action names, app/build version and masked identifiers.

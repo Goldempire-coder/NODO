@@ -7,6 +7,8 @@ Indices obligatorios para sostener 200 negocios, 10,000 clientes y 2,000 ordenes
 - `users(telegram_id)` unique.
 - `users(status, created_at desc)`.
 - `users(role, status)`.
+- `users(phone)` parcial cuando `phone is not null` para busqueda admin.
+- `lower(users.username)` parcial cuando `username is not null` para busqueda admin case-insensitive.
 
 ## Sesiones
 
@@ -102,6 +104,12 @@ Indices obligatorios para sostener 200 negocios, 10,000 clientes y 2,000 ordenes
 - `credit_purchases(stripe_event_id)` unique parcial cuando no sea null.
 - `credit_purchases(manual_payment_reference)` unique parcial cuando exista.
 - `credit_purchases(business_id, idempotency_key)` unique parcial cuando `idempotency_key` no sea null.
+- `credit_purchases(payment_method, status, expires_at)` para watcher on-chain.
+- `credit_purchases(chain_id, token_contract_address, status)` para verificacion on-chain.
+- `credit_purchase_onchain_payments(credit_purchase_id, created_at desc)`.
+- `credit_purchase_onchain_payments(business_id, created_at desc)`.
+- `credit_purchase_onchain_payments(chain_id, tx_hash, tx_log_index)` unique.
+- `credit_purchase_onchain_payments(verification_status, created_at desc)`.
 - `referral_codes(code)` unique.
 - `referral_codes(business_id)` unique.
 - `referral_events(referrer_business_id, created_at desc)`.
@@ -115,6 +123,19 @@ Indices obligatorios para sostener 200 negocios, 10,000 clientes y 2,000 ordenes
 - `audit_logs(actor_user_id, created_at desc)`.
 - `audit_logs(event_type, created_at desc)`.
 - `audit_logs(created_at desc)`.
+
+## Staff interno
+
+- `staff_profiles(user_id, status)`.
+- `staff_profiles(staff_role, status, created_at desc)`.
+- unique parcial `staff_profiles(user_id)` where status = `active`.
+- `staff_permissions(staff_profile_id, status)`.
+- `staff_permissions(permission, status)`.
+- unique parcial `staff_permissions(staff_profile_id, permission, scope, scope_value)` where status = `active`.
+- `staff_invites(status, expires_at)`.
+- `staff_invites(target_user_id, status)` parcial cuando target_user_id no sea null.
+- `staff_invites(target_telegram_id, status)` parcial cuando target_telegram_id no sea null.
+- `staff_invites(lower(target_username), status)` parcial cuando target_username no sea null.
 
 ## Admin console read models
 
@@ -154,11 +175,28 @@ Toda query que aparezca en una pantalla principal debe tener indice revisado ant
 - `business_intake_requests(created_business_id)` parcial cuando created_business_id no sea null.
 - `file_assets(resource_type, resource_id, created_at desc)` cubre documentos de intake.
 - Si 14D2 persiste `telegram_file_unique_id`/`telegram_file_id` en metadata JSON, agregar indice/unique funcional o validacion transaccional equivalente para evitar duplicados por `resource_type = business_intake`, `resource_id`, `telegram_update_id` y `telegram_file_unique_id/file_id`.
-- `support_tickets(created_by_user_id, status, updated_at desc)`.
+- `support_tickets(requester_user_id, status, updated_at desc)`.
 - `support_tickets(business_id, status, updated_at desc)` parcial cuando business_id no sea null.
 - `support_tickets(order_id, created_at desc)` parcial cuando order_id no sea null.
+- `support_tickets(ad_id, created_at desc)` parcial cuando ad_id no sea null.
+- `support_tickets(credit_purchase_id, created_at desc)` parcial cuando credit_purchase_id no sea null.
 - `support_tickets(dispute_id, created_at desc)` parcial cuando dispute_id no sea null.
-- `support_tickets(scope, status, updated_at desc)`.
+- `support_tickets(assigned_support_user_id, status, updated_at desc)` parcial cuando assigned_support_user_id no sea null.
+- `support_tickets(scope, category, status, priority, updated_at desc)`.
 - `support_messages(ticket_id, created_at asc)`.
 - `support_ticket_events(ticket_id, created_at asc)`.
 - `file_assets(resource_type, resource_id, created_at desc)` cubre `business_intake`, `support_ticket` y `support_message`.
+## Observability indexes - slice 24
+
+Futuros indices requeridos para `observability_events`:
+
+- unique `observability_events_event_id_uq` on `event_id`.
+- `observability_events_request_id_idx` on `request_id`.
+- `observability_events_correlation_id_idx` on `correlation_id`.
+- `observability_events_operation_id_idx` on `operation_id`.
+- `observability_events_session_id_idx` on `session_id`.
+- `observability_events_surface_received_idx` on `(surface, received_at desc)`.
+- `observability_events_resource_order_idx` on `order_id` where not null.
+- `observability_events_resource_ticket_idx` on `ticket_id` where not null.
+- `observability_events_resource_credit_idx` on `credit_purchase_id` where not null.
+- `observability_events_expires_at_idx` on `expires_at` for cleanup.

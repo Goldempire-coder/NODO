@@ -52,11 +52,15 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
             profile_mark(profile, "cache:key_build", stage_started)
             cached = self._marketplace_cache.get_json(cache_key)  # type: ignore[attr-defined]
             if cached is not None:
-                return profile_attach(dict(cached), profile, profile_started)
+                filtered = self._marketplace_cached_response(cached, profile=profile)
+                if filtered is not None:
+                    return profile_attach(filtered, profile, profile_started)
             with self._marketplace_cache.lock(cache_key):  # type: ignore[attr-defined]
                 cached = self._marketplace_cache.get_json(cache_key)  # type: ignore[attr-defined]
                 if cached is not None:
-                    return profile_attach(dict(cached), profile, profile_started)
+                    filtered = self._marketplace_cached_response(cached, profile=profile)
+                    if filtered is not None:
+                        return profile_attach(filtered, profile, profile_started)
                 items, next_cursor, businesses_by_id = self._query_marketplace_ads(
                     amount_usd=amount_usd,
                     payment_method=payment_method,
@@ -70,6 +74,34 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
                 return profile_attach(response, profile, profile_started)
         finally:
             reset_profile(token)
+
+    def _marketplace_cached_response(self, cached: dict[str, Any], *, profile: list[dict[str, Any]] | None) -> dict[str, Any] | None:
+        response = dict(cached)
+        items = response.get("items")
+        if not isinstance(items, list):
+            return response
+        ad_ids = [str(item.get("id")) for item in items if isinstance(item, dict) and item.get("id")]
+        started = time.perf_counter()
+        unavailable = self._marketplace_unavailable_ad_ids(ad_ids)
+        profile_mark(profile, "cache:marketplace_unavailable_filter", started, {"checked": len(ad_ids)})
+        if unavailable is None:
+            profile_mark(profile, "cache:marketplace_cached_response_bypass", time.perf_counter())
+            return None
+        if not unavailable:
+            return response
+        unavailable_ad_ids = {marker.removeprefix("ad_unavailable:") for marker in unavailable}
+        response["items"] = [
+            item
+            for item in items
+            if not isinstance(item, dict) or str(item.get("id")) not in unavailable_ad_ids
+        ]
+        profile_mark(
+            profile,
+            "cache:marketplace_unavailable_filtered",
+            time.perf_counter(),
+            {"filtered": len(items) - len(response["items"])},
+        )
+        return response
 
     def _validate_search_params(self, *, payment_method: str | None, delivery_method: str | None, sort: str | None) -> None:
         if delivery_method not in {None, "pago_movil_ve"}:
@@ -146,7 +178,13 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
             businesses_by_id = self._businesses.get_businesses_by_ids({ad.business_id for ad in items})  # type: ignore[attr-defined]
             profile_mark(profile, "repo:get_businesses_by_ids", stage_started)
         stage_started = time.perf_counter()
-        ranked = self._rank(items, sort=sort, businesses_by_id=businesses_by_id)
+        eligible_items = [
+            ad
+            for ad in items
+            if self._ad_within_current_business_limits(ad=ad, business=businesses_by_id.get(ad.business_id))
+            and self._ad_has_available_payment_method(ad)
+        ]
+        ranked = self._rank(eligible_items, sort=sort, businesses_by_id=businesses_by_id)
         profile_mark(profile, "service:rank", stage_started)
         stage_started = time.perf_counter()
         response = {
@@ -162,9 +200,20 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
         self._rate_limit("detail", user)
         ad = self._materialize_expired(self._ad_or_404(ad_id), actor=user, request_id=request_id)
         business = self._businesses.get_business(ad.business_id)  # type: ignore[attr-defined]
-        if ad.status != "active" or business is None or business.verification_status != "approved" or business.risk_level in {"restricted", "high_risk"}:
-            raise ApiError("AD_NOT_AVAILABLE", status_code=404)
         payment = self._businesses.get_payment_method(ad.payment_method_id)  # type: ignore[attr-defined]
+        if (
+            ad.status != "active"
+            or business is None
+            or business.verification_status != "approved"
+            or business.risk_level in {"restricted", "high_risk"}
+            or not business.is_accepting_orders
+            or payment is None
+            or payment.business_id != ad.business_id
+            or payment.verified_status != "approved"
+            or not payment.active
+            or not self._ad_within_current_business_limits(ad=ad, business=business)
+        ):
+            raise ApiError("AD_NOT_AVAILABLE", status_code=404)
         return {
             "ad": ad_payload(ad, business=business, payment_method=payment),
             "disclaimer": "Revisa monto, tasa y negocio antes de crear la orden. NODO organiza el proceso y guarda el respaldo de la operacion.",
@@ -184,3 +233,19 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
                 reverse=True,
             )
         return items
+
+    def _ad_within_current_business_limits(self, *, ad: AdRecord, business: BusinessRecord | None) -> bool:
+        if business is None:
+            return False
+        if not business.is_accepting_orders:
+            return False
+        return ad.amount_min_usd >= business.min_order_amount_usd and ad.amount_max_usd <= business.max_order_amount_usd
+
+    def _ad_has_available_payment_method(self, ad: AdRecord) -> bool:
+        payment = self._businesses.get_payment_method(ad.payment_method_id)  # type: ignore[attr-defined]
+        return (
+            payment is not None
+            and payment.business_id == ad.business_id
+            and payment.verified_status == "approved"
+            and payment.active
+        )

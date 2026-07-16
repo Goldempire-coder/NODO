@@ -22,6 +22,10 @@ export function useBusinessChatModel({
   const [chatBody, setChatBody] = useState("");
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
   const [disputeReason, setDisputeReason] = useState("business_no_payment_confirmation");
+  const [openingOrderDispute, setOpeningOrderDispute] = useState(false);
+  const [refreshingChat, setRefreshingChat] = useState(false);
+  const [sendingChatMessage, setSendingChatMessage] = useState(false);
+  const [uploadingChatAttachment, setUploadingChatAttachment] = useState(false);
 
   const openBusinessChat = useCallback(async (orderId: string) => {
     setBusy(true);
@@ -49,17 +53,24 @@ export function useBusinessChatModel({
     if (!chatOrderId) {
       return;
     }
-    const data = await listOrderMessages<{ items: ChatMessage[]; capabilities: ChatCapabilities; disclaimer?: string }>(request, chatOrderId);
-    setChatMessages(data.items);
-    setChatCapabilities(data.capabilities);
-    setNotice(data.disclaimer || "Chat actualizado.");
+    setRefreshingChat(true);
+    try {
+      const data = await listOrderMessages<{ items: ChatMessage[]; capabilities: ChatCapabilities; disclaimer?: string }>(request, chatOrderId);
+      setChatMessages(data.items);
+      setChatCapabilities(data.capabilities);
+      setNotice(data.disclaimer || "Chat actualizado.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos actualizar el chat.");
+    } finally {
+      setRefreshingChat(false);
+    }
   }, [chatOrderId, request, setNotice]);
 
   const uploadChatAttachment = useCallback(async (file: File | null) => {
     if (!chatOrderId || !file) {
       return;
     }
-    setBusy(true);
+    setUploadingChatAttachment(true);
     try {
       const data = await uploadOrderMessageAttachment<{ attachment: ChatAttachment }>(request, chatOrderId, file, idempotencyKey(`message_attachment_${chatOrderId}`));
       setChatAttachments((current) => [...current, data.attachment]);
@@ -67,15 +78,15 @@ export function useBusinessChatModel({
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos adjuntar el archivo.");
     } finally {
-      setBusy(false);
+      setUploadingChatAttachment(false);
     }
-  }, [chatOrderId, request, setBusy, setNotice]);
+  }, [chatOrderId, request, setNotice]);
 
   const sendChatMessage = useCallback(async () => {
     if (!chatOrderId) {
       return;
     }
-    setBusy(true);
+    setSendingChatMessage(true);
     try {
       await sendOrderMessage(request, chatOrderId, {
         body: chatBody,
@@ -88,15 +99,15 @@ export function useBusinessChatModel({
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos enviar el mensaje.");
     } finally {
-      setBusy(false);
+      setSendingChatMessage(false);
     }
-  }, [chatAttachments, chatBody, chatOrderId, refreshChat, request, setBusy, setNotice]);
+  }, [chatAttachments, chatBody, chatOrderId, refreshChat, request, setNotice]);
 
   const openOrderDispute = useCallback(async () => {
     if (!chatOrderId) {
       return;
     }
-    setBusy(true);
+    setOpeningOrderDispute(true);
     try {
       await openOrderDisputeRequest(request, chatOrderId, {
         reason: disputeReason,
@@ -108,9 +119,9 @@ export function useBusinessChatModel({
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos abrir el caso.");
     } finally {
-      setBusy(false);
+      setOpeningOrderDispute(false);
     }
-  }, [chatBody, chatOrderId, disputeReason, refreshChat, request, setBusy, setNotice]);
+  }, [chatBody, chatOrderId, disputeReason, refreshChat, request, setNotice]);
 
   return {
     chatAttachments,
@@ -121,10 +132,14 @@ export function useBusinessChatModel({
     disputeReason,
     openBusinessChat,
     openOrderDispute,
+    openingOrderDispute,
     refreshChat,
+    refreshingChat,
     sendChatMessage,
+    sendingChatMessage,
     setChatBody,
     setDisputeReason,
+    uploadingChatAttachment,
     uploadChatAttachment
   };
 }

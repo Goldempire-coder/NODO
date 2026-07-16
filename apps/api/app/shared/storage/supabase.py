@@ -137,6 +137,15 @@ class SupabasePrivateStorage:
             content=content,
         )
 
+    def store_support_attachment(self, *, ticket_id: str, file_id: str, file_name: str, content: bytes) -> StoredPrivateFile:
+        suffix = self._safe_suffix(file_name)
+        return self._upload(
+            bucket=self._message_attachments_bucket,
+            object_path=f"support/{ticket_id}/{file_id}.{suffix}",
+            file_name=file_name,
+            content=content,
+        )
+
     def signed_view_url(self, *, storage_path: str, expires_in: int) -> str:
         bucket, object_path = self._parse_storage_path(storage_path)
         safe_expires_in = min(max(int(expires_in), 1), 300)

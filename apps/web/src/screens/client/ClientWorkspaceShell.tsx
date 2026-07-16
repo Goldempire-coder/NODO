@@ -19,6 +19,7 @@ const TITLE_BY_VIEW: Partial<Record<ClientView, string>> = {
   "report-payment": "Reportar pago",
   "my-orders": "Mis órdenes",
   messages: "Mensajes",
+  support: "Soporte",
   "order-chat": "Tracking y chat"
 };
 
@@ -80,7 +81,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
       setActiveNav("orders");
       return;
     }
-    if (view === "messages" || view === "order-chat") {
+    if (view === "messages" || view === "order-chat" || view === "support") {
       setActiveNav("messages");
       return;
     }

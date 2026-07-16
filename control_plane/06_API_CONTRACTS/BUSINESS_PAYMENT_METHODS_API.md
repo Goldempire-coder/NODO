@@ -1,6 +1,6 @@
 # BUSINESS_PAYMENT_METHODS_API.md
 
-Contrato canonico para lectura segura de metodos de pago aprobados del negocio en la Mini App Negocio.
+Contrato canonico para lectura y gestion segura de metodos de cobro del negocio en la Mini App Negocio.
 
 Todas las rutas usan prefijo:
 
@@ -57,7 +57,7 @@ Empty response:
 UI empty state:
 
 ```txt
-Aun no tienes metodos aprobados. Contacta a NODO para activar tus metodos de operacion.
+Aun no tienes metodos de cobro. Agrega Zelle o USDT TRC20 para publicar anuncios.
 ```
 
 Rules:
@@ -75,8 +75,10 @@ Rules:
   - `Recibo USDT TRC20 → Entrego Pago Móvil Bs.`
 - Si el negocio no existe o no pertenece al actor, responder error seguro sin filtrar existencia ajena.
 - Si el negocio no esta aprobado/asociado, responder error seguro.
-- Este endpoint no crea, edita, aprueba, deshabilita ni borra metodos.
-- En 14B, la gestion/aprobacion de metodos queda en admin, no en Mini App Negocio.
+- `POST /api/v1/business/payment-methods` permite al negocio agregar Zelle o USDT TRC20 propio con PIN desbloqueado e `Idempotency-Key`.
+- `PATCH /api/v1/business/payment-methods/{id}` permite editar titular y cuenta/wallet propia con PIN desbloqueado e `Idempotency-Key`.
+- `DELETE /api/v1/business/payment-methods/{id}` desactiva el metodo propio con PIN desbloqueado e `Idempotency-Key`.
+- La aprobacion de negocio sigue siendo obligatoria y backend valida ownership; el frontend no aprueba metodos por si solo.
 - `POST /api/v1/business/ads` mantiene `payment_method_id`, pero el valor debe venir del selector controlado por esta API.
 
 Errores:

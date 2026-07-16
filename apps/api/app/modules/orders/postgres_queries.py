@@ -17,6 +17,11 @@ class PostgresOrderQueriesMixin:
         params: list[Any] = [business_id]
         return self._query_order_page(sql=sql, params=params, status=status, cursor=cursor, limit=limit)
 
+    def list_for_business_statuses(self, *, business_id: str, statuses: set[str], cursor: str | None, limit: int) -> tuple[list[OrderRecord], str | None]:
+        sql = "select * from orders where business_id = %s and status = any(%s)"
+        params: list[Any] = [business_id, list(statuses)]
+        return self._query_order_page(sql=sql, params=params, status=None, cursor=cursor, limit=limit)
+
     def list_job_candidate_orders(self, *, limit: int) -> list[OrderRecord]:
         with self._connect() as conn:  # type: ignore[attr-defined]
             rows = conn.execute(

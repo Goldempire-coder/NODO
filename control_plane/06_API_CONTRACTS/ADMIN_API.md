@@ -6,6 +6,8 @@ Contrato admin MVP. Este archivo cubre:
 - panel admin funcional de `slice_09_admin_console`.
 - solicitudes del Bot Registro Negocios de `slice_14_surface_separation_support_intake`.
 - soporte/tickets de `slice_14_surface_separation_support_intake`.
+- control admin de usuarios y access links de `slice_20A_admin_users_business_control`.
+- delegacion interna staff de `slice_20C_internal_staff_roles`.
 
 Los endpoints de creditos de `slice_08_credits_referrals` siguen definidos por
 `CREDITS_API.md`; slice 09 solo los compone o enlaza en la navegacion admin.
@@ -31,22 +33,61 @@ Todas las rutas admin requieren:
 - `POST /api/v1/admin/business-intake/{id}/accept`
 - `POST /api/v1/admin/business-intake/{id}/reject`
 - `GET /api/v1/admin/support/tickets`
+- `GET /api/v1/admin/support/tickets/{id}`
+- `POST /api/v1/admin/support/tickets/{id}/messages`
+- `POST /api/v1/admin/support/tickets/{id}/assign`
 - `POST /api/v1/admin/support/tickets/{id}/escalate`
 - `POST /api/v1/admin/support/tickets/{id}/resolve`
 - `POST /api/v1/admin/support/tickets/{id}/close`
+- `POST /api/v1/admin/support/tickets/{id}/attachments/{file_id}/view-url`
+- `GET /api/v1/admin/users`
+- `GET /api/v1/admin/users/{id}`
+- `POST /api/v1/admin/users/{id}/suspend`
+- `POST /api/v1/admin/users/{id}/reactivate`
+- `POST /api/v1/admin/users/{id}/block`
+- `POST /api/v1/admin/businesses/{id}/suspend`
+- `POST /api/v1/admin/businesses/{id}/reactivate`
+- `POST /api/v1/admin/businesses/{id}/block`
+- `POST /api/v1/admin/businesses/{id}/capacity`
+- `GET /api/v1/admin/businesses/{id}/access-links`
+- `GET /api/v1/admin/users/{id}/access-links`
 - `POST /api/v1/admin/businesses/{id}/access-links`
 - `POST /api/v1/admin/businesses/{id}/access-links/{link_id}/suspend`
 - `POST /api/v1/admin/businesses/{id}/access-links/{link_id}/reactivate`
 - `POST /api/v1/admin/businesses/{id}/access-links/{link_id}/revoke`
 - `POST /api/v1/admin/businesses/{id}/access-links/{link_id}/block`
 
-Estos endpoints se gobiernan por `BUSINESS_INTAKE_API.md` y `SUPPORT_API.md`.
+Estos endpoints se gobiernan por `BUSINESS_INTAKE_API.md`, `SUPPORT_API.md` y las secciones admin/access control de este archivo.
 - RBAC backend
 - audit log para acciones sensibles
 - errores seguros segun `ERROR_CONTRACT.md`
 
-`support` puede ver segun `RBAC_PERMISSION_MATRIX.md`, pero no ejecutar acciones
-mutantes.
+`support` puede ver y operar tickets de soporte segun `RBAC_PERMISSION_MATRIX.md`
+(responder, asignar, escalar, resolver, cerrar y abrir signed URL de adjunto).
+Esa excepcion no autoriza a `support` a aprobar negocios, ajustar creditos,
+resolver disputas formales, cambiar ordenes, cambiar anuncios, mutar usuarios o
+mutar `business_access_links`.
+
+## Slice 20C staff composition
+
+Los endpoints staff se detallan en `STAFF_API.md` y se componen dentro de Admin Web:
+
+- `GET /api/v1/admin/staff`
+- `GET /api/v1/admin/staff/{id}`
+- `POST /api/v1/admin/staff/invites`
+- `POST /api/v1/admin/staff/{id}/activate`
+- `POST /api/v1/admin/staff/{id}/suspend`
+- `POST /api/v1/admin/staff/{id}/revoke`
+- `POST /api/v1/admin/staff/{id}/permissions`
+- `GET /api/v1/admin/staff/{id}/activity`
+
+Rules:
+
+- Solo `super_admin` administra staff/permisos.
+- `admin` puede leer staff si RBAC lo permite.
+- `support` y staff delegado no administran staff.
+- Mutaciones requieren reason, `Idempotency-Key`, backend RBAC y audit.
+- Staff delegado no puede recibir permisos criticos de usuarios, negocios, creditos, disputas, ordenes, anuncios o access links.
 
 ### Business access link management
 
@@ -523,6 +564,62 @@ Rules:
 - Auditar `business_approved`.
 - `support` recibe `FORBIDDEN`.
 
+## POST /api/v1/admin/businesses/{id}/capacity
+
+Actualiza la capacidad operativa del negocio.
+
+Headers:
+
+```txt
+Authorization: Bearer <session_jwt>
+Idempotency-Key: requerido
+X-Request-Id: requerido o generado por backend
+```
+
+Request:
+
+```json
+{
+  "trust_level": "new|basic|plus|pro|premium",
+  "min_order_amount_usd": "20.00",
+  "max_order_amount_usd": "100.00",
+  "daily_limit_usd": "1000.00",
+  "active_order_limit": 1,
+  "reason": "Historial limpio y operaciones exitosas"
+}
+```
+
+Response 200:
+
+```json
+{
+  "data": {
+    "business": {
+      "id": "uuid",
+      "trust_level": "plus",
+      "min_order_amount_usd": "100.00",
+      "max_order_amount_usd": "500.00",
+      "daily_limit_usd": "5000.00",
+      "active_order_limit": 2
+    }
+  },
+  "request_id": "req_..."
+}
+```
+
+Rules:
+
+- Solo `admin` o `super_admin`.
+- `support` recibe `FORBIDDEN`.
+- Reason obligatorio.
+- Idempotencia obligatoria.
+- `min_order_amount_usd <= max_order_amount_usd`.
+- `daily_limit_usd >= max_order_amount_usd`.
+- `max_order_amount_usd` no excede $2,000 en MVP.
+- `daily_limit_usd` no excede $10,000 en MVP.
+- Invalida cache de marketplace porque puede ocultar o habilitar anuncios.
+- Auditar `business_capacity_updated` con before/after sin datos sensibles.
+
 ## POST /api/v1/admin/businesses/{id}/reject
 
 Rechaza negocio pendiente.
@@ -567,6 +664,306 @@ Rules:
 - Auditar `business_rejected`.
 - `support` recibe `FORBIDDEN`.
 
+## POST /api/v1/admin/businesses/{id}/suspend
+
+Suspende temporalmente un negocio completo.
+
+Headers:
+
+```txt
+Authorization: Bearer <session_jwt>
+Idempotency-Key: requerido
+X-Request-Id: requerido o generado por backend
+```
+
+Request:
+
+```json
+{
+  "reason": "Revision temporal por riesgo operacional"
+}
+```
+
+Response 200:
+
+```json
+{
+  "data": {
+    "business": {
+      "id": "uuid",
+      "verification_status": "suspended",
+      "approved_at": "timestamp"
+    }
+  },
+  "request_id": "req_..."
+}
+```
+
+Rules:
+
+- Solo `admin` o `super_admin`.
+- Solo cambia `approved -> suspended`.
+- `reason` obligatorio y no vacio.
+- Corta acceso a Business Mini App con `BUSINESS_SUSPENDED`.
+- Invalida cache de marketplace para no servir anuncios del negocio suspendido.
+- Auditar `business_suspended`.
+- `support` recibe `FORBIDDEN`.
+
+## POST /api/v1/admin/businesses/{id}/reactivate
+
+Reactiva un negocio suspendido.
+
+Headers:
+
+```txt
+Authorization: Bearer <session_jwt>
+Idempotency-Key: requerido
+X-Request-Id: requerido o generado por backend
+```
+
+Request:
+
+```json
+{
+  "reason": "Revision completada"
+}
+```
+
+Response 200:
+
+```json
+{
+  "data": {
+    "business": {
+      "id": "uuid",
+      "verification_status": "approved",
+      "approved_at": "timestamp"
+    }
+  },
+  "request_id": "req_..."
+}
+```
+
+Rules:
+
+- Solo `admin` o `super_admin`.
+- Solo cambia `suspended -> approved`.
+- No reactiva negocios `blocked`.
+- `reason` obligatorio y no vacio.
+- Invalida cache de marketplace.
+- Auditar `business_reactivated`.
+- `support` recibe `FORBIDDEN`.
+
+## POST /api/v1/admin/businesses/{id}/block
+
+Bloquea un negocio completo.
+
+Headers:
+
+```txt
+Authorization: Bearer <session_jwt>
+Idempotency-Key: requerido
+X-Request-Id: requerido o generado por backend
+```
+
+Request:
+
+```json
+{
+  "reason": "Abuso confirmado"
+}
+```
+
+Response 200:
+
+```json
+{
+  "data": {
+    "business": {
+      "id": "uuid",
+      "verification_status": "blocked",
+      "approved_at": "timestamp"
+    }
+  },
+  "request_id": "req_..."
+}
+```
+
+Rules:
+
+- Solo `admin` o `super_admin`.
+- Cambia `pending`, `approved`, `rejected` o `suspended` a `blocked`.
+- No existe reactivacion desde `blocked` en este contrato.
+- `reason` obligatorio y no vacio.
+- Corta acceso a Business Mini App con `BUSINESS_BLOCKED`.
+- Invalida cache de marketplace para no servir anuncios del negocio bloqueado.
+- Auditar `business_blocked`.
+- `support` recibe `FORBIDDEN`.
+
+## Slice 20A - Admin users and business access control
+
+### GET /api/v1/admin/users
+
+Lista usuarios para Centro de Operaciones.
+
+Query:
+
+```txt
+phone=string|null
+telegram_id=int|null
+username=string|null
+role=remitter|business_owner|admin|super_admin|support|null
+status=active|restricted|blocked|dormant|null
+cursor=opaque|null
+limit=1..50
+```
+
+Response 200:
+
+```json
+{
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "username": "string|null",
+        "phone_masked": "+58*******123",
+        "telegram_id_masked": "123***789",
+        "telegram_id": 123456789,
+        "role": "business_owner",
+        "status": "active",
+        "created_at": "timestamp",
+        "last_seen_at": "timestamp|null",
+        "linked_business_count": 1
+      }
+    ],
+    "next_cursor": "opaque|null"
+  },
+  "request_id": "req_..."
+}
+```
+
+Rules:
+
+- `admin`, `super_admin` y `support` pueden listar segun RBAC.
+- `support` recibe solo campos enmascarados y read-only.
+- `telegram_id` completo solo se devuelve a `admin`/`super_admin`.
+- Cursor pagination; no offset.
+- No expone tokens, refresh hashes, session internals, `storage_path`, `account_value` ni secretos.
+- Auditar `admin_user_list_viewed` cuando aplique.
+
+### GET /api/v1/admin/users/{id}
+
+Detalle operativo seguro de usuario.
+
+Response 200:
+
+```json
+{
+  "data": {
+    "user": {
+      "id": "uuid",
+      "username": "string|null",
+      "first_name": "string|null",
+      "last_name": "string|null",
+      "phone_masked": "+58*******123",
+      "telegram_id_masked": "123***789",
+      "telegram_id": 123456789,
+      "role": "business_owner",
+      "status": "active",
+      "trust_level": "new",
+      "created_at": "timestamp",
+      "last_seen_at": "timestamp|null"
+    },
+    "counts": {
+      "orders_created": 0,
+      "businesses_linked": 1,
+      "active_access_links": 1
+    },
+    "business_access_links": []
+  },
+  "request_id": "req_..."
+}
+```
+
+Rules:
+
+- No devuelve tokens, refresh hashes, session internals, raw auth headers ni secretos.
+- `support` recibe detalle enmascarado y sin acciones mutantes.
+- Auditar `admin_user_detail_viewed` cuando aplique.
+
+### POST /api/v1/admin/users/{id}/suspend
+
+Setea `users.status = restricted`.
+
+Headers:
+
+```txt
+Authorization: Bearer <session_jwt>
+Idempotency-Key: requerido
+X-Request-Id: requerido o generado por backend
+```
+
+Request:
+
+```json
+{
+  "reason": "Revision operacional"
+}
+```
+
+Rules:
+
+- `admin` y `super_admin` segun protecciones de rol.
+- `support` recibe `FORBIDDEN`.
+- Reason obligatorio.
+- Idempotencia obligatoria.
+- Audit `user_suspended`.
+- `admin` no suspende usuarios `admin` o `super_admin`.
+- Ningun actor suspende el ultimo `super_admin active`.
+
+### POST /api/v1/admin/users/{id}/reactivate
+
+Setea `users.status = active` desde `restricted` o `dormant`.
+
+Rules:
+
+- Reason obligatorio.
+- Idempotencia obligatoria.
+- Audit `user_reactivated`.
+- `blocked -> active` no esta permitido en 20A.
+
+### POST /api/v1/admin/users/{id}/block
+
+Setea `users.status = blocked` desde `active`, `restricted` o `dormant`.
+
+Rules:
+
+- Reason obligatorio.
+- Idempotencia obligatoria.
+- Audit `user_blocked`.
+- No se permite bloquear el ultimo `super_admin active`.
+
+### GET /api/v1/admin/businesses/{id}/access-links
+
+Lista links de acceso de un negocio.
+
+Rules:
+
+- `admin`, `super_admin` y `support` pueden ver.
+- `support` ve datos enmascarados/read-only.
+- No expone tokens, secretos ni `storage_path`.
+
+### GET /api/v1/admin/users/{id}/access-links
+
+Lista links de acceso asociados a un usuario.
+
+Rules:
+
+- `admin`, `super_admin` y `support` pueden ver.
+- `support` ve datos enmascarados/read-only.
+- Mutaciones siguen los endpoints de `business_access_links` contratados en 14B1.
+
 ## Errores esperados
 
 - UNAUTHENTICATED
@@ -575,5 +972,22 @@ Rules:
 - BUSINESS_STATUS_INVALID
 - ADMIN_REASON_REQUIRED
 - BUSINESS_DOCUMENT_NOT_FOUND
+- USER_NOT_FOUND
+- USER_STATUS_INVALID
+- USER_STATUS_TRANSITION_INVALID
+- USER_STATUS_MUTATION_NOT_ALLOWED
+- LAST_SUPER_ADMIN_REQUIRED
+- BUSINESS_ACCESS_LINK_NOT_FOUND
+- BUSINESS_ACCESS_LINK_REQUIRED
+- STAFF_PROFILE_NOT_FOUND
+- STAFF_INVITE_INVALID
+- STAFF_INVITE_EXPIRED
+- STAFF_PERMISSION_DENIED
+- STAFF_STATUS_INVALID
+- STAFF_LAST_SUPER_ADMIN_REQUIRED
+- STAFF_PERMISSION_CONFLICT
+- STAFF_ASSIGNMENT_INVALID
 - RATE_LIMITED
+- IDEMPOTENCY_KEY_REQUIRED
+- IDEMPOTENCY_CONFLICT
 - IDEMPOTENCY_PAYLOAD_MISMATCH

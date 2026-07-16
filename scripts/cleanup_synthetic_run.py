@@ -67,6 +67,8 @@ DELETE_STEPS = [
             credit_consumed_ledger_id = null,
             updated_at = now()
         where id in (select id from cleanup_ads)
+           or credit_hold_ledger_id in (select id from cleanup_credits_ledger)
+           or credit_consumed_ledger_id in (select id from cleanup_credits_ledger)
         """,
     ),
     ("credits_ledger", "delete from credits_ledger where id in (select id from cleanup_credits_ledger)"),
@@ -320,6 +322,15 @@ def populate_cleanup_tables(conn: psycopg.Connection, run_id: str) -> None:
         """,
         (like,),
     )
+    conn.execute(
+        """
+        insert into cleanup_ads(id)
+        select distinct id
+        from ads
+        where payment_method_id in (select id from cleanup_business_payment_methods)
+        on conflict do nothing
+        """
+    )
     create_id_table(
         conn,
         "cleanup_credit_wallets",
@@ -341,6 +352,16 @@ def populate_cleanup_tables(conn: psycopg.Connection, run_id: str) -> None:
            or related_credit_purchase_id in (select id from cleanup_credit_purchases)
            or created_by in (select id from cleanup_users)
         """,
+    )
+    conn.execute(
+        """
+        insert into cleanup_ads(id)
+        select distinct id
+        from ads
+        where credit_hold_ledger_id in (select id from cleanup_credits_ledger)
+           or credit_consumed_ledger_id in (select id from cleanup_credits_ledger)
+        on conflict do nothing
+        """
     )
     create_id_table(
         conn,

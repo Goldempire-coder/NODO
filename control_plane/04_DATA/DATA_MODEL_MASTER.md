@@ -20,6 +20,13 @@ This is the canonical MVP data model. Detailed SQL migrations must follow this f
 - updated_at
 - last_seen_at
 
+Rules:
+- `users.status = restricted` representa suspension operacional de usuario en 20A.
+- `users.status = blocked` representa bloqueo fuerte; no implica borrar negocios, ordenes, links ni audit.
+- `users.status = dormant` representa usuario inactivo/reactivable por admin segun contrato.
+- Cambios de estado admin requieren reason, idempotencia y audit; reason no se agrega como columna de `users` en MVP.
+- Admin user list/detail debe enmascarar `phone` y `telegram_id` por defecto.
+
 ## businesses
 
 - id
@@ -32,6 +39,7 @@ This is the canonical MVP data model. Detailed SQL migrations must follow this f
 - verification_status
 - trust_level
 - risk_level
+- min_order_amount_usd
 - max_order_amount_usd
 - daily_limit_usd
 - active_order_limit
@@ -73,6 +81,7 @@ Rules:
 - MVP solo permite `role_in_business = owner` para operar. `operator` queda reservado para contrato futuro.
 - Suspender/revocar/bloquear el link no borra el negocio ni necesariamente bloquea al usuario.
 - Bloquear usuario no borra el link ni el negocio; impide que ese usuario use NODO segun auth policy.
+- Slice 20A permite listar links por `business_id` y por `user_id` desde Admin Web.
 
 ## business_verification_submissions
 
@@ -304,6 +313,15 @@ Slice 06 consume ledger:
 - manual_payment_reference
 - manual_tx_hash
 - manual_network
+- chain_id
+- network
+- token_symbol
+- token_contract_address
+- token_decimals
+- expected_amount_units
+- destination_wallet_address
+- verification_status
+- verification_source
 - proof_file_id
 - approved_by_admin_id
 - rejected_by_admin_id
@@ -315,6 +333,54 @@ Slice 06 consume ledger:
 - rejected_at
 - failed_at
 - expired_at
+- detected_at
+- verified_at
+- credited_at
+- expires_at
+
+Slice 19 on-chain notes:
+
+- `base_usdc_onchain` uses Base mainnet `chain_id = 8453`.
+- USDC Base contract is `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
+- USDT Base is not active in MVP.
+- `expected_amount_units` uses `numeric(78,0)` and stores USDC minor units with 6 decimals. Do not use float.
+- `destination_wallet_address` comes from `NODO_CREDIT_RECEIVING_WALLET_BASE`.
+- EVM values (`token_contract_address`, `destination_wallet_address`, `tx_hash`, `tx_from_address`, `tx_to_address`) must be stored and compared normalized lowercase, or with an equivalent canonical normalization policy.
+- No private key or seed phrase is stored.
+
+## credit_purchase_onchain_payments
+
+- id
+- credit_purchase_id
+- business_id
+- chain_id
+- network
+- token_symbol
+- token_contract_address
+- token_decimals
+- tx_hash
+- tx_from_address
+- tx_to_address
+- tx_block_number
+- tx_log_index
+- tx_amount_units
+- confirmations
+- verification_source
+- verification_status
+- failure_code
+- detected_at
+- verified_at
+- credited_at
+- created_at
+- updated_at
+
+Rules:
+
+- Unique `(chain_id, tx_hash, tx_log_index)`.
+- `tx_amount_units` uses `numeric(78,0)` and stores token minor units.
+- EVM address/hash fields must be normalized lowercase before persistence and comparison.
+- Used to prevent double credit from the same on-chain transfer.
+- Raw provider responses, RPC keys, private keys and seed phrases are never stored here.
 
 ## referral_codes
 
@@ -589,6 +655,81 @@ Forbidden for slice 09:
 - creating a competing `system_metrics` table without updating constraints,
   indexes, migrations and source-of-truth docs.
 
+## staff_profiles
+
+Source of truth for internal staff delegation. It augments `users` but does not replace `users.role`.
+
+Columns:
+- id
+- user_id
+- staff_role
+- status
+- display_name
+- created_by_super_admin_id
+- activated_by_super_admin_id
+- suspended_by_super_admin_id
+- revoked_by_super_admin_id
+- activated_at
+- suspended_at
+- revoked_at
+- reason
+- created_at
+- updated_at
+
+Rules:
+- `staff_role` values: `support_agent`, `support_lead`, `operations_readonly`, `admin`, `super_admin`.
+- `status` values: `active`, `suspended`, `revoked`.
+- Effective staff access requires `users.status = active` and `staff_profiles.status = active`.
+- Revoking staff does not block or delete the user.
+
+## staff_permissions
+
+Granular internal permissions for staff.
+
+Columns:
+- id
+- staff_profile_id
+- permission
+- scope
+- scope_value
+- status
+- granted_by_super_admin_id
+- revoked_by_super_admin_id
+- revoked_at
+- reason
+- created_at
+- updated_at
+
+Rules:
+- Permissions are limited to `INTERNAL_STAFF_MASTER.md`.
+- Staff permissions cannot grant critical actions over users, businesses, credits, disputes, orders or ads.
+
+## staff_invites
+
+Invite/activation records for internal staff.
+
+Columns:
+- id
+- target_user_id
+- target_telegram_id
+- target_username
+- invite_code_hash
+- staff_role
+- status
+- expires_at
+- created_by_super_admin_id
+- accepted_by_user_id
+- accepted_at
+- revoked_at
+- expired_at
+- reason
+- created_at
+- updated_at
+
+Rules:
+- No plaintext invite secret is persisted or returned after creation.
+- `staff_activity` is not an MVP table; it is a read model from audit/events.
+
 ## business_intake_requests
 
 - id
@@ -639,11 +780,16 @@ Rules:
 ## support_tickets
 
 - id
+- requester_user_id
+- requester_role
+- requester_surface
 - scope
+- category
 - status
-- created_by_user_id
 - business_id
 - order_id
+- ad_id
+- credit_purchase_id
 - dispute_id
 - subject
 - priority
@@ -657,7 +803,11 @@ Rules:
 
 Rules:
 - Support tickets do not change order status by themselves.
-- `linked_to_dispute` requires `dispute_id`.
+- 20B does not create disputes from support.
+- `dispute_id` may reference an existing dispute for context only; it does not imply support resolved or created a dispute.
+- `ad_id` is allowed only for `scope = business_ad`.
+- `credit_purchase_id` is allowed only for `scope = business_credit`.
+- No `support_attachments` table in MVP; use `file_assets`.
 
 ## support_messages
 
@@ -674,6 +824,7 @@ Rules:
 Rules:
 - Messages are visible only to ticket participants and authorized admin/support.
 - Body must not be copied into audit metadata.
+- Attachments for messages use `file_assets.resource_type = support_message`, `file_type = support_attachment`.
 
 ## support_ticket_events
 
@@ -690,3 +841,27 @@ Rules:
 
 Rules:
 - `metadata_json` must not contain storage paths, secrets, tokens, account values or private evidence.
+- Assignment, escalation, resolve and close must create events.
+## Observability operacional - slice 24
+
+Tabla contratada futura: `observability_events`.
+
+Uso:
+
+- diagnostico operacional con TTL;
+- reconstruccion estructurada sin video;
+- busqueda Admin Web/support con masking;
+- correlacion por `request_id`, `correlation_id`, `operation_id` y `session_id`.
+
+No uso:
+
+- audit formal durable;
+- ledger financiero;
+- fuente de verdad de negocio;
+- almacenamiento de payloads privados.
+
+Columnas canonicas y reglas completas viven en:
+
+```txt
+control_plane/09_SLICES/slice_24_observability_debuggability/DATA_CONTRACT.md
+```

@@ -20,5 +20,8 @@ class UnavailablePrivateStorage:
     def store_business_intake_document(self, *, intake_id: str, file_id: str, file_name: str, content: bytes) -> StoredPrivateFile:
         raise ApiError("STORAGE_UNAVAILABLE", status_code=503)
 
+    def store_support_attachment(self, *, ticket_id: str, file_id: str, file_name: str, content: bytes) -> StoredPrivateFile:
+        raise ApiError("STORAGE_UNAVAILABLE", status_code=503)
+
     def signed_view_url(self, *, storage_path: str, expires_in: int) -> str:
         raise ApiError("STORAGE_UNAVAILABLE", status_code=503)

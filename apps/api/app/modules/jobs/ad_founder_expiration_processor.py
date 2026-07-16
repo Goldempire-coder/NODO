@@ -27,8 +27,7 @@ class AdFounderExpirationProcessor:
             if dry_run:
                 counters.changed += 1
                 continue
-            self._ads.set_status(ad, "expired")
-            self._ads.release_hold(ad=ad, created_by=None, reason="ad_expired_without_order_or_payment", source="jobs")
+            ledger = self._ads.expire_hold(ad=ad, created_by=None, reason="ad_expired_without_purchase", source="jobs")
             self._audit.write(
                 event_type="ad_expired",
                 actor_user_id=None,
@@ -38,6 +37,16 @@ class AdFounderExpirationProcessor:
                 request_id=request_id,
                 metadata_json={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE},
             )
+            if ledger is not None:
+                self._audit.write(
+                    event_type="credits_consumed",
+                    actor_user_id=None,
+                    actor_role=None,
+                    resource_type="ad",
+                    resource_id=ad.id,
+                    request_id=request_id,
+                    metadata_json={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE, "ledger_id": ledger.id, "amount": ledger.amount},
+                )
             business = self._businesses.get_business(ad.business_id)
             if business is not None:
                 self._notify(

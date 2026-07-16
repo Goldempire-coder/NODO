@@ -40,6 +40,12 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
                 return True
         return False
 
+    def business_open_exposure_usd(self, *, business_id: str, exclude_ad_id: str | None = None) -> Decimal:
+        return sum(
+            (ad.amount_max_usd for ad in self.ads.values() if ad.business_id == business_id and ad.id != exclude_ad_id and ad.status in {"active", "in_order"}),
+            Decimal("0.00"),
+        )
+
     def publish_ad(
         self,
         *,
@@ -95,8 +101,18 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
             ad.updated_at = utc_now()
             return ad
 
-    def update_ad(self, ad: AdRecord, *, rate_bs_per_usd: Decimal | None, amount_min_usd: Decimal | None, amount_max_usd: Decimal | None) -> AdRecord:
+    def update_ad(
+        self,
+        ad: AdRecord,
+        *,
+        payment_method_id: str | None,
+        rate_bs_per_usd: Decimal | None,
+        amount_min_usd: Decimal | None,
+        amount_max_usd: Decimal | None,
+    ) -> AdRecord:
         with self._lock:
+            if payment_method_id is not None:
+                ad.payment_method_id = payment_method_id
             if rate_bs_per_usd is not None:
                 ad.rate_bs_per_usd = rate_bs_per_usd
                 ad.last_rate_updated_at = utc_now()

@@ -76,18 +76,89 @@ export function setupTelegramViewport() {
   if (!webApp) {
     return;
   }
-  webApp.ready?.();
-  webApp.expand?.();
-  webApp.disableVerticalSwipes?.();
+  try {
+    webApp.ready?.();
+  } catch {
+    // Telegram native helpers must never block authentication.
+  }
+  try {
+    webApp.expand?.();
+  } catch {
+    // Telegram native helpers must never block authentication.
+  }
+  try {
+    webApp.disableVerticalSwipes?.();
+  } catch {
+    // Telegram native helpers must never block authentication.
+  }
+}
+
+export function notifyTelegram(type: "error" | "success" | "warning") {
+  try {
+    getTelegramWebApp()?.HapticFeedback?.notificationOccurred?.(type);
+  } catch {
+    // Haptics are optional and can be unsupported in some Telegram WebViews.
+  }
+}
+
+function normalizeTelegramInitData(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.includes("hash=")) {
+    return trimmed;
+  }
+  try {
+    const decoded = decodeURIComponent(trimmed);
+    return decoded.includes("hash=") ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+function readTelegramInitDataFromUrl(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const fromSearch = normalizeTelegramInitData(new URLSearchParams(window.location.search).get("tgWebAppData"));
+  if (fromSearch) {
+    return fromSearch;
+  }
+
+  const hash = window.location.hash.replace(/^#/, "").replace(/^\?/, "");
+  const fromHashParam = normalizeTelegramInitData(new URLSearchParams(hash).get("tgWebAppData"));
+  if (fromHashParam) {
+    return fromHashParam;
+  }
+
+  return normalizeTelegramInitData(hash);
+}
+
+async function waitForTelegramInitData(): Promise<string | null> {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const direct = normalizeTelegramInitData(window.Telegram?.WebApp?.initData);
+    if (direct) {
+      return direct;
+    }
+    const fromUrl = readTelegramInitDataFromUrl();
+    if (fromUrl) {
+      return fromUrl;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 75));
+  }
+  return null;
 }
 
 export async function readTelegramInitData(): Promise<string | null> {
-  const localDevInitData =
-    typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)
-      ? new URLSearchParams(window.location.search).get("tgWebAppData")
-      : null;
-  if (localDevInitData) {
-    return localDevInitData;
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const initial = await waitForTelegramInitData();
+  if (initial) {
+    return initial;
   }
 
   try {
@@ -98,10 +169,9 @@ export async function readTelegramInitData(): Promise<string | null> {
     } catch {
       applyFallbackThemeParams();
     }
-    const raw = sdk.retrieveRawInitData();
-    return raw || window.Telegram?.WebApp?.initData || null;
+    return normalizeTelegramInitData(sdk.retrieveRawInitData()) || normalizeTelegramInitData(window.Telegram?.WebApp?.initData);
   } catch {
     applyFallbackThemeParams();
-    return window.Telegram?.WebApp?.initData || null;
+    return normalizeTelegramInitData(window.Telegram?.WebApp?.initData) || readTelegramInitDataFromUrl();
   }
 }

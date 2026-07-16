@@ -37,14 +37,77 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
         <dl className="admin-web-dl">
           <dt>Nombre</dt><dd>{detail.business.business_name}</dd>
           <dt>Status</dt><dd>{detail.business.verification_status}</dd>
+          <dt>Nivel</dt><dd>{detail.business.trust_level || "new"}</dd>
           <dt>Riesgo</dt><dd>{detail.business.risk_level}</dd>
+          <dt>Rango por operacion</dt><dd>${detail.business.min_order_amount_usd || "20.00"} - ${detail.business.max_order_amount_usd || "100.00"}</dd>
+          <dt>Limite diario</dt><dd>${detail.business.daily_limit_usd || "1000.00"}</dd>
+          <dt>Ordenes activas</dt><dd>{detail.business.active_order_limit || 1}</dd>
           <dt>Telefono</dt><dd>{detail.business.phone || "-"}</dd>
         </dl>
         <ReasonBox model={model} />
         <div className="admin-web-actions">
           <button disabled={!model.adminMutable} type="button" onClick={() => model.reviewBusiness("approve")}>Aprobar</button>
           <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.reviewBusiness("reject")}>Rechazar</button>
+          <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("suspend")}>Suspender negocio</button>
+          <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("reactivate")}>Reactivar negocio</button>
+          <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("block")}>Bloquear negocio</button>
         </div>
+      </div>
+      <div className="admin-web-panel">
+        <h3>Capacidad del negocio</h3>
+        <div className="admin-web-toolbar">
+          <label>
+            <span>Nivel</span>
+            <select
+              disabled={!model.adminMutable}
+              value={model.businessCapacityDraft.trust_level}
+              onChange={(event) => model.setBusinessCapacityDraft({ ...model.businessCapacityDraft, trust_level: event.target.value })}
+            >
+              <option value="new">Nuevo</option>
+              <option value="basic">Basico</option>
+              <option value="plus">Plus</option>
+              <option value="pro">Pro</option>
+              <option value="premium">Premium</option>
+            </select>
+          </label>
+          <label>
+            <span>Minimo USD</span>
+            <input
+              disabled={!model.adminMutable}
+              inputMode="decimal"
+              value={model.businessCapacityDraft.min_order_amount_usd}
+              onChange={(event) => model.setBusinessCapacityDraft({ ...model.businessCapacityDraft, min_order_amount_usd: event.target.value })}
+            />
+          </label>
+          <label>
+            <span>Maximo USD</span>
+            <input
+              disabled={!model.adminMutable}
+              inputMode="decimal"
+              value={model.businessCapacityDraft.max_order_amount_usd}
+              onChange={(event) => model.setBusinessCapacityDraft({ ...model.businessCapacityDraft, max_order_amount_usd: event.target.value })}
+            />
+          </label>
+          <label>
+            <span>Diario USD</span>
+            <input
+              disabled={!model.adminMutable}
+              inputMode="decimal"
+              value={model.businessCapacityDraft.daily_limit_usd}
+              onChange={(event) => model.setBusinessCapacityDraft({ ...model.businessCapacityDraft, daily_limit_usd: event.target.value })}
+            />
+          </label>
+          <label>
+            <span>Ordenes activas</span>
+            <input
+              disabled={!model.adminMutable}
+              inputMode="numeric"
+              value={String(model.businessCapacityDraft.active_order_limit)}
+              onChange={(event) => model.setBusinessCapacityDraft({ ...model.businessCapacityDraft, active_order_limit: Number(event.target.value || "1") })}
+            />
+          </label>
+        </div>
+        <button disabled={!model.adminMutable} type="button" onClick={() => model.submitBusinessCapacity()}>Guardar capacidad</button>
       </div>
       <div className="admin-web-panel">
         <h3>Documentos privados</h3>
@@ -56,6 +119,30 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
             <button disabled={!model.adminMutable} type="button" onClick={() => model.openDocument(file.id)}>URL corta</button>
           </div>
         ))}
+      </div>
+      <div className="admin-web-panel">
+        <Header title="Acceso Mini App Negocio" action={<button disabled={!model.adminMutable} type="button" onClick={() => model.createBusinessOwnerAccessLink()}>Crear link owner</button>} />
+        <p>El acceso se gobierna por backend con business_access_links. El bot no aprueba ni da acceso.</p>
+        <Table headers={["Usuario", "Telegram", "Rol", "Estado", "Actualizado", "Acciones"]}>
+          {model.businessAccessLinks.map((link) => (
+            <tr key={link.id}>
+              <td>{link.user?.username || link.user?.first_name || link.user_id}</td>
+              <td>{link.telegram_id ? String(link.telegram_id) : link.telegram_id_masked || link.user?.telegram_id_masked || "-"}</td>
+              <td>{link.role_in_business}</td>
+              <td>{link.status}</td>
+              <td>{dateText(link.updated_at || link.created_at)}</td>
+              <td>
+                <div className="admin-web-actions inline">
+                  <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessAccessLink(link.id, "suspend")}>Suspender</button>
+                  <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessAccessLink(link.id, "reactivate")}>Reactivar</button>
+                  <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessAccessLink(link.id, "revoke")}>Revocar</button>
+                  <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessAccessLink(link.id, "block")}>Bloquear</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </Table>
+        {model.businessAccessLinks.length === 0 ? <Empty text="No hay links de acceso para este negocio." /> : null}
       </div>
     </section>
   );

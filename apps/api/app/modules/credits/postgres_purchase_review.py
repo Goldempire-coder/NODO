@@ -148,7 +148,7 @@ def reject_purchase_pg(connect, *, purchase: CreditPurchaseRecord, admin_user_id
             update credit_purchases
             set status = 'rejected', rejected_by_admin_id = %s, admin_note = %s,
                 rejected_at = now(), updated_at = now()
-            where id = %s and status = 'pending_manual_review'
+            where id = %s and status in ('pending_manual_review', 'under_review')
             returning *
             """,
             (admin_user_id, reason, purchase.id),

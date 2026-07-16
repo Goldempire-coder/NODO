@@ -34,6 +34,7 @@ class OrderService(OrderServiceSupportMixin):
             payment_or_unavailable=self._payment_or_unavailable,
             ad_expired=self._ad_expired,
             clear_marketplace_cache=self._clear_marketplace_cache,
+            clear_marketplace_cache_after_order=self._clear_marketplace_cache_after_order,
         )
         self._business_ops = OrderBusinessOps(
             repository=self._repository,

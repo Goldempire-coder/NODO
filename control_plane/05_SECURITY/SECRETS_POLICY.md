@@ -19,6 +19,8 @@ SUPABASE_JWT_SECRET
 REDIS_URL
 STRIPE_SECRET_KEY
 STRIPE_WEBHOOK_SECRET
+BASE_RPC_URL
+BASE_RPC_API_KEY
 STORAGE_ACCESS_KEY
 STORAGE_SECRET_KEY
 ADMIN_BOOTSTRAP_SECRET
@@ -55,6 +57,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 - Telegram auth falla si falta bot token backend.
 - Webhook del Bot Registro Negocios falla si falta `BUSINESS_INTAKE_BOT_TOKEN` o si el secret pertenece al bot cliente.
 - `BUSINESS_INTAKE_BOT_TOKEN` esta prohibido en frontend, bundles, respuestas API, audit metadata, logs y reportes publicos.
+- `BASE_RPC_URL` y `BASE_RPC_API_KEY` estan prohibidos en frontend, bundles, respuestas API, audit metadata, logs y reportes publicos.
+- `NODO_CREDIT_RECEIVING_WALLET_BASE` es direccion publica de recepcion, no secreto, pero no reemplaza controles de verifier ni debe aparecer en logs innecesarios.
+- Private keys, seed phrases, mnemonics y signing keys para topups on-chain estan prohibidos en backend, frontend, Railway, GitHub, Cursor, logs y evidencia.
 
 ## Bloqueo
 
@@ -63,3 +68,21 @@ Si un secreto aparece en frontend, repo o logs, Builder debe reportar:
 ```txt
 BLOCKED_BY_SECURITY_GAP
 ```
+
+## Observability - slice 24
+
+Secrets are prohibited in observability events, request logs, frontend breadcrumbs, diagnostic exports, evidence and builder reports.
+
+Specific prohibited values:
+
+- Authorization/Cookie;
+- access/refresh tokens;
+- Telegram initData completo;
+- bot tokens;
+- JWT secrets;
+- Supabase service role key;
+- database/redis URLs;
+- RPC API keys;
+- private keys/seed phrases/mnemonics.
+
+Redaction must happen before logging or persistence.

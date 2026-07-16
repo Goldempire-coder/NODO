@@ -1,6 +1,7 @@
 import { Button, Text } from "@telegram-apps/telegram-ui";
 import { CHAT_DISPUTE_COPY } from "../../constants/copy";
 import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
+import { ClientSupportScreen } from "./ClientSupportScreen";
 import { RemitterScreens } from "./RemitterScreens";
 
 export function ClientScreens({ model }: { model: ClientWorkspaceModel }) {
@@ -24,6 +25,8 @@ export function ClientScreens({ model }: { model: ClientWorkspaceModel }) {
   return (
     <>
       <RemitterScreens model={model} />
+
+      {view === "support" ? <ClientSupportScreen model={model} /> : null}
 
       {view === "order-chat" ? (
         <div className="business-card">

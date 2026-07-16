@@ -11,6 +11,8 @@
   --nodo-button: var(--tg-theme-button-color, #1398ff);
   --nodo-button-text: var(--tg-theme-button-text-color, #ffffff);
   --nodo-green: #00e676;
+  --nodo-success: var(--nodo-green);
+  --nodo-blue: var(--nodo-button);
   --nodo-purple: #9b4dff;
   --nodo-line: rgb(148 163 184 / 22%);
   background: var(--nodo-bg);
@@ -121,6 +123,22 @@ textarea {
   gap: 8px;
 }
 
+.business-shell__tabs--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.zelle-count-pill {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--nodo-muted), transparent 72%);
+  border-radius: 999px;
+  color: var(--nodo-muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .business-card {
   display: grid;
   gap: 10px;
@@ -155,6 +173,14 @@ textarea {
   gap: 8px;
 }
 
+.business-list--scrollable {
+  max-height: min(48vh, 440px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 3px;
+  scrollbar-width: thin;
+}
+
 .payment-instruction {
   display: grid;
   gap: 8px;
@@ -169,6 +195,69 @@ textarea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.business-priority-list,
+.credit-state-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.business-priority-list button,
+.credit-state-grid > div {
+  min-height: 82px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(3 12 24 / 46%);
+  color: var(--nodo-text);
+  text-align: left;
+}
+
+.business-priority-list button.is-selected {
+  border-color: color-mix(in srgb, var(--nodo-button), transparent 32%);
+  background: color-mix(in srgb, var(--nodo-button), transparent 84%);
+}
+
+.business-priority-list span,
+.business-priority-list small,
+.credit-state-grid span,
+.credit-state-grid small {
+  color: var(--nodo-muted);
+  line-height: 1.35;
+}
+
+.business-priority-list small {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.business-priority-list strong,
+.credit-state-grid strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.business-rule-item {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(3 12 24 / 46%);
+}
+
+.business-rule-item strong {
+  color: var(--nodo-text);
+}
+
+.business-rule-item [class*="tgui"] {
+  color: var(--nodo-muted);
+  line-height: 1.45;
 }
 
 .business-row {
@@ -198,8 +287,246 @@ textarea {
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.8fr);
 }
 
+.order-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+}
+
+.order-row span:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.order-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-row small {
+  color: var(--nodo-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 div.ad-row {
-  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 0.8fr) auto auto;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 0.8fr) auto auto auto;
+}
+
+.zelle-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.zelle-row > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.zelle-row strong,
+.zelle-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zelle-row span {
+  color: var(--nodo-muted);
+}
+
+.zelle-row__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.mini-action-button {
+  -webkit-tap-highlight-color: transparent;
+  min-width: 78px;
+  min-height: 38px;
+  border: 1px solid color-mix(in srgb, var(--nodo-muted), transparent 64%);
+  border-radius: 999px;
+  background: rgb(7 18 34 / 64%);
+  color: var(--nodo-text);
+  font-weight: 700;
+  padding: 8px 12px;
+  transition: none;
+}
+
+.mini-action-button:active,
+.mini-action-button:focus {
+  background: rgb(7 18 34 / 64%);
+}
+
+.mini-action-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--nodo-button), transparent 30%);
+  outline-offset: 2px;
+}
+
+.mini-action-button--danger {
+  border-color: color-mix(in srgb, #ff5f68, transparent 32%);
+  color: #ffb4b8;
+}
+
+.mini-action-button--confirm-danger {
+  border-color: #ff5f68;
+  background: color-mix(in srgb, #ff5f68, transparent 82%);
+  color: #ffdadd;
+}
+
+.mini-action-button--filled {
+  border-color: var(--nodo-button);
+  background: var(--nodo-button);
+  color: var(--nodo-button-text);
+}
+
+.mini-action-button--filled:active,
+.mini-action-button--filled:focus {
+  background: var(--nodo-button);
+}
+
+.mini-action-button--copied,
+.mini-action-button--copied:active,
+.mini-action-button--copied:focus {
+  border-color: var(--nodo-success);
+  background: var(--nodo-success);
+  color: #03110a;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--nodo-success), transparent 78%);
+}
+
+.mini-action-button--full {
+  width: 100%;
+}
+
+.mini-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.business-ad-card,
+.business-ad-detail {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--nodo-muted), transparent 72%);
+  border-radius: 8px;
+  background: rgb(3 12 24 / 46%);
+}
+
+.business-ad-card.is-selected,
+.business-ad-detail {
+  border-color: color-mix(in srgb, var(--nodo-button), transparent 28%);
+  background: color-mix(in srgb, var(--nodo-button), transparent 91%);
+}
+
+.business-ad-card__main {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--nodo-text);
+  text-align: left;
+}
+
+.business-ad-card__main strong,
+.business-ad-detail__grid strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.business-ad-card__main span,
+.business-ad-card__main small,
+.business-ad-detail__grid span {
+  color: var(--nodo-muted);
+  line-height: 1.35;
+}
+
+.business-ad-card__actions,
+.business-ad-detail__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.business-status-chip {
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 999px;
+  color: var(--nodo-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.business-status-chip--active {
+  border-color: color-mix(in srgb, var(--nodo-success), transparent 42%);
+  color: var(--nodo-success);
+}
+
+.business-status-chip--paused,
+.business-status-chip--in_order {
+  border-color: color-mix(in srgb, var(--nodo-button), transparent 36%);
+  color: var(--nodo-button);
+}
+
+.business-status-chip--expired,
+.business-status-chip--archived,
+.business-status-chip--suspended {
+  color: var(--nodo-muted);
+}
+
+.business-ad-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.icon-button {
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--nodo-line);
+  border-radius: 999px;
+  background: rgb(3 12 24 / 62%);
+  color: var(--nodo-text);
+  font: inherit;
+  font-size: 0;
+}
+
+.icon-button::before {
+  content: "X";
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.business-ad-detail__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.business-ad-detail__grid > div {
+  display: grid;
+  gap: 4px;
+  min-height: 72px;
+  align-content: center;
+  padding: 10px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(3 12 24 / 44%);
+}
+
+.business-ad-edit {
+  display: grid;
+  gap: 10px;
 }
 
 .auth-entry__copy {
@@ -838,6 +1165,183 @@ div.ad-row {
   background: rgb(6 18 34 / 72%);
 }
 
+.business-status-panel,
+.payment-instruction-box,
+.payment-copy-box {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(6 18 34 / 72%);
+}
+
+.business-status-panel > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.business-status-panel strong,
+.payment-instruction-box strong {
+  display: block;
+  color: var(--nodo-text);
+  line-height: 1.25;
+}
+
+.business-status-panel small {
+  display: block;
+  margin-top: 4px;
+  color: var(--nodo-muted);
+  line-height: 1.35;
+}
+
+.business-status-panel [class*="tgui"],
+.payment-instruction-box [class*="tgui"] {
+  color: var(--nodo-muted);
+  line-height: 1.45;
+}
+
+.payment-copy-box {
+  gap: 12px;
+}
+
+.payment-copy-box.is-copied {
+  border-color: color-mix(in srgb, var(--nodo-success), transparent 38%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--nodo-success), transparent 72%);
+}
+
+.payment-copy-box__feedback {
+  color: var(--nodo-success);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.payment-copy-box--compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.payment-copy-box__header {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.payment-copy-box__header span {
+  color: var(--nodo-muted);
+}
+
+.payment-copy-box__header strong {
+  color: var(--nodo-text);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.payment-copy-box__value {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--nodo-muted), transparent 72%);
+  border-radius: 8px;
+  background: rgb(1 8 18 / 72%);
+  color: var(--nodo-muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.payment-step-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.payment-step-grid > div {
+  display: grid;
+  gap: 5px;
+  min-height: 76px;
+  align-content: center;
+  padding: 10px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(6 18 34 / 68%);
+}
+
+.payment-step-grid strong {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--nodo-green), transparent 72%);
+  color: var(--nodo-green);
+  font-size: 13px;
+}
+
+.payment-step-grid span {
+  color: var(--nodo-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.credit-package-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.credit-package-button {
+  min-height: 112px;
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  padding: 12px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(3 12 24 / 44%);
+  color: var(--nodo-text);
+  text-align: left;
+}
+
+.credit-package-button.is-active {
+  border-color: var(--nodo-button);
+  background: rgb(19 152 255 / 12%);
+}
+
+.credit-package-button span,
+.credit-package-button small,
+.payment-instruction-box span,
+.payment-instruction-box small,
+.payment-copy-box span {
+  color: var(--nodo-muted);
+  overflow-wrap: anywhere;
+}
+
+.credit-package-button b {
+  color: var(--nodo-green);
+}
+
+.payment-instruction-box strong,
+.payment-instruction-box small {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 420px) {
+  .payment-copy-box--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-step-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @keyframes nodo-logo-enter {
   from {
     opacity: 0;
@@ -880,6 +1384,71 @@ div.ad-row {
     scroll-behavior: auto !important;
     transition-duration: 1ms !important;
   }
+}
+
+.admin-web-auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #07111f 0%, #0b1828 52%, #08111d 100%);
+  color: var(--nodo-text);
+}
+
+.admin-web-auth__panel {
+  width: min(560px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(6 18 34 / 86%);
+  box-shadow: 0 22px 70px rgb(0 0 0 / 28%);
+}
+
+.admin-web-auth__eyebrow,
+.admin-web-auth__message {
+  color: var(--nodo-muted);
+}
+
+.admin-web-auth__panel h1,
+.admin-web-auth__panel p {
+  margin: 0;
+}
+
+.admin-web-auth__form {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-web-auth__form label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--nodo-muted);
+}
+
+.admin-web-auth__form textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgb(3 12 24 / 88%);
+  color: var(--nodo-text);
+  font: inherit;
+}
+
+.admin-web-auth__form button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--nodo-button);
+  color: #04111d;
+  font-weight: 900;
+}
+
+.admin-web-auth__form button:disabled {
+  opacity: 0.62;
 }
 
 .admin-web-shell {
@@ -1085,6 +1654,7 @@ div.ad-row {
 }
 
 .admin-web-toolbar input,
+.admin-web-toolbar select,
 .admin-web-field input,
 .admin-web-field textarea,
 .admin-web-field select,
@@ -1171,6 +1741,34 @@ div.ad-row {
   margin: 0;
 }
 
+.admin-web-detail-grid,
+.admin-web-feed {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-web-detail-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.admin-web-feed {
+  margin-bottom: 12px;
+}
+
+.admin-web-feed-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(3 12 24 / 56%);
+}
+
+.admin-web-feed-item p {
+  margin: 0;
+}
+
 .admin-web-empty {
   padding: 16px;
   color: var(--nodo-muted);
@@ -1199,6 +1797,7 @@ div.ad-row {
 
   .admin-web-nav,
   .admin-web-grid,
+  .admin-web-detail-grid,
   .admin-web-split,
   .admin-web-metrics,
   .admin-web-form-grid {

@@ -80,6 +80,43 @@ class InMemoryAdCreditsMixin:
                 reference_id=related_order_id or ad.id,
             )
 
+    def expire_hold(
+        self,
+        *,
+        ad: AdRecord,
+        created_by: str | None,
+        reason: str = "ad_expired_without_purchase",
+        related_order_id: str | None = None,
+        source: str = "ads",
+    ) -> CreditLedgerRecord | None:
+        with self._lock:  # type: ignore[attr-defined]
+            ad.status = "archived"
+            ad.updated_at = utc_now()
+            if ad.credit_hold_ledger_id is None:
+                return None
+            if any(item.type == "expire" and item.related_ad_id == ad.id for item in self.ledger.values()):  # type: ignore[attr-defined]
+                return None
+            wallet = self.ensure_wallet(ad.business_id)
+            if wallet.blocked_credits < ad.required_credits:
+                return None
+            wallet.blocked_credits -= ad.required_credits
+            wallet.consumed_credits += ad.required_credits
+            wallet.updated_at = utc_now()
+            ledger = self._write_ledger(
+                wallet=wallet,
+                ledger_type="expire",
+                amount=ad.required_credits,
+                related_ad_id=ad.id,
+                reason=reason,
+                source=source,
+                created_by=created_by,
+                related_order_id=related_order_id,
+                reference_type="order" if related_order_id else "ad",
+                reference_id=related_order_id or ad.id,
+            )
+            ad.credit_consumed_ledger_id = ledger.id
+            return ledger
+
     def consume_hold_for_order(
         self,
         *,
@@ -159,9 +196,9 @@ class InMemoryAdCreditsMixin:
             amount=amount,
             available_before=wallet.available_credits + amount if ledger_type == "hold" else wallet.available_credits - amount if ledger_type == "release" else wallet.available_credits,
             available_after=wallet.available_credits,
-            blocked_before=wallet.blocked_credits - amount if ledger_type == "hold" else wallet.blocked_credits + amount if ledger_type in {"release", "consume"} else wallet.blocked_credits,
+            blocked_before=wallet.blocked_credits - amount if ledger_type == "hold" else wallet.blocked_credits + amount if ledger_type in {"release", "consume", "expire"} else wallet.blocked_credits,
             blocked_after=wallet.blocked_credits,
-            consumed_before=wallet.consumed_credits - amount if ledger_type == "consume" else wallet.consumed_credits,
+            consumed_before=wallet.consumed_credits - amount if ledger_type in {"consume", "expire"} else wallet.consumed_credits,
             consumed_after=wallet.consumed_credits,
             reason=reason,
             source=source,

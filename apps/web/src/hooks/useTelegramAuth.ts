@@ -2,50 +2,121 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authenticateWithTelegram } from "../api/auth";
-import { getTelegramWebApp, readTelegramInitData, setupTelegramViewport } from "../theme/telegramTheme";
+import { readAuthSession, refreshAuthSession, type StoredAuthSession, writeAuthSession } from "../api/session";
+import { notifyTelegram, readTelegramInitData, setupTelegramViewport } from "../theme/telegramTheme";
 import type { PublicUser, SessionState } from "../types/auth";
 
-export function useTelegramAuth() {
+const AUTH_BUILD_LABEL = "auth-2026071502";
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function canUseStoredSession(session: StoredAuthSession | null) {
+  return Boolean(session?.accessToken && session.user && (!session.expiresAt || session.expiresAt > Date.now() + 30_000));
+}
+
+export function useTelegramAuth(surface?: string) {
   const [state, setState] = useState<SessionState>("loading");
   const [message, setMessage] = useState("Preparando NODO en Telegram");
   const [user, setUser] = useState<PublicUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
+  const applyStoredSession = useCallback((session: StoredAuthSession, messageText = "Listo para cambiar") => {
+    if (!session.user) {
+      return false;
+    }
+    setUser(session.user);
+    setAccessToken(session.accessToken);
+    setState("authenticated");
+    setMessage(messageText);
+    notifyTelegram("success");
+    return true;
+  }, []);
+
   const authenticate = useCallback(async () => {
     setState("loading");
-    setMessage("Preparando NODO en Telegram");
-    const initData = await readTelegramInitData();
+    setMessage(`Preparando NODO en Telegram (${AUTH_BUILD_LABEL})`);
     setupTelegramViewport();
 
+    const storedSession = readAuthSession("telegram");
+    if (canUseStoredSession(storedSession) && storedSession) {
+      applyStoredSession(storedSession);
+      return;
+    }
+
+    if (storedSession?.refreshToken) {
+      const refreshedSession = await refreshAuthSession("telegram").catch(() => null);
+      if (canUseStoredSession(refreshedSession) && refreshedSession) {
+        applyStoredSession(refreshedSession);
+        return;
+      }
+    }
+
+    const initData = await readTelegramInitData();
+
     if (!initData) {
+      if (canUseStoredSession(storedSession) && storedSession) {
+        applyStoredSession(storedSession, "Listo para cambiar. Telegram no envio sesion nueva.");
+        return;
+      }
       setState("error");
-      setMessage("Abre NODO desde Telegram para iniciar de forma segura.");
-      getTelegramWebApp()?.HapticFeedback?.notificationOccurred?.("warning");
+      setMessage(`Abre NODO desde Telegram para iniciar de forma segura. ${AUTH_BUILD_LABEL}`);
+      notifyTelegram("warning");
       return;
     }
 
     try {
-      const payload = await authenticateWithTelegram(initData);
+      let payload = null;
+      let lastError: unknown = null;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          payload = await authenticateWithTelegram(initData, surface);
+          break;
+        } catch (error) {
+          lastError = error;
+          if (attempt < 3) {
+            setMessage("Conectando con NODO...");
+            await wait(350 * attempt);
+          }
+        }
+      }
+
+      if (!payload) {
+        throw lastError instanceof Error ? lastError : new Error("AUTH_CONNECT_FAILED");
+      }
 
       if (!payload.data) {
         const code = payload.error?.code;
         setState(code === "SESSION_EXPIRED" || code === "TELEGRAM_INIT_DATA_EXPIRED" ? "expired" : "error");
         setMessage(payload.error?.message || "No logramos iniciar. Intenta de nuevo.");
-        getTelegramWebApp()?.HapticFeedback?.notificationOccurred?.("error");
+        notifyTelegram("error");
         return;
       }
 
+      writeAuthSession("telegram", {
+        accessToken: payload.data.access_token,
+        refreshToken: payload.data.refresh_token,
+        expiresAt: Date.now() + payload.data.expires_in * 1000,
+        user: payload.data.user
+      });
       setUser(payload.data.user);
       setAccessToken(payload.data.access_token);
       setState("authenticated");
       setMessage("Listo para cambiar");
-      getTelegramWebApp()?.HapticFeedback?.notificationOccurred?.("success");
-    } catch {
+      notifyTelegram("success");
+    } catch (error) {
+      const fallbackSession = readAuthSession("telegram");
+      if (canUseStoredSession(fallbackSession) && fallbackSession) {
+        applyStoredSession(fallbackSession, "Listo para cambiar. Usamos tu sesion guardada.");
+        return;
+      }
       setState("error");
-      setMessage("Estamos ajustando la conexion. Intenta de nuevo en unos segundos.");
-      getTelegramWebApp()?.HapticFeedback?.notificationOccurred?.("error");
+      const code = error instanceof Error ? error.name || "AUTH_ERROR" : "AUTH_ERROR";
+      setMessage(`Estamos ajustando la conexion. Codigo ${code}. Version ${AUTH_BUILD_LABEL}. Cierra y abre desde el boton nuevo.`);
+      notifyTelegram("error");
     }
-  }, []);
+  }, [applyStoredSession, surface]);
 
   useEffect(() => {
     void authenticate();

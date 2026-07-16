@@ -120,6 +120,29 @@ class InMemoryUserRepository:
             session.updated_at = utc_now()
             self._sessions_by_hash[session.refresh_token_hash] = session
 
+    def rotate_session_if_current(
+        self,
+        session: SessionRecord,
+        *,
+        current_refresh_token_hash: str,
+        refresh_token_hash: str,
+        access_token_jti: str,
+        expires_at: datetime,
+    ) -> bool:
+        with self._lock:
+            if session.status != "active" or session.refresh_token_hash != current_refresh_token_hash:
+                return False
+            if self._sessions_by_hash.get(current_refresh_token_hash) is not session:
+                return False
+            self._sessions_by_hash.pop(current_refresh_token_hash, None)
+            session.refresh_token_hash = refresh_token_hash
+            session.access_token_jti = access_token_jti
+            session.expires_at = expires_at
+            session.last_used_at = utc_now()
+            session.updated_at = utc_now()
+            self._sessions_by_hash[session.refresh_token_hash] = session
+            return True
+
     def revoke_session(self, session: SessionRecord) -> None:
         with self._lock:
             session.status = "revoked"

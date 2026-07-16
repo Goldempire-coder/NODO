@@ -7,7 +7,9 @@ import { BusinessIntake, BusinessIntakeDetail } from "./AdminBusinessIntakeScree
 import { CreditAdjustments, CreditDetail, CreditPurchases } from "./AdminCreditScreens";
 import { DisputeDetail, Disputes, OrderDetail, Orders } from "./AdminOrderDisputeScreens";
 import { Dashboard, Jobs, Metrics } from "./AdminOverviewScreens";
-import { Placeholder } from "./AdminWebPrimitives";
+import { SupportTickets } from "./AdminSupportScreens";
+import { StaffCenter, StaffDetail, StaffInvite } from "./AdminStaffScreens";
+import { UserDetail, Users } from "./AdminUserScreens";
 
 export function AdminWebScreens({ model }: { model: AdminWebModel }) {
   if (!model.adminReadable) {
@@ -25,6 +27,8 @@ export function AdminWebScreens({ model }: { model: AdminWebModel }) {
       {model.view === "metrics" ? <Metrics model={model} /> : null}
       {model.view === "businesses" ? <Businesses model={model} /> : null}
       {model.view === "business-detail" ? <BusinessDetail model={model} /> : null}
+      {model.view === "users" ? <Users model={model} /> : null}
+      {model.view === "user-detail" ? <UserDetail model={model} /> : null}
       {model.view === "orders" ? <Orders model={model} /> : null}
       {model.view === "order-detail" ? <OrderDetail model={model} /> : null}
       {model.view === "disputes" ? <Disputes model={model} /> : null}
@@ -36,7 +40,10 @@ export function AdminWebScreens({ model }: { model: AdminWebModel }) {
       {model.view === "jobs" ? <Jobs model={model} /> : null}
       {model.view === "intake" ? <BusinessIntake model={model} /> : null}
       {model.view === "intake-detail" ? <BusinessIntakeDetail model={model} /> : null}
-      {model.view === "support-placeholder" ? <Placeholder title="Soporte y tickets" /> : null}
+      {model.view === "support" ? <SupportTickets model={model} /> : null}
+      {model.view === "staff" ? <StaffCenter model={model} /> : null}
+      {model.view === "staff-detail" ? <StaffDetail model={model} /> : null}
+      {model.view === "staff-invite" ? <StaffInvite model={model} /> : null}
     </div>
   );
 }

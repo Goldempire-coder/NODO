@@ -46,6 +46,8 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.businesses.models import utc_now  # noqa: E402
+from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.orders.postgres_create_order import PostgresCreateOrderMixin  # noqa: E402
 
 
@@ -119,7 +121,7 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
         stored_business.approved_at = stored_business.updated_at
         stored_business.max_order_amount_usd = stored_business.max_order_amount_usd * 20
         stored_user = client.app.state.user_repository.get_user_by_id(login["user"]["id"])
-        client.app.state.business_repository.create_access_link(
+        link = client.app.state.business_repository.create_access_link(
             business_id=business["id"],
             user_id=login["user"]["id"],
             telegram_id_snapshot=stored_user.telegram_id,
@@ -127,6 +129,8 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
             linked_by_admin_id=login["user"]["id"],
             reason="test_active_business_access",
         )
+        client.app.state.business_repository.set_access_link_pin_hash(link_id=link.id, pin_hash=hash_pin("1234"))
+        client.app.state.business_repository.mark_access_link_pin_verified(link_id=link.id, unlocked_until=utc_now() + timedelta(minutes=15))
     payment = client.app.state.business_repository.add_payment_method(
         business_id=business["id"],
         method_type="zelle",
@@ -436,7 +440,7 @@ def test_detail_and_mine_are_own_only_and_masked() -> None:
     assert "+584121234567" not in combined
 
 
-def test_cancel_waiting_payment_releases_ad_and_credits_and_writes_events() -> None:
+def test_cancel_waiting_payment_returns_ad_and_keeps_listing_credit_blocked() -> None:
     client = _client()
     owner = _login(client, 941, "owner")
     business, method_id = _approved_business_with_method(client, owner, credits=1)
@@ -454,9 +458,10 @@ def test_cancel_waiting_payment_releases_ad_and_credits_and_writes_events() -> N
     assert cancelled.json()["data"]["order"]["status"] == "cancelled"
     assert client.app.state.ad_repository.get_ad(ad["id"]).status == "active"
     wallet = client.app.state.ad_repository.get_wallet(business["id"])
-    assert wallet.available_credits == 1
-    assert wallet.blocked_credits == 0
-    assert {"order_cancelled", "credits_released"}.issubset(set(_event_types(client)))
+    assert wallet.available_credits == 0
+    assert wallet.blocked_credits == 1
+    assert "order_cancelled" in _event_types(client)
+    assert "credits_released" not in _event_types(client)
 
 
 def test_cancel_after_payment_reported_is_prohibited() -> None:
@@ -516,13 +521,40 @@ def test_waiting_payment_expired_materializes_passively_and_safe_error_on_extend
     assert extend.status_code == 409
     assert extend.json()["error"]["code"] == "ORDER_STATUS_INVALID"
     assert client.app.state.ad_repository.get_ad(ad["id"]).status == "active"
-    assert client.app.state.ad_repository.get_wallet(business["id"]).blocked_credits == 0
+    assert client.app.state.ad_repository.get_wallet(business["id"]).blocked_credits == 1
     combined = detail.text + extend.text + json.dumps([event.__dict__ for event in client.app.state.audit_writer.events], default=str)
     assert BOT_TOKEN not in combined
     assert JWT_SECRET not in combined
     assert JWT_REFRESH_SECRET not in combined
     assert "owner@example.com" not in combined
     assert "order_expired" in _event_types(client)
+
+
+def test_waiting_payment_expired_after_ad_lifetime_consumes_credit_and_archives_ad() -> None:
+    client = _client()
+    owner = _login(client, 973, "owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="expired_order_ad_lifetime")
+    remitter = _login(client, 974, "remitter")
+    order = _create_order(client, remitter, ad["id"], key="expired_order_lifetime")
+    stored_order = client.app.state.order_repository.get_by_id(order["id"])
+    stored_ad = client.app.state.ad_repository.get_ad(ad["id"])
+    stored_ad.expires_at = stored_order.created_at - timedelta(minutes=1)
+    client.app.state.order_repository.update_order(
+        stored_order,
+        payment_report_deadline_at=stored_order.created_at - timedelta(minutes=1),
+        expires_at=stored_order.created_at - timedelta(minutes=1),
+    )
+
+    detail = client.get(f"/api/v1/orders/{order['id']}", headers=_bearer(remitter, "req_expired_detail_lifetime"))
+
+    assert detail.status_code == 200
+    assert detail.json()["data"]["order"]["status"] == "cancelled"
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "archived"
+    wallet = client.app.state.ad_repository.get_wallet(business["id"])
+    assert wallet.blocked_credits == 0
+    assert wallet.consumed_credits == 1
+    assert {"order_expired", "ad_expired", "credits_consumed"}.issubset(set(_event_types(client)))
 
 
 def test_migration_0005_contains_required_tables_constraints_and_indexes() -> None:

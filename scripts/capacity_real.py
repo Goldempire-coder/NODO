@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
+import hashlib
+import hmac
 import json
 import math
+import re
 import time
+import uuid
 from collections import Counter, defaultdict
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -14,9 +20,128 @@ import psycopg
 
 from local_hardening_common import DEFAULT_ENV_FILE, MetricsRecorder, add_api_path, write_json
 from local_smoke import LocalSmoke
+from staging_guardrails import guardrail_payload, require_staging_guardrails
 
 add_api_path()
+from app.modules.ads.rules import calculate_required_credits  # noqa: E402
 from app.shared.db.connection import connect  # noqa: E402
+
+
+REQUEST_ERROR_SAMPLE_LIMIT = 100
+SENSITIVE_MESSAGE_PATTERNS = (
+    "authorization",
+    "cookie",
+    "access_token",
+    "refresh_token",
+    "telegram initdata",
+    "bot_token",
+    "business_intake_bot_token",
+    "database_url",
+    "redis_url",
+    "supabase_service_role_key",
+    "jwt_secret",
+    "private_key",
+    "seed phrase",
+    "mnemonic",
+    "storage_path",
+    "account_value",
+    "signed_url",
+)
+
+
+def _base64url_encode(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _json_dumps(payload: dict[str, Any]) -> bytes:
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
+def create_access_token_at(
+    *,
+    user_id: str,
+    role: str,
+    status: str,
+    secret: str,
+    ttl_seconds: int,
+    issued_at: int,
+) -> str:
+    header = {"alg": "HS256", "typ": "JWT"}
+    payload = {
+        "sub": user_id,
+        "role": role,
+        "status": status,
+        "iat": issued_at,
+        "exp": issued_at + ttl_seconds,
+        "jti": str(uuid.uuid4()),
+    }
+    signing_input = f"{_base64url_encode(_json_dumps(header))}.{_base64url_encode(_json_dumps(payload))}"
+    signature = hmac.new(secret.encode("utf-8"), signing_input.encode("ascii"), hashlib.sha256).digest()
+    return f"{signing_input}.{_base64url_encode(signature)}"
+
+
+def parse_process_time_ms(value: str | None) -> float | None:
+    if value is None:
+        return None
+    try:
+        parsed = float(value.strip())
+    except ValueError:
+        return None
+    if parsed < 0:
+        return None
+    return round(parsed, 4)
+
+
+def parse_server_timing(value: str | None) -> dict[str, float]:
+    if not value:
+        return {}
+    parsed: dict[str, float] = {}
+    for item in value.split(","):
+        parts = [part.strip() for part in item.split(";") if part.strip()]
+        if not parts:
+            continue
+        metric_name = parts[0]
+        duration: float | None = None
+        for part in parts[1:]:
+            if part.startswith("dur="):
+                duration = parse_process_time_ms(part.removeprefix("dur="))
+        if duration is not None and metric_name:
+            parsed[metric_name] = duration
+    return parsed
+
+
+def classify_request_error(exc: httpx.RequestError) -> str:
+    if isinstance(exc, httpx.ConnectTimeout):
+        return "CONNECT_TIMEOUT"
+    if isinstance(exc, httpx.ConnectError):
+        return "CONNECT_ERROR"
+    if isinstance(exc, httpx.ReadTimeout):
+        return "READ_TIMEOUT"
+    if isinstance(exc, httpx.WriteTimeout):
+        return "WRITE_TIMEOUT"
+    if isinstance(exc, httpx.PoolTimeout):
+        return "POOL_TIMEOUT"
+    if isinstance(exc, httpx.RemoteProtocolError):
+        return "REMOTE_DISCONNECT_OR_PROTOCOL_ERROR"
+    if isinstance(exc, httpx.ProtocolError):
+        return "PROTOCOL_ERROR"
+    return "UNKNOWN_CLIENT_ERROR"
+
+
+def redact_exception_message(message: str, *, max_length: int = 240) -> str:
+    redacted = message.replace("\r", " ").replace("\n", " ")
+    redacted = re.sub(r"Bearer\s+[A-Za-z0-9._~+/=-]+", "Bearer <redacted>", redacted, flags=re.IGNORECASE)
+    redacted = re.sub(r"(https?://[^\s?]+)\?[^\s]+", r"\1?<redacted_query>", redacted, flags=re.IGNORECASE)
+    for marker in SENSITIVE_MESSAGE_PATTERNS:
+        redacted = re.sub(
+            rf"({re.escape(marker)})\s*[:=]\s*[^,\s;]+",
+            r"\1=<redacted>",
+            redacted,
+            flags=re.IGNORECASE,
+        )
+    if len(redacted) > max_length:
+        redacted = f"{redacted[:max_length]}..."
+    return redacted
 
 
 class RealCapacityHarness:
@@ -44,6 +169,9 @@ class RealCapacityHarness:
         fixture_mode: str | None = None,
         profile_marketplace: bool = False,
         profile_detail_limit: int = 50,
+        auth_mode: str = "fresh-claims",
+        max_connections: int | None = None,
+        fixture_setup_mode: str = "api_ads",
     ) -> None:
         if ads_per_business > 18:
             raise ValueError("ads_per_business must be <= 18 to keep MVP amount ranges valid and non-overlapping")
@@ -51,7 +179,6 @@ class RealCapacityHarness:
             raise ValueError("businesses must be >= 1")
         if math.ceil(max(payment_confirms, 0) / businesses) > 18:
             raise ValueError("payment_confirms per business must be <= 18 to keep MVP amount ranges valid and non-overlapping")
-        self.smoke = LocalSmoke(env_file=env_file, run_id=run_id)
         self.run_id = run_id
         self.business_count = businesses
         self.ads_per_business = ads_per_business
@@ -63,11 +190,37 @@ class RealCapacityHarness:
         self.marketplace_concurrency = marketplace_concurrency or marketplace_reads
         self.remote_base_url = remote_base_url.rstrip("/") if remote_base_url else None
         self.fixture_mode = self._resolve_fixture_mode(fixture_mode)
+        self.fixture_setup_mode = self._resolve_fixture_setup_mode(fixture_setup_mode)
+        self.guardrails = (
+            require_staging_guardrails(
+                env_file=env_file,
+                run_id=run_id,
+                api_base_url=self.remote_base_url,
+            )
+            if self.remote_base_url
+            else None
+        )
+        self.smoke = LocalSmoke(env_file=env_file, run_id=run_id)
         self.profile_marketplace = profile_marketplace
         self.profile_detail_limit = max(0, profile_detail_limit)
+        self.auth_mode = self._resolve_auth_mode(auth_mode)
+        self.max_connections = self._resolve_max_connections(max_connections)
+        self._direct_ads_created = 0
+        self._marketplace_cache_invalidated = False
         self.metrics = MetricsRecorder()
         self.started_at = time.perf_counter()
+        self.load_started_at: float | None = None
+        self.phase_timings: dict[str, float] = {}
         self.profiled_steps: list[dict[str, Any]] = []
+        self.latency_samples: list[dict[str, Any]] = []
+        self.request_error_samples: list[dict[str, Any]] = []
+        self._request_error_classifications: Counter[str] = Counter()
+        self._request_error_endpoints: Counter[str] = Counter()
+        self._request_error_groups: Counter[str] = Counter()
+        self._backend_process_times: list[float] = []
+        self._external_minus_backend: list[float] = []
+        self._response_sizes: list[float] = []
+        self._server_timing_values: dict[str, list[float]] = defaultdict(list)
         self._profile_stage_values: dict[str, list[float]] = defaultdict(list)
         self._profile_cache_hits: Counter[str] = Counter()
         self._profile_auth_modes: Counter[str] = Counter()
@@ -107,9 +260,33 @@ class RealCapacityHarness:
             return "local_asgi"
         raise ValueError("fixture_mode with no remote_base_url must be local_asgi")
 
+    @staticmethod
+    def _resolve_auth_mode(auth_mode: str) -> str:
+        allowed = {"fresh-claims", "fallback-db"}
+        if auth_mode not in allowed:
+            raise ValueError(f"auth_mode must be one of {sorted(allowed)}")
+        return auth_mode
+
+    @staticmethod
+    def _resolve_max_connections(max_connections: int | None) -> int | None:
+        if max_connections is None:
+            return None
+        if max_connections < 1:
+            raise ValueError("max_connections must be >= 1")
+        if max_connections > 1000:
+            raise ValueError("max_connections must be <= 1000")
+        return max_connections
+
+    @staticmethod
+    def _resolve_fixture_setup_mode(fixture_setup_mode: str) -> str:
+        allowed = {"api_ads", "db_direct_ads"}
+        if fixture_setup_mode not in allowed:
+            raise ValueError(f"fixture_setup_mode must be one of {sorted(allowed)}")
+        return fixture_setup_mode
+
     def _client_context(self, *, concurrency: int | None = None) -> httpx.AsyncClient:
         if self.remote_base_url:
-            max_connections = max(20, concurrency or self.marketplace_concurrency)
+            max_connections = self.max_connections or max(20, concurrency or self.marketplace_concurrency)
             return httpx.AsyncClient(
                 base_url=self.remote_base_url,
                 timeout=30.0,
@@ -213,6 +390,192 @@ class RealCapacityHarness:
             "usdt_payment_method_id": str(usdt_payment_method["id"]),
         }
 
+    def _create_ad_fixture(
+        self,
+        *,
+        owner: dict[str, Any],
+        fixture: dict[str, Any],
+        payment_method_id: str,
+        payment_method: str,
+        business_index: int,
+        ad_index: int,
+        amount_min: int,
+        amount_max: int,
+        request_label: str,
+    ) -> dict[str, Any]:
+        if self.fixture_setup_mode == "db_direct_ads":
+            return self._create_ad_fixture_direct_db(
+                owner=owner,
+                fixture=fixture,
+                payment_method_id=payment_method_id,
+                payment_method=payment_method,
+                business_index=business_index,
+                ad_index=ad_index,
+                amount_min=amount_min,
+                amount_max=amount_max,
+            )
+        return self._create_ad_fixture_via_api(
+            owner=owner,
+            payment_method_id=payment_method_id,
+            payment_method=payment_method,
+            business_index=business_index,
+            ad_index=ad_index,
+            amount_min=amount_min,
+            amount_max=amount_max,
+            request_label=request_label,
+        )
+
+    def _create_ad_fixture_via_api(
+        self,
+        *,
+        owner: dict[str, Any],
+        payment_method_id: str,
+        payment_method: str,
+        business_index: int,
+        ad_index: int,
+        amount_min: int,
+        amount_max: int,
+        request_label: str,
+    ) -> dict[str, Any]:
+        return self.smoke.request(
+            request_label,
+            "POST",
+            "/api/v1/business/ads",
+            headers=self.smoke.headers(owner, f"capacity_ad_{business_index}_{ad_index}", content_type=True),
+            json={
+                "payment_method_id": payment_method_id,
+                "payment_method": payment_method,
+                "delivery_method": "pago_movil_ve",
+                "rate_bs_per_usd": "39.5000",
+                "amount_min_usd": f"{amount_min}.00",
+                "amount_max_usd": f"{amount_max}.00",
+            },
+        )["ad"]
+
+    def _create_ad_fixture_direct_db(
+        self,
+        *,
+        owner: dict[str, Any],
+        fixture: dict[str, Any],
+        payment_method_id: str,
+        payment_method: str,
+        business_index: int,
+        ad_index: int,
+        amount_min: int,
+        amount_max: int,
+    ) -> dict[str, Any]:
+        amount_min_usd = Decimal(f"{amount_min}.00")
+        amount_max_usd = Decimal(f"{amount_max}.00")
+        required_credits = calculate_required_credits(amount_max_usd)
+        business_id = fixture["business_id"]
+        with connect(self.smoke.db_url, row_factory=psycopg.rows.dict_row) as conn:
+            wallet = conn.execute(
+                "select * from credit_wallets where business_id = %s for update",
+                (business_id,),
+            ).fetchone()
+            if wallet is None or wallet["available_credits"] < required_credits:
+                conn.rollback()
+                raise RuntimeError("capacity direct ad fixture has insufficient credits")
+            ad = conn.execute(
+                """
+                insert into ads (
+                    business_id, payment_method_id, payment_method, delivery_method,
+                    rate_bs_per_usd, amount_min_usd, amount_max_usd, required_credits,
+                    status, activated_at, expires_at, last_rate_updated_at, created_at, updated_at
+                )
+                values (%s, %s, %s, 'pago_movil_ve', 39.5000, %s, %s, %s,
+                    'active', now(), now() + interval '7 days', now(), now(), now())
+                returning *
+                """,
+                (business_id, payment_method_id, payment_method, amount_min_usd, amount_max_usd, required_credits),
+            ).fetchone()
+            available_after = wallet["available_credits"] - required_credits
+            blocked_after = wallet["blocked_credits"] + required_credits
+            conn.execute(
+                """
+                update credit_wallets
+                set available_credits = %s, blocked_credits = %s, updated_at = now()
+                where business_id = %s
+                """,
+                (available_after, blocked_after, business_id),
+            )
+            ledger = conn.execute(
+                """
+                insert into credits_ledger (
+                    business_id, type, amount, available_before, available_after,
+                    blocked_before, blocked_after, consumed_before, consumed_after,
+                    related_ad_id, reason, source, reference_type, reference_id, created_by, created_at
+                )
+                values (%s, 'hold', %s, %s, %s, %s, %s, %s, %s, %s,
+                    'ad_publish_credit_hold', 'ads', 'ad', %s, %s, now())
+                returning id
+                """,
+                (
+                    business_id,
+                    required_credits,
+                    wallet["available_credits"],
+                    available_after,
+                    wallet["blocked_credits"],
+                    blocked_after,
+                    wallet["consumed_credits"],
+                    wallet["consumed_credits"],
+                    ad["id"],
+                    ad["id"],
+                    owner["user"]["id"],
+                ),
+            ).fetchone()
+            ad = conn.execute(
+                "update ads set credit_hold_ledger_id = %s, updated_at = now() where id = %s returning *",
+                (ledger["id"], ad["id"]),
+            ).fetchone()
+            conn.commit()
+        self._direct_ads_created += 1
+        self.smoke.steps.append(
+            {
+                "name": "fixture:ad_direct_db",
+                "business_index": business_index,
+                "ad_index": ad_index,
+                "payment_method": payment_method,
+                "required_credits": required_credits,
+                "status_code": 200,
+            }
+        )
+        return {
+            "id": str(ad["id"]),
+            "business_id": str(ad["business_id"]),
+            "payment_method_id": str(ad["payment_method_id"]),
+            "payment_method": ad["payment_method"],
+            "delivery_method": ad["delivery_method"],
+            "rate_bs_per_usd": str(ad["rate_bs_per_usd"]),
+            "amount_min_usd": str(ad["amount_min_usd"]),
+            "amount_max_usd": str(ad["amount_max_usd"]),
+            "required_credits": int(ad["required_credits"]),
+            "status": ad["status"],
+        }
+
+    def _invalidate_marketplace_cache_after_direct_ads(self) -> None:
+        if self._direct_ads_created <= 0:
+            return
+        cache = getattr(self.smoke.client.app.state, "marketplace_cache", None)
+        if cache is None or not hasattr(cache, "clear_prefix"):
+            self.smoke.steps.append(
+                {
+                    "name": "fixture:marketplace_cache_invalidate_skipped",
+                    "direct_ads_created": self._direct_ads_created,
+                    "status_code": 200,
+                }
+            )
+            return
+        cache.clear_prefix("")
+        self._marketplace_cache_invalidated = True
+        self.smoke.steps.append(
+            {
+                "name": "fixture:marketplace_cache_invalidate",
+                "direct_ads_created": self._direct_ads_created,
+                "status_code": 200,
+            }
+        )
+
     def prepare_dataset(self) -> dict[str, Any]:
         admin = self.smoke.fixture_login(self.smoke.synthetic_telegram_id(510000), "capacity_admin", role="admin")
         owners = [
@@ -237,20 +600,17 @@ class RealCapacityHarness:
                 slot = ad_index
                 amount_min = 20 + slot * 100
                 amount_max = 100 + slot * 100
-                ad = self.smoke.request(
-                    f"capacity:ads:create:{business_index}:{ad_index}",
-                    "POST",
-                    "/api/v1/business/ads",
-                    headers=self.smoke.headers(owner, f"capacity_ad_{business_index}_{ad_index}", content_type=True),
-                    json={
-                        "payment_method_id": fixture["payment_method_id"],
-                        "payment_method": "zelle",
-                        "delivery_method": "pago_movil_ve",
-                        "rate_bs_per_usd": "39.5000",
-                        "amount_min_usd": f"{amount_min}.00",
-                        "amount_max_usd": f"{amount_max}.00",
-                    },
-                )["ad"]
+                ad = self._create_ad_fixture(
+                    owner=owner,
+                    fixture=fixture,
+                    payment_method_id=fixture["payment_method_id"],
+                    payment_method="zelle",
+                    business_index=business_index,
+                    ad_index=ad_index,
+                    amount_min=amount_min,
+                    amount_max=amount_max,
+                    request_label=f"capacity:ads:create:{business_index}:{ad_index}",
+                )
                 ad["capacity_amount_usd"] = f"{amount_min + 30}.00"
                 ads.append(ad)
                 business_ads.append(ad)
@@ -265,47 +625,175 @@ class RealCapacityHarness:
             per_business_payment_slot[business_index] = slot + 1
             amount_min = 20 + slot * 100
             amount_max = 100 + slot * 100
-            ad = self.smoke.request(
-                f"capacity:payment_ads:create:{business_index}:{slot}",
-                "POST",
-                "/api/v1/business/ads",
-                headers=self.smoke.headers(owner, f"capacity_payment_ad_{business_index}_{slot}", content_type=True),
-                json={
-                    "payment_method_id": business["usdt_payment_method_id"],
-                    "payment_method": "usdt_trc20",
-                    "delivery_method": "pago_movil_ve",
-                    "rate_bs_per_usd": "39.5000",
-                    "amount_min_usd": f"{amount_min}.00",
-                    "amount_max_usd": f"{amount_max}.00",
-                },
-            )["ad"]
+            ad = self._create_ad_fixture(
+                owner=owner,
+                fixture=business,
+                payment_method_id=business["usdt_payment_method_id"],
+                payment_method="usdt_trc20",
+                business_index=business_index,
+                ad_index=slot,
+                amount_min=amount_min,
+                amount_max=amount_max,
+                request_label=f"capacity:payment_ads:create:{business_index}:{slot}",
+            )
             ad["capacity_amount_usd"] = f"{amount_min + 30}.00"
             ad["capacity_business_index"] = business_index
             payment_ads.append(ad)
             business["payment_ads"].append(ad)
+        self._invalidate_marketplace_cache_after_direct_ads()
         return {"admin": admin, "businesses": businesses, "ads": ads, "payment_ads": payment_ads, "remitters": remitters}
+
+    def _ensure_request_observability_headers(self, *, name: str, method: str, path: str, kwargs: dict[str, Any]) -> dict[str, str]:
+        headers = dict(kwargs.get("headers") or {})
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_").lower() or "request"
+        headers.setdefault("X-Request-Id", f"req_{self.run_id}_{slug}_{uuid.uuid4().hex[:8]}")
+        headers.setdefault("X-Correlation-Id", f"corr_{self.run_id}")
+        headers.setdefault("X-NODO-Operation-Id", f"op_{self.run_id}_{slug}")
+        headers.setdefault("X-NODO-Surface", self._surface_for_request(name=name, method=method, path=path))
+        kwargs["headers"] = headers
+        return headers
+
+    @staticmethod
+    def _surface_for_request(*, name: str, method: str, path: str) -> str:
+        if path.startswith("/api/v1/admin"):
+            return "admin_web"
+        if path.startswith("/api/v1/business") or name.startswith("capacity:business_orders"):
+            return "business_mini_app"
+        return "client_mini_app"
 
     async def _request(self, client: httpx.AsyncClient, name: str, method: str, url: str, **kwargs: Any) -> httpx.Response:
         started = time.perf_counter()
+        normalized_method = method.upper()
+        path = url.split("?", 1)[0]
+        route_group = f"{normalized_method} {path}"
+        request_headers = self._ensure_request_observability_headers(name=name, method=normalized_method, path=path, kwargs=kwargs)
         try:
             response = await client.request(method, url, **kwargs)
         except httpx.RequestError as exc:
-            self.metrics.record(name, 599, started, route_group=f"{method.upper()} {url.split('?', 1)[0]}")
-            request = httpx.Request(method.upper(), str(client.base_url).rstrip("/") + url)
+            latency_ms = self.metrics.record(name, 599, started, route_group=route_group)
+            self._record_latency_sample(
+                name=name,
+                method=normalized_method,
+                path=path,
+                status_code=599,
+                external_duration_ms=latency_ms,
+                response=None,
+                request_headers=request_headers,
+            )
+            self._record_request_error(
+                name=name,
+                method=normalized_method,
+                path=path,
+                status_code=599,
+                external_duration_ms=latency_ms,
+                exc=exc,
+                request_headers=request_headers,
+            )
+            request = httpx.Request(normalized_method, str(client.base_url).rstrip("/") + url)
             return httpx.Response(
                 599,
                 json={"error": {"code": type(exc).__name__, "message": "remote_request_failed"}},
                 request=request,
             )
-        self.metrics.record(name, response.status_code, started, route_group=f"{method.upper()} {url.split('?', 1)[0]}")
+        latency_ms = self.metrics.record(name, response.status_code, started, route_group=route_group)
+        self._record_latency_sample(
+            name=name,
+            method=normalized_method,
+            path=path,
+            status_code=response.status_code,
+            external_duration_ms=latency_ms,
+            response=response,
+            request_headers=request_headers,
+        )
         try:
             body = response.json()
         except ValueError:
             body = {}
         data = body.get("data") if isinstance(body, dict) else None
         if isinstance(data, dict) and "_profile" in data:
-            self._record_profile(name=name, method=method.upper(), path=url.split("?", 1)[0], status_code=response.status_code, profile=data["_profile"])
+            self._record_profile(name=name, method=normalized_method, path=path, status_code=response.status_code, profile=data["_profile"])
         return response
+
+    def _record_request_error(
+        self,
+        *,
+        name: str,
+        method: str,
+        path: str,
+        status_code: int,
+        external_duration_ms: float,
+        exc: httpx.RequestError,
+        request_headers: dict[str, str],
+    ) -> None:
+        classification = classify_request_error(exc)
+        endpoint = f"{method} {path}"
+        self._request_error_classifications[classification] += 1
+        self._request_error_endpoints[endpoint] += 1
+        self._request_error_groups[name] += 1
+        if len(self.request_error_samples) >= REQUEST_ERROR_SAMPLE_LIMIT:
+            return
+        self.request_error_samples.append(
+            {
+                "method": method,
+                "endpoint": path,
+                "group": name,
+                "request_id": request_headers.get("X-Request-Id"),
+                "correlation_id": request_headers.get("X-Correlation-Id"),
+                "operation_id": request_headers.get("X-NODO-Operation-Id"),
+                "surface": request_headers.get("X-NODO-Surface"),
+                "status": status_code,
+                "exception_class": type(exc).__name__,
+                "exception_message_redacted": redact_exception_message(str(exc)),
+                "elapsed_ms": round(external_duration_ms, 4),
+                "response_started": False,
+                "classification": classification,
+            }
+        )
+
+    def _record_latency_sample(
+        self,
+        *,
+        name: str,
+        method: str,
+        path: str,
+        status_code: int,
+        external_duration_ms: float,
+        response: httpx.Response | None,
+        request_headers: dict[str, str] | None = None,
+    ) -> None:
+        process_time_ms = parse_process_time_ms(response.headers.get("X-NODO-Process-Time-Ms")) if response is not None else None
+        server_timing = parse_server_timing(response.headers.get("Server-Timing")) if response is not None else {}
+        backend_time_ms = process_time_ms
+        if backend_time_ms is None and "app" in server_timing:
+            backend_time_ms = server_timing["app"]
+        if backend_time_ms is not None:
+            self._backend_process_times.append(backend_time_ms)
+            self._external_minus_backend.append(round(max(0.0, external_duration_ms - backend_time_ms), 4))
+        for metric_name, duration in server_timing.items():
+            self._server_timing_values[metric_name].append(duration)
+        response_size = float(len(response.content)) if response is not None else 0.0
+        self._response_sizes.append(response_size)
+        if len(self.latency_samples) < self.profile_detail_limit:
+            headers = response.headers if response is not None else {}
+            request_headers = request_headers or {}
+            self.latency_samples.append(
+                {
+                    "name": name,
+                    "method": method,
+                    "path": path,
+                    "status_code": status_code,
+                    "external_duration_ms": round(external_duration_ms, 4),
+                    "backend_process_ms": backend_time_ms,
+                    "external_minus_backend_ms": (
+                        round(max(0.0, external_duration_ms - backend_time_ms), 4) if backend_time_ms is not None else None
+                    ),
+                    "server_timing": server_timing,
+                    "request_id": headers.get("X-Request-Id") or request_headers.get("X-Request-Id"),
+                    "correlation_id": headers.get("X-Correlation-Id") or request_headers.get("X-Correlation-Id"),
+                    "operation_id": headers.get("X-NODO-Operation-Id") or request_headers.get("X-NODO-Operation-Id"),
+                    "response_size_bytes": int(response_size),
+                }
+            )
 
     def _record_profile(self, *, name: str, method: str, path: str, status_code: int, profile: dict[str, Any]) -> None:
         total_ms = profile.get("total_ms")
@@ -373,8 +861,41 @@ class RealCapacityHarness:
             "route_total_p95_ms": self._percentiles(self._profile_totals)["p95_ms"],
         }
 
+    def latency_isolation_summary(self) -> dict[str, Any]:
+        metrics_summary = self.metrics.summary(started_at=self.load_started_at or self.started_at)
+        return {
+            "enabled": True,
+            "sample_limit": self.profile_detail_limit,
+            "external": {
+                "all_requests": {
+                    "p50_ms": metrics_summary["p50_ms"],
+                    "p95_ms": metrics_summary["p95_ms"],
+                    "p99_ms": metrics_summary["p99_ms"],
+                    "count": metrics_summary["total_requests"],
+                },
+                "route_groups": metrics_summary["route_groups"],
+            },
+            "backend_process": self._percentiles(self._backend_process_times),
+            "external_minus_backend": self._percentiles(self._external_minus_backend),
+            "server_timing": {
+                metric: self._percentiles(values) for metric, values in sorted(self._server_timing_values.items())
+            },
+            "response_size_bytes": self._percentiles(self._response_sizes),
+            "profile": self.profile_summary(),
+        }
+
+    def request_error_summary(self) -> dict[str, Any]:
+        return {
+            "total": sum(self._request_error_classifications.values()),
+            "sample_limit": REQUEST_ERROR_SAMPLE_LIMIT,
+            "by_classification": dict(self._request_error_classifications),
+            "by_endpoint": dict(self._request_error_endpoints),
+            "by_group": dict(self._request_error_groups),
+        }
+
     async def run_marketplace_reads(self, prepared: dict[str, Any]) -> dict[str, Any]:
         remitters = self._fresh_fixture_logins(prepared["remitters"])
+        remitters = [self._marketplace_auth_login(login) for login in remitters]
         prepared["remitters"] = remitters
         client_context = self._client_context(concurrency=max(100, self.marketplace_concurrency))
         semaphore = asyncio.Semaphore(max(1, self.marketplace_concurrency))
@@ -396,6 +917,32 @@ class RealCapacityHarness:
             responses = await asyncio.gather(*[search(index) for index in range(self.marketplace_reads)])
         self.violations["marketplace_read_errors"] = sum(1 for response in responses if response.status_code >= 400)
         return {"status_codes": [response.status_code for response in responses]}
+
+    def _marketplace_auth_login(self, login: dict[str, Any]) -> dict[str, Any]:
+        if self.auth_mode == "fresh-claims":
+            return login
+        user = login.get("user")
+        if not isinstance(user, dict):
+            raise RuntimeError("fallback-db auth mode requires user payload in fixture login")
+        settings = self.smoke.client.app.state.settings
+        if not settings.jwt_secret:
+            raise RuntimeError("fallback-db auth mode requires JWT_SECRET")
+        claim_ttl = int(getattr(settings, "marketplace_read_auth_claim_ttl_seconds", 0) or 0)
+        access_ttl = max(int(getattr(settings, "access_token_ttl_seconds", 0) or 0), claim_ttl + 600, 900)
+        issued_at = int(time.time()) - max(claim_ttl + 60, 120)
+        stale_login = dict(login)
+        stale_login["access_token"] = create_access_token_at(
+            user_id=str(user["id"]),
+            role=str(user["role"]),
+            status=str(user["status"]),
+            secret=settings.jwt_secret,
+            ttl_seconds=access_ttl,
+            issued_at=issued_at,
+        )
+        stale_login["expires_in"] = access_ttl
+        stale_login["_issued_monotonic"] = time.perf_counter()
+        stale_login["_capacity_auth_mode"] = "fallback-db"
+        return stale_login
 
     def _fresh_fixture_logins(self, logins: list[dict[str, Any]]) -> list[dict[str, Any]]:
         refreshed: list[dict[str, Any]] = []
@@ -707,7 +1254,10 @@ class RealCapacityHarness:
         return {"negative_balances": int(negative_balances), "double_credit_consumption": int(duplicate_consumes)}
 
     def run(self, scenario: str) -> dict[str, Any]:
+        setup_started = time.perf_counter()
         prepared = self.prepare_dataset()
+        self.phase_timings["setup_seconds"] = round(time.perf_counter() - setup_started, 4)
+        self.load_started_at = time.perf_counter()
         details: dict[str, Any] = {}
         if scenario in {"all", "marketplace-reads"}:
             details["marketplace_reads"] = asyncio.run(self.run_marketplace_reads(prepared))
@@ -718,8 +1268,12 @@ class RealCapacityHarness:
             details["duplicate_idempotency_race"] = asyncio.run(self.run_duplicate_idempotency_race(prepared))
         if scenario in {"all", "payment-confirm"}:
             details["payment_confirm"] = asyncio.run(self.run_confirm_distinct(prepared))
+        self.phase_timings["measured_load_seconds"] = round(time.perf_counter() - self.load_started_at, 4)
+        invariants_started = time.perf_counter()
         details["invariants"] = self.scan_invariants()
-        summary = self.metrics.summary(started_at=self.started_at)
+        self.phase_timings["invariants_seconds"] = round(time.perf_counter() - invariants_started, 4)
+        self.phase_timings["total_seconds"] = round(time.perf_counter() - self.started_at, 4)
+        summary = self.metrics.summary(started_at=self.load_started_at)
         exit_code = 1 if any(self.violations.values()) else 0
         return {
             "slice": "real_services_capacity_hardening",
@@ -727,6 +1281,8 @@ class RealCapacityHarness:
             "run_id": self.run_id,
             "scenario": scenario,
             "fixture_mode": self.fixture_mode,
+            "fixture_setup_mode": self.fixture_setup_mode,
+            "auth_mode": self.auth_mode,
             "fixture_mode_detail": {
                 "local_asgi": {
                     "seed": "local_asgi_internal_fixture_dataset",
@@ -734,12 +1290,29 @@ class RealCapacityHarness:
                     "invariants": "direct_db_sql",
                 },
                 "db_seed_api_remote": {
-                    "seed": "direct_db_seed",
+                    "seed": "hybrid_direct_db_seed_plus_configurable_ad_setup",
                     "measured_requests": "remote_api",
                     "invariants": "direct_db_sql",
                     "api_remote_only": False,
+                    "setup_note": {
+                        "api_ads": "Users/businesses/access/wallet fixtures use direct DB helpers, but ad and payment-order setup still exercises app APIs before measured load.",
+                        "db_direct_ads": "Users/businesses/access/wallet/ad fixtures use direct DB helpers with marketplace shared-cache invalidation; payment-order setup still exercises app APIs before measured load.",
+                    }[self.fixture_setup_mode],
                 },
             }[self.fixture_mode],
+            "fixture_setup": {
+                "ad_setup": self.fixture_setup_mode,
+                "direct_ads_created": self._direct_ads_created,
+                "marketplace_cache_invalidated": self._marketplace_cache_invalidated,
+                "payment_order_setup": "api",
+            },
+            "client": {
+                "max_connections": self.max_connections,
+                "max_connections_effective": self.max_connections or "max(20, scenario_concurrency)",
+                "timeout_seconds": 30.0 if self.remote_base_url else None,
+            },
+            "phase_timings": self.phase_timings,
+            "staging_guardrails": guardrail_payload(self.guardrails) if self.guardrails else None,
             "request_target": self.remote_base_url or "local_asgi_testclient",
             "cleanup": {
                 "required": bool(self.remote_base_url),
@@ -767,6 +1340,10 @@ class RealCapacityHarness:
                 "remitters": len(prepared["remitters"]),
             },
             "metrics": summary,
+            "latency_isolation": self.latency_isolation_summary(),
+            "latency_samples": self.latency_samples,
+            "request_error_samples": self.request_error_samples,
+            "request_error_summary": self.request_error_summary(),
             "profiled_steps": self.profiled_steps,
             "profile_summary": self.profile_summary(),
             "invariant_violations": self.violations,
@@ -792,6 +1369,9 @@ def main() -> int:
     parser.add_argument("--remote-base-url", default=None)
     parser.add_argument("--fixture-mode", choices=["local_asgi", "db_seed_api_remote", "api_remote_only"], default=None)
     parser.add_argument("--profile-marketplace", action="store_true")
+    parser.add_argument("--auth-mode", choices=["fresh-claims", "fallback-db"], default="fresh-claims")
+    parser.add_argument("--max-connections", type=int, default=None)
+    parser.add_argument("--fixture-setup-mode", choices=["api_ads", "db_direct_ads"], default="api_ads")
     args = parser.parse_args()
     payload = RealCapacityHarness(
         env_file=Path(args.env_file),
@@ -807,6 +1387,9 @@ def main() -> int:
         remote_base_url=args.remote_base_url,
         fixture_mode=args.fixture_mode,
         profile_marketplace=args.profile_marketplace,
+        auth_mode=args.auth_mode,
+        max_connections=args.max_connections,
+        fixture_setup_mode=args.fixture_setup_mode,
     ).run(args.scenario)
     write_json(Path(args.output), payload)
     print(json.dumps(payload, indent=2, default=str))

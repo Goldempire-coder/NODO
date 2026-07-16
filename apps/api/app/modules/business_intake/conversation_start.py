@@ -18,6 +18,18 @@ class BusinessIntakeStartMixin:
         return intake
 
     async def _handle_start_update(self, *, bot_token: str, chat_id: int, telegram_user_id: int, update_id: int, request_id: str) -> dict[str, Any]:
+        user, business, link = self._approved_business_for_telegram_user(telegram_user_id)  # type: ignore[attr-defined]
+        if user is not None and business is not None and link is not None:
+            await self._send_business_open_message(bot_token=bot_token, chat_id=chat_id)  # type: ignore[attr-defined]
+            self._write_approved_business_start_audit(user=user, business=business, link=link, request_id=request_id)  # type: ignore[attr-defined]
+            return {
+                "ok": True,
+                "handled": True,
+                "action": "approved_business_open_sent",
+                "business_id": business.id,
+                "access_link_id": link.id,
+            }
+
         latest = self._repository.get_latest_for_chat(telegram_chat_id=chat_id)  # type: ignore[attr-defined]
         if latest is not None:
             self._validate_intake_context(intake=latest, telegram_user_id=telegram_user_id, telegram_chat_id=chat_id)  # type: ignore[attr-defined]

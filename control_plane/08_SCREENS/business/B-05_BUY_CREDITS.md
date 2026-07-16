@@ -6,7 +6,7 @@ slice: slice_08_credits_referrals
 status: DRAFT_CONTROLLED
 
 purpose:
-Choose credit package and start Stripe checkout or manual payment.
+Choose credit package and start Base USDC on-chain purchase, or fallback Stripe/manual if enabled by backend.
 
 route:
 /business/credits/buy
@@ -29,9 +29,11 @@ read strategy:
 - Use empty state when packages are unavailable.
 
 write strategy:
+- Base USDC writes through `POST /api/v1/business/credits/base-payment`.
 - Stripe checkout writes through `POST /api/v1/business/credits/stripe-checkout`.
 - Manual payment writes through `POST /api/v1/business/credits/manual-payment`.
 - No frontend redirect may credit wallet.
+- No frontend on-chain status may credit wallet.
 - No direct state transitions outside backend state machine.
 
 Telegram UI rules:
@@ -45,7 +47,8 @@ Comprar paquete
 
 validation:
 - package valid
-- payment method valid
+- payment method valid; primary MVP on-chain method is `base_usdc_onchain`
+- USDT Base is not selectable in MVP
 - Idempotency-Key required for purchase creation
 
 permissions:
@@ -60,6 +63,7 @@ states:
 
 audit events:
 - credit_purchase_created
+- onchain_credit_purchase_created when Base USDC selected
 - stripe_checkout_started when Stripe selected
 - manual_credit_payment_submitted when manual selected
 
@@ -67,3 +71,5 @@ QA checklist:
 - Shows packages.
 - Stripe redirect does not display credited balance until webhook confirms.
 - Copy does not promise escrow, guaranteed funds or guaranteed delivery.
+- Base USDC screen shows Base network, USDC contract, exact amount, destination wallet and expiration.
+- Does not show private keys, seed phrases, RPC internals or anonymity/evasion copy.

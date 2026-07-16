@@ -96,6 +96,8 @@ class BusinessIntakeAdminReviewMixin:
             raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
         if status != "accepted" and payload.create_business:
             raise ApiError("BUSINESS_INTAKE_STATUS_INVALID", status_code=409)
+        if status != "accepted" and payload.approve_business:
+            raise ApiError("BUSINESS_INTAKE_STATUS_INVALID", status_code=409)
         public_business_name = (payload.public_business_name or "").strip()
         if payload.create_business and not public_business_name:
             raise ApiError("VALIDATION_ERROR", status_code=422)
@@ -119,10 +121,20 @@ class BusinessIntakeAdminReviewMixin:
             payload=payload,
             request_id=request_id,
         )
+        if payload.approve_business and not (payload.create_business or reviewed.created_business_id):
+            raise ApiError("VALIDATION_ERROR", status_code=422)
         created_business = False
+        access_link_created = False
+        approval_notification_sent = False
         business_payload: dict[str, Any] | None = None
-        if status == "accepted" and payload.create_business:
-            reviewed, created_business, business_payload = self._maybe_create_business_from_intake(  # type: ignore[attr-defined]
+        if status == "accepted" and (payload.create_business or payload.approve_business):
+            (
+                reviewed,
+                created_business,
+                business_payload,
+                access_link_created,
+                approval_notification_sent,
+            ) = self._maybe_create_business_from_intake(  # type: ignore[attr-defined]
                 user=user,
                 reviewed=reviewed,
                 payload=payload,
@@ -133,7 +145,8 @@ class BusinessIntakeAdminReviewMixin:
             "intake": self._public_intake(reviewed),  # type: ignore[attr-defined]
             "created_business": created_business,
             "business": business_payload,
-            "access_link_created": False,
+            "access_link_created": access_link_created,
+            "approval_notification_sent": approval_notification_sent,
         }
 
     def _reviewable_intake(self, *, intake_id: str, status: str) -> BusinessIntakeRequestRecord:

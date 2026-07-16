@@ -3,7 +3,6 @@ export const BUSINESS_MINI_APP_VIEWS = [
   "credits-dashboard",
   "buy-credits",
   "credit-payment-pending",
-  "credits-ledger",
   "create-ad",
   "my-ads",
   "archived-ads",
@@ -12,7 +11,10 @@ export const BUSINESS_MINI_APP_VIEWS = [
   "business-chat",
   "referrals",
   "payment-methods",
-  "business-settings"
+  "business-settings",
+  "business-pin",
+  "business-rules",
+  "business-support"
 ] as const;
 
 export type BusinessMiniAppView = (typeof BUSINESS_MINI_APP_VIEWS)[number];

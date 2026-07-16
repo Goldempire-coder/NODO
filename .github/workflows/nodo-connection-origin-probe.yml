@@ -1,0 +1,76 @@
+name: NODO Connection Origin Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Staging API base URL"
+        required: true
+        default: "https://nodo-api-production.up.railway.app"
+      run_id:
+        description: "Probe run id"
+        required: true
+        default: "slice33a7_github_actions_manual"
+      target_label:
+        description: "Target label"
+        required: true
+        default: "public_staging"
+
+jobs:
+  connection-origin-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install probe dependencies
+        run: python -m pip install --upgrade httpx
+
+      - name: Create non-secret staging guardrail env
+        shell: bash
+        run: |
+          set -euo pipefail
+          API_HOST="$(python - <<'PY'
+          from urllib.parse import urlparse
+          print(urlparse("${{ inputs.base_url }}").hostname or "")
+          PY
+          )"
+          cat > .env.slice33a7.github <<EOF
+          APP_ENV=staging
+          NODO_ENVIRONMENT_KIND=staging
+          NODO_STAGING_VALIDATION=1
+          NODO_STAGING_PROJECT_ID=staging-project
+          NODO_PRODUCTION_PROJECT_ID=
+          DATABASE_URL=postgresql://validation:validation@db.staging.supabase.co:5432/postgres
+          REDIS_URL=rediss://validation:validation@staging-redis.example.test:6379
+          NODO_STAGING_DB_HOST_ALLOWLIST=db.staging.supabase.co
+          NODO_STAGING_API_HOST_ALLOWLIST=${API_HOST}
+          NODO_STAGING_API_BASE_URL=${{ inputs.base_url }}
+          SUPABASE_URL=https://staging-project.supabase.co
+          NODO_STAGING_SUPABASE_URL=https://staging-project.supabase.co
+          EOF
+
+      - name: Run connection origin probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/slice_runs
+          python scripts/connection_origin_probe.py \
+            --env-file .env.slice33a7.github \
+            --run-id "${{ inputs.run_id }}" \
+            --base-url "${{ inputs.base_url }}" \
+            --origin-label github_actions \
+            --target-label "${{ inputs.target_label }}" \
+            --output evidence/slice_runs/slice_33A7_github_actions_origin_probe.json
+
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: slice-33A7-connection-origin-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/slice_runs/slice_33A7_github_actions_origin_probe.json

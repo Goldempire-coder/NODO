@@ -4,6 +4,7 @@ from typing import Any
 
 from app.core.errors import ApiError
 from app.modules.business_intake.models import BusinessIntakeRequestRecord
+from app.modules.users.models import UserRecord
 
 
 class BusinessIntakeConversationContextMixin:
@@ -26,6 +27,40 @@ class BusinessIntakeConversationContextMixin:
             last_name=None,
         )
         return user
+
+    def _approved_business_for_telegram_user(self, telegram_user_id: int):
+        user: UserRecord | None = self._users.get_user_by_telegram_id(telegram_user_id)  # type: ignore[attr-defined]
+        if user is None or user.status != "active" or user.role != "business_owner":
+            return None, None, None
+
+        if hasattr(self._businesses, "get_business_with_latest_access_link_for_owner"):  # type: ignore[attr-defined]
+            business, link = self._businesses.get_business_with_latest_access_link_for_owner(user.id)  # type: ignore[attr-defined]
+        else:
+            business = self._businesses.get_active_business_for_owner(user.id)  # type: ignore[attr-defined]
+            link = (
+                self._businesses.get_access_link_for_business_user(business_id=business.id, user_id=user.id)  # type: ignore[attr-defined]
+                if business
+                else None
+            )
+
+        if business is None or link is None:
+            return None, None, None
+        if business.verification_status != "approved" or link.status != "active":
+            return None, None, None
+        if link.telegram_id_snapshot != telegram_user_id:
+            return None, None, None
+        return user, business, link
+
+    def _write_approved_business_start_audit(self, *, user, business, link, request_id: str) -> None:  # type: ignore[no-untyped-def]
+        self._audit.write(  # type: ignore[attr-defined]
+            event_type="business_intake_approved_business_start",
+            actor_user_id=user.id,
+            actor_role="business_intake_bot",
+            resource_type="business",
+            resource_id=business.id,
+            request_id=request_id,
+            metadata_json={"link_id": link.id},
+        )
 
     def _validate_intake_context(
         self,

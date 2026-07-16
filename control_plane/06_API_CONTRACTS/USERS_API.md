@@ -41,3 +41,14 @@ Rules:
 Post-MVP salvo aprobacion explicita.
 
 No permite cambiar rol, status, trust_level ni Telegram ID desde usuario.
+
+## Admin user control
+
+Los endpoints admin para buscar usuarios, ver detalle operativo y cambiar estados viven en `ADMIN_API.md`.
+
+Reglas:
+- Usuario comun nunca cambia `role`, `status`, `trust_level` ni `telegram_id` desde `USERS_API.md`.
+- `GET /api/v1/users/me` no reemplaza `GET /api/v1/surface/session`.
+- `GET /api/v1/users/me` no devuelve permisos admin por si solo.
+- `GET /api/v1/users/me` no devuelve permisos staff por si solo; Admin Web debe usar endpoints/capabilities backend de staff.
+- Admin user control requiere backend RBAC, reason, idempotencia y audit segun `slice_20A_admin_users_business_control`.

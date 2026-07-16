@@ -5,6 +5,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, Header, Query, Request
 
 from app.auth.dependencies import require_current_user, require_marketplace_read_user
+from app.modules.businesses.route_dependencies import business_service as business_access_service
 from app.modules.ads.schemas import AdActionRequest, AdCreateRequest, AdUpdateRequest
 from app.modules.ads.service import AdService
 from app.modules.users.models import UserRecord
@@ -28,6 +29,10 @@ def _service(request: Request) -> AdService:
         idempotency_store=request.app.state.idempotency_store,
         marketplace_cache=request.app.state.marketplace_cache,
     )
+
+
+def _require_business_pin(request: Request, user: UserRecord) -> None:
+    business_access_service(request).require_unlocked_business_pin(user=user)
 
 
 def _attach_dependency_profile(request: Request, data: dict, *, enabled: bool) -> dict:
@@ -83,6 +88,7 @@ def create_ad(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    _require_business_pin(request, user)
     return {
         "data": _service(request).create_ad(user=user, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key),
         "request_id": _request_id(request),
@@ -117,6 +123,7 @@ def update_ad(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    _require_business_pin(request, user)
     return {
         "data": _service(request).update_ad(user=user, ad_id=ad_id, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key),
         "request_id": _request_id(request),
@@ -131,6 +138,7 @@ def pause_ad(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    _require_business_pin(request, user)
     return {
         "data": _service(request).pause_ad(user=user, ad_id=ad_id, reason=payload.reason if payload else None, request_id=_request_id(request), idempotency_key=idempotency_key),
         "request_id": _request_id(request),
@@ -145,7 +153,38 @@ def archive_ad(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    _require_business_pin(request, user)
     return {
         "data": _service(request).archive_ad(user=user, ad_id=ad_id, reason=payload.reason if payload else None, request_id=_request_id(request), idempotency_key=idempotency_key),
+        "request_id": _request_id(request),
+    }
+
+
+@router.post("/business/ads/{ad_id}/reactivate")
+def reactivate_ad(
+    ad_id: str,
+    request: Request,
+    payload: AdActionRequest | None = None,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    _require_business_pin(request, user)
+    return {
+        "data": _service(request).reactivate_ad(user=user, ad_id=ad_id, reason=payload.reason if payload else None, request_id=_request_id(request), idempotency_key=idempotency_key),
+        "request_id": _request_id(request),
+    }
+
+
+@router.post("/business/ads/{ad_id}/republish")
+def republish_ad(
+    ad_id: str,
+    request: Request,
+    payload: AdActionRequest | None = None,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    _require_business_pin(request, user)
+    return {
+        "data": _service(request).republish_ad(user=user, ad_id=ad_id, reason=payload.reason if payload else None, request_id=_request_id(request), idempotency_key=idempotency_key),
         "request_id": _request_id(request),
     }

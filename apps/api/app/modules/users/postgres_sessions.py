@@ -53,6 +53,34 @@ class PostgresUserSessionsMixin:
             )
             conn.commit()
 
+    def rotate_session_if_current(
+        self,
+        session: SessionRecord,
+        *,
+        current_refresh_token_hash: str,
+        refresh_token_hash: str,
+        access_token_jti: str,
+        expires_at: datetime,
+    ) -> bool:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            cursor = conn.execute(
+                """
+                update sessions
+                set refresh_token_hash = %s,
+                    access_token_jti = %s,
+                    expires_at = %s,
+                    last_used_at = now(),
+                    updated_at = now()
+                where id = %s
+                  and status = 'active'
+                  and refresh_token_hash = %s
+                """,
+                (refresh_token_hash, access_token_jti, expires_at, session.id, current_refresh_token_hash),
+            )
+            updated = cursor.rowcount == 1
+            conn.commit()
+        return updated
+
     def revoke_session(self, session: SessionRecord) -> None:
         with self._connect() as conn:  # type: ignore[attr-defined]
             conn.execute(

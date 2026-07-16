@@ -39,3 +39,5 @@ output/
 # Local evidence artifacts
 evidence/**/*.log
 evidence/**/*.tmp
+evidence/slice_runs/
+evidence/**/*.zip

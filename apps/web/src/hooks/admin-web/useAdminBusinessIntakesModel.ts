@@ -125,7 +125,56 @@ export function useAdminBusinessIntakesModel({
     );
   }, [adminMutable, intakeFilter, intakePublicBusinessName, loadBusinessIntakes, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice, setReason]);
 
+  const approveBusinessFromIntake = useCallback(() => {
+    if (!selectedBusinessIntake || !adminMutable) {
+      setNotice("Accion no permitida para este rol.");
+      return;
+    }
+    const publicName = intakePublicBusinessName.trim();
+    const alreadyCreated = Boolean(selectedBusinessIntake.intake.created_business_id);
+    if (!alreadyCreated && publicName.length < 2) {
+      setNotice("Escribe el nombre publico del negocio como aparecera en la app.");
+      return;
+    }
+    queueCriticalAction(
+      "Crear y aprobar negocio",
+      alreadyCreated
+        ? "Se aprobara el negocio ya creado desde esta solicitud. El backend creara el acceso y el bot enviara el boton de NODO Negocio."
+        : `Se creara y aprobara "${publicName}". El backend creara el acceso y el bot enviara el boton de NODO Negocio.`,
+      async () => {
+        const data = await acceptAdminBusinessIntake<{
+          intake: AdminBusinessIntakeSummary;
+          created_business: boolean;
+          business?: { id: string; business_name: string; verification_status: string } | null;
+          access_link_created: boolean;
+          approval_notification_sent: boolean;
+        }>(
+          request,
+          selectedBusinessIntake.intake.id,
+          {
+            reason,
+            create_business: !alreadyCreated,
+            approve_business: true,
+            ...(alreadyCreated ? {} : { public_business_name: publicName })
+          },
+          idempotencyKey("business_intake_approve_business")
+        );
+        setSelectedBusinessIntake({ ...selectedBusinessIntake, intake: data.intake });
+        setReason("");
+        if (data.business && data.access_link_created && data.approval_notification_sent) {
+          setNotice(`Negocio aprobado: ${data.business.business_name}. Boton enviado por Telegram.`);
+        } else if (data.business && data.access_link_created) {
+          setNotice(`Negocio aprobado: ${data.business.business_name}. Acceso activo; revisa notificacion Telegram.`);
+        } else {
+          setNotice(data.business ? `Negocio revisado: ${data.business.business_name}.` : "Solicitud aceptada.");
+        }
+        await loadBusinessIntakes(intakeFilter);
+      }
+    );
+  }, [adminMutable, intakeFilter, intakePublicBusinessName, loadBusinessIntakes, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice, setReason]);
+
   return {
+    approveBusinessFromIntake,
     businessIntakes,
     createBusinessFromIntake,
     deleteBusinessIntake,

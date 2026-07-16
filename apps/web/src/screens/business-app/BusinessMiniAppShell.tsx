@@ -1,8 +1,9 @@
 import { Spinner, Text, Title } from "@telegram-apps/telegram-ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatedLogo } from "../../components/nodo/AnimatedLogo";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
+import { elapsedMs, recordScreenView, recordSlowScreenTransition } from "../../observability/clientTelemetry";
 import { BusinessMiniAppScreens } from "./BusinessMiniAppScreens";
 
 const TITLE_BY_VIEW: Partial<Record<BusinessMiniAppView, string>> = {
@@ -10,16 +11,18 @@ const TITLE_BY_VIEW: Partial<Record<BusinessMiniAppView, string>> = {
   "credits-dashboard": "Creditos",
   "buy-credits": "Comprar creditos",
   "credit-payment-pending": "Pago de creditos",
-  "credits-ledger": "Movimientos",
   "create-ad": "Publicar anuncio",
   "my-ads": "Mis anuncios",
   "archived-ads": "Historial",
   "business-orders": "Ordenes entrantes",
   "business-order-detail": "Detalle de orden",
   "business-chat": "Chat de orden",
+  "business-support": "Soporte",
   referrals: "Referidos",
   "payment-methods": "Metodos",
-  "business-settings": "Perfil negocio"
+  "business-settings": "Perfil negocio",
+  "business-pin": "PIN de seguridad",
+  "business-rules": "Reglas"
 };
 
 function NavIcon({ name }: { name: "home" | "ads" | "orders" | "credits" | "profile" }) {
@@ -68,11 +71,56 @@ function NavIcon({ name }: { name: "home" | "ads" | "orders" | "credits" | "prof
 }
 
 export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel }) {
-  const { accessState, busy, business, canGoBack, goBack, loadBusinessOrders, loadCreditDashboard, loadMyAds, notice, setView, user, view } = model;
+  const { accessState, busy, business, canGoBack, goBack, loadBusinessOrders, loadCreditDashboard, loadHomeSummary, loadMyAds, notice, setView, user, view } = model;
   const [activeNav, setActiveNav] = useState<"home" | "ads" | "orders" | "credits" | "profile">("home");
+  const previousViewRef = useRef<BusinessMiniAppView | null>(null);
+  const viewStartedAtRef = useRef<number | null>(null);
+  const canUseBusinessNav = accessState === "ready";
+
+  const openHome = () => {
+    void loadHomeSummary();
+  };
+
+  const openAds = () => {
+    if (view === "my-ads") {
+      return;
+    }
+    void loadMyAds();
+  };
+
+  const openOrders = () => {
+    if (view === "business-orders") {
+      return;
+    }
+    void loadBusinessOrders();
+  };
+
+  const openCredits = () => {
+    if (view === "credits-dashboard") {
+      return;
+    }
+    void loadCreditDashboard();
+  };
+
+  const openProfile = () => {
+    if (view === "business-settings") {
+      return;
+    }
+    setView("business-settings");
+  };
 
   useEffect(() => {
-    if (view === "credits-dashboard" || view === "buy-credits" || view === "credit-payment-pending" || view === "credits-ledger" || view === "referrals") {
+    const previousView = previousViewRef.current;
+    if (viewStartedAtRef.current !== null) {
+      recordSlowScreenTransition(view, previousView, elapsedMs(viewStartedAtRef.current));
+    }
+    recordScreenView(view, previousView);
+    previousViewRef.current = view;
+    viewStartedAtRef.current = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+  }, [view]);
+
+  useEffect(() => {
+    if (view === "credits-dashboard" || view === "buy-credits" || view === "credit-payment-pending" || view === "referrals") {
       setActiveNav("credits");
       return;
     }
@@ -80,11 +128,11 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
       setActiveNav("ads");
       return;
     }
-    if (view === "business-orders" || view === "business-order-detail" || view === "business-chat") {
+    if (view === "business-orders" || view === "business-order-detail" || view === "business-chat" || view === "business-support") {
       setActiveNav("orders");
       return;
     }
-    if (view === "business-settings") {
+    if (view === "business-settings" || view === "business-pin" || view === "business-rules") {
       setActiveNav("profile");
       return;
     }
@@ -111,7 +159,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
         </div>
       </div>
 
-      {canGoBack && accessState === "ready" ? (
+      {canGoBack && canUseBusinessNav ? (
         <div className="screen-heading">
           <button className="topbar-back" type="button" aria-label="Volver" onClick={goBack}>
             <span aria-hidden="true" />
@@ -122,32 +170,32 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
         </div>
       ) : null}
 
-      {accessState === "ready" ? (
+      {canUseBusinessNav ? (
         <div className="primary-nav">
-          <button className={activeNav === "home" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => setView("business-dashboard")}>
+          <button className={activeNav === "home" ? "nav-button is-active" : "nav-button"} type="button" onClick={openHome}>
             <NavIcon name="home" />
             <span>Inicio</span>
           </button>
-          <button className={activeNav === "ads" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => void loadMyAds()}>
+          <button className={activeNav === "ads" ? "nav-button is-active" : "nav-button"} type="button" onClick={openAds}>
             <NavIcon name="ads" />
             <span>Anuncios</span>
           </button>
-          <button className={activeNav === "orders" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => void loadBusinessOrders()}>
+          <button className={activeNav === "orders" ? "nav-button is-active" : "nav-button"} type="button" onClick={openOrders}>
             <NavIcon name="orders" />
             <span>Ordenes</span>
           </button>
-          <button className={activeNav === "credits" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => void loadCreditDashboard()}>
+          <button className={activeNav === "credits" ? "nav-button is-active" : "nav-button"} type="button" onClick={openCredits}>
             <NavIcon name="credits" />
             <span>Creditos</span>
           </button>
-          <button className={activeNav === "profile" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => setView("business-settings")}>
+          <button className={activeNav === "profile" ? "nav-button is-active" : "nav-button"} type="button" onClick={openProfile}>
             <NavIcon name="profile" />
             <span>Perfil</span>
           </button>
         </div>
       ) : null}
 
-      {busy || accessState === "loading" ? (
+      {accessState === "loading" ? (
         <div className="shell-loading-pill">
           <Spinner size="s" />
           <Text>Cargando</Text>

@@ -8,6 +8,8 @@ Chat operativo por orden no es disputa formal.
 
 Solo el flujo formal de disputa puede cambiar una orden a `disputed` o ejecutar efectos de resolucion segun `DISPUTE_RESOLUTION_MASTER.md` y slice autorizado.
 
+Soporte por orden de `slice_20B_support_ticket_center` no cambia `orders.status`, no consume/libera creditos, no cambia `ads.status` y no crea disputa formal.
+
 Este documento gobierna estados, tiempos, cancelaciones, disputas, creditos y anuncios asociados a una orden.
 
 ## Estados oficiales
@@ -53,8 +55,8 @@ Este documento gobierna estados, tiempos, cancelaciones, disputas, creditos y an
 - Click al anuncio no crea orden, no cambia estado y no afecta creditos.
 - Crear orden pone el anuncio/disponibilidad en hold operativo.
 - Los creditos del anuncio ya estan bloqueados desde publicacion.
-- Los creditos se consumen solo cuando el negocio confirma pago recibido.
-- Los creditos se liberan si la orden expira o se cancela antes de pago confirmado.
+- Los creditos se consumen cuando el negocio confirma pago recibido o cuando el anuncio llega a 7 dias sin venta confirmada.
+- Si la orden expira o se cancela antes de pago confirmado y el anuncio aun no vencio, el anuncio vuelve activo con el credito original bloqueado.
 
 ## 1. Cliente crea orden pero no marca Ya pague
 
@@ -78,17 +80,18 @@ Si no marca `Ya pague`:
 order.status = cancelled
 cancel_reason = payment_not_reported_in_time
 ad.status = active
-credits = released
+credits = keep original ad hold
 ```
 
 Resultado:
 
-- El negocio no pierde creditos.
+- El negocio no pierde creditos por esa orden fallida.
 - El anuncio vuelve al catalogo si no vencio.
+- Si el anuncio ya cumplio 7 dias, se archiva y consume el credito.
 - Se registra audit event.
 - Se notifica al remitente.
 
-En slice 04, la expiracion masiva queda para `slice_10_jobs_notifications`; sin embargo, la lectura o mutacion de una orden `waiting_payment` vencida debe materializar pasivamente la cancelacion, liberar disponibilidad/creditos si aplica y auditar el cambio.
+En slice 04, la expiracion masiva queda para `slice_10_jobs_notifications`; sin embargo, la lectura o mutacion de una orden `waiting_payment` vencida debe materializar pasivamente la cancelacion, restaurar disponibilidad si el anuncio sigue vivo, consumir el credito si el anuncio ya llego a 7 dias, y auditar el cambio.
 
 ## 2. Cliente marca Ya pague pero el negocio no confirma
 
@@ -251,7 +254,7 @@ Nota de scope:
 
 | Estado | Problema | Tiempo | Resultado |
 | --- | --- | --- | --- |
-| waiting_payment | Cliente no reporta pago | 30 min + 15 min extension | cancelled, anuncio vuelve activo, creditos liberados |
+| waiting_payment | Cliente no reporta pago | 30 min + 15 min extension | cancelled; anuncio vuelve activo con credito bloqueado si no vencio; si llego a 7 dias, archived + ledger `expire` |
 | payment_reported | Cliente dice que pago, negocio no responde | 2h warning / 6h disputa | disputed, ad.status = in_order, creditos siguen bloqueados |
 | payment_rejected | Negocio rechaza reporte de pago | accion manual futura | creditos siguen bloqueados, ad.status = in_order |
 | payment_confirmed | Negocio recibio pago, pero no entrega pago movil | 30 min warning / 2h disputa | disputed, ad.status = archived, creditos consumidos, negocio bajo revision si se repite |
@@ -261,7 +264,10 @@ Nota de scope:
 
 ```txt
 Si el cliente no pago/reporto a tiempo:
-se cancela y se liberan creditos.
+se cancela; el anuncio vuelve activo si sigue dentro de sus 7 dias.
+
+Si el anuncio llega a 7 dias sin venta:
+se archiva y consume el credito.
 
 Si el cliente reporto pago:
 no se cancela automatico; pasa a disputa si el negocio no responde.

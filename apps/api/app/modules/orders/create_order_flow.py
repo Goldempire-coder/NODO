@@ -87,10 +87,13 @@ class OrderCreateFlow:
                     raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
                 return profile_attach({"order": public_order_payload(existing), "disclaimer": ORDER_DISCLAIMER}, profile, profile_started)
 
-            context = start_context.get("context") or self._order_create_context(user=user, payload=payload, profile=profile)
+            context = start_context.get("context") or self._order_create_context(user=user, payload=payload, profile=profile, request_id=request_id)
             ad = context["ad"]
             business = context["business"]
             payment = context["payment"]
+            if self._ad_expired(ad):
+                self._expire_ad_without_purchase(ad=ad, user=user, request_id=request_id)
+                raise ApiError("AD_EXPIRED", status_code=409)
             plan = build_create_order_plan(
                 user=user,
                 payload=payload,
@@ -170,22 +173,42 @@ class OrderCreateFlow:
             return None
         return profile_attach({"order": public_order_payload(existing), "disclaimer": ORDER_DISCLAIMER}, profile, profile_started)
 
-    def _available_ad_for_order(self, *, user: UserRecord, payload: OrderCreateRequest, profile: list[dict[str, Any]] | None) -> AdRecord:
+    def _expire_ad_without_purchase(self, *, ad: AdRecord, user: UserRecord, request_id: str) -> None:
+        ledger = self._ads.expire_hold(ad=ad, created_by=user.id, reason="ad_expired_without_purchase", source="orders")
+        self._clear_marketplace_cache()
+        self._audit.write(
+            event_type="ad_expired",
+            actor_user_id=user.id,
+            actor_role=user.role,
+            resource_type="ad",
+            resource_id=ad.id,
+            request_id=request_id,
+        )
+        if ledger is not None:
+            self._audit.write(
+                event_type="credits_consumed",
+                actor_user_id=user.id,
+                actor_role=user.role,
+                resource_type="ad",
+                resource_id=ad.id,
+                request_id=request_id,
+                metadata_json={"ledger_id": ledger.id, "amount": ledger.amount, "reason": "ad_expired_without_purchase"},
+            )
+
+    def _available_ad_for_order(self, *, user: UserRecord, payload: OrderCreateRequest, profile: list[dict[str, Any]] | None, request_id: str) -> AdRecord:
         stage_started = time.perf_counter()
         ad = self._ad_or_safe_error(payload.ad_id)
         profile_mark(profile, "service:get_ad", stage_started)
         if self._ad_expired(ad):
-            self._ads.set_status(ad, "expired")
-            self._clear_marketplace_cache()
-            self._ads.release_hold(ad=ad, created_by=user.id)
+            self._expire_ad_without_purchase(ad=ad, user=user, request_id=request_id)
             raise ApiError("AD_EXPIRED", status_code=409)
         if ad.status != "active":
             raise ApiError("AD_NOT_AVAILABLE", status_code=409)
         return ad
 
-    def _order_create_context(self, *, user: UserRecord, payload: OrderCreateRequest, profile: list[dict[str, Any]] | None) -> dict[str, Any]:
+    def _order_create_context(self, *, user: UserRecord, payload: OrderCreateRequest, profile: list[dict[str, Any]] | None, request_id: str) -> dict[str, Any]:
         if not hasattr(self._repository, "get_order_create_context"):
-            ad = self._available_ad_for_order(user=user, payload=payload, profile=profile)
+            ad = self._available_ad_for_order(user=user, payload=payload, profile=profile, request_id=request_id)
             business = self._business_for_order(ad=ad, profile=profile)
             self._validate_order_amount(payload=payload, ad=ad, business=business)
             self._ensure_business_capacity(business=business, profile=profile)
@@ -204,15 +227,15 @@ class OrderCreateFlow:
         active_order_count = int(context["active_order_count"])
         if self._ad_expired(ad):
             stage_started = time.perf_counter()
-            self._ads.set_status(ad, "expired")
-            self._clear_marketplace_cache()
-            self._ads.release_hold(ad=ad, created_by=user.id)
-            profile_mark(profile, "transaction:expire_ad_and_release_hold", stage_started)
+            self._expire_ad_without_purchase(ad=ad, user=user, request_id=request_id)
+            profile_mark(profile, "transaction:expire_ad_and_consume_hold", stage_started)
             raise ApiError("AD_EXPIRED", status_code=409)
         if ad.status != "active":
             raise ApiError("AD_NOT_AVAILABLE", status_code=409)
         if business.verification_status != "approved" or business.risk_level in {"restricted", "high_risk"}:
             raise ApiError("BUSINESS_NOT_APPROVED", status_code=409)
+        if not business.is_accepting_orders:
+            raise ApiError("BUSINESS_OFFLINE", status_code=409)
         self._validate_order_amount(payload=payload, ad=ad, business=business)
         if active_order_count >= business.active_order_limit:
             raise ApiError("AD_NOT_AVAILABLE", status_code=409)
@@ -228,6 +251,8 @@ class OrderCreateFlow:
 
     def _validate_order_amount(self, *, payload: OrderCreateRequest, ad: AdRecord, business: BusinessRecord) -> None:
         if payload.amount_usd < ad.amount_min_usd or payload.amount_usd > ad.amount_max_usd:
+            raise ApiError("AMOUNT_OUT_OF_RANGE", status_code=400)
+        if payload.amount_usd < business.min_order_amount_usd:
             raise ApiError("AMOUNT_OUT_OF_RANGE", status_code=400)
         if payload.amount_usd > business.max_order_amount_usd:
             raise ApiError("AMOUNT_OUT_OF_RANGE", status_code=400)

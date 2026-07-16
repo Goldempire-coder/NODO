@@ -28,7 +28,33 @@ export function getAdminBusiness<T>(request: AuthenticatedRequest, businessId: s
   return request<T>(`/api/v1/admin/businesses/${businessId}`);
 }
 
-export function reviewAdminBusiness<T>(request: AuthenticatedRequest, businessId: string, action: "approve" | "reject", reason: string, idempotencyKey: string) {
+export function listAdminBusinessAccessLinks<T>(request: AuthenticatedRequest, businessId: string) {
+  return request<T>(`/api/v1/admin/businesses/${businessId}/access-links`);
+}
+
+export function createAdminBusinessAccessLink<T>(request: AuthenticatedRequest, businessId: string, payload: { user_id: string; role_in_business: string; reason: string }, idempotencyKey: string) {
+  return request<T>(`/api/v1/admin/businesses/${businessId}/access-links`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateAdminBusinessAccessLink<T>(request: AuthenticatedRequest, businessId: string, linkId: string, action: "suspend" | "reactivate" | "revoke" | "block", reason: string, idempotencyKey: string) {
+  return request<T>(`/api/v1/admin/businesses/${businessId}/access-links/${linkId}/${action}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ reason })
+  });
+}
+
+export function reviewAdminBusiness<T>(request: AuthenticatedRequest, businessId: string, action: "approve" | "reject" | "suspend" | "reactivate" | "block", reason: string, idempotencyKey: string) {
   return request<T>(`/api/v1/admin/businesses/${businessId}/${action}`, {
     method: "POST",
     headers: {
@@ -36,6 +62,29 @@ export function reviewAdminBusiness<T>(request: AuthenticatedRequest, businessId
       "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({ reason })
+  });
+}
+
+export function updateAdminBusinessCapacity<T>(
+  request: AuthenticatedRequest,
+  businessId: string,
+  payload: {
+    trust_level: string;
+    min_order_amount_usd: string;
+    max_order_amount_usd: string;
+    daily_limit_usd: string;
+    active_order_limit: number;
+    reason: string;
+  },
+  idempotencyKey: string
+) {
+  return request<T>(`/api/v1/admin/businesses/${businessId}/capacity`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
   });
 }
 
@@ -49,6 +98,35 @@ export function getAdminBusinessDocumentViewUrl<T>(request: AuthenticatedRequest
 
 export function listAdminOrders<T>(request: AuthenticatedRequest, status?: string) {
   return request<T>(`/api/v1/admin/orders?${listParams(20, "status", status)}`);
+}
+
+export function listAdminUsers<T>(request: AuthenticatedRequest, filters: { phone?: string; telegram_id?: string; username?: string; role?: string; status?: string }) {
+  const params = new URLSearchParams({ limit: "20" });
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) {
+      params.set(key, value);
+    }
+  });
+  return request<T>(`/api/v1/admin/users?${params.toString()}`);
+}
+
+export function getAdminUser<T>(request: AuthenticatedRequest, userId: string) {
+  return request<T>(`/api/v1/admin/users/${userId}`);
+}
+
+export function listAdminUserAccessLinks<T>(request: AuthenticatedRequest, userId: string) {
+  return request<T>(`/api/v1/admin/users/${userId}/access-links`);
+}
+
+export function updateAdminUserStatus<T>(request: AuthenticatedRequest, userId: string, action: "suspend" | "reactivate" | "block", reason: string, idempotencyKey: string) {
+  return request<T>(`/api/v1/admin/users/${userId}/${action}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ reason })
+  });
 }
 
 export function getAdminOrder<T>(request: AuthenticatedRequest, orderId: string) {
@@ -134,7 +212,7 @@ export function deleteAdminBusinessIntake<T>(request: AuthenticatedRequest, inta
 export function acceptAdminBusinessIntake<T>(
   request: AuthenticatedRequest,
   intakeId: string,
-  payload: { reason: string; create_business: boolean; public_business_name: string },
+  payload: { reason: string; create_business: boolean; public_business_name?: string; approve_business?: boolean },
   idempotencyKey: string
 ) {
   return request<T>(`/api/v1/admin/business-intake/${intakeId}/accept`, {
@@ -152,4 +230,73 @@ export function dryRunExpireAndEscalateOrders<T>(request: AuthenticatedRequest, 
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey }
   });
+}
+
+export function listAdminStaff<T>(request: AuthenticatedRequest, filters: { status?: string; staff_role?: string; q?: string }) {
+  const params = new URLSearchParams({ limit: "20" });
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) {
+      params.set(key, value);
+    }
+  });
+  return request<T>(`/api/v1/admin/staff?${params.toString()}`);
+}
+
+export function getAdminStaff<T>(request: AuthenticatedRequest, staffId: string) {
+  return request<T>(`/api/v1/admin/staff/${staffId}`);
+}
+
+export function createAdminStaffInvite<T>(
+  request: AuthenticatedRequest,
+  payload: {
+    target_user_id?: string;
+    target_telegram_id?: string;
+    target_username?: string;
+    staff_role: string;
+    permissions: Array<{ permission: string; scope: string; scope_value?: string | null }>;
+    expires_at: string;
+    reason: string;
+  },
+  idempotencyKey: string
+) {
+  return request<T>("/api/v1/admin/staff/invites", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateAdminStaffStatus<T>(request: AuthenticatedRequest, staffId: string, action: "activate" | "suspend" | "revoke", reason: string, idempotencyKey: string) {
+  return request<T>(`/api/v1/admin/staff/${staffId}/${action}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ reason })
+  });
+}
+
+export function updateAdminStaffPermissions<T>(
+  request: AuthenticatedRequest,
+  staffId: string,
+  permissions: Array<{ permission: string; scope: string; scope_value?: string | null }>,
+  reason: string,
+  idempotencyKey: string
+) {
+  return request<T>(`/api/v1/admin/staff/${staffId}/permissions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ permissions, reason })
+  });
+}
+
+export function listAdminStaffActivity<T>(request: AuthenticatedRequest, staffId: string) {
+  return request<T>(`/api/v1/admin/staff/${staffId}/activity?limit=20`);
 }

@@ -5,12 +5,15 @@ from app.modules.businesses.models import FileAssetRecord
 from app.modules.credits.models import CreditPurchaseRecord, ReferralCodeRecord, ReferralEventRecord
 from app.modules.credits.postgres_admin_adjustment import adjust_wallet_pg
 from app.modules.credits.postgres_purchases import (
+    apply_onchain_verification_pg,
     approve_purchase_pg,
+    create_base_usdc_purchase_pg,
     create_manual_purchase_pg,
     create_stripe_purchase_pg,
     find_purchase_by_checkout_session_pg,
     get_purchase_pg,
     list_purchases_pg,
+    list_onchain_pending_purchases_pg,
     reject_purchase_pg,
     stripe_event_processed_pg,
 )
@@ -94,6 +97,26 @@ class PostgresCreditRepository:
             manual_network=manual_network,
         )
 
+    def create_base_usdc_purchase(
+        self,
+        *,
+        business_id: str,
+        package_code: str,
+        idempotency_key: str,
+        expected_amount_units: int,
+        destination_wallet_address: str,
+        expires_at,
+    ) -> CreditPurchaseRecord:  # type: ignore[no-untyped-def]
+        return create_base_usdc_purchase_pg(
+            self._connect,
+            business_id=business_id,
+            package_code=package_code,
+            idempotency_key=idempotency_key,
+            expected_amount_units=expected_amount_units,
+            destination_wallet_address=destination_wallet_address,
+            expires_at=expires_at,
+        )
+
     def get_purchase(self, purchase_id: str) -> CreditPurchaseRecord | None:
         return get_purchase_pg(self._connect, purchase_id)
 
@@ -106,11 +129,17 @@ class PostgresCreditRepository:
     def approve_purchase(self, *, purchase: CreditPurchaseRecord, actor_user_id: str | None, event_id: str | None = None, payment_intent_id: str | None = None, admin_note: str | None = None) -> tuple[CreditPurchaseRecord, CreditLedgerRecord | None]:
         return approve_purchase_pg(self._connect, purchase=purchase, actor_user_id=actor_user_id, event_id=event_id, payment_intent_id=payment_intent_id, admin_note=admin_note)
 
+    def apply_onchain_verification(self, *, purchase: CreditPurchaseRecord, verification, actor_user_id: str | None) -> tuple[CreditPurchaseRecord, CreditLedgerRecord | None]:  # type: ignore[no-untyped-def]
+        return apply_onchain_verification_pg(self._connect, purchase=purchase, verification=verification, actor_user_id=actor_user_id)
+
     def reject_purchase(self, *, purchase: CreditPurchaseRecord, admin_user_id: str, reason: str) -> CreditPurchaseRecord:
         return reject_purchase_pg(self._connect, purchase=purchase, admin_user_id=admin_user_id, reason=reason)
 
     def list_purchases(self, *, status: str | None, business_id: str | None, cursor: str | None, limit: int) -> tuple[list[CreditPurchaseRecord], str | None]:
         return list_purchases_pg(self._connect, status=status, business_id=business_id, cursor=cursor, limit=limit)
+
+    def list_onchain_pending_purchases(self, *, limit: int) -> list[CreditPurchaseRecord]:
+        return list_onchain_pending_purchases_pg(self._connect, limit=limit)
 
     def adjust_wallet(self, *, business_id: str, amount: int, direction: str, reason: str, notes: str | None, created_by: str) -> CreditLedgerRecord:
         return adjust_wallet_pg(self._connect, business_id=business_id, amount=amount, direction=direction, reason=reason, notes=notes, created_by=created_by)

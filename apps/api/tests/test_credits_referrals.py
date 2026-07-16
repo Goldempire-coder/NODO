@@ -5,15 +5,21 @@ import hmac
 import json
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
+
+from app.modules.credits.onchain import JsonRpcBaseUsdcVerifier, OnchainVerificationResult
 
 
 BOT_TOKEN = "123456:test-bot-token"
 JWT_SECRET = "test-access-secret"
 JWT_REFRESH_SECRET = "test-refresh-secret"
 STRIPE_WEBHOOK_SECRET = "whsec_test_secret"
+BASE_WALLET = "0x1111111111111111111111111111111111111111"
+BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 
 
 def _set_env(**overrides: str) -> None:
@@ -37,6 +43,10 @@ def _set_env(**overrides: str) -> None:
         "AUTH_RATE_LIMIT_WINDOW_SECONDS": "60",
         "BUSINESS_RATE_LIMIT_MAX_ATTEMPTS": "100",
         "BUSINESS_RATE_LIMIT_WINDOW_SECONDS": "60",
+        "NODO_CREDIT_RECEIVING_WALLET_BASE": BASE_WALLET,
+        "ONCHAIN_CREDIT_MIN_CONFIRMATIONS": "3",
+        "ONCHAIN_CREDIT_PURCHASE_TTL_MINUTES": "30",
+        "LEGACY_CREDIT_PAYMENT_METHODS_ENABLED": "1",
     }
     values.update(overrides)
     for key, value in values.items():
@@ -46,11 +56,37 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.businesses.models import utc_now  # noqa: E402
+from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+
+
+class FakeBaseUsdcVerifier:
+    def __init__(self) -> None:
+        self.results: dict[str, OnchainVerificationResult] = {}
+        self.calls: list[str] = []
+
+    def set_result(self, tx_hash: str, result: OnchainVerificationResult) -> None:
+        self.results[tx_hash.lower()] = result
+
+    def verify(
+        self,
+        *,
+        tx_hash: str,
+        expected_amount_units: int,
+        destination_wallet_address: str,
+        min_confirmations: int,
+        latest_block_number: int | None = None,
+    ) -> OnchainVerificationResult:
+        self.calls.append(tx_hash.lower())
+        return self.results[tx_hash.lower()]
 
 
 def _client(**env_overrides: str) -> TestClient:
     _set_env(**env_overrides)
-    return TestClient(create_app())
+    client = TestClient(create_app())
+    client.app.state.onchain_credit_verifier = FakeBaseUsdcVerifier()
+    client.app.state.verify_base_usdc_credit_purchases_worker._verifier = client.app.state.onchain_credit_verifier
+    return client
 
 
 def _signed_init_data(telegram_id: int, username: str) -> str:
@@ -99,7 +135,7 @@ def _create_business(client: TestClient, login: dict, key: str, *, approved: boo
         stored.verification_status = "approved"
         stored.approved_at = stored.updated_at
         stored_user = client.app.state.user_repository.get_user_by_id(login["user"]["id"])
-        client.app.state.business_repository.create_access_link(
+        link = client.app.state.business_repository.create_access_link(
             business_id=business["id"],
             user_id=login["user"]["id"],
             telegram_id_snapshot=stored_user.telegram_id,
@@ -107,6 +143,8 @@ def _create_business(client: TestClient, login: dict, key: str, *, approved: boo
             linked_by_admin_id=login["user"]["id"],
             reason="test_active_business_access",
         )
+        client.app.state.business_repository.set_access_link_pin_hash(link_id=link.id, pin_hash=hash_pin("1234"))
+        client.app.state.business_repository.mark_access_link_pin_verified(link_id=link.id, unlocked_until=utc_now() + timedelta(minutes=15))
     return business
 
 
@@ -154,8 +192,120 @@ def _manual_payment(client: TestClient, login: dict, key: str = "manual", method
     return response.json()["data"]
 
 
+def _base_payment(client: TestClient, login: dict, package_code: str = "starter", key: str = "base") -> dict:
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(login, key), "Content-Type": "application/json"},
+        json={"package_code": package_code, "token_symbol": "USDC"},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["data"]
+
+
+def _tx_hash(seed: str) -> str:
+    return "0x" + hashlib.sha256(seed.encode("utf-8")).hexdigest()
+
+
+def _verification(
+    tx_hash: str,
+    *,
+    amount_units: int = 10_000_000,
+    confirmations: int = 6,
+    status: str = "verified",
+    error_code: str | None = None,
+    chain_id: int = 8453,
+    token: str = BASE_USDC,
+    to_address: str = BASE_WALLET,
+    log_index: int = 0,
+) -> OnchainVerificationResult:
+    return OnchainVerificationResult(
+        chain_id=chain_id,
+        token_contract_address=token.lower(),
+        destination_wallet_address=BASE_WALLET,
+        tx_hash=tx_hash.lower(),
+        tx_from_address="0x2222222222222222222222222222222222222222",
+        tx_to_address=to_address.lower(),
+        tx_amount_units=amount_units,
+        tx_block_number=123,
+        tx_log_index=log_index,
+        confirmations=confirmations,
+        verification_status=status,
+        error_code=error_code,
+    )
+
+
+def _transfer_log(*, to_address: str = BASE_WALLET, amount_units: int = 10_000_000, log_index: int = 0) -> dict:
+    return {
+        "address": BASE_USDC,
+        "topics": [
+            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+            "0x" + "0" * 24 + "2222222222222222222222222222222222222222",
+            "0x" + "0" * 24 + to_address.removeprefix("0x"),
+        ],
+        "data": hex(amount_units),
+        "logIndex": hex(log_index),
+    }
+
+
 def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
+
+
+def test_base_usdc_verifier_rejects_failed_receipt() -> None:
+    class FailedReceiptVerifier(JsonRpcBaseUsdcVerifier):
+        def __init__(self) -> None:
+            super().__init__(rpc_url="https://base-rpc.example", timeout_seconds=1)
+
+        def _rpc(self, method: str, params: list[object]) -> object:
+            if method == "eth_chainId":
+                return "0x2105"
+            if method == "eth_getTransactionReceipt":
+                return {"status": "0x0", "blockNumber": "0x7b"}
+            raise AssertionError(f"unexpected rpc method: {method}")
+
+    tx_hash = _tx_hash("failed-receipt")
+    result = FailedReceiptVerifier().verify(tx_hash=tx_hash, expected_amount_units=10_000_000, destination_wallet_address=BASE_WALLET, min_confirmations=3)
+
+    assert result.verification_status == "verification_failed"
+    assert result.error_code == "ONCHAIN_TX_FAILED"
+
+
+def test_base_usdc_verifier_caches_chain_id_and_reuses_prefetched_block() -> None:
+    class CountingVerifier(JsonRpcBaseUsdcVerifier):
+        def __init__(self) -> None:
+            super().__init__(rpc_url="https://base-rpc.example", timeout_seconds=1)
+            self.calls: list[str] = []
+
+        def latest_block_number(self) -> int:
+            self._rpc_call_count += 1
+            self.calls.append("eth_blockNumber")
+            return 130
+
+        def _rpc(self, method: str, params: list[object]) -> object:
+            self._rpc_call_count += 1
+            self.calls.append(method)
+            if method == "eth_chainId":
+                return "0x2105"
+            if method == "eth_getTransactionReceipt":
+                return {
+                    "status": "0x1",
+                    "blockNumber": "0x7b",
+                    "from": "0x2222222222222222222222222222222222222222",
+                    "logs": [_transfer_log()],
+                }
+            raise AssertionError(f"unexpected rpc method: {method}")
+
+    verifier = CountingVerifier()
+    latest_block = verifier.latest_block_number()
+
+    first = verifier.verify(tx_hash=_tx_hash("cost-one"), expected_amount_units=10_000_000, destination_wallet_address=BASE_WALLET, min_confirmations=3, latest_block_number=latest_block)
+    second = verifier.verify(tx_hash=_tx_hash("cost-two"), expected_amount_units=10_000_000, destination_wallet_address=BASE_WALLET, min_confirmations=3, latest_block_number=latest_block)
+
+    assert first.verification_status == "verified"
+    assert second.verification_status == "verified"
+    assert verifier.calls.count("eth_chainId") == 1
+    assert verifier.calls.count("eth_blockNumber") == 1
+    assert verifier.calls.count("eth_getTransactionReceipt") == 2
 
 
 def test_wallet_and_ledger_are_business_owned_and_no_guest_access() -> None:
@@ -212,6 +362,29 @@ def test_stripe_redirect_does_not_credit_and_signed_webhook_credits_once() -> No
     purchases = [item for item in client.app.state.ad_repository.ledger.values() if item.type == "purchase" and item.related_credit_purchase_id == purchase["id"]]
     assert len(purchases) == 1
     assert {"stripe_checkout_started", "stripe_payment_succeeded", "credits_added"}.issubset(set(_event_types(client)))
+
+
+def test_legacy_credit_payment_methods_can_be_disabled() -> None:
+    client = _client(LEGACY_CREDIT_PAYMENT_METHODS_ENABLED="0")
+    owner = _login(client, 915, "legacy_disabled")
+    _create_business(client, owner, "legacy_disabled")
+
+    stripe = client.post(
+        "/api/v1/business/credits/stripe-checkout",
+        headers={**_headers(owner, "legacy_disabled_stripe"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
+    manual = client.post(
+        "/api/v1/business/credits/manual-payment",
+        headers=_headers(owner, "legacy_disabled_manual"),
+        data={"package_code": "starter", "payment_method": "zelle_manual_admin_approved", "manual_payment_reference": "ZELLE-LEGACY"},
+        files={"file": ("proof.pdf", b"proof-bytes", "application/pdf")},
+    )
+
+    assert stripe.status_code == 410
+    assert stripe.json()["error"]["code"] == "CREDIT_PAYMENT_METHOD_DISABLED"
+    assert manual.status_code == 410
+    assert manual.json()["error"]["code"] == "CREDIT_PAYMENT_METHOD_DISABLED"
 
 
 def test_manual_payment_submit_pending_admin_approve_once_and_reject_never_credits() -> None:
@@ -360,6 +533,306 @@ def test_referrals_prevent_self_referral_duplicate_and_award_bonus_once_after_pu
     assert client.app.state.ad_repository.get_wallet(referrer_business["id"]).available_credits == 1
     referral_ledgers = [item for item in client.app.state.ad_repository.ledger.values() if item.business_id == referrer_business["id"] and item.type == "referral_bonus"]
     assert len(referral_ledgers) == 1
+
+
+def test_base_usdc_payment_create_does_not_credit_and_valid_tx_credits_once() -> None:
+    client = _client()
+    owner = _login(client, 970, "base_owner")
+    business = _create_business(client, owner, "base_owner")
+
+    payment = _base_payment(client, owner, key="base_create")
+    purchase = payment["purchase"]
+    assert purchase["status"] == "pending_payment"
+    assert purchase["chain_id"] == 8453
+    assert purchase["token_contract_address"] == BASE_USDC
+    assert purchase["expected_amount_units"] == "10000000"
+    assert payment["payment"]["network"] == "base_mainnet"
+    assert payment["payment"]["chain_id"] == 8453
+    assert payment["payment"]["token_symbol"] == "USDC"
+    assert payment["payment"]["token_contract_address"] == BASE_USDC
+    assert payment["payment"]["destination_wallet_address"] == BASE_WALLET
+    assert payment["payment"]["expected_amount_units"] == "10000000"
+    assert payment["payment"]["expected_amount_display"] == "10.00"
+    assert payment["payment"]["min_confirmations"] == 3
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 0
+
+    tx_hash = _tx_hash("valid-onchain")
+    client.app.state.onchain_credit_verifier.set_result(tx_hash, _verification(tx_hash))
+    submitted = client.post(
+        f"/api/v1/business/credits/purchases/{purchase['id']}/tx-hash",
+        headers={**_headers(owner, "base_tx"), "Content-Type": "application/json"},
+        json={"tx_hash": tx_hash},
+    )
+    replay = client.post(
+        f"/api/v1/business/credits/purchases/{purchase['id']}/tx-hash",
+        headers={**_headers(owner, "base_tx"), "Content-Type": "application/json"},
+        json={"tx_hash": tx_hash},
+    )
+
+    assert submitted.status_code == 200, submitted.text
+    assert submitted.json()["data"]["credited"] is True
+    assert submitted.json()["data"]["purchase"]["status"] == "credited"
+    assert submitted.json()["data"]["purchase"]["tx_hash_masked"].endswith(tx_hash[-8:])
+    assert tx_hash not in submitted.text
+    assert replay.status_code == 200
+    assert replay.json()["data"]["credited"] is True
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 5
+    purchase_ledgers = [item for item in client.app.state.ad_repository.ledger.values() if item.type == "purchase" and item.related_credit_purchase_id == purchase["id"]]
+    assert len(purchase_ledgers) == 1
+    assert purchase_ledgers[0].reason == "base_usdc_onchain_verified"
+    assert "storage_path" not in submitted.text
+    assert "account_value" not in submitted.text
+    audit_json = json.dumps([event.__dict__ for event in client.app.state.audit_writer.events], default=str)
+    assert tx_hash not in audit_json
+    assert "tx_hash_masked" in audit_json
+
+    overpay = _base_payment(client, owner, key="base_overpay")
+    overpay_hash = _tx_hash("valid-overpay")
+    client.app.state.onchain_credit_verifier.set_result(overpay_hash, _verification(overpay_hash, amount_units=15_000_000, log_index=2))
+    overpay_response = client.post(
+        f"/api/v1/business/credits/purchases/{overpay['purchase']['id']}/tx-hash",
+        headers={**_headers(owner, "base_overpay_tx"), "Content-Type": "application/json"},
+        json={"tx_hash": overpay_hash},
+    )
+    assert overpay_response.status_code == 200, overpay_response.text
+    assert overpay_response.json()["data"]["purchase"]["status"] == "credited"
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 10
+
+
+def test_base_usdc_payment_requires_configured_receiving_wallet() -> None:
+    client = _client(NODO_CREDIT_RECEIVING_WALLET_BASE="")
+    owner = _login(client, 976, "base_missing_wallet")
+    _create_business(client, owner, "base_missing_wallet")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "base_missing_wallet"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "ONCHAIN_RECEIVING_WALLET_NOT_CONFIGURED"
+    assert response.json()["error"]["message"] == "La wallet de recepcion BASE no esta configurada correctamente."
+
+
+def test_base_usdc_wrong_chain_token_wallet_partial_and_pending_confirmations() -> None:
+    client = _client()
+    owner = _login(client, 971, "base_failures")
+    _create_business(client, owner, "base_failures")
+
+    cases = [
+        ("wrong_chain", _verification(_tx_hash("wrong_chain"), chain_id=1, error_code="ONCHAIN_WRONG_CHAIN"), 409, "ONCHAIN_WRONG_CHAIN"),
+        ("wrong_token", _verification(_tx_hash("wrong_token"), token="0x3333333333333333333333333333333333333333", error_code="ONCHAIN_WRONG_TOKEN_OR_WALLET"), 409, "ONCHAIN_WRONG_TOKEN_OR_WALLET"),
+        ("wrong_wallet", _verification(_tx_hash("wrong_wallet"), to_address="0x4444444444444444444444444444444444444444", error_code="ONCHAIN_WRONG_TOKEN_OR_WALLET"), 409, "ONCHAIN_WRONG_TOKEN_OR_WALLET"),
+    ]
+    for suffix, result, status_code, code in cases:
+        payment = _base_payment(client, owner, key=f"base_{suffix}")
+        client.app.state.onchain_credit_verifier.set_result(result.tx_hash, result)
+        response = client.post(
+            f"/api/v1/business/credits/purchases/{payment['purchase']['id']}/tx-hash",
+            headers={**_headers(owner, f"tx_{suffix}"), "Content-Type": "application/json"},
+            json={"tx_hash": result.tx_hash},
+        )
+        assert response.status_code == status_code, response.text
+        assert response.json()["error"]["code"] == code
+
+    partial = _base_payment(client, owner, key="base_partial")
+    partial_hash = _tx_hash("partial")
+    client.app.state.onchain_credit_verifier.set_result(partial_hash, _verification(partial_hash, amount_units=5_000_000, status="under_review"))
+    partial_response = client.post(
+        f"/api/v1/business/credits/purchases/{partial['purchase']['id']}/tx-hash",
+        headers={**_headers(owner, "tx_partial"), "Content-Type": "application/json"},
+        json={"tx_hash": partial_hash},
+    )
+    assert partial_response.status_code == 200, partial_response.text
+    assert partial_response.json()["data"]["purchase"]["status"] == "under_review"
+
+    pending = _base_payment(client, owner, key="base_pending_confirmations")
+    pending_hash = _tx_hash("pending_confirmations")
+    client.app.state.onchain_credit_verifier.set_result(pending_hash, _verification(pending_hash, confirmations=1, status="pending_onchain_confirmation"))
+    pending_response = client.post(
+        f"/api/v1/business/credits/purchases/{pending['purchase']['id']}/tx-hash",
+        headers={**_headers(owner, "tx_pending_confirmations"), "Content-Type": "application/json"},
+        json={"tx_hash": pending_hash},
+    )
+    assert pending_response.status_code == 200, pending_response.text
+    assert pending_response.json()["data"]["purchase"]["status"] == "pending_onchain_confirmation"
+
+
+def test_admin_detail_and_reject_onchain_under_review_requires_admin_reason() -> None:
+    client = _client()
+    owner = _login(client, 974, "base_admin_owner")
+    _create_business(client, owner, "base_admin_owner")
+    admin = _login(client, 975, "base_admin")
+    support = _login(client, 976, "base_support")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    client.app.state.user_repository.set_user_role(support["user"]["id"], "support")
+
+    payment = _base_payment(client, owner, key="base_admin_review")
+    tx_hash = _tx_hash("admin-under-review")
+    client.app.state.onchain_credit_verifier.set_result(tx_hash, _verification(tx_hash, amount_units=5_000_000, status="under_review"))
+    submitted = client.post(
+        f"/api/v1/business/credits/purchases/{payment['purchase']['id']}/tx-hash",
+        headers={**_headers(owner, "base_admin_review_tx"), "Content-Type": "application/json"},
+        json={"tx_hash": tx_hash},
+    )
+    detail = client.get(f"/api/v1/admin/credit-purchases/{payment['purchase']['id']}", headers=_bearer(admin, "req_admin_purchase_detail"))
+    missing_reason = client.post(
+        f"/api/v1/admin/credit-purchases/{payment['purchase']['id']}/reject",
+        headers={**_headers(admin, "base_admin_reject_missing"), "Content-Type": "application/json"},
+        json={},
+    )
+    support_reject = client.post(
+        f"/api/v1/admin/credit-purchases/{payment['purchase']['id']}/reject",
+        headers={**_headers(support, "base_support_reject"), "Content-Type": "application/json"},
+        json={"reason": "Pago parcial"},
+    )
+    rejected = client.post(
+        f"/api/v1/admin/credit-purchases/{payment['purchase']['id']}/reject",
+        headers={**_headers(admin, "base_admin_reject"), "Content-Type": "application/json"},
+        json={"reason": "Pago parcial"},
+    )
+
+    assert submitted.status_code == 200, submitted.text
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["data"]["purchase"]["status"] == "under_review"
+    assert missing_reason.status_code == 422
+    assert support_reject.status_code == 403
+    assert rejected.status_code == 200, rejected.text
+    assert rejected.json()["data"]["purchase"]["status"] == "rejected"
+    assert "onchain_credit_purchase_rejected" in _event_types(client)
+
+
+def test_base_usdc_duplicate_tx_log_watcher_and_referral_bonus_after_credited_purchase() -> None:
+    client = _client()
+    referrer_login = _login(client, 972, "base_referrer")
+    referred_login = _login(client, 973, "base_referred")
+    referrer_business = _create_business(client, referrer_login, "base_referrer")
+    referred_business = _create_business(client, referred_login, "base_referred")
+    referral_code = client.get("/api/v1/business/referrals", headers=_bearer(referrer_login, "req_base_referrer")).json()["data"]["referral_code"]
+    applied = client.post(
+        "/api/v1/business/referrals/apply",
+        headers={**_headers(referred_login, "apply_base_ref"), "Content-Type": "application/json"},
+        json={"referral_code": referral_code},
+    )
+    assert applied.status_code == 200, applied.text
+
+    first = _base_payment(client, referred_login, key="base_ref_purchase")
+    tx_hash = _tx_hash("base-ref-valid")
+    client.app.state.onchain_credit_verifier.set_result(tx_hash, _verification(tx_hash, log_index=7))
+    purchase_record = client.app.state.credit_repository.get_purchase(first["purchase"]["id"])
+    purchase_record.tx_hash = tx_hash
+    watcher_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(request_id="req_watcher_base")
+    duplicate_purchase = _base_payment(client, referred_login, key="base_ref_duplicate")
+    duplicate = client.post(
+        f"/api/v1/business/credits/purchases/{duplicate_purchase['purchase']['id']}/tx-hash",
+        headers={**_headers(referred_login, "base_dup_tx"), "Content-Type": "application/json"},
+        json={"tx_hash": tx_hash},
+    )
+
+    assert watcher_result["credited"] == 1
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "ONCHAIN_TX_ALREADY_USED"
+    assert client.app.state.ad_repository.get_wallet(referred_business["id"]).available_credits == 5
+    assert client.app.state.ad_repository.get_wallet(referrer_business["id"]).available_credits == 1
+    referral_ledgers = [item for item in client.app.state.ad_repository.ledger.values() if item.business_id == referrer_business["id"] and item.type == "referral_bonus"]
+    assert len(referral_ledgers) == 1
+
+
+def test_base_usdc_watcher_scans_only_tx_ready_purchases_and_reports_cost_counters() -> None:
+    client = _client()
+    owner = _login(client, 979, "base_cost_owner")
+    business = _create_business(client, owner, "base_cost_owner")
+    no_hash = _base_payment(client, owner, key="base_cost_no_hash")
+    tx_ready = _base_payment(client, owner, key="base_cost_ready")
+    tx_hash = _tx_hash("base-cost-ready")
+    client.app.state.onchain_credit_verifier.set_result(tx_hash, _verification(tx_hash, log_index=21))
+    purchase_record = client.app.state.credit_repository.get_purchase(tx_ready["purchase"]["id"])
+    purchase_record.tx_hash = tx_hash
+
+    watcher_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(request_id="req_watcher_cost")
+
+    assert watcher_result["scanned"] == 1
+    assert watcher_result["eligible"] == 1
+    assert watcher_result["skipped_missing_tx"] == 0
+    assert watcher_result["verified_attempts"] == 1
+    assert watcher_result["credited"] == 1
+    assert watcher_result["rpc_calls"] == 0
+    assert watcher_result["latest_block_prefetched"] is False
+    assert client.app.state.credit_repository.get_purchase(no_hash["purchase"]["id"]).status == "pending_payment"
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 5
+
+
+def test_base_usdc_duplicate_tx_log_race_only_one_purchase_credits() -> None:
+    client = _client()
+    first_owner = _login(client, 977, "race_first")
+    second_owner = _login(client, 978, "race_second")
+    first_business = _create_business(client, first_owner, "race_first")
+    second_business = _create_business(client, second_owner, "race_second")
+    first = _base_payment(client, first_owner, key="base_race_first")
+    second = _base_payment(client, second_owner, key="base_race_second")
+    tx_hash = _tx_hash("race-duplicate")
+    client.app.state.onchain_credit_verifier.set_result(tx_hash, _verification(tx_hash, log_index=19))
+
+    def submit(login: dict, purchase_id: str, key: str):
+        return client.post(
+            f"/api/v1/business/credits/purchases/{purchase_id}/tx-hash",
+            headers={**_headers(login, key), "Content-Type": "application/json"},
+            json={"tx_hash": tx_hash},
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        responses = list(
+            executor.map(
+                lambda args: submit(*args),
+                [
+                    (first_owner, first["purchase"]["id"], "race_tx_first"),
+                    (second_owner, second["purchase"]["id"], "race_tx_second"),
+                ],
+            )
+        )
+
+    status_codes = sorted(response.status_code for response in responses)
+    assert status_codes == [200, 409]
+    assert sum(response.status_code == 200 and response.json()["data"]["credited"] for response in responses) == 1
+    assert sum(response.status_code == 409 and response.json()["error"]["code"] == "ONCHAIN_TX_ALREADY_USED" for response in responses) == 1
+    total_available = client.app.state.ad_repository.get_wallet(first_business["id"]).available_credits + client.app.state.ad_repository.get_wallet(second_business["id"]).available_credits
+    assert total_available == 5
+
+
+def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
+    source = open("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx", encoding="utf-8").read()
+    hook_source = open("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts", encoding="utf-8").read()
+    model_source = open("apps/web/src/hooks/useBusinessMiniAppModel.ts", encoding="utf-8").read()
+    assert "Generando..." in source
+    assert "Copiar wallet" in source
+    assert "Copiar monto" in source
+    assert "mini-action-button--copied" in source
+    assert "setCopiedTarget(\"wallet\")" in source
+    assert "setCopiedTarget(\"amount\")" in source
+    assert "Envia solo USDC por red Base." in source
+    assert "Compra de creditos no disponible todavia. Falta configurar la wallet Base de NODO." in hook_source
+    assert 'const action = "comprar creditos"' in hook_source
+    assert "requireBusinessPinFor(action)" in hook_source
+    assert "handleBusinessPinError(error, action)" in hook_source
+    assert "BUSINESS_PIN_REQUIRED" in hook_source
+    assert "useBusinessCreditsModel({ business: access.business" in model_source
+    assert "startBusinessBaseUsdcPayment" in hook_source
+    assert "submitBusinessBaseUsdcTxHash" in hook_source
+    assert "localStorage.setItem(BASE_USDC_PENDING_PURCHASE_KEY" in hook_source
+    assert "Fallback tarjeta" not in source
+    assert "Metodo manual" not in source
+    assert "Zelle manual" not in source
+    assert "USDT TRC20 manual" not in source
+    assert "Comprobante privado" not in source
+
+
+def test_postgres_onchain_duplicate_tx_log_path_is_atomic() -> None:
+    source = open("apps/api/app/modules/credits/postgres_onchain.py", encoding="utf-8").read()
+    assert "on conflict (chain_id, tx_hash, tx_log_index) do nothing" in source
+    assert "for update" in source
+    assert "ONCHAIN_TX_ALREADY_USED" in source
+    assert "do update" not in source.lower()
 
 
 def test_founder_access_remains_audited_credit_free_publish_without_bypassing_verification() -> None:

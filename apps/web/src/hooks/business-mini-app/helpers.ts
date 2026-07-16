@@ -30,8 +30,11 @@ export function fallbackForBusinessMiniAppView(view: BusinessMiniAppView): Busin
   if (view === "archived-ads" || view === "payment-methods" || view === "create-ad") {
     return "my-ads";
   }
-  if (view === "buy-credits" || view === "credit-payment-pending" || view === "credits-ledger" || view === "referrals") {
+  if (view === "buy-credits" || view === "credit-payment-pending" || view === "referrals") {
     return "credits-dashboard";
+  }
+  if (view === "business-rules") {
+    return "business-settings";
   }
   return "business-dashboard";
 }
@@ -84,20 +87,13 @@ export function humanizeAdStatus(status: string) {
   return labels[status] || status.replaceAll("_", " ");
 }
 
-export function humanizeLedgerType(type: string) {
-  const labels: Record<string, string> = {
-    hold: "Bloqueo",
-    release: "Liberacion",
-    consume: "Consumo",
-    purchase: "Compra",
-    admin_adjustment: "Ajuste"
-  };
-  return labels[type] || type.replaceAll("_", " ");
-}
-
 export function humanizePurchaseStatus(status: string) {
   const labels: Record<string, string> = {
     pending_manual_review: "En revision",
+    pending_payment: "Pago pendiente",
+    pending_onchain_confirmation: "Confirmando en Base",
+    under_review: "En revision NODO",
+    verification_failed: "Verificacion fallida",
     pending_stripe: "Pago iniciado",
     pending: "Pendiente",
     active: "Activo",

@@ -27,7 +27,8 @@ class PostgresAdminBusinessesMixin:
             row = conn.execute(
                 """
                 select id, owner_user_id, business_name, country, verification_status, risk_level,
-                       trust_level, max_order_amount_usd, active_order_limit, completed_orders_count,
+                       trust_level, min_order_amount_usd, max_order_amount_usd, daily_limit_usd,
+                       active_order_limit, completed_orders_count,
                        disputes_count, updated_at, created_at
                 from businesses where id = %s
                 """,
@@ -38,7 +39,9 @@ class PostgresAdminBusinessesMixin:
         data = dict(row)
         data["id"] = str(row["id"])
         data["owner_user_id"] = str(row["owner_user_id"])
+        data["min_order_amount_usd"] = str(row["min_order_amount_usd"])
         data["max_order_amount_usd"] = str(row["max_order_amount_usd"])
+        data["daily_limit_usd"] = str(row["daily_limit_usd"])
         data["created_at"] = row["created_at"].isoformat()
         data["updated_at"] = row["updated_at"].isoformat()
         return data

@@ -15,6 +15,7 @@ export type PublicUser = {
 export type AuthResponse = {
   data?: {
     access_token: string;
+    refresh_token: string;
     token_type: "Bearer";
     expires_in: number;
     user: PublicUser;

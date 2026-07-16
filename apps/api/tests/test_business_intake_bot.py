@@ -45,6 +45,8 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.business_intake import business_creation as intake_business_creation  # noqa: E402
+from app.modules.business_intake import conversation as intake_conversation  # noqa: E402
 from app.modules.business_intake import routes as intake_routes  # noqa: E402
 from app.modules.business_intake import service as intake_service  # noqa: E402
 from app.routes import telegram_bot  # noqa: E402
@@ -56,13 +58,13 @@ def _client(**env_overrides: str) -> TestClient:
     return TestClient(create_app())
 
 
-def _signed_init_data(telegram_id: int, username: str) -> str:
+def _signed_init_data(telegram_id: int, username: str, *, bot_token: str = BOT_TOKEN) -> str:
     payload = {
         "auth_date": str(int(time.time())),
         "user": json.dumps({"id": telegram_id, "username": username, "first_name": username}, separators=(",", ":"), sort_keys=True),
     }
     data_check_string = "\n".join(f"{key}={value}" for key, value in sorted(payload.items()))
-    secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode("utf-8"), hashlib.sha256).digest()
+    secret_key = hmac.new(b"WebAppData", bot_token.encode("utf-8"), hashlib.sha256).digest()
     payload["hash"] = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
     return urlencode(payload)
 
@@ -511,6 +513,190 @@ def test_admin_accept_can_create_pending_business_with_public_name() -> None:
     assert applicant.role == "remitter"
     assert client.app.state.business_repository.access_links == {}
     assert "business_created_from_intake" in _event_types(client)
+
+
+def test_admin_accept_can_approve_business_link_owner_and_send_business_bot_button(monkeypatch: Any) -> None:
+    client = _client(TELEGRAM_WEB_APP_URL="https://nodo.example.test")
+    telegram_id = 7043
+    chat_id = 8043
+    sent_messages: list[dict[str, Any]] = []
+    menu_buttons: list[dict[str, Any]] = []
+
+    def fake_send(bot_token: str, sent_chat_id: int, text: str, reply_markup: dict[str, Any] | None = None) -> None:
+        sent_messages.append({"bot_token": bot_token, "chat_id": sent_chat_id, "text": text, "reply_markup": reply_markup})
+
+    def fake_set_menu(bot_token: str, sent_chat_id: int, text: str, web_app_url: str) -> None:
+        menu_buttons.append({"bot_token": bot_token, "chat_id": sent_chat_id, "text": text, "web_app_url": web_app_url})
+
+    monkeypatch.setattr(intake_business_creation, "telegram_send_message_sync", fake_send)
+    monkeypatch.setattr(intake_business_creation, "telegram_set_chat_menu_button_sync", fake_set_menu)
+
+    started = _start(client, update_id=580, telegram_id=telegram_id, chat_id=chat_id)
+    _contact(client, started["id"], update_id=581, telegram_id=telegram_id, chat_id=chat_id)
+    _submit(client, started["id"], update_id=582, telegram_id=telegram_id, chat_id=chat_id)
+    admin = _login(client, 9043, "admin_approve_intake_business")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    response = client.post(
+        f"/api/v1/admin/business-intake/{started['id']}/accept",
+        headers={**_admin_headers(admin, "accept_approve_business"), "Content-Type": "application/json"},
+        json={
+            "reason": "documents reviewed and business approved",
+            "create_business": True,
+            "approve_business": True,
+            "public_business_name": "Casa Aprobada NODO",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["created_business"] is True
+    assert data["access_link_created"] is True
+    assert data["approval_notification_sent"] is True
+    assert data["business"]["business_name"] == "Casa Aprobada NODO"
+    assert data["business"]["verification_status"] == "approved"
+
+    business = client.app.state.business_repository.get_business(data["business"]["id"])
+    applicant = client.app.state.user_repository.get_user_by_telegram_id(telegram_id)
+    assert business.verification_status == "approved"
+    assert business.owner_user_id == applicant.id
+    assert applicant.role == "business_owner"
+    link = next(iter(client.app.state.business_repository.access_links.values()))
+    assert link.business_id == business.id
+    assert link.user_id == applicant.id
+    assert link.telegram_id_snapshot == telegram_id
+    assert link.status == "active"
+
+    assert sent_messages[0]["bot_token"] == BUSINESS_INTAKE_BOT_TOKEN
+    assert sent_messages[0]["chat_id"] == chat_id
+    assert sent_messages[0]["text"] == intake_business_creation.BUSINESS_APPROVAL_MESSAGE
+    assert sent_messages[0]["reply_markup"]["inline_keyboard"][0][0] == {
+        "text": intake_business_creation.BUSINESS_APPROVAL_BUTTON_TEXT,
+        "web_app": {"url": "https://nodo.example.test/business/"},
+    }
+    assert menu_buttons == [
+        {
+            "bot_token": BUSINESS_INTAKE_BOT_TOKEN,
+            "chat_id": chat_id,
+            "text": intake_business_creation.BUSINESS_MENU_BUTTON_TEXT,
+            "web_app_url": "https://nodo.example.test/business/",
+        }
+    ]
+
+    business_login = client.post(
+        "/api/v1/auth/telegram",
+        headers={"X-Request-Id": "req_business_intake_bot_login", "X-NODO-Surface": "business_mini_app"},
+        json={"init_data": _signed_init_data(telegram_id, "approved_business_owner", bot_token=BUSINESS_INTAKE_BOT_TOKEN)},
+    )
+    assert business_login.status_code == 200, business_login.text
+    surface = client.get(
+        "/api/v1/surface/session",
+        headers={
+            "Authorization": f"Bearer {business_login.json()['data']['access_token']}",
+            "X-NODO-Surface": "business_mini_app",
+            "X-Request-Id": "req_business_surface_after_intake_approval",
+        },
+    )
+    assert surface.status_code == 200, surface.text
+    assert surface.json()["data"]["allowed"] is True
+    assert surface.json()["data"]["business"]["id"] == business.id
+
+    webhook_messages: list[dict[str, Any]] = []
+    webhook_menu_buttons: list[dict[str, Any]] = []
+
+    async def fake_async_send(bot_token: str, sent_chat_id: int, text: str, reply_markup: dict[str, Any] | None = None) -> None:
+        webhook_messages.append({"bot_token": bot_token, "chat_id": sent_chat_id, "text": text, "reply_markup": reply_markup})
+
+    async def fake_async_set_menu(bot_token: str, sent_chat_id: int, text: str, web_app_url: str) -> None:
+        webhook_menu_buttons.append({"bot_token": bot_token, "chat_id": sent_chat_id, "text": text, "web_app_url": web_app_url})
+
+    monkeypatch.setattr(intake_service, "telegram_send_message", fake_async_send)
+    monkeypatch.setattr(intake_routes, "telegram_send_message", fake_async_send)
+    monkeypatch.setattr(intake_service, "telegram_set_chat_menu_button", fake_async_set_menu)
+    start_again = _business_webhook(client, _telegram_message(583, telegram_id=telegram_id, chat_id=chat_id, text="/start"))
+
+    assert start_again.status_code == 200, start_again.text
+    assert start_again.json()["data"]["action"] == "approved_business_open_sent"
+    assert start_again.json()["data"]["business_id"] == business.id
+    assert webhook_messages[0]["text"] != intake_business_creation.BUSINESS_APPROVAL_MESSAGE
+    assert webhook_messages == [
+        {
+            "bot_token": BUSINESS_INTAKE_BOT_TOKEN,
+            "chat_id": chat_id,
+            "text": intake_conversation.BUSINESS_OPEN_MESSAGE,
+            "reply_markup": {
+                "inline_keyboard": [
+                    [
+                        {
+                            "text": intake_business_creation.BUSINESS_APPROVAL_BUTTON_TEXT,
+                            "web_app": {"url": "https://nodo.example.test/business/"},
+                        }
+                    ]
+                ]
+            },
+        }
+    ]
+    assert webhook_menu_buttons == [
+        {
+            "bot_token": BUSINESS_INTAKE_BOT_TOKEN,
+            "chat_id": chat_id,
+            "text": intake_business_creation.BUSINESS_MENU_BUTTON_TEXT,
+            "web_app_url": "https://nodo.example.test/business/",
+        }
+    ]
+    assert {
+        "business_approved",
+        "business_access_linked",
+        "business_intake_approval_notification_sent",
+        "business_intake_approved_business_start",
+    }.issubset(set(_event_types(client)))
+
+
+def test_admin_accept_can_approve_existing_intake_created_business(monkeypatch: Any) -> None:
+    client = _client()
+    sent_messages: list[dict[str, Any]] = []
+
+    def fake_send(bot_token: str, sent_chat_id: int, text: str, reply_markup: dict[str, Any] | None = None) -> None:
+        sent_messages.append({"bot_token": bot_token, "chat_id": sent_chat_id, "text": text, "reply_markup": reply_markup})
+
+    monkeypatch.setattr(intake_business_creation, "telegram_send_message_sync", fake_send)
+
+    started = _start(client, update_id=590, telegram_id=7044, chat_id=8044)
+    _contact(client, started["id"], update_id=591, telegram_id=7044, chat_id=8044)
+    _submit(client, started["id"], update_id=592, telegram_id=7044, chat_id=8044)
+    admin = _login(client, 9044, "admin_approve_existing_intake_business")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    pending = client.post(
+        f"/api/v1/admin/business-intake/{started['id']}/accept",
+        headers={**_admin_headers(admin, "accept_create_pending_then_approve"), "Content-Type": "application/json"},
+        json={
+            "reason": "documents reviewed",
+            "create_business": True,
+            "public_business_name": "Casa Pendiente NODO",
+        },
+    )
+    assert pending.status_code == 200, pending.text
+    assert pending.json()["data"]["business"]["verification_status"] == "pending"
+
+    approved = client.post(
+        f"/api/v1/admin/business-intake/{started['id']}/accept",
+        headers={**_admin_headers(admin, "accept_approve_existing_business"), "Content-Type": "application/json"},
+        json={
+            "reason": "final approval",
+            "create_business": False,
+            "approve_business": True,
+        },
+    )
+
+    assert approved.status_code == 200, approved.text
+    data = approved.json()["data"]
+    assert data["created_business"] is False
+    assert data["access_link_created"] is True
+    assert data["approval_notification_sent"] is True
+    assert data["business"]["id"] == pending.json()["data"]["business"]["id"]
+    assert data["business"]["verification_status"] == "approved"
+    assert sent_messages
 
 
 def test_admin_reject_requires_idempotency_and_does_not_create_business() -> None:

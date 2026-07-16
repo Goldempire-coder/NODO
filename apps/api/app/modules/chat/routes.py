@@ -3,9 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Header, Query, Request, UploadFile
 
 from app.auth.dependencies import require_current_user
+from app.modules.chat.models import MAX_ATTACHMENT_SIZE_BYTES
 from app.modules.chat.schemas import MessageCreateRequest
 from app.modules.chat.service import ChatService
 from app.modules.users.models import UserRecord
+from app.shared.validation import read_limited_upload
 
 router = APIRouter(tags=["chat"])
 
@@ -57,7 +59,11 @@ async def upload_message_attachment(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
-    content = await file.read()
+    content = await read_limited_upload(
+        file,
+        max_bytes=MAX_ATTACHMENT_SIZE_BYTES,
+        empty_or_too_large_error="MESSAGE_ATTACHMENT_TOO_LARGE",
+    )
     return {
         "data": _service(request).upload_attachment(
             user=user,
@@ -70,4 +76,3 @@ async def upload_message_attachment(
         ),
         "request_id": _request_id(request),
     }
-

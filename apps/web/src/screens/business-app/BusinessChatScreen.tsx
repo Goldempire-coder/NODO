@@ -5,7 +5,6 @@ import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 
 export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
-    busy,
     chatAttachments,
     chatBody,
     chatCapabilities,
@@ -13,10 +12,14 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     chatOrderId,
     disputeReason,
     openOrderDispute,
+    openingOrderDispute,
     refreshChat,
+    refreshingChat,
     sendChatMessage,
+    sendingChatMessage,
     setChatBody,
     setDisputeReason,
+    uploadingChatAttachment,
     uploadChatAttachment
   } = model;
 
@@ -26,7 +29,9 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
       <Text className="auth-entry__session-meta">{CHAT_DISPUTE_COPY}</Text>
       <div className="business-grid">
         <Text>{chatOrderId ? "Orden vinculada" : "Sin orden seleccionada"}</Text>
-        <Button mode="outline" size="s" disabled={busy || !chatOrderId} onClick={() => void refreshChat()}>Recargar</Button>
+        <Button mode="outline" size="s" disabled={refreshingChat || !chatOrderId} onClick={() => void refreshChat()}>
+          {refreshingChat ? "Recargando..." : "Recargar"}
+        </Button>
       </div>
       <div className="business-list">
         {chatMessages.length === 0 ? <Text>Aun no hay mensajes.</Text> : null}
@@ -41,15 +46,18 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
       </div>
       <label className="business-field">
         <span>Mensaje</span>
-        <textarea disabled={!chatCapabilities.can_send_message || busy} value={chatBody} onChange={(event) => setChatBody(event.target.value)} />
+        <textarea disabled={!chatCapabilities.can_send_message || sendingChatMessage} value={chatBody} onChange={(event) => setChatBody(event.target.value)} />
       </label>
       <label className="business-upload">
         <span>Adjunto privado</span>
-        <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={!chatCapabilities.can_send_message || busy} type="file" onChange={(event) => void uploadChatAttachment(event.target.files?.[0] || null)} />
+        <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={!chatCapabilities.can_send_message || uploadingChatAttachment} type="file" onChange={(event) => void uploadChatAttachment(event.target.files?.[0] || null)} />
         {chatAttachments.length ? <small>{chatAttachments.length} archivo(s) listo(s)</small> : null}
+        {uploadingChatAttachment ? <small>Subiendo...</small> : null}
       </label>
       <div className="business-shell__tabs">
-        <Button mode="filled" size="s" disabled={busy || !chatCapabilities.can_send_message || (!chatBody.trim() && chatAttachments.length === 0)} onClick={() => void sendChatMessage()}>Enviar</Button>
+        <Button mode="filled" size="s" disabled={sendingChatMessage || !chatCapabilities.can_send_message || (!chatBody.trim() && chatAttachments.length === 0)} onClick={() => void sendChatMessage()}>
+          {sendingChatMessage ? "Enviando..." : "Enviar"}
+        </Button>
       </div>
       {chatCapabilities.can_open_dispute ? (
         <div className="business-grid">
@@ -64,7 +72,9 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
               <option value="other">Otro</option>
             </select>
           </label>
-          <Button mode="outline" size="s" disabled={busy} onClick={() => void openOrderDispute()}>Abrir caso</Button>
+          <Button mode="outline" size="s" disabled={openingOrderDispute} onClick={() => void openOrderDispute()}>
+            {openingOrderDispute ? "Abriendo..." : "Abrir caso"}
+          </Button>
         </div>
       ) : <Text className="auth-entry__session-meta">Abrir caso no esta disponible en este estado.</Text>}
     </div>

@@ -1,11 +1,7 @@
 import type { AuthenticatedRequest } from "./client";
 
 export function getBusinessCreditWallet<T>(request: AuthenticatedRequest) {
-  return request<T>("/api/v1/business/credits/wallet");
-}
-
-export function listBusinessCreditLedger<T>(request: AuthenticatedRequest, limit = 20) {
-  return request<T>(`/api/v1/business/credits/ledger?limit=${limit}`);
+  return request<T>(`/api/v1/business/credits/wallet?_=${Date.now()}`, { cache: "no-store" });
 }
 
 export function startBusinessStripeCheckout<T>(request: AuthenticatedRequest, packageCode: string, idempotencyKey: string) {
@@ -16,6 +12,32 @@ export function startBusinessStripeCheckout<T>(request: AuthenticatedRequest, pa
       "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({ package_code: packageCode })
+  });
+}
+
+export function startBusinessBaseUsdcPayment<T>(request: AuthenticatedRequest, packageCode: string, idempotencyKey: string) {
+  return request<T>("/api/v1/business/credits/base-payment", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ package_code: packageCode, token_symbol: "USDC" })
+  });
+}
+
+export function getBusinessCreditPurchase<T>(request: AuthenticatedRequest, purchaseId: string) {
+  return request<T>(`/api/v1/business/credits/purchases/${purchaseId}`);
+}
+
+export function submitBusinessBaseUsdcTxHash<T>(request: AuthenticatedRequest, purchaseId: string, txHash: string, idempotencyKey: string) {
+  return request<T>(`/api/v1/business/credits/purchases/${purchaseId}/tx-hash`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ tx_hash: txHash })
   });
 }
 

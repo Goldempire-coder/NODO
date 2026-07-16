@@ -23,12 +23,13 @@ Required credits are calculated from ad.amount_max_usd.
 
 - One active ad lasts 7 days from activation.
 - If it does not produce a completed transaction within 7 days, it expires.
-- Renewal/reactivation requires available credits.
+- Reactivating a paused ad does not require a new credit because the original hold remains attached.
+- Republishing an archived or expired ad requires available credits and creates a new 7-day listing.
 - If an ad expires while an order is already active, the order continues; the expired ad cannot accept new orders.
 
 ## Credit consumption rule
 
-Credits are listing/advertising credits. They are blocked when the business publishes the ad, consumed when the business confirms payment received, and released if the order expires or is cancelled before payment confirmation.
+Credits are listing/advertising credits. They are blocked when the business publishes the ad and consumed when the business confirms payment received or when the 7-day listing expires without a completed transaction.
 
 - Publishing a $20-$100 ad blocks 1 credit.
 - Publishing a $100-$500 ad blocks 2 credits.
@@ -37,8 +38,9 @@ Credits are listing/advertising credits. They are blocked when the business publ
 - Clicking an ad does not consume credits.
 - Creating an order does not consume extra credits.
 - Business payment confirmation consumes the blocked credits.
-- If the order expires or is cancelled before payment confirmation, blocked credits are released.
-- If the ad expires without payment confirmation, blocked credits are released.
+- If the order expires or is cancelled before payment confirmation and the ad is still inside its 7-day lifetime, blocked credits remain attached to the ad and the ad returns to `active`.
+- If the ad reaches 7 days without payment confirmation, blocked credits are consumed with ledger `expire` and the ad is archived.
+- Reusing an archived or expired ad as a template must first verify available credits, then create a new hold for the new listing.
 - NODO still does not receive, hold, transfer or process user funds.
 
 ## Wallet accounting
@@ -64,7 +66,7 @@ blocked_credits: 2
 
 Ledger entry: `hold`.
 
-### Order expires or cancels before payment confirmation
+### Order expires or cancels before payment confirmation while ad is still alive
 
 ```txt
 available_credits: 13
@@ -72,11 +74,27 @@ blocked_credits: 2
 
 Order expired or cancelled before payment confirmation
 
-available_credits: 15
-blocked_credits: 0
+available_credits: 13
+blocked_credits: 2
 ```
 
-Ledger entry: `release`.
+Ledger entry: none. The original ad hold remains.
+
+### Ad reaches 7 days without completed transaction
+
+```txt
+available_credits: 13
+blocked_credits: 2
+consumed_credits: 0
+
+Ad expires without completed transaction
+
+available_credits: 13
+blocked_credits: 0
+consumed_credits: 2
+```
+
+Ledger entry: `expire`.
 
 ### Business confirms payment received
 
@@ -104,32 +122,33 @@ ad.status = archived
 
 The order remains alive for delivery, dispute or future close flows, but the ad publication must not return to the marketplace.
 
-## Order hold/release rule
+## Order hold rule
 
 The order hold protects availability and prevents curious users from costing businesses credits.
 
 - Opening/clicking an ad creates no hold.
 - Creating an order creates a temporary availability hold.
 - Creating an order does not create an additional credit debit or consume credits.
-- If no payment report is submitted before the order timer expires, the order expires and the hold is released.
+- If no payment report is submitted before the order timer expires, the order expires and the ad returns to `active` if the 7-day lifetime has not ended.
+- If that same ad has already reached 7 days, the ad is archived and the listing credit is consumed with ledger `expire`.
 - If payment is reported, the hold stays until confirmation, rejection, dispute resolution or expiry according to the state machine.
 - Reporting payment in `slice_05_payment_instructions_reports` does not consume credits.
 - Credits remain blocked while order is `payment_reported`.
 - If the business rejects a payment report, credits remain blocked while order is `payment_rejected` until a future correction, support or dispute flow resolves it.
-- Credit consumption happens only when the business confirms payment received in the business order operations slice.
+- Credit consumption happens when the business confirms payment received or when the listing reaches 7 days without completed transaction.
 - Repeated abandoned orders are controlled by remitter cooldowns/rate limits.
 
 ## Order timers and credit impact
 
 | Order state | Timer | Result | Credit impact |
 | --- | --- | --- | --- |
-| waiting_payment | 30 min + one 15 min extension | cancelled, cancel_reason = payment_not_reported_in_time | release blocked credits |
+| waiting_payment | 30 min + one 15 min extension | cancelled, cancel_reason = payment_not_reported_in_time | keep original ad hold if ad is still alive; consume with `expire` if ad reached 7 days |
 | payment_reported | 2h warning / 6h dispute | disputed, dispute_reason = business_no_payment_confirmation | keep credits blocked |
 | payment_rejected | future correction/support/dispute | stays payment_rejected until future flow | keep credits blocked |
 | payment_confirmed | 30 min warning / 2h dispute | disputed, dispute_reason = business_confirmed_payment_but_not_delivered | credits already consumed |
 | delivered | 24h auto-close if no dispute | completed, completion_reason = auto_completed_after_24h | no new credit movement |
 
-Credit consumption happens when the business confirms payment received, not when the remitter clicks, creates the order, or reports payment.
+Credit consumption does not happen when the remitter clicks, creates the order, or reports payment. It happens when the business confirms payment received or when the 7-day listing expires without completed transaction.
 
 ## Dispute impact
 
@@ -185,6 +204,19 @@ Manual fallbacks:
 
 - zelle_manual_admin_approved
 - usdt_manual_admin_approved
+
+On-chain primary from slice 19:
+
+- base_usdc_onchain
+
+Rules:
+
+- `base_usdc_onchain` is the canonical on-chain credit topup flow.
+- Base mainnet is the only real network: `chain_id = 8453`.
+- USDC Base official contract: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
+- USDT Base is not active in MVP because no official Tether Base contract is verified in the canonical docs.
+- `usdt_manual_admin_approved` remains legacy/manual TRC20 and must not be treated as Base.
+- Full on-chain rules live in `control_plane/03_DOMAIN_RULES/ONCHAIN_CREDIT_TOPUPS_MASTER.md`.
 
 ## Stripe flow
 
@@ -255,6 +287,14 @@ Legacy/no valid:
 
 Referral bonus is credited only through `credits_ledger.type = referral_bonus` after the referred business qualifies. Self-referral and double bonus are prohibited.
 
+For referral qualification, a first credit purchase qualifies when:
+
+- Stripe/manual legacy purchase has `credit_purchases.status = approved`.
+- Base USDC on-chain purchase has `credit_purchases.status = credited`.
+- The purchase has exactly one `credits_ledger.type = purchase` linked by `related_credit_purchase_id`.
+
+On-chain statuses before `credited` do not qualify referral bonuses.
+
 ## Credit ledger types
 
 - purchase
@@ -318,6 +358,19 @@ Para `slice_03_ads_marketplace`:
 - manual_credit_payment_submitted
 - manual_credit_payment_approved
 - manual_credit_payment_rejected
+- onchain_credit_purchase_created
+- onchain_tx_hash_submitted
+- onchain_payment_detected
+- onchain_payment_confirmations_pending
+- onchain_payment_verified
+- onchain_credit_purchase_credited
+- onchain_payment_under_review
+- onchain_payment_rejected
+- onchain_payment_verification_failed
+- onchain_tx_duplicate_detected
+- onchain_watcher_run_started
+- onchain_watcher_run_finished
+- onchain_watcher_run_failed
 - credits_added
 - credits_held
 - credits_released
@@ -338,4 +391,8 @@ Para `slice_03_ads_marketplace`:
 - no exposing manual proof `storage_path`
 - no using `founder_access` table as active MVP model
 - no using `referrals` table as active MVP model
+- no accepting Base tokens by symbol/name only
+- no accepting USDT Base in MVP
+- no storing private keys or seed phrases for credit topups
+- no crediting on-chain purchases without verifier + ledger transaction
 

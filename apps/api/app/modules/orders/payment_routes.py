@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
 
 from app.auth.dependencies import require_current_user
 from app.core.errors import ApiError
+from app.modules.orders.payment_constants import MAX_PAYMENT_EVIDENCE_SIZE_BYTES
 from app.modules.orders.routes_support import order_service, request_id
 from app.modules.orders.schemas import PaymentReportRequest
 from app.modules.users.models import UserRecord
+from app.shared.validation import read_limited_upload
 
 router = APIRouter(tags=["orders"])
 
@@ -28,7 +30,11 @@ async def upload_payment_evidence(
 ) -> dict:
     if file_type != "payment_evidence":
         raise ApiError("INVALID_PAYMENT_EVIDENCE", status_code=400)
-    content = await file.read()
+    content = await read_limited_upload(
+        file,
+        max_bytes=MAX_PAYMENT_EVIDENCE_SIZE_BYTES,
+        empty_or_too_large_error="INVALID_PAYMENT_EVIDENCE",
+    )
     return {
         "data": order_service(request).upload_payment_evidence(
             user=user,

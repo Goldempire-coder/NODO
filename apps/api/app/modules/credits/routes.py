@@ -3,9 +3,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Request, UploadFile
 
 from app.auth.dependencies import require_current_user
-from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest, ReferralApplyRequest, StripeCheckoutRequest
+from app.modules.businesses.route_dependencies import business_service as business_access_service
+from app.modules.credits.models import MAX_PROOF_SIZE_BYTES
+from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest, BaseUsdcPaymentRequest, BaseUsdcTxHashRequest, ReferralApplyRequest, StripeCheckoutRequest
 from app.modules.credits.service import CreditService
 from app.modules.users.models import UserRecord
+from app.shared.validation import read_limited_upload
 
 router = APIRouter(tags=["credits"])
 
@@ -23,7 +26,12 @@ def _service(request: Request) -> CreditService:
         rate_limiter=request.app.state.rate_limiter,
         idempotency_store=request.app.state.idempotency_store,
         storage=request.app.state.private_storage,
+        onchain_verifier=request.app.state.onchain_credit_verifier,
     )
+
+
+def _require_business_pin(request: Request, user: UserRecord) -> None:
+    business_access_service(request).require_unlocked_business_pin(user=user)
 
 
 @router.get("/business/credits/wallet")
@@ -49,6 +57,7 @@ def create_stripe_checkout(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    _require_business_pin(request, user)
     return {
         "data": _service(request).create_stripe_checkout(user=user, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key),
         "request_id": _request_id(request),
@@ -67,7 +76,12 @@ async def create_manual_credit_payment(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
-    content = await file.read()
+    _require_business_pin(request, user)
+    content = await read_limited_upload(
+        file,
+        max_bytes=MAX_PROOF_SIZE_BYTES,
+        empty_or_too_large_error="MANUAL_PAYMENT_PROOF_REQUIRED",
+    )
     return {
         "data": _service(request).create_manual_payment(
             user=user,
@@ -79,6 +93,50 @@ async def create_manual_credit_payment(
             file_name=file.filename or "credit-proof",
             mime_type=file.content_type or "",
             content=content,
+            request_id=_request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": _request_id(request),
+    }
+
+
+@router.post("/business/credits/base-payment", status_code=201)
+def create_base_usdc_credit_payment(
+    payload: BaseUsdcPaymentRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    _require_business_pin(request, user)
+    return {
+        "data": _service(request).create_base_usdc_payment(user=user, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key),
+        "request_id": _request_id(request),
+    }
+
+
+@router.get("/business/credits/purchases/{purchase_id}")
+def business_credit_purchase_detail(
+    purchase_id: str,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    return {"data": _service(request).purchase_detail(user=user, purchase_id=purchase_id), "request_id": _request_id(request)}
+
+
+@router.post("/business/credits/purchases/{purchase_id}/tx-hash")
+def submit_base_usdc_tx_hash(
+    purchase_id: str,
+    payload: BaseUsdcTxHashRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    _require_business_pin(request, user)
+    return {
+        "data": _service(request).submit_base_usdc_tx_hash(
+            user=user,
+            purchase_id=purchase_id,
+            payload=payload,
             request_id=_request_id(request),
             idempotency_key=idempotency_key,
         ),
@@ -98,6 +156,7 @@ def apply_referral(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    _require_business_pin(request, user)
     return {
         "data": _service(request).apply_referral(user=user, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key),
         "request_id": _request_id(request),
@@ -123,6 +182,15 @@ def admin_credit_purchases(
         "data": _service(request).admin_list_purchases(user=user, status=status, business_id=business_id, cursor=cursor, limit=limit),
         "request_id": _request_id(request),
     }
+
+
+@router.get("/admin/credit-purchases/{purchase_id}")
+def admin_credit_purchase_detail(
+    purchase_id: str,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    return {"data": _service(request).admin_purchase_detail(user=user, purchase_id=purchase_id), "request_id": _request_id(request)}
 
 
 @router.post("/admin/credit-purchases/{purchase_id}/approve")

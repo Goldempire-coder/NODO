@@ -4,6 +4,8 @@
 
 Un ticket de soporte puede escalar a disputa solo cuando el contrato de disputa y ownership lo permitan.
 
+En `slice_20B_support_ticket_center`, soporte no crea disputas nuevas ni resuelve disputas. Solo puede marcar un ticket como `escalated` o vincular metadata a una disputa existente que el actor pueda ver. Abrir o resolver disputa formal sigue gobernado por los endpoints de disputa existentes.
+
 Soporte no resuelve disputas por si mismo. Resolver disputa sigue siendo accion admin/super_admin gobernada por el slice y API de disputas correspondiente.
 
 Chat operativo, soporte general y soporte por orden no son equivalentes a `disputes`.

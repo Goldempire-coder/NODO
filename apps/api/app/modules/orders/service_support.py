@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.core.errors import ApiError
+from app.modules.ads.marketplace_cache import MARKETPLACE_CACHE_PREFIX, MARKETPLACE_ORDER_INVALIDATION_DEBOUNCE_SECONDS
 from app.modules.ads.models import AdRecord
 from app.modules.businesses.access_control import require_active_business_access
 from app.modules.businesses.models import BusinessPaymentMethodRecord, BusinessRecord
@@ -8,13 +9,26 @@ from app.modules.orders.helpers import require_uuid
 from app.modules.orders.state_machine import ensure_aware, is_waiting_payment_expired, now_utc
 from app.modules.users.models import UserRecord
 
-MARKETPLACE_CACHE_PREFIX = "marketplace:ads:"
-
-
 class OrderServiceSupportMixin:
     def _clear_marketplace_cache(self) -> None:
         if self._marketplace_cache is not None:  # type: ignore[attr-defined]
             self._marketplace_cache.clear_prefix(MARKETPLACE_CACHE_PREFIX)  # type: ignore[attr-defined]
+
+    def _clear_marketplace_cache_after_order(self, ad_id: str) -> None:
+        if self._marketplace_cache is None:  # type: ignore[attr-defined]
+            return
+        cache = self._marketplace_cache  # type: ignore[attr-defined]
+        marked = False
+        if hasattr(cache, "set_marker"):
+            marked = bool(cache.set_marker(f"ad_unavailable:{ad_id}", self._settings.marketplace_cache_ttl_seconds))  # type: ignore[attr-defined]
+        if marked and hasattr(cache, "clear_prefix_debounced"):
+            cache.clear_prefix_debounced(  # type: ignore[attr-defined]
+                MARKETPLACE_CACHE_PREFIX,
+                debounce_key="order_create",
+                debounce_seconds=MARKETPLACE_ORDER_INVALIDATION_DEBOUNCE_SECONDS,
+            )
+            return
+        self._clear_marketplace_cache()
 
     def _rate_limit(self, action: str, user: UserRecord) -> None:
         key = f"orders:{action}:{user.id}"
@@ -36,6 +50,8 @@ class OrderServiceSupportMixin:
         business = self._businesses.get_business(business_id)  # type: ignore[attr-defined]
         if business is None or business.verification_status != "approved" or business.risk_level in {"restricted", "high_risk"}:
             raise ApiError("BUSINESS_NOT_APPROVED", status_code=409)
+        if not business.is_accepting_orders:
+            raise ApiError("BUSINESS_OFFLINE", status_code=409)
         return business
 
     def _payment_or_unavailable(self, payment_method_id: str) -> BusinessPaymentMethodRecord:
@@ -53,21 +69,37 @@ class OrderServiceSupportMixin:
     def _ad_expired(self, ad: AdRecord) -> bool:
         return ad.expires_at is not None and ensure_aware(ad.expires_at) <= now_utc()
 
-    def _return_or_expire_ad(self, ad: AdRecord, *, actor: UserRecord | None, request_id: str) -> None:
-        next_status = "expired" if self._ad_expired(ad) else "active"
-        self._ads.set_status(ad, next_status)  # type: ignore[attr-defined]
-        self._clear_marketplace_cache()
-        released = self._ads.release_hold(ad=ad, created_by=actor.id if actor else None)  # type: ignore[attr-defined]
-        if released is not None:
+    def _return_or_expire_ad(self, ad: AdRecord, *, actor: UserRecord | None, request_id: str, related_order_id: str | None = None) -> None:
+        if self._ad_expired(ad):
+            ledger = self._ads.expire_hold(  # type: ignore[attr-defined]
+                ad=ad,
+                created_by=actor.id if actor else None,
+                reason="ad_expired_after_order_without_purchase",
+                related_order_id=related_order_id,
+                source="orders",
+            )
+            self._clear_marketplace_cache()
             self._audit.write(  # type: ignore[attr-defined]
-                event_type="credits_released",
+                event_type="ad_expired",
                 actor_user_id=actor.id if actor else None,
                 actor_role=actor.role if actor else None,
-                resource_type="order",
-                resource_id=None,
+                resource_type="ad",
+                resource_id=ad.id,
                 request_id=request_id,
-                metadata_json={"ledger_id": released.id, "amount": released.amount, "ad_id": ad.id},
             )
+            if ledger is not None:
+                self._audit.write(  # type: ignore[attr-defined]
+                    event_type="credits_consumed",
+                    actor_user_id=actor.id if actor else None,
+                    actor_role=actor.role if actor else None,
+                    resource_type="order" if related_order_id else "ad",
+                    resource_id=related_order_id or ad.id,
+                    request_id=request_id,
+                    metadata_json={"ledger_id": ledger.id, "amount": ledger.amount, "ad_id": ad.id, "reason": "ad_expired_after_order_without_purchase"},
+                )
+            return
+        self._ads.set_status(ad, "active")  # type: ignore[attr-defined]
+        self._clear_marketplace_cache()
 
     def _materialize_order_expiration(self, order, *, actor: UserRecord | None, request_id: str):  # type: ignore[no-untyped-def]
         if not is_waiting_payment_expired(order):
@@ -76,7 +108,7 @@ class OrderServiceSupportMixin:
         expired = self._repository.update_order(order, status="cancelled", cancel_reason="payment_not_reported_in_time")  # type: ignore[attr-defined]
         ad = self._ads.get_ad(order.ad_id)  # type: ignore[attr-defined]
         if ad is not None:
-            self._return_or_expire_ad(ad, actor=actor, request_id=request_id)
+            self._return_or_expire_ad(ad, actor=actor, request_id=request_id, related_order_id=order.id)
         self._repository.add_state_event(  # type: ignore[attr-defined]
             order_id=order.id,
             from_status=old_status,

@@ -23,6 +23,7 @@ def business_service(request: Request) -> BusinessService:
         rate_limiter=request.app.state.rate_limiter,
         idempotency_store=request.app.state.idempotency_store,
         storage=request.app.state.private_storage,
+        marketplace_cache=getattr(request.app.state, "marketplace_cache", None),
     )
 
 

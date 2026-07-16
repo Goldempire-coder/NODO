@@ -9,8 +9,12 @@ from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
 
+from app.auth.jwt import decode_access_token, hash_refresh_token
+from app.modules.users.models import utc_now
+
 
 BOT_TOKEN = "123456:test-bot-token"
+BUSINESS_INTAKE_BOT_TOKEN = "123456:test-business-intake-bot-token"
 JWT_SECRET = "test-access-secret"
 JWT_REFRESH_SECRET = "test-refresh-secret"
 
@@ -25,6 +29,7 @@ def _set_env(**overrides: str) -> None:
         "REDIS_URL": "redis://127.0.0.1:1/0",
         "API_CORS_ORIGINS": "http://localhost:3000",
         "BOT_TOKEN": BOT_TOKEN,
+        "BUSINESS_INTAKE_BOT_TOKEN": BUSINESS_INTAKE_BOT_TOKEN,
         "JWT_SECRET": JWT_SECRET,
         "JWT_REFRESH_SECRET": JWT_REFRESH_SECRET,
         "AUTH_INIT_DATA_MAX_AGE_SECONDS": "86400",
@@ -152,6 +157,60 @@ def test_invalid_hash_rejects_and_audits_auth_failed() -> None:
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "TELEGRAM_INIT_DATA_INVALID"
     assert _event_types(client) == ["auth_failed"]
+    metadata = client.app.state.audit_writer.events[-1].metadata_json
+    assert metadata["reason"] == "telegram_init_data_rejected"
+    assert metadata["last_error_code"] == "TELEGRAM_INIT_DATA_INVALID"
+    assert metadata["token_attempts"] == 1
+    assert metadata["init_data"]["has_hash"] is True
+    assert metadata["init_data"]["has_user"] is True
+    assert metadata["init_data"]["has_auth_date"] is True
+    assert metadata["init_data"]["telegram_user_id"] == 101
+    assert "user" in metadata["init_data"]["keys"]
+    assert init_data not in json.dumps(metadata)
+    assert BOT_TOKEN not in json.dumps(metadata)
+
+
+def test_business_surface_accepts_business_intake_bot_signed_init_data() -> None:
+    client = _client()
+    init_data = _signed_init_data(telegram_id=202, username="approved_business", bot_token=BUSINESS_INTAKE_BOT_TOKEN)
+
+    response = client.post(
+        "/api/v1/auth/telegram",
+        headers={"X-Request-Id": "req_business_bot_login", "X-NODO-Surface": "business_mini_app"},
+        json={"init_data": init_data},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["user"]["username"] == "approved_business"
+
+
+def test_business_surface_accepts_text_plain_auth_without_preflight_headers() -> None:
+    client = _client()
+    init_data = _signed_init_data(telegram_id=204, username="business_text_plain", bot_token=BUSINESS_INTAKE_BOT_TOKEN)
+
+    response = client.post(
+        "/api/v1/auth/telegram",
+        headers={"Content-Type": "text/plain;charset=UTF-8"},
+        content=json.dumps({"init_data": init_data, "surface": "business_mini_app"}),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["user"]["username"] == "business_text_plain"
+
+
+def test_client_surface_rejects_business_intake_bot_signed_init_data() -> None:
+    client = _client()
+    init_data = _signed_init_data(telegram_id=203, username="business_bot_wrong_surface", bot_token=BUSINESS_INTAKE_BOT_TOKEN)
+
+    response = client.post(
+        "/api/v1/auth/telegram",
+        headers={"X-Request-Id": "req_business_bot_wrong_surface", "X-NODO-Surface": "client_mini_app"},
+        json={"init_data": init_data},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "TELEGRAM_INIT_DATA_INVALID"
+    assert _event_types(client) == ["auth_failed"]
 
 
 def test_expired_init_data_rejects() -> None:
@@ -262,6 +321,80 @@ def test_refresh_rotates_refresh_token_and_old_token_expires() -> None:
     assert old_token_response.json()["error"]["code"] == "SESSION_EXPIRED"
 
 
+def test_expired_access_token_can_refresh_and_reauthenticate_requests() -> None:
+    client = _client(ACCESS_TOKEN_TTL_SECONDS="1")
+    login = _login(client).json()["data"]
+    time.sleep(2.1)
+
+    expired_me = client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": "req_expired_me"},
+    )
+    refresh_response = client.post(
+        "/api/v1/auth/refresh",
+        headers={"X-Request-Id": "req_refresh_after_expired_access"},
+        json={"refresh_token": login["refresh_token"]},
+    )
+
+    assert expired_me.status_code == 401
+    assert expired_me.json()["error"]["code"] == "SESSION_EXPIRED"
+    assert refresh_response.status_code == 200
+    refreshed = refresh_response.json()["data"]
+    fresh_me = client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {refreshed['access_token']}", "X-Request-Id": "req_fresh_me"},
+    )
+    assert fresh_me.status_code == 200
+    assert fresh_me.json()["data"]["id"] == login["user"]["id"]
+
+
+def test_refresh_token_replays_are_rejected_atomically_by_repository() -> None:
+    client = _client()
+    login = _login(client).json()["data"]
+    repository = client.app.state.user_repository
+    settings = client.app.state.settings
+    old_hash = hash_refresh_token(login["refresh_token"], settings.jwt_refresh_secret)
+    session = repository.get_session_by_refresh_hash(old_hash)
+
+    assert session is not None
+    first_rotation = repository.rotate_session_if_current(
+        session,
+        current_refresh_token_hash=old_hash,
+        refresh_token_hash="0" * 64,
+        access_token_jti="first-jti",
+        expires_at=utc_now(),
+    )
+    replay_rotation = repository.rotate_session_if_current(
+        session,
+        current_refresh_token_hash=old_hash,
+        refresh_token_hash="1" * 64,
+        access_token_jti="second-jti",
+        expires_at=utc_now(),
+    )
+
+    assert first_rotation is True
+    assert replay_rotation is False
+
+
+def test_refresh_uses_current_user_role_and_status_claims() -> None:
+    client = _client()
+    login = _login(client).json()["data"]
+    user_id = login["user"]["id"]
+    client.app.state.user_repository.set_user_role(user_id, "support")
+
+    response = client.post(
+        "/api/v1/auth/refresh",
+        headers={"X-Request-Id": "req_refresh_role_change"},
+        json={"refresh_token": login["refresh_token"]},
+    )
+
+    assert response.status_code == 200
+    refreshed = response.json()["data"]
+    claims = decode_access_token(refreshed["access_token"], JWT_SECRET)
+    assert claims["role"] == "support"
+    assert claims["status"] == "active"
+
+
 def test_logout_revokes_session_and_is_idempotent() -> None:
     client = _client()
     login = _login(client).json()["data"]
@@ -276,6 +409,31 @@ def test_logout_revokes_session_and_is_idempotent() -> None:
     assert session.status == "revoked"
     assert session.revoked_at is not None
     assert _event_types(client).count("user_logout") == 2
+
+
+def test_logout_revokes_refresh_session_even_when_access_token_expired() -> None:
+    client = _client(ACCESS_TOKEN_TTL_SECONDS="1")
+    login = _login(client).json()["data"]
+    time.sleep(2.1)
+
+    response = client.post(
+        "/api/v1/auth/logout",
+        headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": "req_logout_expired_access"},
+        json={"refresh_token": login["refresh_token"]},
+    )
+    refresh_after_logout = client.post(
+        "/api/v1/auth/refresh",
+        headers={"X-Request-Id": "req_refresh_after_logout"},
+        json={"refresh_token": login["refresh_token"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["logged_out"] is True
+    session = next(iter(client.app.state.user_repository._sessions_by_id.values()))
+    assert session.status == "revoked"
+    assert session.revoked_at is not None
+    assert refresh_after_logout.status_code == 401
+    assert refresh_after_logout.json()["error"]["code"] == "SESSION_EXPIRED"
 
 
 def test_users_me_returns_only_current_public_profile() -> None:

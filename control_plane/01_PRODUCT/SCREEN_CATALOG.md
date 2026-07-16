@@ -20,6 +20,12 @@ Bot Registro Negocios:
 
 Superficies de soporte:
 - `support/SUPPORT_SURFACES.md`.
+- Cliente:
+  - `client/C-20_CLIENT_SUPPORT_CENTER.md`
+- Mini App Negocio:
+  - `business_app/BAPP-20_BUSINESS_SUPPORT_CENTER.md`
+- Admin Web:
+  - `admin_web/AW-20_SUPPORT_TICKET_CENTER.md`
 
 Los archivos historicos en `remitter/`, `business/` y `admin/` siguen como contratos de pantalla existentes; slice 14 redefine ownership por superficie sin mover implementacion.
 
@@ -83,3 +89,21 @@ Notas 14C:
 - A-01, A-02, A-03, A-06, A-07, A-08, A-09, A-10, A-11 y A-12 son ownership de Admin Web.
 - A-04, A-05 y A-13 pertenecen a slice 08, pero Admin Web puede componerlas/enlazarlas sin cambiar reglas de creditos.
 - Admin Web no usa Telegram bottom nav, Telegram MainButton, shell Mini App ni `themeParams`.
+
+Notas 20A:
+- A-10_USERS_REMITTERS se convierte en control operativo Admin Web para usuarios y `business_access_links`.
+- Support ve A-10 solo masked/read-only.
+- Mutaciones de usuario/access link usan backend RBAC, reason, idempotencia y audit.
+
+Notas 20B:
+- El soporte real vive en pantallas separadas por superficie; no reutiliza chat operativo como ticket.
+- Admin Web muestra soporte en layout desktop con cola, filtros, split detail, eventos, adjuntos, asignacion y cierre.
+- Mini App Cliente y Mini App Negocio solo muestran tickets propios o recursos propios autorizados por backend.
+
+Notas 20C:
+- Admin Web agrega Staff Center, Staff Detail e Invite Staff:
+  - `AW-21_STAFF_CENTER`
+  - `AW-22_STAFF_DETAIL`
+  - `AW-23_STAFF_INVITE`
+- Estas pantallas administran `staff_profiles`, `staff_permissions` y `staff_invites`.
+- No viven dentro de Mini App Cliente ni Mini App Negocio.

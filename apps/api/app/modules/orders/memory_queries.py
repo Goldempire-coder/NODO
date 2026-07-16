@@ -12,6 +12,10 @@ class InMemoryOrderQueriesMixin:
         items = [order for order in self.orders.values() if order.business_id == business_id]  # type: ignore[attr-defined]
         return self._order_page(items=items, status=status, cursor=cursor, limit=limit)
 
+    def list_for_business_statuses(self, *, business_id: str, statuses: set[str], cursor: str | None, limit: int) -> tuple[list[OrderRecord], str | None]:
+        items = [order for order in self.orders.values() if order.business_id == business_id and order.status in statuses]  # type: ignore[attr-defined]
+        return self._order_page(items=items, status=None, cursor=cursor, limit=limit)
+
     def list_job_candidate_orders(self, *, limit: int) -> list[OrderRecord]:
         items = [
             order

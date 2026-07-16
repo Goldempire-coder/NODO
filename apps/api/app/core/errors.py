@@ -43,6 +43,15 @@ ERROR_MESSAGES = {
     "BUSINESS_BLOCKED": "El negocio esta bloqueado.",
     "USER_BLOCKED": "Este usuario esta bloqueado.",
     "USER_NOT_ACTIVE": "Este usuario no esta activo.",
+    "USER_STATUS_INVALID": "El estado del usuario no permite esta accion.",
+    "USER_STATUS_TRANSITION_INVALID": "La transicion de estado del usuario no esta permitida.",
+    "USER_STATUS_MUTATION_NOT_ALLOWED": "No tienes permiso para modificar ese usuario.",
+    "LAST_SUPER_ADMIN_REQUIRED": "Debe quedar al menos un super_admin activo.",
+    "BUSINESS_ACCESS_LINK_NOT_FOUND": "No encontramos el vinculo de acceso solicitado.",
+    "BUSINESS_PIN_NOT_SET": "Crea tu PIN para proteger esta accion.",
+    "BUSINESS_PIN_REQUIRED": "Desbloquea tu PIN para completar esta accion.",
+    "BUSINESS_PIN_LOCKED": "Tu PIN esta bloqueado temporalmente. Intenta de nuevo mas tarde.",
+    "BUSINESS_PIN_INVALID": "PIN incorrecto.",
     "BUSINESS_INTAKE_NOT_FOUND": "No encontramos esta solicitud.",
     "BUSINESS_INTAKE_STATUS_INVALID": "El estado de la solicitud no permite esta accion.",
     "BUSINESS_INTAKE_ALREADY_ACCEPTED": "Esta solicitud ya fue aceptada.",
@@ -78,9 +87,17 @@ ERROR_MESSAGES = {
     "CREDIT_PURCHASE_NOT_FOUND": "No encontramos la compra de creditos.",
     "PURCHASE_STATUS_INVALID": "El estado de la compra no permite esta accion.",
     "INVALID_PACKAGE": "El paquete de creditos no es valido.",
+    "CREDIT_PAYMENT_METHOD_DISABLED": "Este metodo de compra de creditos ya no esta disponible. Usa Base USDC.",
     "STRIPE_SIGNATURE_INVALID": "No pudimos validar la firma de Stripe.",
     "STRIPE_WEBHOOK_DUPLICATE": "El evento de Stripe ya fue procesado.",
     "STRIPE_SESSION_INVALID": "No pudimos validar la sesion de Stripe.",
+    "ONCHAIN_RECEIVING_WALLET_NOT_CONFIGURED": "La wallet de recepcion BASE no esta configurada correctamente.",
+    "ONCHAIN_TOKEN_NOT_ALLOWED": "Ese token no esta disponible para comprar creditos.",
+    "ONCHAIN_RPC_UNAVAILABLE": "No pudimos consultar la red Base. Intenta nuevamente.",
+    "ONCHAIN_TX_INVALID": "El tx hash no es valido.",
+    "ONCHAIN_TX_NOT_FOUND": "No encontramos esa transaccion en Base.",
+    "ONCHAIN_TX_ALREADY_USED": "Esta transaccion ya fue usada.",
+    "ONCHAIN_VERIFICATION_FAILED": "No pudimos verificar la transaccion.",
     "MANUAL_PAYMENT_PROOF_REQUIRED": "Debes subir un comprobante valido.",
     "MANUAL_PAYMENT_ALREADY_REVIEWED": "Esta compra manual ya fue revisada.",
     "REFERRAL_NOT_ALLOWED": "No puedes aplicar este referido.",
@@ -99,6 +116,19 @@ ERROR_MESSAGES = {
     "MESSAGE_BODY_REQUIRED": "Debes escribir un mensaje.",
     "MESSAGE_ATTACHMENT_TYPE_NOT_ALLOWED": "El tipo de adjunto no esta permitido.",
     "MESSAGE_ATTACHMENT_TOO_LARGE": "El adjunto supera el tamano permitido.",
+    "SUPPORT_TICKET_NOT_FOUND": "No encontramos el ticket solicitado.",
+    "SUPPORT_TICKET_STATUS_INVALID": "El estado del ticket no permite esta accion.",
+    "SUPPORT_SCOPE_INVALID": "El tipo de soporte no esta permitido.",
+    "SUPPORT_CATEGORY_INVALID": "La categoria de soporte no es valida.",
+    "SUPPORT_ESCALATION_NOT_ALLOWED": "Este ticket no puede escalarse en este momento.",
+    "SUPPORT_MESSAGE_REQUIRED": "Debes escribir un mensaje de soporte.",
+    "SUPPORT_ATTACHMENT_INVALID": "El adjunto de soporte no cumple los requisitos.",
+    "SUPPORT_ATTACHMENT_TOO_LARGE": "El adjunto de soporte supera el tamano permitido.",
+    "SUPPORT_ATTACHMENT_TYPE_NOT_ALLOWED": "El tipo de adjunto de soporte no esta permitido.",
+    "SUPPORT_ATTACHMENT_NOT_FOUND": "No encontramos el adjunto solicitado.",
+    "SUPPORT_ATTACHMENT_ACCESS_DENIED": "No tienes permiso para ver ese adjunto.",
+    "SUPPORT_ASSIGNMENT_NOT_ALLOWED": "No puedes asignar este ticket.",
+    "SUPPORT_ASSIGNEE_INVALID": "El usuario asignado no puede recibir tickets de soporte.",
     "JOB_LOCK_NOT_ACQUIRED": "Otro proceso esta ejecutando este job.",
     "JOB_RUN_ALREADY_ACTIVE": "Ya existe una ejecucion activa para este job.",
     "JOB_NOT_FOUND": "No encontramos la ejecucion del job solicitada.",
@@ -111,6 +141,11 @@ ERROR_MESSAGES = {
     "TELEGRAM_BOT_SEND_FAILED": "No pudimos enviar el mensaje de Telegram.",
     "AUTO_COMPLETE_BLOCKED_BY_DISPUTE": "La orden no puede completarse automaticamente porque tiene disputa abierta.",
     "SENSITIVE_EXPORT_BLOCKED": "La exportacion de datos sensibles no esta permitida.",
+    "OBSERVABILITY_DISABLED": "La recoleccion de diagnostico no esta habilitada.",
+    "OBSERVABILITY_EVENT_INVALID": "El evento de diagnostico no cumple el contrato.",
+    "OBSERVABILITY_EVENT_TOO_LARGE": "El evento de diagnostico supera el tamano permitido.",
+    "OBSERVABILITY_BATCH_TOO_LARGE": "La cantidad de eventos de diagnostico supera el limite permitido.",
+    "OBSERVABILITY_ACCESS_DENIED": "No tienes permiso para enviar diagnostico de esta superficie.",
     "NOT_FOUND": "No encontramos el recurso solicitado.",
     "STORAGE_UPLOAD_FAILED": "No logramos guardar el comprobante privado.",
     "AMOUNT_OUT_OF_RANGE": "El monto esta fuera del rango permitido.",
@@ -138,7 +173,10 @@ def error_payload(code: str, message: str, request_id: str, details: dict | None
     }
 
 
-def api_error_response(code: str, message: str, request_id: str, status_code: int) -> object:
+def api_error_response(code: str, message: str, request_id: str, status_code: int, headers: dict[str, str] | None = None) -> object:
     from fastapi.responses import JSONResponse
 
-    return JSONResponse(status_code=status_code, content=error_payload(code, message, request_id))
+    response_headers = {"X-NODO-Error-Code": code, "X-Request-Id": request_id}
+    if headers:
+        response_headers.update(headers)
+    return JSONResponse(status_code=status_code, content=error_payload(code, message, request_id), headers=response_headers)

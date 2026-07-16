@@ -9,7 +9,29 @@ from typing import Any
 
 import redis
 
+from app.core.logging import get_logger
+from app.shared.logging_redaction import redact_mapping
 from app.shared.profiling import current_profile, profile_mark
+
+logger = get_logger("nodo.cache")
+
+
+class CacheUnavailableError(RuntimeError):
+    pass
+
+
+def _mark_unavailable(operation: str, namespace: str | None = None) -> None:
+    profile_mark(current_profile(), "cache:unavailable", time.perf_counter(), {"operation": operation})
+    logger.warning(
+        "cache_unavailable",
+        extra=redact_mapping(
+            {
+                "event": "cache_unavailable",
+                "operation": operation,
+                "cache_namespace": namespace,
+            }
+        ),
+    )
 
 
 class InMemoryTTLCache:
@@ -56,9 +78,19 @@ class InMemoryTTLCache:
                 return None
             return payload
 
+    def get_many_text(self, keys: list[str]) -> dict[str, str]:
+        return {key: value for key in keys if (value := self.get_text(key)) is not None}
+
     def set_text(self, key: str, value: str, ttl_seconds: int) -> None:
         with self._lock:
             self._items[key] = (time.time() + ttl_seconds, value)
+
+    def set_text_if_absent(self, key: str, value: str, ttl_seconds: int) -> bool:
+        with self._lock:
+            if self.get_text(key) is not None:
+                return False
+            self._items[key] = (time.time() + ttl_seconds, value)
+            return True
 
     def set_json(self, key: str, value: dict[str, Any], ttl_seconds: int) -> None:
         self._set_json(key, value, ttl_seconds, profile_enabled=True)
@@ -86,6 +118,21 @@ class InMemoryTTLCache:
                 if key.startswith(prefix):
                     self._items.pop(key, None)
 
+    def set_marker(self, key: str, ttl_seconds: int) -> bool:
+        self.set_text(f"marker:{key}", "1", ttl_seconds)
+        return True
+
+    def existing_markers(self, keys: list[str]) -> set[str] | None:
+        marker_keys = {f"marker:{key}": key for key in keys}
+        existing = self.get_many_text(list(marker_keys))
+        return {marker_keys[key] for key in existing}
+
+    def clear_prefix_debounced(self, prefix: str, *, debounce_key: str, debounce_seconds: int) -> bool:
+        if debounce_seconds <= 0 or self.set_text_if_absent(f"debounce:{debounce_key}", "1", debounce_seconds):
+            self.clear_prefix(prefix)
+            return True
+        return False
+
     @contextmanager
     def lock(self, key: str) -> Iterator[None]:
         started = time.perf_counter()
@@ -103,26 +150,59 @@ class RedisTTLCache:
         self._lock = RLock()
 
     def get_json(self, key: str) -> dict[str, Any] | None:
-        payload = self._client.get(key)
-        if payload is None:
-            return None
-        return json.loads(payload)
+        try:
+            payload = self._client.get(key)
+            if payload is None:
+                return None
+            return json.loads(payload)
+        except (json.JSONDecodeError, redis.RedisError) as exc:
+            raise CacheUnavailableError("redis_get_json_failed") from exc
 
     def get_text(self, key: str) -> str | None:
-        return self._client.get(key)
+        try:
+            return self._client.get(key)
+        except redis.RedisError as exc:
+            raise CacheUnavailableError("redis_get_text_failed") from exc
+
+    def get_many_text(self, keys: list[str]) -> dict[str, str]:
+        if not keys:
+            return {}
+        try:
+            values = self._client.mget(keys)
+        except redis.RedisError as exc:
+            raise CacheUnavailableError("redis_get_many_text_failed") from exc
+        return {key: value for key, value in zip(keys, values) if value is not None}
 
     def set_text(self, key: str, value: str, ttl_seconds: int) -> None:
-        self._client.setex(key, ttl_seconds, value)
+        try:
+            self._client.setex(key, ttl_seconds, value)
+        except redis.RedisError as exc:
+            raise CacheUnavailableError("redis_set_text_failed") from exc
+
+    def set_text_if_absent(self, key: str, value: str, ttl_seconds: int) -> bool:
+        try:
+            return bool(self._client.set(key, value, ex=ttl_seconds, nx=True))
+        except redis.RedisError as exc:
+            raise CacheUnavailableError("redis_set_text_if_absent_failed") from exc
 
     def set_json(self, key: str, value: dict[str, Any], ttl_seconds: int) -> None:
-        self._client.setex(key, ttl_seconds, json.dumps(value, separators=(",", ":"), sort_keys=True))
+        try:
+            self._client.setex(key, ttl_seconds, json.dumps(value, separators=(",", ":"), sort_keys=True))
+        except redis.RedisError as exc:
+            raise CacheUnavailableError("redis_set_json_failed") from exc
 
     def incr(self, key: str) -> int:
-        return int(self._client.incr(key))
+        try:
+            return int(self._client.incr(key))
+        except redis.RedisError as exc:
+            raise CacheUnavailableError("redis_incr_failed") from exc
 
     def clear_prefix(self, prefix: str) -> None:
-        for key in self._client.scan_iter(match=f"{prefix}*"):
-            self._client.delete(key)
+        try:
+            for key in self._client.scan_iter(match=f"{prefix}*"):
+                self._client.delete(key)
+        except redis.RedisError as exc:
+            raise CacheUnavailableError("redis_clear_prefix_failed") from exc
 
     @contextmanager
     def lock(self, key: str) -> Iterator[None]:
@@ -172,7 +252,11 @@ class VersionedLayeredTTLCache:
         return f"{self._entry_prefix}v{self._version()}:{key}"
 
     def get_json(self, key: str) -> dict[str, Any] | None:
-        versioned_key = self._versioned_key(key)
+        try:
+            versioned_key = self._versioned_key(key)
+        except CacheUnavailableError:
+            _mark_unavailable("version_lookup", self._namespace)
+            return None
         started = time.perf_counter()
         local = self._local_cache.get_json_unprofiled(versioned_key)
         profile_mark(current_profile(), "cache:local_get", started)
@@ -180,8 +264,13 @@ class VersionedLayeredTTLCache:
             profile_mark(current_profile(), "cache:hit", time.perf_counter(), {"hit_type": "local"})
             return local
         started = time.perf_counter()
-        shared = self._shared_cache.get_json(versioned_key)
-        profile_mark(current_profile(), "cache:shared_get", started)
+        try:
+            shared = self._shared_cache.get_json(versioned_key)
+            profile_mark(current_profile(), "cache:shared_get", started)
+        except CacheUnavailableError:
+            _mark_unavailable("shared_get", self._namespace)
+            profile_mark(current_profile(), "cache:hit", time.perf_counter(), {"hit_type": "miss"})
+            return None
         if shared is not None:
             self._local_cache.set_json_unprofiled(versioned_key, shared, self._shared_hit_local_ttl_seconds)
             profile_mark(current_profile(), "cache:hit", time.perf_counter(), {"hit_type": "shared"})
@@ -190,20 +279,92 @@ class VersionedLayeredTTLCache:
         return shared
 
     def set_json(self, key: str, value: dict[str, Any], ttl_seconds: int) -> None:
-        versioned_key = self._versioned_key(key)
+        try:
+            versioned_key = self._versioned_key(key)
+        except CacheUnavailableError:
+            _mark_unavailable("version_lookup", self._namespace)
+            return
+        started = time.perf_counter()
+        try:
+            self._shared_cache.set_json(versioned_key, value, ttl_seconds)
+            profile_mark(current_profile(), "cache:set_shared", started)
+        except CacheUnavailableError:
+            _mark_unavailable("shared_set", self._namespace)
+            return
         started = time.perf_counter()
         self._local_cache.set_json_unprofiled(versioned_key, value, ttl_seconds)
         profile_mark(current_profile(), "cache:set_local", started)
+
+    def set_marker(self, key: str, ttl_seconds: int) -> bool:
+        marker_key = f"{self._namespace}:marker:{key}"
+        try:
+            self._shared_cache.set_text(marker_key, "1", ttl_seconds)
+            self._local_cache.set_text(marker_key, "1", ttl_seconds)
+            return True
+        except CacheUnavailableError:
+            _mark_unavailable("marker_set", self._namespace)
+            return False
+
+    def existing_markers(self, keys: list[str]) -> set[str] | None:
+        if not keys:
+            return set()
+        marker_keys = {f"{self._namespace}:marker:{key}": key for key in keys}
         started = time.perf_counter()
-        self._shared_cache.set_json(versioned_key, value, ttl_seconds)
-        profile_mark(current_profile(), "cache:set_shared", started)
+        try:
+            existing = self._shared_cache.get_many_text(list(marker_keys))
+            profile_mark(current_profile(), "cache:marker_get", started)
+        except CacheUnavailableError:
+            _mark_unavailable("marker_get", self._namespace)
+            return None
+        for marker_key in existing:
+            self._local_cache.set_text(marker_key, "1", self._shared_hit_local_ttl_seconds)
+        return {marker_keys[key] for key in existing}
 
     def clear_prefix(self, prefix: str) -> None:
-        new_version = str(self._shared_cache.incr(self._version_key))
-        with self._version_lock:
-            self._cached_version = new_version
-            self._cached_version_expires_at = time.time() + self._version_cache_ttl_seconds
+        try:
+            new_version = str(self._shared_cache.incr(self._version_key))
+            with self._version_lock:
+                self._cached_version = new_version
+                self._cached_version_expires_at = time.time() + self._version_cache_ttl_seconds
+            logger.info(
+                "cache_invalidation",
+                extra=redact_mapping(
+                    {
+                        "event": "cache_invalidation",
+                        "operation": "version_bump",
+                        "cache_namespace": self._namespace,
+                    }
+                ),
+            )
+        except CacheUnavailableError:
+            _mark_unavailable("version_bump", self._namespace)
         self._local_cache.clear_prefix(self._entry_prefix)
+
+    def clear_prefix_debounced(self, prefix: str, *, debounce_key: str, debounce_seconds: int) -> bool:
+        if debounce_seconds <= 0:
+            self.clear_prefix(prefix)
+            return True
+        debounce_marker = f"{self._namespace}:debounce:{debounce_key}"
+        try:
+            should_bump = self._shared_cache.set_text_if_absent(debounce_marker, "1", debounce_seconds)
+        except CacheUnavailableError:
+            _mark_unavailable("debounce_set", self._namespace)
+            self.clear_prefix(prefix)
+            return True
+        if should_bump:
+            self.clear_prefix(prefix)
+            return True
+        logger.info(
+            "cache_invalidation_debounced",
+            extra=redact_mapping(
+                {
+                    "event": "cache_invalidation_debounced",
+                    "operation": "version_bump_skipped",
+                    "cache_namespace": self._namespace,
+                }
+            ),
+        )
+        return False
 
     @contextmanager
     def lock(self, key: str) -> Iterator[None]:

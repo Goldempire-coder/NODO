@@ -38,9 +38,11 @@ class BusinessRecord:
     verification_status: str = "pending"
     trust_level: str = "new"
     risk_level: str = "normal"
+    min_order_amount_usd: Decimal = Decimal("20.00")
     max_order_amount_usd: Decimal = Decimal("100.00")
-    daily_limit_usd: Decimal = Decimal("300.00")
+    daily_limit_usd: Decimal = Decimal("1000.00")
     active_order_limit: int = 1
+    is_accepting_orders: bool = True
     rating_avg: Decimal | None = None
     completed_orders_count: int = 0
     disputes_count: int = 0
@@ -99,6 +101,12 @@ class BusinessAccessLinkRecord:
     blocked_at: datetime | None = None
     revoked_at: datetime | None = None
     reason: str | None = None
+    business_pin_hash: str | None = None
+    business_pin_set_at: datetime | None = None
+    business_pin_verified_at: datetime | None = None
+    business_pin_unlocked_until: datetime | None = None
+    business_pin_failed_attempts: int = 0
+    business_pin_locked_until: datetime | None = None
     created_at: datetime = field(default_factory=utc_now)
     updated_at: datetime = field(default_factory=utc_now)
 

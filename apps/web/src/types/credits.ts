@@ -11,19 +11,6 @@ export type CreditWallet = {
   referral_credits_earned: number;
 };
 
-export type CreditLedgerEntry = {
-  id: string;
-  type: string;
-  amount: number;
-  balance_available_before: number;
-  balance_available_after: number;
-  reason: string;
-  source: string;
-  reference_type: string;
-  reference_id: string;
-  created_at: string;
-};
-
 export type CreditPurchase = {
   id: string;
   business_id: string;
@@ -36,6 +23,25 @@ export type CreditPurchase = {
   manual_payment_reference_masked?: string | null;
   manual_tx_hash_masked?: string | null;
   manual_network?: string | null;
+  chain_id?: number | null;
+  network?: string | null;
+  token_symbol?: string | null;
+  token_contract_address?: string | null;
+  token_decimals?: number | null;
+  expected_amount_units?: string | null;
+  destination_wallet_address?: string | null;
+  tx_hash_masked?: string | null;
+  tx_amount_units?: string | null;
+  tx_from_address_masked?: string | null;
+  tx_to_address?: string | null;
+  tx_block_number?: number | null;
+  tx_log_index?: number | null;
+  confirmations?: number | null;
+  verification_status?: string | null;
+  detected_at?: string | null;
+  verified_at?: string | null;
+  credited_at?: string | null;
+  expires_at?: string | null;
   admin_note?: string | null;
   created_at: string;
   approved_at: string | null;

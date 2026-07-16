@@ -10,7 +10,7 @@ Slice 09 may link to or embed this screen in admin navigation, but ownership and
 business logic remain in slice_08_credits_referrals.
 
 purpose:
-List credit purchases pending manual review.
+List credit purchases pending manual review and on-chain review where applicable.
 
 route:
 /admin/credits/pending
@@ -25,6 +25,7 @@ data required:
 - authenticated user/session
 - `GET /api/v1/admin/credit-purchases`
 - pending manual review purchases with masked proof metadata
+- on-chain `under_review` purchases with safe masked metadata
 
 read strategy:
 - Read only data needed for this screen.
@@ -65,3 +66,4 @@ QA checklist:
 - Queue works.
 - Does not expose `storage_path`.
 - Support cannot approve/reject.
+- Base USDC on-chain review items do not expose RPC keys, raw provider responses, private keys or seed phrases.

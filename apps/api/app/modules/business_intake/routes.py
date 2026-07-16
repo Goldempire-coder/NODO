@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Request, UploadFile
 
 from app.auth.dependencies import require_current_user
+from app.modules.business_intake.models import INTAKE_MAX_FILE_SIZE_BYTES
 from app.modules.business_intake.route_helpers import request_id, require_business_intake_bot, service
 from app.modules.business_intake.schemas import (
     AdminBusinessIntakeDeleteRequest,
@@ -14,6 +15,7 @@ from app.modules.business_intake.schemas import (
 from app.modules.business_intake.service import telegram_send_message as _service_telegram_send_message
 from app.modules.business_intake.telegram_routes import telegram_router
 from app.modules.users.models import UserRecord
+from app.shared.validation import read_limited_upload
 
 router = APIRouter(tags=["business-intake"])
 router.include_router(telegram_router)
@@ -77,7 +79,11 @@ async def upload_intake_document(
     bot_secret: str | None = Header(default=None, alias="X-NODO-Bot-Webhook-Secret"),
 ) -> dict:
     _require_bot(request, bot_secret)
-    content = await file.read()
+    content = await read_limited_upload(
+        file,
+        max_bytes=INTAKE_MAX_FILE_SIZE_BYTES,
+        empty_or_too_large_error="BOT_UPLOAD_INVALID",
+    )
     return {
         "data": _service(request).upload_document(
             intake_id=intake_id,

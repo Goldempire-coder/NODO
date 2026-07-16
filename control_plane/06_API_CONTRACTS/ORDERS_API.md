@@ -332,9 +332,8 @@ Rules:
 - Solo `waiting_payment` antes de `payment_reported`.
 - Setea `order.status = cancelled`.
 - Setea `cancel_reason = remitter_cancelled_before_payment`.
-- Si el anuncio no vencio: `ad.status = active`.
-- Si el anuncio vencio: materializar `ad.status = expired`.
-- Liberar creditos bloqueados del anuncio segun contrato.
+- Si el anuncio no vencio: `ad.status = active` y el credito permanece bloqueado para la publicacion.
+- Si el anuncio vencio: materializar `ad.status = archived` y consumir el hold con ledger `expire`.
 - Crear state event.
 - Auditar `order_cancelled`.
 - No reporta pago ni toca evidencia.

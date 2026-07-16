@@ -205,10 +205,8 @@ Payload:
 {
   "reason": "string",
   "create_business": true,
-  "public_business_name": "Casa Cambio Centro",
   "approve_business": true,
-  "telegram_user_id": "string",
-  "link_access": true
+  "public_business_name": "Casa Cambio Centro"
 }
 ```
 
@@ -216,13 +214,15 @@ Rules:
 - Solo admin/super_admin.
 - Reason obligatorio.
 - Si `create_business = true`, `public_business_name` es obligatorio y se guarda en `businesses.business_name`; ese es el nombre visible en la app cliente/marketplace.
+- Si la solicitud ya tiene `created_business_id`, admin puede enviar `approve_business = true` con `create_business = false` para aprobar y vincular ese negocio existente.
 - Bot intake no crea negocio activo ni autoriza acceso.
 - Admin puede crear negocio desde intake y decidir explicitamente si queda `pending` o `approved`.
 - `approve_business = true` solo es valido si admin reviso la evidencia requerida y queda auditado; si queda `pending`, no hay acceso a Mini App Negocio.
-- Asociar Telegram/persona/negocio requiere `telegram_user_id`, user existente o creado por backend desde Telegram ID, y `business_access_links.status = active`.
+- Asociar Telegram/persona/negocio usa el Telegram ID canonico guardado en la solicitud; el backend crea o recupera ese usuario, asigna `business_owner` y deja `business_access_links.status = active`.
 - Activar acceso solo es valido cuando `business.verification_status = approved` y el link queda `active`.
 - Si el negocio queda `pending`, el link puede crearse como `suspended`/no operativo o diferirse hasta aprobacion; no debe permitir `business_mini_app`.
 - El bot puede notificar "Tu negocio fue aprobado" solo despues de aprobacion admin y link activo confirmado por backend.
+- La respuesta incluye `created_business`, `access_link_created`, `approval_notification_sent` y el negocio publico resultante.
 
 Audit:
 - `business_intake_accepted`

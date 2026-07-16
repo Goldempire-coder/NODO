@@ -576,3 +576,13 @@ Todo cambio debe ser:
 - listo para operar en produccion cuando el owner lo autorice
 
 Si existe duda razonable sobre la calidad de un cambio, el cambio se rechaza hasta contar con evidencia suficiente para aprobarlo.
+
+## 29. Delegacion interna
+
+La delegacion a empleados/colaboradores debe ser granular, revocable y auditable.
+
+- No usar solo `users.role` para permisos finos.
+- No conceder permisos criticos por frontend.
+- No mezclar soporte operativo con disputa formal.
+- No dar a staff delegado acciones de dinero, creditos, usuarios, access links, ordenes, anuncios o resolucion de disputas salvo contrato futuro explicito.
+- La revocacion/suspension staff debe cortar capacidades inmediatamente.

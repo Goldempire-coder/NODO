@@ -17,7 +17,8 @@ Separar soporte general, soporte por orden, soporte negocio, chat operativo y di
 
 ### Soporte por orden
 
-- Scope: `order_support`
+- Scope: `client_order` para cliente/remitente.
+- Scope: `business_order` para negocio.
 - Asociado a `orders.id`.
 - Puede coexistir con chat operativo.
 - No cambia estados de orden por si mismo.
@@ -28,6 +29,18 @@ Separar soporte general, soporte por orden, soporte negocio, chat operativo y di
 - Scope: `business_general`
 - Asociado a `businesses.id`.
 - No permite autoaprobacion ni saltar verificacion.
+
+### Soporte por anuncio
+
+- Scope: `business_ad`
+- Asociado a `ads.id` propio del negocio.
+- No cambia `ads.status`.
+
+### Soporte por creditos
+
+- Scope: `business_credit`
+- Asociado a wallet, ledger o `credit_purchases.id` propio del negocio.
+- No acredita, revierte ni ajusta creditos.
 
 ### Chat operativo por orden
 
@@ -54,6 +67,22 @@ Separar soporte general, soporte por orden, soporte negocio, chat operativo y di
 - Support puede responder/escalar solo segun RBAC.
 - Acciones criticas quedan para admin/super_admin segun contrato.
 - Adjuntos usan storage privado y no exponen `storage_path`.
+- En 20B escalar soporte no crea disputa nueva; solo marca el ticket como `escalated` o lo vincula a disputa existente si ya existe y el actor puede verla.
+- Soporte no cambia dinero, creditos, ordenes, anuncios, roles ni access links.
+- En 20C, soporte delegado usa `staff_profiles` + `staff_permissions` para limitar cola, tickets asignados, scopes, adjuntos y lecturas enmascaradas.
+- `support_agent` opera tickets asignados o colas permitidas; `support_lead` puede asignar/escalar/resolver/cerrar solo con permisos activos; `operations_readonly` solo lee datos enmascarados.
+- Staff delegado no resuelve disputas formales, no bloquea usuarios, no muta creditos, no aprueba negocios y no modifica `business_access_links`.
+
+## Categorias
+
+- `technical_issue`
+- `account_access`
+- `order_help`
+- `payment_report_help`
+- `business_access`
+- `credits_help`
+- `suspicious_activity`
+- `other`
 
 ## Estados
 

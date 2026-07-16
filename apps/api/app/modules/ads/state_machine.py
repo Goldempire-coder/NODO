@@ -25,6 +25,11 @@ def require_pause_allowed(ad: AdRecord) -> None:
         raise ApiError("AD_STATUS_INVALID", status_code=409)
 
 
+def require_reactivate_allowed(ad: AdRecord) -> None:
+    if ad.status != "paused" or is_expired(ad):
+        raise ApiError("AD_STATUS_INVALID", status_code=409)
+
+
 def require_archive_allowed(ad: AdRecord) -> None:
-    if ad.status not in {"paused", "expired"}:
+    if ad.status not in {"active", "paused", "expired"}:
         raise ApiError("AD_STATUS_INVALID", status_code=409)

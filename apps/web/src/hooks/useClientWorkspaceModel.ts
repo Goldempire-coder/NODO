@@ -12,6 +12,7 @@ import { usePaymentReportModel } from "./workspace/usePaymentReportModel";
 import { useRemitterOrdersModel } from "./workspace/useRemitterOrdersModel";
 import { useClientTelegramNativeShell } from "./workspace/useClientTelegramNativeShell";
 import { useClientWorkspaceState } from "./workspace/useClientWorkspaceState";
+import { useSurfaceSupportModel } from "./useSurfaceSupportModel";
 
 export function useClientWorkspaceModel({
   user,
@@ -59,6 +60,7 @@ export function useClientWorkspaceModel({
   const remitterOrders = useRemitterOrdersModel(context);
   const paymentReport = usePaymentReportModel({ ...context, loadMyOrders: remitterOrders.loadMyOrders });
   const chatDisputes = useClientChatDisputesModel(context);
+  const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice });
   const didWarmClientDataRef = useRef(false);
 
   useEffect(() => {
@@ -145,7 +147,19 @@ export function useClientWorkspaceModel({
     refreshChat: chatDisputes.refreshChat,
     uploadChatAttachment: chatDisputes.uploadChatAttachment,
     sendChatMessage: chatDisputes.sendChatMessage,
-    openOrderDispute: chatDisputes.openOrderDispute
+    openOrderDispute: chatDisputes.openOrderDispute,
+    supportTickets: support.supportTickets,
+    selectedSupportTicket: support.selectedSupportTicket,
+    setSelectedSupportTicket: support.setSelectedSupportTicket,
+    supportForm: support.supportForm,
+    setSupportForm: support.setSupportForm,
+    supportReply: support.supportReply,
+    setSupportReply: support.setSupportReply,
+    loadSupportTickets: support.loadSupportTickets,
+    openSupportTicket: support.openSupportTicket,
+    submitSupportTicket: support.submitSupportTicket,
+    submitSupportReply: support.submitSupportReply,
+    uploadTicketAttachment: support.uploadTicketAttachment
   };
 }
 

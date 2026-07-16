@@ -50,6 +50,24 @@ def test_version_endpoint_returns_build_metadata() -> None:
     assert payload["build_id"] == "pytest-build"
 
 
+def test_cors_allows_browser_write_methods_used_by_mini_apps() -> None:
+    _set_env()
+    client = TestClient(create_app())
+
+    for method in ["PATCH", "DELETE"]:
+        response = client.options(
+            "/api/v1/business/payment-methods/00000000-0000-0000-0000-000000000000",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": method,
+                "Access-Control-Request-Headers": "authorization,x-request-id",
+            },
+        )
+
+        assert response.status_code == 200
+        assert method in response.headers["access-control-allow-methods"]
+
+
 def test_ready_endpoint_uses_safe_error_when_dependencies_down() -> None:
     _set_env()
     client = TestClient(create_app())

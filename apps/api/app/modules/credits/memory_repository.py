@@ -70,6 +70,25 @@ class InMemoryCreditRepository:
             manual_network=manual_network,
         )
 
+    def create_base_usdc_purchase(
+        self,
+        *,
+        business_id: str,
+        package_code: str,
+        idempotency_key: str,
+        expected_amount_units: int,
+        destination_wallet_address: str,
+        expires_at,
+    ) -> CreditPurchaseRecord:  # type: ignore[no-untyped-def]
+        return self._purchase_store.create_base_usdc_purchase(
+            business_id=business_id,
+            package_code=package_code,
+            idempotency_key=idempotency_key,
+            expected_amount_units=expected_amount_units,
+            destination_wallet_address=destination_wallet_address,
+            expires_at=expires_at,
+        )
+
     def get_purchase(self, purchase_id: str) -> CreditPurchaseRecord | None:
         return self._purchase_store.get_purchase(purchase_id)
 
@@ -91,11 +110,24 @@ class InMemoryCreditRepository:
             admin_note=admin_note,
         )
 
+    def apply_onchain_verification(self, *, purchase: CreditPurchaseRecord, verification, actor_user_id: str | None) -> tuple[CreditPurchaseRecord, CreditLedgerRecord | None]:  # type: ignore[no-untyped-def]
+        return self._purchase_store.apply_onchain_verification(
+            purchase=purchase,
+            verification=verification,
+            credit_wallet=self._wallet_store.credit_wallet,
+            ledger_for_purchase=self._wallet_store.ledger_for_purchase,
+            grant_referral_bonus=self._grant_referral_bonus_if_eligible,
+            actor_user_id=actor_user_id,
+        )
+
     def reject_purchase(self, *, purchase: CreditPurchaseRecord, admin_user_id: str, reason: str) -> CreditPurchaseRecord:
         return self._purchase_store.reject_purchase(purchase=purchase, admin_user_id=admin_user_id, reason=reason)
 
     def list_purchases(self, *, status: str | None, business_id: str | None, cursor: str | None, limit: int) -> tuple[list[CreditPurchaseRecord], str | None]:
         return self._purchase_store.list_purchases(status=status, business_id=business_id, cursor=cursor, limit=limit)
+
+    def list_onchain_pending_purchases(self, *, limit: int) -> list[CreditPurchaseRecord]:
+        return self._purchase_store.list_onchain_pending_purchases(limit=limit)
 
     def adjust_wallet(self, *, business_id: str, amount: int, direction: str, reason: str, notes: str | None, created_by: str) -> CreditLedgerRecord:
         return self._wallet_store.adjust_wallet(business_id=business_id, amount=amount, direction=direction, reason=reason, notes=notes, created_by=created_by)

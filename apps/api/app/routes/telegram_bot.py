@@ -98,7 +98,13 @@ async def telegram_webhook(secret: str, request: Request) -> dict[str, Any]:
     if not hmac.compare_digest(secret, expected_secret):
         raise ApiError("FORBIDDEN", status_code=403)
 
-    update = await request.json()
+    try:
+        update = await request.json()
+    except ValueError as exc:
+        raise ApiError("VALIDATION_ERROR", status_code=422) from exc
+    if not isinstance(update, dict):
+        raise ApiError("VALIDATION_ERROR", status_code=422)
+
     message = update.get("message") or update.get("edited_message") or {}
     chat = message.get("chat") or {}
     chat_id = chat.get("id")

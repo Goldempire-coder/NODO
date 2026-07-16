@@ -109,6 +109,61 @@ Reglas:
 - Multi-worker debe calcular `workers x pool_por_worker` contra el limite real de PostgreSQL/Supabase.
 - Si el ambiente no soporta c500/c1000, el builder debe reportar `BLOCKED_BY_INFRA_CAPACITY` en vez de esconder el fallo.
 
+## slice_19_base_usdc_usdt_credit_topups
+
+Objetivo:
+- Compra y acreditacion de creditos publicitarios con pagos on-chain en Base.
+
+Incluye:
+- Base mainnet `chain_id = 8453`.
+- USDC nativo Base como unico token MVP.
+- USDC Base contract: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
+- `POST /api/v1/business/credits/base-payment`.
+- `GET /api/v1/business/credits/purchases/{id}`.
+- `POST /api/v1/business/credits/purchases/{id}/tx-hash`.
+- Watcher `verify_base_usdc_credit_purchases`.
+- Tabla `credit_purchase_onchain_payments`.
+- Acreditacion exact-once con `credits_ledger.type = purchase`.
+
+No incluye:
+- USDT Base hasta verificacion oficial contractual.
+- USDT TRC20 automatico.
+- Acreditar por screenshot/texto libre.
+- Private keys, seed phrases o backend signing.
+- Refunds automaticos.
+- Custodia o pagos de remesas.
+- READY_FOR_REAL_USE.
+
+Reglas:
+- Stripe/Zelle/USDT TRC20 manual quedan como fallback/legacy si backend los habilita; no son flujo principal Base.
+- Bot privado/admin solo notifica; no decide ni acredita.
+- Verifier/ledger/backend son autoridad.
+- No se acepta token por simbolo/nombre solamente.
+
+## slice_20A_admin_users_business_control
+
+Objetivo:
+- Primer corte del Centro de Operaciones NODO para control admin de usuarios, negocios y accesos.
+
+Incluye:
+- `GET /api/v1/admin/users`.
+- `GET /api/v1/admin/users/{id}`.
+- `POST /api/v1/admin/users/{id}/suspend`.
+- `POST /api/v1/admin/users/{id}/reactivate`.
+- `POST /api/v1/admin/users/{id}/block`.
+- `GET /api/v1/admin/businesses/{id}/access-links`.
+- `GET /api/v1/admin/users/{id}/access-links`.
+- A-10 Admin Web users/remitters/control de access links.
+
+Reglas:
+- `users.status` conserva enum canonico: `active`, `restricted`, `blocked`, `dormant`.
+- La accion admin `suspend` usa `restricted`; no existe `users.status = suspended`.
+- `admin` y `super_admin` mutan con reason, `Idempotency-Key`, RBAC y audit.
+- `support` es read-only y masked.
+- No bloquear/suspender el ultimo `super_admin active`.
+- No hard delete de usuarios, negocios ni access links.
+- No tocar ordenes, pagos, creditos, disputas, Base USDC, bots, soporte/tickets ni deploy.
+
 Contrato maestro para construir NODO por slices sin improvisar. Si una carpeta de slice contradice este documento, el builder debe reportar `BLOCKED_BY_CONTRACT_CONFLICT`.
 
 ## Reglas globales
@@ -735,3 +790,99 @@ No incluye:
 Gate:
 
 - solo puede terminar en BLOCKED o READY_FOR_OWNER_REVIEW.
+
+## slice_20B_support_ticket_center
+
+Objetivo: construir un centro de soporte real separado por superficies.
+
+Incluye:
+
+- soporte cliente general `client_general`
+- soporte cliente por orden `client_order`
+- soporte negocio general `business_general`
+- soporte negocio por orden `business_order`
+- soporte negocio por anuncio `business_ad`
+- soporte negocio por compra/credito `business_credit`
+- cola Admin Web de soporte con filtros, detalle, mensajes, asignacion, escalamiento, resolucion, cierre, eventos y adjuntos
+- `support_tickets`, `support_messages`, `support_ticket_events`
+- adjuntos privados via `file_assets` con `resource_type = support_ticket|support_message` y `file_type = support_attachment`
+- endpoints `/api/v1/support/tickets` y `/api/v1/admin/support/tickets`
+- RBAC de `support`, `admin` y `super_admin` para operar tickets segun contrato
+
+Reglas:
+
+- soporte no es chat operativo entre partes
+- soporte no es disputa formal
+- escalar soporte no crea disputa formal en 20B
+- soporte no cambia estados de orden, creditos, anuncios, usuarios, roles, access links ni disputa formal
+- todos los adjuntos usan storage privado, signed URL corta y audit
+- audit no guarda cuerpos completos, `storage_path`, signed URLs, tokens, secretos ni datos bancarios completos
+
+No incluye:
+
+- resolver disputas formales
+- crear disputas desde soporte
+- modificar dinero/creditos
+- cambiar lifecycle de ordenes/anuncios/pagos/disputas
+- soporte por voz, SLA avanzado, macros, exportaciones sensibles o automatizacion IA
+- Admin Web nuevo fuera de la composicion de soporte contratada
+- deploy o READY_FOR_REAL_USE
+
+## slice_20C_internal_staff_roles
+
+Objetivo:
+- Delegacion interna segura para empleados/colaboradores sin entregar permisos peligrosos.
+
+Incluye:
+- `staff_profiles`, `staff_permissions`, `staff_invites`.
+- Roles internos staff: `support_agent`, `support_lead`, `operations_readonly`, `admin`, `super_admin`.
+- Permisos granulares para soporte, adjuntos y lecturas enmascaradas.
+- Endpoints `/api/v1/admin/staff`.
+- Staff Center, Staff Detail e Invite Staff en Admin Web.
+- Audit events `staff_*`.
+
+Reglas:
+- `users.role` sigue siendo rol base y no se usa solo para granularidad staff.
+- Staff activo requiere `users.status = active` y `staff_profiles.status = active`.
+- Solo `super_admin` administra staff/permisos.
+- Staff delegado opera solo permisos/scopes activos.
+- Revocar/suspender staff corta capacidades inmediatamente pero no bloquea necesariamente al usuario.
+- Staff delegado no puede bloquear/suspender usuarios, cambiar roles, mutar `business_access_links`, aprobar/rechazar negocios o creditos, ajustar creditos, resolver disputas, mutar ordenes, mutar anuncios ni mutar creditos.
+
+No incluye:
+- SSO corporativo.
+- Exportaciones sensibles.
+- Staff en Mini Apps.
+- Cambios a soporte 20B, ordenes, creditos, anuncios, pagos o disputas.
+- Deploy o READY_FOR_REAL_USE.
+
+## slice_24_observability_debuggability
+
+Objetivo:
+- Observabilidad y depurabilidad segura para reconstruir incidentes sin capturar datos sensibles innecesarios.
+
+Incluye:
+- modelo canonico de `request_id`, `correlation_id`, `operation_id` y `session_id`;
+- request logging estructurado backend;
+- breadcrumbs frontend seguros;
+- session replay estructurado sin video;
+- ingestion backend env-gated de eventos redaccionados;
+- tabla futura `observability_events` con TTL;
+- Admin Web diagnostic search/export con RBAC y masking;
+- cleanup de retencion;
+- redaccion obligatoria y limites de costo.
+
+Reglas:
+- Observability no autoriza acciones.
+- Observability no es audit formal.
+- Observability no es ledger financiero.
+- Audit formal sigue siendo durable para acciones sensibles.
+- Session replay no graba video, DOM completo ni payloads privados.
+- Produccion queda deshabilitada por defecto hasta aprobacion owner posterior.
+
+No incluye:
+- proveedores externos SaaS;
+- video replay;
+- cambios de reglas de negocio;
+- deploy;
+- READY_FOR_REAL_USE.

@@ -1,4 +1,5 @@
 import os
+import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -22,14 +23,21 @@ from app.modules.chat.repository import InMemoryChatRepository, PostgresChatRepo
 from app.modules.chat.routes import router as chat_router
 from app.modules.credits.repository import InMemoryCreditRepository, PostgresCreditRepository
 from app.modules.credits.routes import router as credits_router
+from app.modules.credits.onchain import JsonRpcBaseUsdcVerifier
+from app.modules.credits.watcher import BaseUsdcCreditPurchaseWatcher
 from app.modules.disputes.repository import InMemoryDisputeRepository, PostgresDisputeRepository
 from app.modules.disputes.routes import router as disputes_router
 from app.modules.jobs.lock import InMemoryJobLockManager, RedisJobLockManager
 from app.modules.jobs.repository import InMemoryJobRepository, PostgresJobRepository
 from app.modules.jobs.routes import router as jobs_router
 from app.modules.jobs.worker import ExpireAndEscalateOrdersWorker
+from app.modules.observability.routes import router as observability_router
 from app.modules.orders.repository import InMemoryOrderRepository, PostgresOrderRepository
 from app.modules.orders.routes import router as orders_router
+from app.modules.support.repository import InMemorySupportRepository, PostgresSupportRepository
+from app.modules.support.routes import router as support_router
+from app.modules.staff.repository import InMemoryStaffRepository, PostgresStaffRepository
+from app.modules.staff.routes import router as staff_router
 from app.modules.users.repository import InMemoryUserRepository, PostgresUserRepository
 from app.routes.auth import router as auth_router
 from app.routes.health import router as health_router
@@ -40,6 +48,7 @@ from app.shared.audit.audit_service import InMemoryAuditWriter, PostgresAuditWri
 from app.shared.cache import InMemoryTTLCache, RedisTTLCache, VersionedLayeredTTLCache
 from app.shared.db.connection import pool_snapshot, warm_pool
 from app.shared.idempotency.store import InMemoryIdempotencyStore, RedisIdempotencyStore
+from app.shared.observability import ObservabilityMiddleware, get_correlation_id, get_operation_id, get_request_id
 from app.shared.rate_limit.in_memory import InMemoryRateLimiter
 from app.shared.rate_limit.redis import RedisRateLimiter
 from app.shared.security.headers import RuntimeTimingMiddleware, SecurityHeadersMiddleware
@@ -120,10 +129,12 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.ad_repository = InMemoryAdRepository()
     app.state.order_repository = InMemoryOrderRepository()
     app.state.chat_repository = InMemoryChatRepository()
+    app.state.support_repository = InMemorySupportRepository()
     app.state.credit_repository = InMemoryCreditRepository(app.state.ad_repository, app.state.business_repository)
     app.state.dispute_repository = InMemoryDisputeRepository()
     app.state.job_repository = InMemoryJobRepository()
     app.state.audit_writer = InMemoryAuditWriter()
+    app.state.staff_repository = InMemoryStaffRepository(users=app.state.user_repository, audit_writer=app.state.audit_writer)
     app.state.admin_repository = InMemoryAdminRepository(
         users=app.state.user_repository,
         businesses=app.state.business_repository,
@@ -140,6 +151,7 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.auth_user_cache = None
     app.state.private_storage = InMemoryPrivateStorage()
     app.state.job_lock_manager = InMemoryJobLockManager()
+    app.state.onchain_credit_verifier = JsonRpcBaseUsdcVerifier(rpc_url=None, timeout_seconds=1)
 
 
 def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> None:  # type: ignore[no-untyped-def]
@@ -149,10 +161,12 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.ad_repository = PostgresAdRepository(settings.database_url)
     app.state.order_repository = PostgresOrderRepository(settings.database_url)
     app.state.chat_repository = PostgresChatRepository(settings.database_url)
+    app.state.support_repository = PostgresSupportRepository(settings.database_url)
     app.state.credit_repository = PostgresCreditRepository(settings.database_url)
     app.state.dispute_repository = PostgresDisputeRepository(settings.database_url)
     app.state.job_repository = PostgresJobRepository(settings.database_url)
     app.state.audit_writer = PostgresAuditWriter(settings.database_url)
+    app.state.staff_repository = PostgresStaffRepository(settings.database_url)
     app.state.admin_repository = PostgresAdminRepository(settings.database_url)
     try:
         warm_pool(settings.database_url, size=int(os.environ.get("NODO_DB_POOL_WARM_SIZE", "8")))
@@ -176,6 +190,7 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.auth_user_cache = InMemoryTTLCache()
     app.state.private_storage = build_private_storage(settings)
     app.state.job_lock_manager = RedisJobLockManager(settings.redis_url)
+    app.state.onchain_credit_verifier = JsonRpcBaseUsdcVerifier(rpc_url=settings.base_rpc_url, timeout_seconds=settings.onchain_credit_watcher_timeout_seconds)
 
 
 def _configure_workers(app: FastAPI) -> None:
@@ -188,9 +203,16 @@ def _configure_workers(app: FastAPI) -> None:
         dispute_repository=app.state.dispute_repository,
         audit_writer=app.state.audit_writer,
     )
+    app.state.verify_base_usdc_credit_purchases_worker = BaseUsdcCreditPurchaseWatcher(
+        settings=app.state.settings,
+        credit_repository=app.state.credit_repository,
+        audit_writer=app.state.audit_writer,
+        onchain_verifier=app.state.onchain_credit_verifier,
+    )
 
 
 def _configure_middlewares(app: FastAPI, *, settings: Settings) -> None:
+    app.add_middleware(ObservabilityMiddleware)
     app.add_middleware(RuntimeTimingMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     cloudflare_preview_origin_regex = r"^https://[a-z0-9-]+\.nodo-staging\.pages\.dev$"
@@ -199,16 +221,26 @@ def _configure_middlewares(app: FastAPI, *, settings: Settings) -> None:
         allow_origins=settings.cors_origins,
         allow_origin_regex=cloudflare_preview_origin_regex,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=[
             "Authorization",
             "Content-Type",
             "X-Request-Id",
+            "X-Correlation-Id",
+            "X-NODO-Operation-Id",
             "X-NODO-Surface",
             "X-NODO-Profile",
             "X-NODO-Bot-Webhook-Secret",
             "Idempotency-Key",
             "Stripe-Signature",
+        ],
+        expose_headers=[
+            "X-Request-Id",
+            "X-Correlation-Id",
+            "X-NODO-Operation-Id",
+            "X-NODO-Surface",
+            "X-NODO-Process-Time-Ms",
+            "Server-Timing",
         ],
     )
 
@@ -223,30 +255,61 @@ def _include_routes(app: FastAPI) -> None:
     app.include_router(ads_router, prefix="/api/v1")
     app.include_router(orders_router, prefix="/api/v1")
     app.include_router(chat_router, prefix="/api/v1")
+    app.include_router(support_router, prefix="/api/v1")
+    app.include_router(staff_router, prefix="/api/v1")
     app.include_router(credits_router, prefix="/api/v1")
     app.include_router(disputes_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
+    app.include_router(observability_router, prefix="/api/v1")
     app.include_router(telegram_bot_router, prefix="/api/v1")
     app.include_router(health_router)
 
 
 def _register_error_handlers(app: FastAPI, *, logger) -> None:  # type: ignore[no-untyped-def]
+    def _observability_error_headers(request) -> dict[str, str]:  # type: ignore[no-untyped-def]
+        headers = {}
+        correlation_id = get_correlation_id(request)
+        operation_id = get_operation_id(request)
+        surface = getattr(request.state, "surface", "")
+        if correlation_id:
+            headers["X-Correlation-Id"] = correlation_id
+        if operation_id:
+            headers["X-NODO-Operation-Id"] = operation_id
+        if surface:
+            headers["X-NODO-Surface"] = surface
+        return headers
+
     @app.exception_handler(ApiError)
     async def api_error_handler(request, exc: ApiError):  # type: ignore[no-untyped-def]
-        request_id = request.headers.get("x-request-id", "request_id_unavailable")
-        return api_error_response(exc.code, exc.message, request_id, status_code=exc.status_code)
+        request_id = get_request_id(request)
+        return api_error_response(exc.code, exc.message, request_id, status_code=exc.status_code, headers=_observability_error_headers(request))
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request, exc: RequestValidationError):  # type: ignore[no-untyped-def]
-        request_id = request.headers.get("x-request-id", "request_id_unavailable")
-        return api_error_response("VALIDATION_ERROR", "Revisa los datos enviados.", request_id, status_code=422)
+        request_id = get_request_id(request)
+        return api_error_response("VALIDATION_ERROR", "Revisa los datos enviados.", request_id, status_code=422, headers=_observability_error_headers(request))
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request, exc):  # type: ignore[no-untyped-def]
-        request_id = request.headers.get("x-request-id", "request_id_unavailable")
-        logger.exception("api_unhandled_error", extra={"request_id": request_id, "error_code": "INTERNAL_ERROR"})
-        return api_error_response("INTERNAL_ERROR", "Ocurrio un error temporal.", request_id, status_code=500)
+        request_id = get_request_id(request)
+        traceback_frames = [
+            {"file": frame.filename.rsplit("\\", 1)[-1].rsplit("/", 1)[-1], "line": frame.lineno, "function": frame.name}
+            for frame in traceback.extract_tb(exc.__traceback__)[-8:]
+        ]
+        logger.error(
+            "api_unhandled_error",
+            extra={
+                "request_id": request_id,
+                "correlation_id": get_correlation_id(request),
+                "operation_id": get_operation_id(request),
+                "surface": getattr(request.state, "surface", "unknown"),
+                "error_code": "INTERNAL_ERROR",
+                "exception_class": exc.__class__.__name__,
+                "traceback_frames": traceback_frames,
+            },
+        )
+        return api_error_response("INTERNAL_ERROR", "Ocurrio un error temporal.", request_id, status_code=500, headers=_observability_error_headers(request))
 
 
 app = create_app()

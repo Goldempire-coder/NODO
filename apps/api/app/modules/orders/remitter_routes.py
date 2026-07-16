@@ -3,9 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Header, Query, Request
 
 from app.auth.dependencies import require_current_user
+from app.modules.orders.helpers import activate_response_profile, reset_response_profile
 from app.modules.orders.routes_support import order_service, request_id
 from app.modules.orders.schemas import OrderActionRequest, OrderCreateRequest
 from app.modules.users.models import UserRecord
+from app.shared.profiling import staging_response_profile_enabled
 
 router = APIRouter(tags=["orders"])
 
@@ -28,7 +30,11 @@ def create_order(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
-    data = order_service(request).create_order(user=user, payload=payload, request_id=request_id(request), idempotency_key=idempotency_key)
+    profile_token = activate_response_profile(staging_response_profile_enabled(request))
+    try:
+        data = order_service(request).create_order(user=user, payload=payload, request_id=request_id(request), idempotency_key=idempotency_key)
+    finally:
+        reset_response_profile(profile_token)
     return {
         "data": _attach_dependency_profile(request, data),
         "request_id": request_id(request),

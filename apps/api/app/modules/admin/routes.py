@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
+from pydantic import Field
 
 from app.auth.dependencies import require_current_user
 from app.modules.admin.service import AdminService
 from app.modules.users.models import UserRecord
+from app.shared.validation import StrictRequestModel
 
 router = APIRouter(prefix="/admin", tags=["admin-console"])
+
+
+class AdminReasonRequest(StrictRequestModel):
+    reason: str = Field(max_length=500)
 
 
 def _request_id(request: Request) -> str:
@@ -20,6 +26,8 @@ def _service(request: Request) -> AdminService:
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,
         read_model_cache=request.app.state.admin_read_model_cache,
+        idempotency_store=request.app.state.idempotency_store,
+        auth_user_cache=request.app.state.auth_user_cache,
     )
 
 
@@ -53,6 +61,109 @@ def list_businesses(
         ),
         "request_id": _request_id(request),
     }
+
+
+@router.get("/users")
+def list_users(
+    request: Request,
+    phone: str | None = Query(default=None),
+    telegram_id: str | None = Query(default=None),
+    username: str | None = Query(default=None),
+    role: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=50),
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    return {
+        "data": _service(request).list_users(
+            user=user,
+            phone=phone,
+            telegram_id=telegram_id,
+            username=username,
+            role=role,
+            status=status,
+            cursor=cursor,
+            limit=limit,
+            request_id=_request_id(request),
+        ),
+        "request_id": _request_id(request),
+    }
+
+
+@router.get("/users/{user_id}")
+def user_detail(user_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
+    return {"data": _service(request).user_detail(user=user, target_user_id=user_id, request_id=_request_id(request)), "request_id": _request_id(request)}
+
+
+@router.get("/users/{user_id}/access-links")
+def user_access_links(user_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
+    return {"data": _service(request).list_user_access_links(user=user, target_user_id=user_id, request_id=_request_id(request)), "request_id": _request_id(request)}
+
+
+def _change_user_status(
+    *,
+    action: str,
+    user_id: str,
+    payload: AdminReasonRequest,
+    request: Request,
+    user: UserRecord,
+    idempotency_key: str | None,
+) -> dict:
+    service = _service(request)
+    method = {
+        "suspend": service.suspend_user,
+        "reactivate": service.reactivate_user,
+        "block": service.block_user,
+    }[action]
+    return {
+        "data": method(
+            user=user,
+            target_user_id=user_id,
+            reason=payload.reason,
+            request_id=_request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": _request_id(request),
+    }
+
+
+@router.post("/users/{user_id}/suspend")
+def suspend_user(
+    user_id: str,
+    payload: AdminReasonRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return _change_user_status(action="suspend", user_id=user_id, payload=payload, request=request, user=user, idempotency_key=idempotency_key)
+
+
+@router.post("/users/{user_id}/reactivate")
+def reactivate_user(
+    user_id: str,
+    payload: AdminReasonRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return _change_user_status(action="reactivate", user_id=user_id, payload=payload, request=request, user=user, idempotency_key=idempotency_key)
+
+
+@router.post("/users/{user_id}/block")
+def block_user(
+    user_id: str,
+    payload: AdminReasonRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return _change_user_status(action="block", user_id=user_id, payload=payload, request=request, user=user, idempotency_key=idempotency_key)
+
+
+@router.get("/businesses/{business_id}/access-links")
+def business_access_links(business_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
+    return {"data": _service(request).list_business_access_links(user=user, business_id=business_id, request_id=_request_id(request)), "request_id": _request_id(request)}
 
 
 @router.get("/businesses/{business_id}")

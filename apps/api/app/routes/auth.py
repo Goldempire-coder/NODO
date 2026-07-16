@@ -1,13 +1,19 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+import json
 
-from app.auth.dependencies import require_current_user
-from app.modules.users.models import UserRecord
+from fastapi import APIRouter, Header, Request
+from pydantic import Field, ValidationError
+
+from app.core.errors import ApiError
 from app.modules.users.schemas import LogoutRequest, RefreshRequest, TelegramAuthRequest
 from app.modules.users.service import AuthService
 
 router = APIRouter(tags=["auth"])
+
+
+class TelegramAuthEnvelope(TelegramAuthRequest):
+    surface: str | None = Field(default=None, max_length=64)
 
 
 def _request_id(request: Request) -> str:
@@ -24,10 +30,28 @@ def _auth_service(request: Request) -> AuthService:
 
 
 @router.post("/auth/telegram")
-def auth_telegram(payload: TelegramAuthRequest, request: Request) -> dict:
+async def auth_telegram(
+    request: Request,
+    surface: str | None = Header(default=None, alias="X-NODO-Surface"),
+) -> dict:
+    raw_body = await request.body()
+    try:
+        body = json.loads(raw_body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ApiError("TELEGRAM_INIT_DATA_INVALID", status_code=401) from exc
+    if not isinstance(body, dict):
+        raise ApiError("TELEGRAM_INIT_DATA_INVALID", status_code=401)
+    try:
+        payload = TelegramAuthEnvelope.model_validate(body)
+    except ValidationError as exc:
+        raise ApiError("VALIDATION_ERROR", status_code=422) from exc
+    body_surface = payload.surface.strip() if isinstance(payload.surface, str) and payload.surface.strip() else None
+    raw_header_surface = surface.strip() if isinstance(surface, str) and surface.strip() else None
+    header_surface = raw_header_surface if raw_header_surface != "unknown" else None
     service = _auth_service(request)
     data = service.login_with_telegram(
         init_data=payload.init_data,
+        surface=header_surface or body_surface,
         request_id=_request_id(request),
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
@@ -43,7 +67,7 @@ def refresh(payload: RefreshRequest, request: Request) -> dict:
 
 
 @router.post("/auth/logout")
-def logout(payload: LogoutRequest, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
+def logout(payload: LogoutRequest, request: Request) -> dict:
     service = _auth_service(request)
-    data = service.logout(refresh_token=payload.refresh_token, user=user, request_id=_request_id(request))
+    data = service.logout(refresh_token=payload.refresh_token, request_id=_request_id(request))
     return {"data": data, "request_id": _request_id(request)}

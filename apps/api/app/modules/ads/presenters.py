@@ -43,5 +43,7 @@ def ad_payload(ad: AdRecord, *, business: BusinessRecord | None = None, payment_
             "network": payment_method.network,
             "account_masked": payment_method.account_masked,
             "holder_name": payment_method.holder_name,
+            "verified_status": payment_method.verified_status,
+            "active": payment_method.active,
         }
     return payload

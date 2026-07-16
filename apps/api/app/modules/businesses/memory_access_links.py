@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.core.errors import ApiError
 from app.modules.businesses.models import (
     BUSINESS_ACCESS_ROLES,
@@ -109,4 +111,43 @@ class InMemoryBusinessAccessLinksMixin:
                 link.blocked_at = now
             elif status == "revoked":
                 link.revoked_at = now
+            return link
+
+    def set_access_link_pin_hash(self, *, link_id: str, pin_hash: str) -> BusinessAccessLinkRecord:
+        with self._lock:  # type: ignore[attr-defined]
+            link = self.access_links[link_id]  # type: ignore[attr-defined]
+            now = utc_now()
+            link.business_pin_hash = pin_hash
+            link.business_pin_set_at = now
+            link.business_pin_verified_at = None
+            link.business_pin_unlocked_until = None
+            link.business_pin_failed_attempts = 0
+            link.business_pin_locked_until = None
+            link.updated_at = now
+            return link
+
+    def mark_access_link_pin_verified(self, *, link_id: str, unlocked_until: datetime) -> BusinessAccessLinkRecord:
+        with self._lock:  # type: ignore[attr-defined]
+            link = self.access_links[link_id]  # type: ignore[attr-defined]
+            link.business_pin_verified_at = utc_now()
+            link.business_pin_unlocked_until = unlocked_until
+            link.business_pin_failed_attempts = 0
+            link.business_pin_locked_until = None
+            link.updated_at = utc_now()
+            return link
+
+    def record_access_link_pin_failure(self, *, link_id: str, failed_attempts: int, locked_until: datetime | None) -> BusinessAccessLinkRecord:
+        with self._lock:  # type: ignore[attr-defined]
+            link = self.access_links[link_id]  # type: ignore[attr-defined]
+            link.business_pin_failed_attempts = failed_attempts
+            link.business_pin_locked_until = locked_until
+            link.business_pin_unlocked_until = None
+            link.updated_at = utc_now()
+            return link
+
+    def lock_access_link_pin(self, *, link_id: str) -> BusinessAccessLinkRecord:
+        with self._lock:  # type: ignore[attr-defined]
+            link = self.access_links[link_id]  # type: ignore[attr-defined]
+            link.business_pin_unlocked_until = None
+            link.updated_at = utc_now()
             return link

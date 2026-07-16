@@ -10,7 +10,7 @@ Slice 09 may link to or embed this screen in admin navigation, but ownership and
 business logic remain in slice_08_credits_referrals.
 
 purpose:
-Approve/reject manual credit purchase.
+Approve/reject manual credit purchase and reject on-chain review cases where contracted.
 
 route:
 /admin/credits/:id
@@ -26,7 +26,9 @@ data required:
 - `GET /api/v1/admin/credit-purchases`
 - `POST /api/v1/admin/credit-purchases/{id}/approve`
 - `POST /api/v1/admin/credit-purchases/{id}/reject`
+- `POST /api/v1/admin/credit-purchases/{id}/onchain-reject`
 - proof metadata/signed URL rules from `CREDITS_API.md`
+- safe on-chain metadata for Base USDC purchases
 
 read strategy:
 - Read only data needed for this screen.
@@ -50,6 +52,7 @@ Approve/Reject as web buttons with confirmation, reason required, idempotency an
 validation:
 - reason required for approve/reject
 - purchase must be `pending_manual_review`
+- on-chain reject only for `under_review`; admin cannot manually credit on-chain without verifier status `verified`
 - no `storage_path` display
 
 permissions:
@@ -65,9 +68,11 @@ states:
 audit events:
 - manual_credit_payment_approved
 - manual_credit_payment_rejected
+- onchain_payment_rejected
 - credits_added when approved
 
 QA checklist:
 - Ledger updates once.
 - Reject does not credit wallet.
 - Approval requires reason.
+- On-chain detail does not expose RPC keys, raw provider responses, private keys or seed phrases.

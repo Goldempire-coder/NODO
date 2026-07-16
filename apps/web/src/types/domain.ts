@@ -4,6 +4,6 @@ export type { AdminAuditLog, AdminBusinessDetail, AdminDashboard, AdminDisputeSu
 export type { BusinessFormState, BusinessPaymentMethod, BusinessSummary } from "./business";
 export type { ChatAttachment, ChatCapabilities, ChatMessage } from "./chat";
 export type { ClientProfileFormState, SearchFormState } from "./client";
-export type { CreditLedgerEntry, CreditPurchase, CreditWallet, ReferralData, ReferralEvent } from "./credits";
+export type { CreditPurchase, CreditWallet, ReferralData, ReferralEvent } from "./credits";
 export type { BusinessOrderDetail, BusinessOrderSummary, OrderFormState, OrderSummary } from "./orders";
 export type { PaymentEvidence, PaymentInstructions, PaymentReportFormState } from "./payments";

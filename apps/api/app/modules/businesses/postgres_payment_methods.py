@@ -14,18 +14,20 @@ class PostgresBusinessPaymentMethodsMixin:
         account_value: str,
         account_masked: str,
         holder_name: str,
+        verified_status: str = "pending",
+        active: bool = False,
     ) -> BusinessPaymentMethodRecord:
         with self._connect() as conn:  # type: ignore[attr-defined]
             row = conn.execute(
                 """
                 insert into business_payment_methods (
                     business_id, method_type, network, account_value, account_masked,
-                    holder_name, created_at, updated_at
+                    holder_name, verified_status, active, created_at, updated_at
                 )
-                values (%s, %s, %s, %s, %s, %s, now(), now())
+                values (%s, %s, %s, %s, %s, %s, %s, %s, now(), now())
                 returning *
                 """,
-                (business_id, method_type, network, account_value, account_masked, holder_name),
+                (business_id, method_type, network, account_value, account_masked, holder_name, verified_status, active),
             ).fetchone()
             conn.commit()
         return payment_method_from_row(row)
@@ -44,3 +46,46 @@ class PostgresBusinessPaymentMethodsMixin:
                 (business_id,),
             ).fetchall()
         return [payment_method_from_row(row) for row in rows]
+
+    def update_payment_method(
+        self,
+        payment_method_id: str,
+        *,
+        account_value: str,
+        account_masked: str,
+        holder_name: str,
+    ) -> BusinessPaymentMethodRecord | None:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            row = conn.execute(
+                """
+                update business_payment_methods
+                   set account_value = %s,
+                       account_masked = %s,
+                       holder_name = %s,
+                       updated_at = now()
+                 where id = %s
+                returning *
+                """,
+                (account_value, account_masked, holder_name, payment_method_id),
+            ).fetchone()
+            conn.commit()
+        if row is None:
+            return None
+        return payment_method_from_row(row)
+
+    def deactivate_payment_method(self, payment_method_id: str) -> BusinessPaymentMethodRecord | None:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            row = conn.execute(
+                """
+                update business_payment_methods
+                   set active = false,
+                       updated_at = now()
+                 where id = %s
+                returning *
+                """,
+                (payment_method_id,),
+            ).fetchone()
+            conn.commit()
+        if row is None:
+            return None
+        return payment_method_from_row(row)

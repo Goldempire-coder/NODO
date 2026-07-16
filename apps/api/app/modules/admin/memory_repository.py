@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.modules.admin.presenters import iso, mask_sensitive
+from app.modules.admin.user_presenters import admin_business_link_payload, admin_user_payload
 
 class InMemoryAdminRepository:
     def __init__(self, *, users, businesses, orders, disputes, credits, audit_writer) -> None:  # type: ignore[no-untyped-def]
@@ -81,6 +82,95 @@ class InMemoryAdminRepository:
         business = getattr(self._businesses, "businesses", {}).get(business_id)
         return self._business_detail(business) if business else None
 
+    def list_users(
+        self,
+        *,
+        phone: str | None,
+        telegram_id: int | None,
+        username: str | None,
+        role: str | None,
+        status: str | None,
+        cursor: str | None,
+        limit: int,
+        full_sensitive: bool,
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        items = list(getattr(self._users, "_users_by_id", {}).values())
+        if phone:
+            items = [item for item in items if item.phone and phone in item.phone]
+        if telegram_id is not None:
+            items = [item for item in items if item.telegram_id == telegram_id]
+        if username:
+            needle = username.lower()
+            items = [item for item in items if item.username and needle in item.username.lower()]
+        if role:
+            items = [item for item in items if item.role == role]
+        if status:
+            items = [item for item in items if item.status == status]
+        if cursor:
+            items = [item for item in items if item.created_at.isoformat() < cursor]
+        items.sort(key=lambda item: item.created_at, reverse=True)
+        page = items[:limit]
+        return [admin_user_payload(item.__dict__, full_sensitive=full_sensitive) for item in page], page[-1].created_at.isoformat() if len(page) == limit else None
+
+    def get_user_admin(self, user_id: str, *, full_sensitive: bool) -> dict[str, Any] | None:
+        user = getattr(self._users, "_users_by_id", {}).get(user_id)
+        if user is None:
+            return None
+        orders = [item for item in getattr(self._orders, "orders", {}).values() if item.remitter_user_id == user_id]
+        businesses = [item for item in getattr(self._businesses, "businesses", {}).values() if item.owner_user_id == user_id]
+        payload = admin_user_payload(user.__dict__, full_sensitive=full_sensitive)
+        payload["order_counts"] = {
+            "total": len(orders),
+            "active": sum(1 for item in orders if item.status not in {"completed", "cancelled"}),
+            "completed": sum(1 for item in orders if item.status == "completed"),
+            "disputed": sum(1 for item in orders if item.status == "disputed"),
+        }
+        payload["businesses"] = [self._business_summary(item) for item in businesses]
+        return payload
+
+    def get_user_record_for_admin(self, user_id: str):
+        return getattr(self._users, "_users_by_id", {}).get(user_id)
+
+    def set_user_status_for_admin(self, *, user_id: str, status: str):
+        self._users.set_user_status(user_id, status)
+        return self._users.get_user_by_id(user_id)
+
+    def count_active_super_admins(self) -> int:
+        return sum(1 for item in getattr(self._users, "_users_by_id", {}).values() if item.role == "super_admin" and item.status == "active")
+
+    def list_access_links_for_business(self, *, business_id: str, full_sensitive: bool) -> list[dict[str, Any]]:
+        return self._list_access_links(
+            links=[item for item in getattr(self._businesses, "access_links", {}).values() if item.business_id == business_id],
+            full_sensitive=full_sensitive,
+        )
+
+    def list_access_links_for_user(self, *, user_id: str, full_sensitive: bool) -> list[dict[str, Any]]:
+        return self._list_access_links(
+            links=[item for item in getattr(self._businesses, "access_links", {}).values() if item.user_id == user_id],
+            full_sensitive=full_sensitive,
+        )
+
+    def _list_access_links(self, *, links, full_sensitive: bool) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
+        rows = []
+        for link in sorted(links, key=lambda item: item.updated_at, reverse=True):
+            user = getattr(self._users, "_users_by_id", {}).get(link.user_id)
+            business = getattr(self._businesses, "businesses", {}).get(link.business_id)
+            rows.append(
+                {
+                    **link.__dict__,
+                    "username": user.username if user else None,
+                    "first_name": user.first_name if user else None,
+                    "phone": user.phone if user else None,
+                    "user_telegram_id": user.telegram_id if user else None,
+                    "user_role": user.role if user else None,
+                    "user_status": user.status if user else None,
+                    "business_name": business.business_name if business else None,
+                    "verification_status": business.verification_status if business else None,
+                    "risk_level": business.risk_level if business else None,
+                }
+            )
+        return [admin_business_link_payload(row, full_sensitive=full_sensitive) for row in rows]
+
     def list_orders(self, *, status: str | None, business_id: str | None, remitter_user_id: str | None, cursor: str | None, limit: int) -> tuple[list[dict[str, Any]], str | None]:
         items = list(getattr(self._orders, "orders", {}).values())
         if status:
@@ -148,7 +238,9 @@ class InMemoryAdminRepository:
             {
                 "owner_user_id": business.owner_user_id,
                 "country": business.country,
+                "min_order_amount_usd": str(business.min_order_amount_usd),
                 "max_order_amount_usd": str(business.max_order_amount_usd),
+                "daily_limit_usd": str(business.daily_limit_usd),
                 "active_order_limit": business.active_order_limit,
                 "completed_orders_count": business.completed_orders_count,
                 "disputes_count": business.disputes_count,

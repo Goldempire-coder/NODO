@@ -15,14 +15,16 @@ from app.modules.business_intake.conversation_contact import BusinessIntakeConta
 from app.modules.business_intake.conversation_router import route_active_intake_message
 from app.modules.business_intake.conversation_start import BusinessIntakeStartMixin
 from app.modules.business_intake.conversation_text import BusinessIntakeTextStepsMixin
+from app.modules.business_intake.business_creation import BUSINESS_APPROVAL_BUTTON_TEXT, BUSINESS_MENU_BUTTON_TEXT
 from app.modules.business_intake.models import (
     INTAKE_FINAL_CONFIRMATION,
     BusinessIntakeRequestRecord,
 )
-from app.modules.business_intake.telegram_client import telegram_download_file, telegram_send_message
+from app.modules.business_intake.telegram_client import telegram_download_file, telegram_send_message, telegram_set_chat_menu_button
 from app.modules.business_intake.telegram_update_parser import empty_telegram_response, telegram_message_context
 
 INTAKE_CONFIRMATION = INTAKE_FINAL_CONFIRMATION
+BUSINESS_OPEN_MESSAGE = "Ya tienes acceso a NODO Negocio.\n\nToca el boton para abrir la Mini App."
 
 
 
@@ -33,9 +35,10 @@ class BusinessIntakeConversation(
     BusinessIntakeContactStepMixin,
     BusinessIntakeTextStepsMixin,
 ):
-    def __init__(self, *, settings, repository, user_repository, audit_writer, rate_limiter, storage) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, settings, repository, business_repository, user_repository, audit_writer, rate_limiter, storage) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
+        self._businesses = business_repository
         self._users = user_repository
         self._audit = audit_writer
         self._rate_limiter = rate_limiter
@@ -133,3 +136,28 @@ class BusinessIntakeConversation(
     async def _send_final_confirmation(self, *, bot_token: str, chat_id: int) -> None:
         await telegram_send_message(bot_token, chat_id, INTAKE_CONFIRMATION)
 
+    async def _send_business_open_message(self, *, bot_token: str, chat_id: int) -> None:
+        await self._set_business_open_menu_button(bot_token=bot_token, chat_id=chat_id)
+        await telegram_send_message(bot_token, chat_id, BUSINESS_OPEN_MESSAGE, reply_markup=self._business_approval_reply_markup())
+
+    async def _set_business_open_menu_button(self, *, bot_token: str, chat_id: int) -> None:
+        try:
+            await telegram_set_chat_menu_button(bot_token, chat_id, BUSINESS_MENU_BUTTON_TEXT, self._business_web_app_url())
+        except ApiError:
+            return
+
+    def _business_approval_reply_markup(self) -> dict[str, Any]:
+        return {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": BUSINESS_APPROVAL_BUTTON_TEXT,
+                        "web_app": {"url": self._business_web_app_url()},
+                    }
+                ]
+            ]
+        }
+
+    def _business_web_app_url(self) -> str:
+        base_url = self._settings.telegram_web_app_url.rstrip("/")
+        return f"{base_url}/business/"

@@ -24,9 +24,17 @@ on:
         required: true
         default: "600"
       concurrency:
-        description: "Concurrent requests"
+        description: "Concurrent requests. Product-gate default is c50; c100+ must use run_purpose=infra-probe."
         required: true
-        default: "100"
+        default: "50"
+      run_purpose:
+        description: "Staging run purpose"
+        required: true
+        default: "product-gate"
+        type: choice
+        options:
+          - product-gate
+          - infra-probe
       remitters:
         description: "Synthetic remitters for marketplace"
         required: true
@@ -77,6 +85,7 @@ jobs:
             --scenario "${{ inputs.scenario }}" \
             --requests "${{ inputs.requests }}" \
             --concurrency "${{ inputs.concurrency }}" \
+            --run-purpose "${{ inputs.run_purpose }}" \
             --remitters "${{ inputs.remitters }}" \
             --order-ad-ids "${{ inputs.order_ad_ids }}" \
             --run-id "$RUN_ID" \

@@ -2,6 +2,8 @@ export type AdminWebView =
   | "dashboard"
   | "businesses"
   | "business-detail"
+  | "users"
+  | "user-detail"
   | "orders"
   | "order-detail"
   | "disputes"
@@ -14,7 +16,10 @@ export type AdminWebView =
   | "jobs"
   | "intake"
   | "intake-detail"
-  | "support-placeholder";
+  | "support"
+  | "staff"
+  | "staff-detail"
+  | "staff-invite";
 
 export type RequestFn = <T = unknown>(path: string, options?: RequestInit) => Promise<T>;
 

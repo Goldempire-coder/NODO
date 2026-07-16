@@ -61,3 +61,5 @@ QA checklist:
 - Shows available/blocked/consumed.
 - Only shows own wallet/ledger.
 - Does not show Stripe secrets or proof storage data.
+- Base USDC ledger purchases show safe method/status and masked tx hash when present.
+- Does not show RPC keys, raw provider data, private keys or seed phrases.

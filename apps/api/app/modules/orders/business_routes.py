@@ -3,11 +3,16 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Header, Query, Request
 
 from app.auth.dependencies import require_current_user
+from app.modules.businesses.route_dependencies import business_service as business_access_service
 from app.modules.orders.routes_support import order_service, request_id
 from app.modules.orders.schemas import OrderActionRequest
 from app.modules.users.models import UserRecord
 
 router = APIRouter(tags=["orders"])
+
+
+def _require_business_pin(request: Request, user: UserRecord) -> None:
+    business_access_service(request).require_unlocked_business_pin(user=user)
 
 
 @router.get("/business/orders")
@@ -34,6 +39,7 @@ def confirm_business_payment(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    _require_business_pin(request, user)
     return {
         "data": order_service(request).confirm_business_payment(user=user, order_id=order_id, payload=payload, request_id=request_id(request), idempotency_key=idempotency_key),
         "request_id": request_id(request),
@@ -48,6 +54,7 @@ def reject_business_payment_report(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    _require_business_pin(request, user)
     return {
         "data": order_service(request).reject_business_payment_report(user=user, order_id=order_id, payload=payload, request_id=request_id(request), idempotency_key=idempotency_key),
         "request_id": request_id(request),
@@ -62,6 +69,7 @@ def mark_business_delivered(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    _require_business_pin(request, user)
     return {
         "data": order_service(request).mark_business_delivered(user=user, order_id=order_id, payload=payload, request_id=request_id(request), idempotency_key=idempotency_key),
         "request_id": request_id(request),

@@ -51,6 +51,15 @@ class PostgresBusinessRepository(
             conn.commit()
         return business_from_row(row)
 
+    def update_business_accepting_orders(self, business_id: str, accepting_orders: bool) -> BusinessRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "update businesses set is_accepting_orders = %s, updated_at = now() where id = %s returning *",
+                (accepting_orders, business_id),
+            ).fetchone()
+            conn.commit()
+        return business_from_row(row) if row else None
+
     def get_business(self, business_id: str) -> BusinessRecord | None:
         with self._connect() as conn:
             row = conn.execute("select * from businesses where id = %s", (business_id,)).fetchone()

@@ -39,6 +39,10 @@ class InMemoryPrivateStorage:
         suffix = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "bin"
         return self._store_private_object(f"private/business_intake/{intake_id}/{file_id}.{suffix}", content)
 
+    def store_support_attachment(self, *, ticket_id: str, file_id: str, file_name: str, content: bytes) -> StoredPrivateFile:
+        suffix = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "bin"
+        return self._store_private_object(f"private/support/{ticket_id}/{file_id}.{suffix}", content)
+
     def signed_view_url(self, *, storage_path: str, expires_in: int) -> str:
         if storage_path not in self._objects:
             raise ApiError("BUSINESS_DOCUMENT_NOT_FOUND", status_code=404)

@@ -36,6 +36,30 @@ def purchase_public(purchase: CreditPurchaseRecord, *, admin: bool = False) -> d
         data["manual_tx_hash_masked"] = mask_tail(purchase.manual_tx_hash)
         data["manual_network"] = purchase.manual_network
         data["admin_note"] = purchase.admin_note
+    if purchase.payment_method == "base_usdc_onchain":
+        data.update(
+            {
+                "chain_id": purchase.chain_id,
+                "network": purchase.network,
+                "token_symbol": purchase.token_symbol,
+                "token_contract_address": purchase.token_contract_address,
+                "token_decimals": purchase.token_decimals,
+                "expected_amount_units": str(purchase.expected_amount_units) if purchase.expected_amount_units is not None else None,
+                "destination_wallet_address": purchase.destination_wallet_address,
+                "tx_hash_masked": mask_tail(purchase.tx_hash, keep=8),
+                "tx_amount_units": str(purchase.tx_amount_units) if purchase.tx_amount_units is not None else None,
+                "tx_from_address_masked": mask_tail(purchase.tx_from_address),
+                "tx_to_address": purchase.tx_to_address,
+                "tx_block_number": purchase.tx_block_number,
+                "tx_log_index": purchase.tx_log_index,
+                "confirmations": purchase.confirmations,
+                "verification_status": purchase.verification_status,
+                "detected_at": purchase.detected_at.isoformat() if purchase.detected_at else None,
+                "verified_at": purchase.verified_at.isoformat() if purchase.verified_at else None,
+                "credited_at": purchase.credited_at.isoformat() if purchase.credited_at else None,
+                "expires_at": purchase.expires_at.isoformat() if purchase.expires_at else None,
+            }
+        )
     return data
 
 

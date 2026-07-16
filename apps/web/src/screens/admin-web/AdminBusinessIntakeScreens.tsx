@@ -77,7 +77,10 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
         <button disabled={!model.adminMutable || Boolean(intake.created_business_id)} type="button" onClick={() => model.createBusinessFromIntake()}>
           Crear negocio pendiente
         </button>
-        <p className="admin-web-muted">Este nombre es el que vera el cliente en la app. Crear el negocio no da acceso automatico ni publica anuncios.</p>
+        <button disabled={!model.adminMutable} type="button" onClick={() => model.approveBusinessFromIntake()}>
+          Crear, aprobar y avisar
+        </button>
+        <p className="admin-web-muted">El segundo boton crea o aprueba el negocio, crea el acceso y envia el boton de NODO Negocio por Telegram.</p>
         <ReasonBox model={model} label="Reason para borrar" />
         <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.deleteBusinessIntake()}>
           Borrar registro

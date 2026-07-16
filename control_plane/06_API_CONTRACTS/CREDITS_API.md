@@ -106,6 +106,95 @@ Rutas legacy prohibidas/no validas:
   - manual_credit_payment_submitted
 - No acredita creditos.
 
+### POST /api/v1/business/credits/base-payment
+
+- Auth: business_owner.
+- Scope: negocio propio aprobado con acceso activo.
+- Idempotency-Key: obligatorio.
+- Body:
+  - package_code: starter | pro | business | enterprise
+  - token: `USDC`
+- Crea `credit_purchases.status = pending_payment`.
+- Crea compra on-chain con:
+  - payment_method = `base_usdc_onchain`
+  - network = `base_mainnet`
+  - chain_id = `8453`
+  - token_symbol = `USDC`
+  - token_contract_address = `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+  - token_decimals = `6`
+  - destination_wallet_address = `NODO_CREDIT_RECEIVING_WALLET_BASE`
+  - expected_amount_units `numeric(78,0)` calculado sin float
+  - expires_at
+- EVM values in persistence and comparisons must be normalized lowercase:
+  - token_contract_address
+  - destination_wallet_address
+  - tx_hash
+  - tx_from_address
+  - tx_to_address
+- Response:
+  - purchase id
+  - package_code
+  - credits_amount
+  - price_usd
+  - payment_method
+  - status
+  - network
+  - chain_id
+  - token_symbol
+  - token_contract_address
+  - token_decimals
+  - expected_amount_units
+  - expected_amount_display
+  - destination_wallet_address
+  - expires_at
+  - min_confirmations
+  - disclaimer
+- Audit:
+  - onchain_credit_purchase_created
+- No acredita creditos.
+- USDT Base no es aceptado en MVP.
+- USDT TRC20 manual no se mezcla con este endpoint.
+
+### GET /api/v1/business/credits/purchases/{id}
+
+- Auth: business_owner.
+- Scope: compra propia.
+- Response:
+  - campos seguros de la compra
+  - estado on-chain
+  - confirmations
+  - expires_at
+  - tx_hash masked cuando exista
+  - capabilities
+- No expone RPC keys, raw provider response, `storage_path`, `account_value`, tokens ni secretos.
+
+### POST /api/v1/business/credits/purchases/{id}/tx-hash
+
+- Auth: business_owner.
+- Scope: compra propia.
+- Idempotency-Key: obligatorio.
+- Body:
+  - tx_hash
+- Backend verifica on-chain antes de acreditar.
+- Validaciones:
+  - chain Base `8453`
+  - token contract USDC oficial
+  - destination wallet oficial
+  - amount suficiente
+  - confirmations minimas
+  - tx/log no usado antes
+  - purchase no terminal
+- Response:
+  - purchase id
+  - status
+  - verification_status
+  - confirmations
+  - mensaje seguro
+- Audit:
+  - onchain_tx_hash_submitted
+  - onchain_payment_verified o evento de fallo/review segun resultado
+- No acredita por texto libre ni screenshot.
+
 ### GET /api/v1/business/referrals
 
 - Auth: business_owner.
@@ -130,6 +219,13 @@ Rutas legacy prohibidas/no validas:
 - Crea `referral_events.status = pending`.
 - Audit:
   - referral_code_applied
+
+Referral qualification:
+
+- Stripe/manual legacy purchase qualifies when `credit_purchases.status = approved`.
+- Base USDC on-chain purchase qualifies when `credit_purchases.status = credited`.
+- Both require exactly one `credits_ledger.type = purchase` linked by `related_credit_purchase_id`.
+- On-chain statuses before `credited` do not qualify referral bonuses.
 
 ## Stripe webhook
 
@@ -200,6 +296,28 @@ Rutas legacy prohibidas/no validas:
 - Audit:
   - manual_credit_payment_rejected
 
+### GET /api/v1/admin/credit-purchases/{id}
+
+- Auth: admin/super_admin; support read-only enmascarado si contrato admin lo permite.
+- Response:
+  - detalle de compra con datos sensibles masked
+  - metadata on-chain segura si payment_method = `base_usdc_onchain`
+  - proof metadata sin `storage_path`
+- No expone RPC keys, raw provider responses, private keys, seed phrases ni signed URLs persistidas.
+
+### POST /api/v1/admin/credit-purchases/{id}/onchain-reject
+
+- Auth: admin/super_admin.
+- Idempotency-Key: obligatorio.
+- Body:
+  - reason requerido
+- Solo para `under_review`.
+- Escribe `credit_purchases.status = rejected`.
+- No acredita creditos.
+- Audit:
+  - onchain_payment_rejected
+- Prohibe support.
+
 ### POST /api/v1/admin/credits/adjust
 
 - Auth: admin/super_admin.
@@ -235,6 +353,19 @@ Rutas legacy prohibidas/no validas:
 - MANUAL_PAYMENT_ALREADY_REVIEWED
 - ADMIN_REASON_REQUIRED
 - CREDIT_ALREADY_GRANTED
+- ONCHAIN_CHAIN_INVALID
+- ONCHAIN_TOKEN_NOT_ALLOWED
+- ONCHAIN_DESTINATION_MISMATCH
+- ONCHAIN_AMOUNT_INSUFFICIENT
+- ONCHAIN_CONFIRMATIONS_PENDING
+- ONCHAIN_TX_NOT_FOUND
+- ONCHAIN_TX_ALREADY_USED
+- ONCHAIN_TX_HASH_INVALID
+- ONCHAIN_PURCHASE_EXPIRED
+- ONCHAIN_PURCHASE_STATUS_INVALID
+- ONCHAIN_RPC_UNAVAILABLE
+- ONCHAIN_VERIFICATION_FAILED
+- ONCHAIN_REVIEW_REQUIRED
 - CREDIT_BALANCE_INSUFFICIENT
 - CREDIT_WALLET_NOT_FOUND
 - REFERRAL_NOT_ALLOWED
@@ -252,6 +383,8 @@ Rutas legacy prohibidas/no validas:
 ## Seguridad
 
 - No secrets Stripe en frontend, repo, logs ni respuestas.
+- No RPC keys en frontend, repo, logs ni respuestas.
+- No private keys ni seed phrases para topups on-chain.
 - No `storage_path` en API/frontend/logs/audit.
 - Comprobantes manuales solo en storage privado y signed URL corta para admin.
 - Admin actions requieren reason.

@@ -9,6 +9,7 @@ class PostgresBusinessMarketplaceMixin:
                 select id from businesses
                 where verification_status = 'approved'
                   and risk_level not in ('restricted', 'high_risk')
+                  and is_accepting_orders = true
                 """
             ).fetchall()
         return {str(row["id"]) for row in rows}

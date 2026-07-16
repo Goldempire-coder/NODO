@@ -52,7 +52,8 @@ Response 200:
 
 Rules:
 
-- Validar firma/hash de Telegram con `BOT_TOKEN`.
+- Validar firma/hash de Telegram con `BOT_TOKEN` por defecto.
+- Si `X-NODO-Surface: business_mini_app`, tambien puede validar con `BUSINESS_INTAKE_BOT_TOKEN` para permitir apertura desde Bot Registro Negocios; ese token no es valido para `client_mini_app`.
 - Rechazar `initData` expirado.
 - No aceptar datos Telegram enviados sin firma valida.
 - No guardar raw `initData`.
@@ -134,4 +135,3 @@ Rules:
 - SESSION_EXPIRED
 - UNAUTHENTICATED
 - RATE_LIMITED
-

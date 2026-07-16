@@ -113,7 +113,7 @@ class OrderRemitterOps:
             updated = self._repository.update_order(order, status="cancelled", cancel_reason="remitter_cancelled_before_payment")
             ad: AdRecord | None = self._ads.get_ad(order.ad_id)
             if ad is not None:
-                self._return_or_expire_ad(ad, actor=user, request_id=request_id)
+                self._return_or_expire_ad(ad, actor=user, request_id=request_id, related_order_id=order.id)
             reason = payload.reason if payload else None
             self._repository.add_state_event(
                 order_id=order.id,

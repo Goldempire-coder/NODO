@@ -47,6 +47,7 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -104,7 +105,7 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
     stored_business.approved_at = stored_business.updated_at
     stored_business.max_order_amount_usd = stored_business.max_order_amount_usd * 20
     stored_user = client.app.state.user_repository.get_user_by_id(login["user"]["id"])
-    client.app.state.business_repository.create_access_link(
+    link = client.app.state.business_repository.create_access_link(
         business_id=business["id"],
         user_id=login["user"]["id"],
         telegram_id_snapshot=stored_user.telegram_id,
@@ -112,6 +113,8 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
         linked_by_admin_id=login["user"]["id"],
         reason="test_active_business_access",
     )
+    client.app.state.business_repository.set_access_link_pin_hash(link_id=link.id, pin_hash=hash_pin("1234"))
+    client.app.state.business_repository.mark_access_link_pin_verified(link_id=link.id, unlocked_until=utc_now() + timedelta(minutes=15))
     payment = client.app.state.business_repository.add_payment_method(
         business_id=business["id"],
         method_type="zelle",
@@ -223,7 +226,7 @@ def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
 
 
-def test_waiting_payment_expiry_dry_run_is_non_mutating_then_cancels_and_releases_hold() -> None:
+def test_waiting_payment_expiry_dry_run_is_non_mutating_then_cancels_and_keeps_ad_hold() -> None:
     client = _client()
     _, business, ad, remitter, order = _seed_order(client, owner_id=1000, remitter_id=1001)
     admin = _login(client, 1002, "admin")
@@ -258,8 +261,8 @@ def test_waiting_payment_expiry_dry_run_is_non_mutating_then_cancels_and_release
     assert client.app.state.order_repository.get_by_id(order["id"]).cancel_reason == "payment_not_reported_in_time"
     assert client.app.state.ad_repository.get_ad(ad["id"]).status == "active"
     wallet_after = client.app.state.ad_repository.get_wallet(business["id"])
-    assert wallet_after.blocked_credits == blocked_before - 1
-    assert wallet_after.available_credits == available_before + 1
+    assert wallet_after.blocked_credits == blocked_before
+    assert wallet_after.available_credits == available_before
     assert "order_cancelled_payment_not_reported" in _event_types(client)
     cancelled_notifications = [
         n for n in client.app.state.job_repository.notification_jobs.values() if n.notification_type == "order_cancelled_payment_not_reported"
@@ -436,13 +439,15 @@ def test_ad_and_founder_expiration_admin_job_endpoints_and_lock_rbac() -> None:
     stored_business.founder_expires_at = utc_now() - timedelta(days=1)
     wallet_before = client.app.state.ad_repository.get_wallet(business["id"])
     blocked_before = wallet_before.blocked_credits
+    consumed_before = wallet_before.consumed_credits
 
     _run_job(client, utc_now())
 
-    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "expired"
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "archived"
     assert client.app.state.business_repository.get_business(business["id"]).founder_status == "expired"
     assert client.app.state.ad_repository.get_wallet(business["id"]).blocked_credits == blocked_before - 1
-    assert {"ad_expired", "founder_access_expired"}.issubset(set(_event_types(client)))
+    assert client.app.state.ad_repository.get_wallet(business["id"]).consumed_credits == consumed_before + 1
+    assert {"ad_expired", "credits_consumed", "founder_access_expired"}.issubset(set(_event_types(client)))
     notification_types = {item.notification_type for item in client.app.state.job_repository.notification_jobs.values()}
     assert {"ad_expired", "founder_access_expired"}.issubset(notification_types)
     assert {"job_started", "job_finished"}.issubset(set(_event_types(client)))

@@ -85,7 +85,8 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
     def _materialize_expired(self, ad: AdRecord, *, actor: UserRecord | None, request_id: str) -> AdRecord:
         if not is_expired(ad):
             return ad
-        ad = self._repository.set_status(ad, "expired")
+        expired_ledger = self._repository.expire_hold(ad=ad, created_by=actor.id if actor else None)
+        ad = self._repository.get_ad(ad.id) or ad
         self._audit.write(
             event_type="ad_expired",
             actor_user_id=actor.id if actor else None,
@@ -94,16 +95,15 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             resource_id=ad.id,
             request_id=request_id,
         )
-        released = self._repository.release_hold(ad=ad, created_by=actor.id if actor else None)
-        if released is not None:
+        if expired_ledger is not None:
             self._audit.write(
-                event_type="credits_released",
+                event_type="credits_consumed",
                 actor_user_id=actor.id if actor else None,
                 actor_role=actor.role if actor else None,
                 resource_type="ad",
                 resource_id=ad.id,
                 request_id=request_id,
-                metadata_json={"ledger_id": released.id, "amount": released.amount},
+                metadata_json={"ledger_id": expired_ledger.id, "amount": expired_ledger.amount, "reason": "ad_expired_without_purchase"},
             )
         return ad
 
@@ -118,6 +118,8 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
         if payload.amount_min_usd > payload.amount_max_usd:
             raise ApiError("AD_AMOUNT_RANGE_INVALID", status_code=400)
         required_credits = calculate_required_credits(payload.amount_max_usd)
+        if payload.amount_min_usd < business.min_order_amount_usd:
+            raise ApiError("AD_LIMIT_NOT_ALLOWED", status_code=409)
         if payload.amount_max_usd > business.max_order_amount_usd:
             raise ApiError("AD_LIMIT_NOT_ALLOWED", status_code=409)
         return required_credits
@@ -131,6 +133,11 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             amount_max_usd=payload.amount_max_usd,
         ):
             raise ApiError("AD_OVERLAP_NOT_ALLOWED", status_code=409)
+
+    def _ensure_daily_exposure_allowed(self, *, business: BusinessRecord, amount_max_usd, exclude_ad_id: str | None = None) -> None:  # type: ignore[no-untyped-def]
+        open_exposure = self._repository.business_open_exposure_usd(business_id=business.id, exclude_ad_id=exclude_ad_id)
+        if open_exposure + amount_max_usd > business.daily_limit_usd:
+            raise ApiError("BUSINESS_DAILY_LIMIT_EXCEEDED", status_code=409)
 
     def _publish_ad(self, *, user: UserRecord, business: BusinessRecord, payload: AdCreateRequest, required_credits: int, founder_access_used: bool) -> AdRecord:
         return self._repository.publish_ad(
@@ -176,6 +183,9 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             stage_started = time.perf_counter()
             self._ensure_no_overlapping_ad(business=business, payload=payload)
             profile_mark(profile, "repo:has_overlapping_ad", stage_started)
+            stage_started = time.perf_counter()
+            self._ensure_daily_exposure_allowed(business=business, amount_max_usd=payload.amount_max_usd)
+            profile_mark(profile, "repo:daily_exposure", stage_started)
             stage_started = time.perf_counter()
             founder_access_used = self._founder_access_valid(business)
             profile_mark(profile, "service:founder_access_valid", stage_started)

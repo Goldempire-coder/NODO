@@ -10,6 +10,7 @@ from app.modules.business_intake.conversation import (
     BusinessIntakeConversation,
     telegram_download_file,
     telegram_send_message,
+    telegram_set_chat_menu_button,
 )
 from app.modules.business_intake.models import (
     BusinessIntakeRequestRecord,
@@ -43,6 +44,7 @@ class BusinessIntakeService(BusinessIntakePublicActionsMixin):
         self._conversation = BusinessIntakeConversation(
             settings=settings,
             repository=repository,
+            business_repository=business_repository,
             user_repository=user_repository,
             audit_writer=audit_writer,
             rate_limiter=rate_limiter,
@@ -105,6 +107,7 @@ class BusinessIntakeService(BusinessIntakePublicActionsMixin):
     async def process_telegram_update(self, *, update: dict[str, Any], bot_token: str | None, request_id: str) -> dict[str, Any]:
         conversation_module.telegram_send_message = telegram_send_message
         conversation_module.telegram_download_file = telegram_download_file
+        conversation_module.telegram_set_chat_menu_button = telegram_set_chat_menu_button
         return await self._conversation.process_telegram_update(update=update, bot_token=bot_token, request_id=request_id)
 
     def _public_intake(self, intake: BusinessIntakeRequestRecord, *, admin: bool = False) -> dict[str, Any]:

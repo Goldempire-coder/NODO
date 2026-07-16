@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import os
 import time
+from contextvars import ContextVar, Token
 from typing import Any
 from uuid import UUID
 
 from app.core.errors import ApiError
+
+_ORDER_RESPONSE_PROFILE_ENABLED: ContextVar[bool] = ContextVar("nodo_order_response_profile_enabled", default=False)
 
 
 def require_uuid(value: str | None, error_code: str) -> str | None:
@@ -18,7 +21,15 @@ def require_uuid(value: str | None, error_code: str) -> str | None:
 
 
 def profile_enabled() -> bool:
-    return os.environ.get("NODO_INTERNAL_PROFILING") == "1"
+    return os.environ.get("NODO_INTERNAL_PROFILING") == "1" or _ORDER_RESPONSE_PROFILE_ENABLED.get()
+
+
+def activate_response_profile(enabled: bool) -> Token[bool]:
+    return _ORDER_RESPONSE_PROFILE_ENABLED.set(enabled)
+
+
+def reset_response_profile(token: Token[bool]) -> None:
+    _ORDER_RESPONSE_PROFILE_ENABLED.reset(token)
 
 
 def profile_mark(profile: list[dict[str, Any]] | None, stage: str, started: float) -> None:

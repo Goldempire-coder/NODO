@@ -11,7 +11,12 @@ export type DocumentFile = {
 export type AdminBusinessDetail = {
   business: BusinessSummary & {
     address?: string | null;
+    owner_user_id?: string | null;
     trust_level?: string;
+    min_order_amount_usd?: string;
+    max_order_amount_usd?: string;
+    daily_limit_usd?: string;
+    active_order_limit?: number;
     created_at?: string;
     updated_at?: string;
   };
@@ -23,6 +28,78 @@ export type AdminBusinessDetail = {
     reviewed_at: string | null;
   } | null;
   documents: DocumentFile[];
+};
+
+export type AdminBusinessAccessLink = {
+  id: string;
+  business_id: string;
+  user_id: string;
+  telegram_id?: number | null;
+  telegram_id_masked?: string | null;
+  role_in_business: string;
+  status: string;
+  reason?: string | null;
+  linked_by_admin_id?: string | null;
+  linked_at?: string | null;
+  suspended_at?: string | null;
+  blocked_at?: string | null;
+  revoked_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  user?: {
+    id: string;
+    username?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    phone_masked?: string | null;
+    telegram_id_masked?: string | null;
+    role?: string | null;
+    status?: string | null;
+  } | null;
+  business?: {
+    id: string;
+    business_name?: string | null;
+    display_name?: string | null;
+    verification_status?: string | null;
+  } | null;
+};
+
+export type AdminUserSummary = {
+  id: string;
+  telegram_id?: number | null;
+  telegram_id_masked?: string | null;
+  username?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  phone_masked?: string | null;
+  role: string;
+  status: string;
+  trust_level?: string | null;
+  terms_version?: string | null;
+  terms_accepted_at?: string | null;
+  last_seen_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type AdminUserDetail = {
+  user: AdminUserSummary & {
+    order_counts?: Record<string, number>;
+    businesses?: {
+      id: string;
+      business_name?: string | null;
+      display_name?: string | null;
+      verification_status?: string | null;
+      risk_level?: string | null;
+    }[];
+  };
+  access_links: AdminBusinessAccessLink[];
+  capabilities: {
+    can_mutate_status: boolean;
+    can_view_sensitive: boolean;
+  };
+  disclaimer: string;
 };
 
 export type AdminDashboard = {

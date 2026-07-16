@@ -18,6 +18,8 @@ SECRET_ENV_KEYS = {
     "STORAGE_ACCESS_KEY",
     "STORAGE_SECRET_KEY",
     "ADMIN_BOOTSTRAP_SECRET",
+    "BASE_RPC_URL",
+    "BASE_RPC_API_KEY",
 }
 
 REQUIRED_ENV_KEYS = ("APP_ENV", "APP_VERSION", "DATABASE_URL", "REDIS_URL")
@@ -44,6 +46,14 @@ class Settings:
     jwt_refresh_secret: str | None
     stripe_secret_key: str | None
     stripe_webhook_secret: str | None
+    base_rpc_url: str | None
+    base_rpc_api_key: str | None
+    nodo_credit_receiving_wallet_base: str | None
+    onchain_credit_min_confirmations: int
+    onchain_credit_purchase_ttl_minutes: int
+    onchain_credit_watcher_batch_size: int
+    onchain_credit_watcher_timeout_seconds: int
+    legacy_credit_payment_methods_enabled: bool
     auth_init_data_max_age_seconds: int
     access_token_ttl_seconds: int
     refresh_token_ttl_seconds: int
@@ -58,6 +68,9 @@ class Settings:
     admin_read_model_cache_ttl_seconds: int
     auth_user_cache_ttl_seconds: int
     api_thread_limit: int
+    observability_ingest_enabled: bool
+    observability_max_events_per_batch: int
+    observability_max_event_bytes: int
     private_storage_mode: str
     private_storage_root: str
     storage_signed_url_ttl_seconds: int
@@ -90,6 +103,13 @@ def _read_int(source: Mapping[str, str], key: str, default: int) -> int:
     return value
 
 
+def _read_bool(source: Mapping[str, str], key: str, default: bool) -> bool:
+    raw_value = source.get(key)
+    if raw_value is None or raw_value == "":
+        return default
+    return raw_value.strip().lower() in {"1", "true", "on", "yes"}
+
+
 def validate_env(environ: Mapping[str, str] | None = None) -> None:
     source = environ or os.environ
     missing = [key for key in REQUIRED_ENV_KEYS if not source.get(key)]
@@ -115,6 +135,14 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         jwt_refresh_secret=source.get("JWT_REFRESH_SECRET") or None,
         stripe_secret_key=source.get("STRIPE_SECRET_KEY") or None,
         stripe_webhook_secret=source.get("STRIPE_WEBHOOK_SECRET") or None,
+        base_rpc_url=source.get("BASE_RPC_URL") or None,
+        base_rpc_api_key=source.get("BASE_RPC_API_KEY") or None,
+        nodo_credit_receiving_wallet_base=source.get("NODO_CREDIT_RECEIVING_WALLET_BASE") or None,
+        onchain_credit_min_confirmations=_read_int(source, "ONCHAIN_CREDIT_MIN_CONFIRMATIONS", 6),
+        onchain_credit_purchase_ttl_minutes=_read_int(source, "ONCHAIN_CREDIT_PURCHASE_TTL_MINUTES", 30),
+        onchain_credit_watcher_batch_size=_read_int(source, "ONCHAIN_CREDIT_WATCHER_BATCH_SIZE", 50),
+        onchain_credit_watcher_timeout_seconds=_read_int(source, "ONCHAIN_CREDIT_WATCHER_TIMEOUT_SECONDS", 10),
+        legacy_credit_payment_methods_enabled=_read_bool(source, "LEGACY_CREDIT_PAYMENT_METHODS_ENABLED", False),
         auth_init_data_max_age_seconds=_read_int(source, "AUTH_INIT_DATA_MAX_AGE_SECONDS", 86400),
         access_token_ttl_seconds=_read_int(source, "ACCESS_TOKEN_TTL_SECONDS", 900),
         refresh_token_ttl_seconds=_read_int(source, "REFRESH_TOKEN_TTL_SECONDS", 2_592_000),
@@ -129,6 +157,9 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         admin_read_model_cache_ttl_seconds=_read_int(source, "ADMIN_READ_MODEL_CACHE_TTL_SECONDS", 5),
         auth_user_cache_ttl_seconds=_read_int(source, "AUTH_USER_CACHE_TTL_SECONDS", 2),
         api_thread_limit=_read_int(source, "API_THREAD_LIMIT", 40),
+        observability_ingest_enabled=_read_bool(source, "OBSERVABILITY_INGEST_ENABLED", False),
+        observability_max_events_per_batch=_read_int(source, "OBSERVABILITY_MAX_EVENTS_PER_BATCH", 20),
+        observability_max_event_bytes=_read_int(source, "OBSERVABILITY_MAX_EVENT_BYTES", 2048),
         private_storage_mode=source.get("PRIVATE_STORAGE_MODE", "unavailable"),
         private_storage_root=source.get("PRIVATE_STORAGE_ROOT", ".local/private_storage"),
         storage_signed_url_ttl_seconds=_read_int(source, "STORAGE_SIGNED_URL_TTL_SECONDS", 300),

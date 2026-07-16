@@ -1,121 +1,235 @@
 import { useCallback, useState } from "react";
-import type { AuthenticatedRequest } from "../../api/client";
+import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import {
   applyBusinessReferral,
+  getBusinessCreditPurchase,
   getBusinessCreditWallet,
   getBusinessReferrals,
-  listBusinessCreditLedger,
-  startBusinessStripeCheckout,
-  submitBusinessManualCreditPayment
+  startBusinessBaseUsdcPayment,
+  submitBusinessBaseUsdcTxHash
 } from "../../api/credits";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
-import type { CreditLedgerEntry, CreditPurchase, CreditWallet, ReferralData } from "../../types/credits";
+import type { BusinessSummary } from "../../types/business";
+import type { CreditPurchase, CreditWallet, ReferralData } from "../../types/credits";
+import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "./actionTelemetry";
+import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 import { idempotencyKey } from "./helpers";
 
+const BASE_USDC_CREDIT_NOTICE = "Asegurate de usar la red Base para comprar tus creditos.";
+const BASE_USDC_PENDING_PURCHASE_KEY = "nodo_base_usdc_pending_purchase_id";
+const BASE_USDC_WALLET_MISSING_MESSAGE = "Compra de creditos no disponible todavia. Falta configurar la wallet Base de NODO.";
+const BASE_USDC_PENDING_STATUSES = new Set(["pending_payment", "pending_onchain_confirmation", "detected", "verified", "under_review"]);
+
+function baseUsdcPaymentErrorMessage(error: unknown) {
+  if (error instanceof ApiClientError) {
+    if (error.code === "ONCHAIN_RECEIVING_WALLET_NOT_CONFIGURED" || error.code === "VALIDATION_ERROR") {
+      return BASE_USDC_WALLET_MISSING_MESSAGE;
+    }
+    return error.message;
+  }
+  return "No logramos iniciar el pago en red Base.";
+}
+
+function rememberPendingBaseUsdcPurchase(purchase: CreditPurchase) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (BASE_USDC_PENDING_STATUSES.has(purchase.status)) {
+    window.localStorage.setItem(BASE_USDC_PENDING_PURCHASE_KEY, purchase.id);
+    return;
+  }
+  window.localStorage.removeItem(BASE_USDC_PENDING_PURCHASE_KEY);
+}
+
+function readRememberedBaseUsdcPurchaseId() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.localStorage.getItem(BASE_USDC_PENDING_PURCHASE_KEY);
+}
+
+function clearRememberedBaseUsdcPurchase() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.removeItem(BASE_USDC_PENDING_PURCHASE_KEY);
+}
+
 export function useBusinessCreditsModel({
+  business,
   request,
   setBusy,
   setNotice,
   setView
 }: {
+  business: BusinessSummary | null;
   request: AuthenticatedRequest;
   setBusy: (busy: boolean) => void;
   setNotice: (notice: string) => void;
   setView: (view: BusinessMiniAppView) => void;
 }) {
   const [creditWallet, setCreditWallet] = useState<CreditWallet | null>(null);
-  const [creditLedger, setCreditLedger] = useState<CreditLedgerEntry[]>([]);
   const [selectedCreditPurchase, setSelectedCreditPurchase] = useState<CreditPurchase | null>(null);
   const [creditPackage, setCreditPackage] = useState("starter");
-  const [manualPaymentMethod, setManualPaymentMethod] = useState<"zelle_manual_admin_approved" | "usdt_manual_admin_approved">("zelle_manual_admin_approved");
-  const [manualPaymentReference, setManualPaymentReference] = useState("");
-  const [manualTxHash, setManualTxHash] = useState("");
+  const [baseUsdcTxHash, setBaseUsdcTxHash] = useState("");
   const [referralData, setReferralData] = useState<ReferralData | null>(null);
   const [referralCodeInput, setReferralCodeInput] = useState("");
+  const [generatingCreditPayment, setGeneratingCreditPayment] = useState(false);
+  const [refreshingCreditPurchase, setRefreshingCreditPurchase] = useState(false);
+  const [verifyingCreditTx, setVerifyingCreditTx] = useState(false);
+
+  const requireBusinessPinFor = useCallback((action: string) => {
+    return requireUnlockedBusinessPin({ action, business, setNotice, setView });
+  }, [business?.access_link, setNotice, setView]);
+
+  const handleBusinessPinError = useCallback((error: unknown, action: string) => {
+    return routeBusinessPinError({ action, error, setNotice, setView });
+  }, [setNotice, setView]);
+
+  const refreshCreditWallet = useCallback(async () => {
+    try {
+      const data = await getBusinessCreditWallet<{ wallet: CreditWallet; disclaimer?: string }>(request);
+      setCreditWallet(data.wallet);
+      return data.wallet;
+    } catch {
+      setCreditWallet(null);
+      return null;
+    }
+  }, [request]);
+
+  const openBuyCredits = useCallback(async () => {
+    setNotice(BASE_USDC_CREDIT_NOTICE);
+    setView("buy-credits");
+    const rememberedPurchaseId = readRememberedBaseUsdcPurchaseId();
+    if (rememberedPurchaseId) {
+      setBusy(true);
+      try {
+        const data = await getBusinessCreditPurchase<{ purchase: CreditPurchase }>(request, rememberedPurchaseId);
+        if (BASE_USDC_PENDING_STATUSES.has(data.purchase.status)) {
+          setSelectedCreditPurchase(data.purchase);
+          setView("credit-payment-pending");
+          setNotice("Tienes una compra Base USDC pendiente.");
+          return;
+        }
+        clearRememberedBaseUsdcPurchase();
+      } catch {
+        clearRememberedBaseUsdcPurchase();
+      } finally {
+        setBusy(false);
+      }
+    }
+  }, [request, setBusy, setNotice, setView]);
 
   const loadCreditDashboard = useCallback(async () => {
+    setView("credits-dashboard");
+    setNotice(BASE_USDC_CREDIT_NOTICE);
     setBusy(true);
     try {
       const data = await getBusinessCreditWallet<{ wallet: CreditWallet; disclaimer?: string }>(request);
       setCreditWallet(data.wallet);
-      setView("credits-dashboard");
-      setNotice(data.disclaimer || "Creditos para publicar y operar anuncios.");
     } catch (error) {
-      setView("credits-dashboard");
       setNotice(error instanceof Error ? error.message : "No logramos cargar tus creditos.");
     } finally {
       setBusy(false);
     }
   }, [request, setBusy, setNotice, setView]);
 
-  const loadCreditLedger = useCallback(async () => {
-    setBusy(true);
-    try {
-      const data = await listBusinessCreditLedger<{ items: CreditLedgerEntry[]; disclaimer?: string }>(request);
-      setCreditLedger(data.items);
-      setView("credits-ledger");
-      setNotice(data.disclaimer || "Movimientos de creditos cargados.");
-    } catch (error) {
-      setCreditLedger([]);
-      setView("credits-ledger");
-      setNotice(error instanceof Error ? error.message : "No pudimos cargar tus movimientos.");
-    } finally {
-      setBusy(false);
-    }
-  }, [request, setBusy, setNotice, setView]);
-
-  const startStripeCheckout = useCallback(async () => {
-    setBusy(true);
-    try {
-      const data = await startBusinessStripeCheckout<{ purchase: CreditPurchase; disclaimer?: string }>(request, creditPackage, idempotencyKey("stripe_checkout"));
-      setSelectedCreditPurchase(data.purchase);
-      setView("credit-payment-pending");
-      setNotice(data.disclaimer || "Pago con tarjeta iniciado. Completa el proceso en la ventana segura.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No logramos iniciar el pago.");
-    } finally {
-      setBusy(false);
-    }
-  }, [creditPackage, request, setBusy, setNotice, setView]);
-
-  const submitManualCreditPayment = useCallback(async (file: File | null) => {
-    if (!file) {
-      setNotice("Selecciona el comprobante privado.");
+  const startBaseUsdcPayment = useCallback(async () => {
+    const action = "comprar creditos";
+    if (!requireBusinessPinFor(action)) {
       return;
     }
-    setBusy(true);
+    setGeneratingCreditPayment(true);
+    const startedAt = actionStartedAt();
+    recordBusinessActionStarted("credit_payment_create", "buy-credits");
     try {
-      const data = await submitBusinessManualCreditPayment<{ purchase: CreditPurchase; disclaimer?: string }>(
+      const data = await startBusinessBaseUsdcPayment<{
+        purchase: CreditPurchase;
+        payment: { expected_amount_display?: string; network?: string; expires_at?: string | null };
+        disclaimer?: string;
+      }>(request, creditPackage, idempotencyKey("base_usdc_payment"));
+      setSelectedCreditPurchase(data.purchase);
+      setBaseUsdcTxHash("");
+      rememberPendingBaseUsdcPurchase(data.purchase);
+      setView("credit-payment-pending");
+      setNotice(`Pago creado: envia ${data.payment.expected_amount_display || data.purchase.price_usd} USDC en red Base y luego pega el tx hash.`);
+      recordBusinessActionCompleted("credit_payment_create", "buy-credits", startedAt);
+    } catch (error) {
+      if (handleBusinessPinError(error, action)) {
+        recordBusinessActionFailed("credit_payment_create", "buy-credits", startedAt, "BUSINESS_PIN_REQUIRED");
+        return;
+      }
+      setNotice(baseUsdcPaymentErrorMessage(error));
+      recordBusinessActionFailed("credit_payment_create", "buy-credits", startedAt, error instanceof ApiClientError ? error.code : undefined);
+    } finally {
+      setGeneratingCreditPayment(false);
+    }
+  }, [creditPackage, handleBusinessPinError, request, requireBusinessPinFor, setNotice, setView]);
+
+  const refreshSelectedCreditPurchase = useCallback(async () => {
+    if (!selectedCreditPurchase) {
+      return;
+    }
+    setRefreshingCreditPurchase(true);
+    try {
+      const data = await getBusinessCreditPurchase<{ purchase: CreditPurchase }>(request, selectedCreditPurchase.id);
+      setSelectedCreditPurchase(data.purchase);
+      rememberPendingBaseUsdcPurchase(data.purchase);
+      setNotice("Estado de compra actualizado.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos actualizar la compra.");
+    } finally {
+      setRefreshingCreditPurchase(false);
+    }
+  }, [request, selectedCreditPurchase, setNotice]);
+
+  const submitBaseUsdcTxHash = useCallback(async () => {
+    if (!selectedCreditPurchase || !baseUsdcTxHash.trim()) {
+      setNotice("Registra el tx hash de Base USDC.");
+      return;
+    }
+    const action = "verificar tx hash";
+    if (!requireBusinessPinFor(action)) {
+      return;
+    }
+    setVerifyingCreditTx(true);
+    const startedAt = actionStartedAt();
+    recordBusinessActionStarted("credit_tx_submit", "credit-payment-pending");
+    try {
+      const data = await submitBusinessBaseUsdcTxHash<{ purchase: CreditPurchase; credited: boolean }>(
         request,
-        {
-          packageCode: creditPackage,
-          paymentMethod: manualPaymentMethod,
-          manualPaymentReference,
-          manualTxHash,
-          file
-        },
-        idempotencyKey("manual_credit")
+        selectedCreditPurchase.id,
+        baseUsdcTxHash.trim(),
+        idempotencyKey("base_usdc_tx")
       );
       setSelectedCreditPurchase(data.purchase);
-      setView("credit-payment-pending");
-      setNotice(data.disclaimer || "Comprobante enviado a revision.");
+      rememberPendingBaseUsdcPurchase(data.purchase);
+      if (data.credited) {
+        await refreshCreditWallet();
+      }
+      setNotice(data.credited ? "Pago verificado. Creditos acreditados." : "Tx hash recibido. NODO seguira verificando confirmaciones en Base.");
+      recordBusinessActionCompleted("credit_tx_submit", "credit-payment-pending", startedAt);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos enviar el comprobante.");
+      if (handleBusinessPinError(error, action)) {
+        recordBusinessActionFailed("credit_tx_submit", "credit-payment-pending", startedAt, "BUSINESS_PIN_REQUIRED");
+        return;
+      }
+      setNotice(error instanceof Error ? error.message : "No pudimos verificar el tx hash.");
+      recordBusinessActionFailed("credit_tx_submit", "credit-payment-pending", startedAt, error instanceof ApiClientError ? error.code : undefined);
     } finally {
-      setBusy(false);
+      setVerifyingCreditTx(false);
     }
-  }, [creditPackage, manualPaymentMethod, manualPaymentReference, manualTxHash, request, setBusy, setNotice, setView]);
+  }, [baseUsdcTxHash, handleBusinessPinError, refreshCreditWallet, request, requireBusinessPinFor, selectedCreditPurchase, setNotice]);
 
   const loadReferrals = useCallback(async () => {
+    setView("referrals");
     setBusy(true);
     try {
       const data = await getBusinessReferrals<ReferralData>(request);
       setReferralData(data);
-      setView("referrals");
-      setNotice(data.disclaimer || "Programa de referidos cargado.");
+      setNotice("Programa de referidos cargado.");
     } catch (error) {
       setReferralData(null);
-      setView("referrals");
       setNotice(error instanceof Error ? error.message : "No pudimos cargar referidos.");
     } finally {
       setBusy(false);
@@ -137,24 +251,24 @@ export function useBusinessCreditsModel({
 
   return {
     applyReferral,
-    creditLedger,
+    baseUsdcTxHash,
     creditPackage,
     creditWallet,
+    generatingCreditPayment,
     loadCreditDashboard,
-    loadCreditLedger,
     loadReferrals,
-    manualPaymentMethod,
-    manualPaymentReference,
-    manualTxHash,
+    openBuyCredits,
     referralCodeInput,
     referralData,
+    refreshCreditWallet,
+    refreshingCreditPurchase,
+    refreshSelectedCreditPurchase,
     selectedCreditPurchase,
+    setBaseUsdcTxHash,
     setCreditPackage,
-    setManualPaymentMethod,
-    setManualPaymentReference,
-    setManualTxHash,
     setReferralCodeInput,
-    startStripeCheckout,
-    submitManualCreditPayment
+    startBaseUsdcPayment,
+    submitBaseUsdcTxHash,
+    verifyingCreditTx,
   };
 }

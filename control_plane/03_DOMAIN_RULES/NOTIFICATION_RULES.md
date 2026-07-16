@@ -4,7 +4,8 @@
 
 - Business intake submitted notifica a admin/support queue.
 - Business intake accepted/rejected puede notificar al solicitante sin prometer aprobacion previa.
-- Support ticket created/message/escalated/resolved/closed puede notificar a participantes autorizados.
+- Support ticket created/message/assigned/escalated/resolved/closed puede notificar a participantes autorizados.
+- Support attachment uploaded/viewed no envia documento ni signed URL por notificacion; como maximo notifica metadata segura al participante autorizado.
 - Notificaciones no deben incluir documentos completos, storage paths, signed URLs persistidas, tokens, secretos ni datos bancarios completos.
 
 Canal principal: Telegram Bot.
@@ -25,6 +26,7 @@ Todas las notificaciones deben ser idempotentes por orden, tipo y ventana de tie
 - dispute_opened -> admin
 - dispute_resolved -> partes
 - credit_purchase_approved -> negocio
+- onchain_credit_purchase_credited -> negocio
 - manual_credit_payment_rejected -> negocio
 - referral_bonus_granted -> negocio
 - founder_access_expired -> negocio
@@ -67,11 +69,15 @@ Todas las notificaciones deben ser idempotentes por orden, tipo y ventana de tie
 ### slice_08_credits_referrals
 
 - `credit_purchase_approved` puede notificar al negocio que los creditos publicitarios fueron acreditados.
+- `onchain_credit_purchase_credited` puede notificar al negocio que una compra Base USDC fue acreditada despues de verifier y ledger exact-once.
 - `manual_credit_payment_rejected` puede notificar rechazo con reason seguro/enmascarado.
 - `referral_bonus_granted` puede notificar bonus acreditado sin exponer datos del negocio referido.
 - `founder_access_expired` puede notificar que nuevas publicaciones requieren creditos disponibles.
 - Stripe webhook notifications must be idempotent and must not include Stripe secrets, raw webhook payloads or signed URLs.
 - Manual proof notifications must not include `storage_path` or signed URLs.
+- Base USDC on-chain notifications may report safe status changes only: purchase created, tx detected, confirmations pending, credited, under review, rejected or expired.
+- Bot/admin notification for on-chain credit purchases is informational only; it cannot approve, reject or credit.
+- On-chain notification payloads must not include RPC keys, raw provider responses, private keys, seed phrases, full tx hashes in broad channels, `storage_path`, `account_value` or promises of recovery.
 - Payloads de creditos/referrals no deben prometer fondos, escrow, garantia de entrega ni recuperacion de pagos.
 
 ### payment_rejected
@@ -143,7 +149,7 @@ Tipos canonicos:
 | delivered_reminder_12h | remitente | 12h despues de `delivered` | Si el receptor no recibio el pago movil, abre disputa antes del cierre automatico. |
 | delivered_reminder_23h | remitente | 23h despues de `delivered` | Ultimo aviso antes del cierre automatico de la orden. |
 | order_auto_completed_after_24h | remitente y negocio | 24h despues de `delivered` sin disputa | La orden se cerro automaticamente porque no se abrio disputa dentro del plazo. |
-| ad_expired | negocio | anuncio vence por edad | Tu anuncio expiro y ya no recibe nuevas ordenes. |
+| ad_expired | negocio | anuncio vence por edad | Tu anuncio cumplio 7 dias, se archivo y el credito fue consumido. |
 | founder_access_expired | negocio | `founder_expires_at <= now` | Tu periodo fundador expiro; nuevas publicaciones requieren creditos disponibles. |
 
 Reglas:
