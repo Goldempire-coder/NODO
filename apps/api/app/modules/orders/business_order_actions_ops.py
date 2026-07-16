@@ -52,6 +52,7 @@ class OrderBusinessActionsMixin:
                 metadata_json=payment_rejected_state_metadata(report=report, idempotency_key=idempotency_key),
             )
             self._audit.write(**payment_rejected_audit_event(user=user, order=order, report=report, reason=reason, request_id=request_id))  # type: ignore[attr-defined]
+            self._notifications.payment_rejected_client(order=updated, request_id=request_id)  # type: ignore[attr-defined]
             return payment_rejected_response(order=updated, report=updated_report, disclaimer=ORDER_DISCLAIMER)
 
         return self._idempotency.replay_or_store(  # type: ignore[attr-defined]
@@ -94,6 +95,7 @@ class OrderBusinessActionsMixin:
                 metadata_json=delivered_state_metadata(idempotency_key=idempotency_key),
             )
             self._audit.write(**delivered_audit_event(user=user, order=order, reason=reason, request_id=request_id))  # type: ignore[attr-defined]
+            self._notifications.order_delivered_client(order=updated, request_id=request_id)  # type: ignore[attr-defined]
             return delivered_response(order=updated, disclaimer=ORDER_DISCLAIMER)
 
         return self._idempotency.replay_or_store(  # type: ignore[attr-defined]

@@ -5,6 +5,7 @@ from typing import Any, Callable
 from app.core.errors import ApiError
 from app.modules.businesses.models import BusinessRecord
 from app.modules.businesses.presenters import file_payload
+from app.modules.notifications.order_notifications import NoopOrderNotificationService
 from app.modules.orders.business_order_actions_ops import OrderBusinessActionsMixin
 from app.modules.orders.business_payment_confirmation_ops import OrderBusinessPaymentConfirmationMixin
 from app.modules.orders.helpers import require_uuid
@@ -26,6 +27,7 @@ class OrderBusinessOps(OrderBusinessPaymentConfirmationMixin, OrderBusinessActio
         idempotency_store,
         rate_limit: Callable[[str, UserRecord], None],
         approved_business_for_owner: Callable[[UserRecord], BusinessRecord],
+        notification_service=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._repository = repository
         self._ads = ad_repository
@@ -33,6 +35,7 @@ class OrderBusinessOps(OrderBusinessPaymentConfirmationMixin, OrderBusinessActio
         self._idempotency = idempotency_store
         self._rate_limit = rate_limit
         self._approved_business_for_owner = approved_business_for_owner
+        self._notifications = notification_service or NoopOrderNotificationService()
 
     def business_orders(self, *, user: UserRecord, status: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         business = self._approved_business_for_owner(user)

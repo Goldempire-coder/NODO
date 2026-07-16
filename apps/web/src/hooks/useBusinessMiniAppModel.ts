@@ -72,10 +72,35 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     setCurrentView,
     view
   });
+  const handledOrderDeepLinkRef = useRef(false);
 
   useEffect(() => {
     void access.loadBusinessProfile();
   }, [access.loadBusinessProfile]);
+
+  useEffect(() => {
+    if (handledOrderDeepLinkRef.current || access.accessState !== "ready" || typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get("order_id");
+    if (params.get("view") !== "business-order-detail" || !orderId) {
+      return;
+    }
+    handledOrderDeepLinkRef.current = true;
+    void orders.openBusinessOrder(orderId);
+  }, [access.accessState, orders.openBusinessOrder]);
+
+  useEffect(() => {
+    if (access.accessState !== "ready") {
+      return;
+    }
+    void orders.pollBusinessOrderUpdates();
+    const interval = window.setInterval(() => {
+      void orders.pollBusinessOrderUpdates();
+    }, 10000);
+    return () => window.clearInterval(interval);
+  }, [access.accessState, orders.pollBusinessOrderUpdates]);
 
   useBusinessTelegramControls({
     adForm: access.adForm,

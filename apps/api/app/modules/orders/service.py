@@ -13,7 +13,20 @@ from app.modules.users.models import UserRecord
 
 
 class OrderService(OrderServiceSupportMixin):
-    def __init__(self, *, settings: Settings, repository, ad_repository, business_repository, audit_writer, rate_limiter, idempotency_store, storage=None, marketplace_cache=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        repository,
+        ad_repository,
+        business_repository,
+        audit_writer,
+        rate_limiter,
+        idempotency_store,
+        storage=None,
+        marketplace_cache=None,
+        notification_service=None,
+    ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
         self._ads = ad_repository
@@ -23,6 +36,7 @@ class OrderService(OrderServiceSupportMixin):
         self._idempotency = idempotency_store
         self._storage = storage
         self._marketplace_cache = marketplace_cache
+        self._notification_service = notification_service
         self._create_flow = OrderCreateFlow(
             repository=self._repository,
             ad_repository=self._ads,
@@ -35,6 +49,7 @@ class OrderService(OrderServiceSupportMixin):
             ad_expired=self._ad_expired,
             clear_marketplace_cache=self._clear_marketplace_cache,
             clear_marketplace_cache_after_order=self._clear_marketplace_cache_after_order,
+            notification_service=self._notification_service,
         )
         self._business_ops = OrderBusinessOps(
             repository=self._repository,
@@ -43,6 +58,7 @@ class OrderService(OrderServiceSupportMixin):
             idempotency_store=self._idempotency,
             rate_limit=self._rate_limit,
             approved_business_for_owner=self._approved_business_for_owner,
+            notification_service=self._notification_service,
         )
         self._remitter_ops = OrderRemitterOps(
             repository=self._repository,
@@ -59,6 +75,7 @@ class OrderService(OrderServiceSupportMixin):
             idempotency_store=self._idempotency,
             storage=self._storage,
             rate_limit=self._rate_limit,
+            notification_service=self._notification_service,
         )
 
     def create_order(self, *, user: UserRecord, payload: OrderCreateRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:

@@ -48,6 +48,7 @@ _set_env()
 
 from app.main import create_app  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.notifications.telegram_sender import NotificationSenderWorker, TelegramNotificationError  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -226,6 +227,297 @@ def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
 
 
+def _notifications_by_type(client: TestClient, notification_type: str) -> list:
+    return [
+        notification
+        for notification in client.app.state.job_repository.notification_jobs.values()
+        if notification.notification_type == notification_type
+    ]
+
+
+def _notification_snapshot(notification) -> dict:  # type: ignore[no-untyped-def]
+    return {
+        "status": notification.status,
+        "attempts": notification.attempts,
+        "scheduled_for": notification.scheduled_for,
+        "last_error_code": notification.last_error_code,
+        "metadata_json": dict(notification.metadata_json or {}),
+    }
+
+
+class _FakeTelegramAdapter:
+    def __init__(self, *failures: TelegramNotificationError) -> None:
+        self.failures = list(failures)
+        self.sent: list[dict] = []
+
+    def send_message(self, *, bot_token: str, chat_id: int, text: str, reply_markup: dict | None = None) -> None:
+        if self.failures:
+            raise self.failures.pop(0)
+        self.sent.append({"chat_id": chat_id, "text": text, "reply_markup": reply_markup})
+
+
+def test_slice_36_immediate_order_notifications_are_enqueued_deduped_and_private() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner, business, ad, remitter, order = _seed_order(client, owner_id=1100, remitter_id=1101)
+    business_owner_id = client.app.state.business_repository.get_business(business["id"]).owner_user_id
+
+    created_notifications = _notifications_by_type(client, "order_created_business")
+    assert len(created_notifications) == 1
+    assert created_notifications[0].recipient_user_id == business_owner_id
+    assert created_notifications[0].metadata_json["target_surface"] == "business_mini_app"
+    assert created_notifications[0].metadata_json["action_url"].endswith(f"/business/?view=business-order-detail&order_id={order['id']}")
+
+    replay = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "order_1101"), "Content-Type": "application/json"},
+        json={
+            "ad_id": ad["id"],
+            "amount_usd": "50.00",
+            "receiver_data": {"bank": "Banco", "phone": "+584121234567", "document": "V12345678", "holder": "Receptor Test"},
+        },
+    )
+    assert replay.status_code == 201, replay.text
+    assert len(_notifications_by_type(client, "order_created_business")) == 1
+
+    _report_payment(client, remitter, order, key="slice36_reported")
+    assert len(_notifications_by_type(client, "payment_reported_business")) == 1
+    _confirm_payment(client, owner, order["id"], "slice36_confirm")
+    assert len(_notifications_by_type(client, "payment_confirmed_client")) == 1
+    _mark_delivered(client, owner, order["id"], "slice36_deliver")
+    assert len(_notifications_by_type(client, "order_delivered_client")) == 1
+
+    owner2, _, _, remitter2, order2 = _seed_order(client, owner_id=1102, remitter_id=1103)
+    _report_payment(client, remitter2, order2, key="slice36_reject_reported")
+    rejected = client.post(
+        f"/api/v1/business/orders/{order2['id']}/reject-payment-report",
+        headers={**_headers(owner2, "slice36_reject"), "Content-Type": "application/json"},
+        json={"reason": "No reconozco el pago"},
+    )
+    assert rejected.status_code == 200, rejected.text
+    assert len(_notifications_by_type(client, "payment_rejected_client")) == 1
+
+    combined = json.dumps([n.__dict__ for n in client.app.state.job_repository.notification_jobs.values()], default=str)
+    assert "owner@example.com" not in combined
+    assert "account_value" not in combined
+    assert "storage_path" not in combined
+    assert "signed_url" not in combined
+    assert BOT_TOKEN not in combined
+
+
+def test_slice_36_dispute_enqueues_parties_and_admin_support_without_resolving() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    _, business, _, remitter, order = _seed_order(client, owner_id=1110, remitter_id=1111)
+    _report_payment(client, remitter, order, key="slice36_dispute_report")
+    response = client.post(
+        f"/api/v1/orders/{order['id']}/disputes",
+        headers={**_headers(remitter, "slice36_dispute"), "Content-Type": "application/json"},
+        json={"reason": "amount_incorrect", "description": "Monto incorrecto", "evidence_file_ids": []},
+    )
+    assert response.status_code == 201, response.text
+    assert client.app.state.order_repository.get_by_id(order["id"]).status == "disputed"
+
+    jobs = _notifications_by_type(client, "order_disputed_parties_admin")
+    assert len(jobs) == 4
+    assert {job.recipient_role for job in jobs if job.recipient_role} == {"admin", "support"}
+    assert {job.recipient_user_id for job in jobs if job.recipient_user_id} == {
+        remitter["user"]["id"],
+        client.app.state.business_repository.get_business(business["id"]).owner_user_id,
+    }
+
+
+def test_slice_36_sender_success_retryable_and_permanent_failures_are_stateful() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    _, _, _, _, _ = _seed_order(client, owner_id=1120, remitter_id=1121)
+    notification = _notifications_by_type(client, "order_created_business")[0]
+
+    success_adapter = _FakeTelegramAdapter()
+    success_worker = NotificationSenderWorker(
+        settings=client.app.state.settings,
+        job_repository=client.app.state.job_repository,
+        user_repository=client.app.state.user_repository,
+        adapter=success_adapter,
+    )
+    result = success_worker.run(now=utc_now(), request_id="req_slice36_sender_success")
+    assert result["counters"]["sent"] == 1
+    assert notification.status == "sent"
+    assert notification.attempts == 1
+    assert notification.metadata_json["delivery_state"] == "sent"
+    assert success_adapter.sent[0]["reply_markup"]["inline_keyboard"][0][0]["text"] == "Abrir orden"
+
+    client_retry = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    _, _, _, _, _ = _seed_order(client_retry, owner_id=1122, remitter_id=1123)
+    retry_notification = _notifications_by_type(client_retry, "order_created_business")[0]
+    retry_worker = NotificationSenderWorker(
+        settings=client_retry.app.state.settings,
+        job_repository=client_retry.app.state.job_repository,
+        user_repository=client_retry.app.state.user_repository,
+        adapter=_FakeTelegramAdapter(TelegramNotificationError("TELEGRAM_BOT_SEND_FAILED", retryable=True)),
+    )
+    retry_result = retry_worker.run(now=utc_now(), request_id="req_slice36_sender_retry")
+    assert retry_result["counters"]["retryable_failed"] == 1
+    assert retry_notification.status == "pending"
+    assert retry_notification.attempts == 1
+    assert retry_notification.last_error_code == "TELEGRAM_BOT_SEND_FAILED"
+    assert retry_notification.metadata_json["delivery_state"] == "retryable_failed"
+
+    client_permanent = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    _, _, _, _, _ = _seed_order(client_permanent, owner_id=1124, remitter_id=1125)
+    permanent_notification = _notifications_by_type(client_permanent, "order_created_business")[0]
+    permanent_worker = NotificationSenderWorker(
+        settings=client_permanent.app.state.settings,
+        job_repository=client_permanent.app.state.job_repository,
+        user_repository=client_permanent.app.state.user_repository,
+        adapter=_FakeTelegramAdapter(TelegramNotificationError("TELEGRAM_CHAT_UNAVAILABLE", retryable=False)),
+    )
+    permanent_result = permanent_worker.run(now=utc_now(), request_id="req_slice36_sender_permanent")
+    assert permanent_result["counters"]["failed_permanent"] == 1
+    assert permanent_notification.status == "failed"
+    assert permanent_notification.failed_at is not None
+    assert permanent_notification.last_error_code == "TELEGRAM_CHAT_UNAVAILABLE"
+    assert permanent_notification.metadata_json["delivery_state"] == "failed_permanent"
+
+
+def test_slice_36a_sender_scope_guard_only_claims_immediate_order_telegram_jobs() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner, business, _, remitter, order = _seed_order(client, owner_id=1126, remitter_id=1127)
+    valid_notification = _notifications_by_type(client, "order_created_business")[0]
+    now = utc_now()
+
+    def enqueue_non_processable(notification_type: str, *, recipient_user_id: str | None, recipient_role: str | None, metadata_json: dict) -> object:
+        notification, _ = client.app.state.job_repository.enqueue_notification(
+            notification_type=notification_type,
+            recipient_user_id=recipient_user_id,
+            recipient_role=recipient_role,
+            order_id=order["id"],
+            business_id=business["id"],
+            dispute_id=None,
+            scheduled_for=now - timedelta(seconds=1),
+            dedupe_key=f"slice36a:{notification_type}:{recipient_user_id or recipient_role}:{len(client.app.state.job_repository.notification_jobs)}",
+            metadata_json=metadata_json,
+        )
+        return notification
+
+    non_processable = [
+        enqueue_non_processable(
+            "order_business_response_warning",
+            recipient_user_id=owner["user"]["id"],
+            recipient_role=None,
+            metadata_json={"channel": "telegram", "target_surface": "business_mini_app", "message_text": "legacy warning"},
+        ),
+        enqueue_non_processable(
+            "order_cancelled_payment_not_reported",
+            recipient_user_id=remitter["user"]["id"],
+            recipient_role=None,
+            metadata_json={"channel": "telegram", "target_surface": "client_mini_app", "message_text": "legacy cancellation"},
+        ),
+        enqueue_non_processable(
+            "delivered_reminder_12h",
+            recipient_user_id=remitter["user"]["id"],
+            recipient_role=None,
+            metadata_json={"channel": "telegram", "target_surface": "client_mini_app", "message_text": "legacy reminder"},
+        ),
+        enqueue_non_processable(
+            "order_disputed_parties_admin",
+            recipient_user_id=None,
+            recipient_role="admin",
+            metadata_json={"channel": "telegram", "target_surface": "admin_web", "message_text": "admin role job"},
+        ),
+        enqueue_non_processable(
+            "order_created_business",
+            recipient_user_id=owner["user"]["id"],
+            recipient_role=None,
+            metadata_json={"channel": "internal", "target_surface": "business_mini_app", "message_text": "wrong channel"},
+        ),
+        enqueue_non_processable(
+            "payment_reported_business",
+            recipient_user_id=owner["user"]["id"],
+            recipient_role=None,
+            metadata_json={"channel": "telegram", "target_surface": "business_mini_app"},
+        ),
+        enqueue_non_processable(
+            "payment_confirmed_client",
+            recipient_user_id=remitter["user"]["id"],
+            recipient_role=None,
+            metadata_json={"channel": "telegram", "target_surface": "client_mini_app", "message_text": "   "},
+        ),
+    ]
+    before = {notification.id: _notification_snapshot(notification) for notification in non_processable}
+
+    adapter = _FakeTelegramAdapter()
+    worker = NotificationSenderWorker(
+        settings=client.app.state.settings,
+        job_repository=client.app.state.job_repository,
+        user_repository=client.app.state.user_repository,
+        adapter=adapter,
+    )
+    result = worker.run(now=now, request_id="req_slice36a_sender_scope_guard")
+
+    assert result["counters"]["processed"] == 1
+    assert result["counters"]["sent"] == 1
+    assert valid_notification.status == "sent"
+    assert len(adapter.sent) == 1
+    for notification in non_processable:
+        assert _notification_snapshot(notification) == before[notification.id]
+
+
+def test_slice_36a_postgres_claim_filters_telegram_scope_before_update() -> None:
+    root = Path(__file__).resolve().parents[3]
+    postgres_source = (root / "apps" / "api" / "app" / "modules" / "jobs" / "postgres_repository.py").read_text(encoding="utf-8")
+    sender_source = (root / "apps" / "api" / "app" / "modules" / "notifications" / "telegram_sender.py").read_text(encoding="utf-8")
+
+    claim_method = postgres_source.split("def list_due_telegram_notifications", 1)[1].split("def update_notification", 1)[0]
+    assert "recipient_user_id is not null" in claim_method
+    assert "notification_type in" in claim_method
+    assert "metadata_json->>'channel' = 'telegram'" in claim_method
+    assert "metadata_json->>'target_surface' in ('business_mini_app', 'client_mini_app')" in claim_method
+    assert "nullif(trim(metadata_json->>'message_text'), '') is not null" in claim_method
+    assert "update notification_jobs" in claim_method
+    assert sender_source.count("list_due_telegram_notifications") == 1
+    assert "list_due_notifications(" not in sender_source
+
+
+def test_slice_36b_order_notification_sender_runs_from_lifespan_with_safe_defaults() -> None:
+    root = Path(__file__).resolve().parents[3]
+    main_source = (root / "apps" / "api" / "app" / "main.py").read_text(encoding="utf-8")
+    config_source = (root / "apps" / "api" / "app" / "core" / "config.py").read_text(encoding="utf-8")
+
+    assert "order_notification_sender_enabled" in config_source
+    assert 'ORDER_NOTIFICATION_SENDER_ENABLED", source.get("APP_ENV") != "test"' in config_source
+    assert "ORDER_NOTIFICATION_SENDER_INTERVAL_SECONDS" in config_source
+    assert "ORDER_NOTIFICATION_SENDER_BATCH_SIZE" in config_source
+    assert "order_notification_sender_enabled" in main_source
+    assert "_order_notification_sender_loop" in main_source
+    assert "task_group.start_soon(_order_notification_sender_loop" in main_source
+    assert "notification_sender_worker.run" in main_source
+    assert "scheduler_order_notification_sender" in main_source
+    assert "order_notification_sender_finished" in main_source
+    assert "order_notification_sender_failed" in main_source
+    assert "bot_token" not in main_source.split("async def _order_notification_sender_loop", 1)[1]
+
+
+def test_slice_36_business_offline_blocks_order_and_notification() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner = _login(client, 1130, "owner_1130")
+    business, method_id = _approved_business_with_method(client, owner, credits=3)
+    ad = _create_ad(client, owner, method_id, key="slice36_offline_ad")
+    stored_business = client.app.state.business_repository.get_business(business["id"])
+    stored_business.is_accepting_orders = False
+    remitter = _login(client, 1131, "remitter_1131")
+
+    response = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "slice36_offline_order"), "Content-Type": "application/json"},
+        json={
+            "ad_id": ad["id"],
+            "amount_usd": "50.00",
+            "receiver_data": {"bank": "Banco", "phone": "+584121234567", "document": "V12345678", "holder": "Receptor Test"},
+        },
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "BUSINESS_OFFLINE"
+    assert _notifications_by_type(client, "order_created_business") == []
+
+
 def test_waiting_payment_expiry_dry_run_is_non_mutating_then_cancels_and_keeps_ad_hold() -> None:
     client = _client()
     _, business, ad, remitter, order = _seed_order(client, owner_id=1000, remitter_id=1001)
@@ -253,7 +545,11 @@ def test_waiting_payment_expiry_dry_run_is_non_mutating_then_cancels_and_keeps_a
     assert missing_idempotency.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
     assert client.app.state.order_repository.get_by_id(order["id"]).status == "waiting_payment"
     assert client.app.state.ad_repository.get_wallet(business["id"]).blocked_credits == wallet_before.blocked_credits
-    assert client.app.state.job_repository.notification_jobs == {}
+    assert not [
+        n
+        for n in client.app.state.job_repository.notification_jobs.values()
+        if n.notification_type == "order_cancelled_payment_not_reported"
+    ]
 
     result = _run_job(client, utc_now())
     assert result["job_run"]["status"] == "finished"
@@ -513,3 +809,24 @@ def test_slice_10_migration_contract_closes_indexes_constraints_and_canonical_na
         "drop constraint if exists job_runs_failed_error_check",
     ]:
         assert reversible in down
+
+
+def test_slice_36_migration_adds_order_notification_types_reversibly() -> None:
+    root = Path(__file__).resolve().parents[3]
+    up = (root / "database" / "migrations" / "0024_slice_36_business_order_notifications.up.sql").read_text(encoding="utf-8")
+    down = (root / "database" / "migrations" / "0024_slice_36_business_order_notifications.down.sql").read_text(encoding="utf-8")
+
+    for notification_type in [
+        "order_created_business",
+        "payment_reported_business",
+        "payment_confirmed_client",
+        "payment_rejected_client",
+        "order_delivered_client",
+        "order_disputed_parties_admin",
+    ]:
+        assert notification_type in up
+        assert notification_type not in down
+    assert "drop constraint if exists notification_jobs_type_check" in up
+    assert "drop constraint if exists notification_jobs_type_check" in down
+    assert "event_type" not in up
+    assert "telegram_chat_id" not in up

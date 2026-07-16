@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 
 from app.modules.jobs.models import JobRunRecord, NotificationJobRecord
@@ -117,3 +118,81 @@ class PostgresJobRepository:
                 row = conn.execute("select * from notification_jobs where dedupe_key = %s", (fields["dedupe_key"],)).fetchone()
             conn.commit()
         return notification_from_row(row), created
+
+    def list_due_notifications(self, *, now: datetime, limit: int) -> list[NotificationJobRecord]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                with due as (
+                    select id
+                    from notification_jobs
+                    where status = 'pending'
+                      and scheduled_for <= %s
+                    order by scheduled_for asc
+                    limit %s
+                    for update skip locked
+                )
+                update notification_jobs
+                set scheduled_for = %s,
+                    metadata_json = coalesce(metadata_json, '{}'::jsonb) || %s::jsonb,
+                    updated_at = now()
+                from due
+                where notification_jobs.id = due.id
+                returning notification_jobs.*
+                """,
+                (now, limit, now + timedelta(minutes=5), jsonb_metadata({"delivery_state": "processing"})),
+            ).fetchall()
+            conn.commit()
+        return [notification_from_row(row) for row in rows]
+
+    def list_due_telegram_notifications(self, *, now: datetime, limit: int, notification_types: set[str]) -> list[NotificationJobRecord]:
+        notification_types_tuple = tuple(sorted(notification_types))
+        type_placeholders = ", ".join(["%s"] * len(notification_types_tuple))
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                with due as (
+                    select id
+                    from notification_jobs
+                    where status = 'pending'
+                      and scheduled_for <= %s
+                      and recipient_user_id is not null
+                      and notification_type in ({type_placeholders})
+                      and metadata_json->>'channel' = 'telegram'
+                      and metadata_json->>'target_surface' in ('business_mini_app', 'client_mini_app')
+                      and nullif(trim(metadata_json->>'message_text'), '') is not null
+                    order by scheduled_for asc
+                    limit %s
+                    for update skip locked
+                )
+                update notification_jobs
+                set scheduled_for = %s,
+                    metadata_json = coalesce(metadata_json, '{{}}'::jsonb) || %s::jsonb,
+                    updated_at = now()
+                from due
+                where notification_jobs.id = due.id
+                returning notification_jobs.*
+                """,
+                (
+                    now,
+                    *notification_types_tuple,
+                    limit,
+                    now + timedelta(minutes=5),
+                    jsonb_metadata({"delivery_state": "processing"}),
+                ),
+            ).fetchall()
+            conn.commit()
+        return [notification_from_row(row) for row in rows]
+
+    def update_notification(self, notification: NotificationJobRecord, **fields: Any) -> NotificationJobRecord:
+        assignments: list[str] = []
+        params: list[Any] = []
+        for key, value in fields.items():
+            assignments.append(f"{key} = %s")
+            params.append(jsonb_metadata(value) if key == "metadata_json" else value)
+        assignments.append("updated_at = now()")
+        params.append(notification.id)
+        with self._connect() as conn:
+            row = conn.execute(f"update notification_jobs set {', '.join(assignments)} where id = %s returning *", params).fetchone()
+            conn.commit()
+        return notification_from_row(row)

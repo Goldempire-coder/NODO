@@ -62,6 +62,7 @@ export function useClientWorkspaceModel({
   const chatDisputes = useClientChatDisputesModel(context);
   const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice });
   const didWarmClientDataRef = useRef(false);
+  const handledOrderDeepLinkRef = useRef(false);
 
   useEffect(() => {
     if (didWarmClientDataRef.current || view === "welcome" || view === "terms" || view === "client-profile-setup") {
@@ -74,6 +75,25 @@ export function useClientWorkspaceModel({
     }, 250);
     return () => window.clearTimeout(timer);
   }, [marketplace, remitterOrders, view]);
+
+  useEffect(() => {
+    if (
+      handledOrderDeepLinkRef.current
+      || view === "welcome"
+      || view === "terms"
+      || view === "client-profile-setup"
+      || typeof window === "undefined"
+    ) {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get("order_id");
+    if (params.get("view") !== "order-summary" || !orderId) {
+      return;
+    }
+    handledOrderDeepLinkRef.current = true;
+    void remitterOrders.openOrderDetail(orderId);
+  }, [remitterOrders, view]);
 
   useClientTelegramNativeShell({
     busy: state.busy,

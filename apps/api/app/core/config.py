@@ -71,6 +71,9 @@ class Settings:
     observability_ingest_enabled: bool
     observability_max_events_per_batch: int
     observability_max_event_bytes: int
+    order_notification_sender_enabled: bool
+    order_notification_sender_interval_seconds: int
+    order_notification_sender_batch_size: int
     private_storage_mode: str
     private_storage_root: str
     storage_signed_url_ttl_seconds: int
@@ -160,6 +163,9 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         observability_ingest_enabled=_read_bool(source, "OBSERVABILITY_INGEST_ENABLED", False),
         observability_max_events_per_batch=_read_int(source, "OBSERVABILITY_MAX_EVENTS_PER_BATCH", 20),
         observability_max_event_bytes=_read_int(source, "OBSERVABILITY_MAX_EVENT_BYTES", 2048),
+        order_notification_sender_enabled=_read_bool(source, "ORDER_NOTIFICATION_SENDER_ENABLED", source.get("APP_ENV") != "test"),
+        order_notification_sender_interval_seconds=_read_int(source, "ORDER_NOTIFICATION_SENDER_INTERVAL_SECONDS", 10),
+        order_notification_sender_batch_size=_read_int(source, "ORDER_NOTIFICATION_SENDER_BATCH_SIZE", 50),
         private_storage_mode=source.get("PRIVATE_STORAGE_MODE", "unavailable"),
         private_storage_root=source.get("PRIVATE_STORAGE_ROOT", ".local/private_storage"),
         storage_signed_url_ttl_seconds=_read_int(source, "STORAGE_SIGNED_URL_TTL_SECONDS", 300),

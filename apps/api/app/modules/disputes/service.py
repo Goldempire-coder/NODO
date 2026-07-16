@@ -5,6 +5,7 @@ from typing import Any
 from app.core.config import Settings
 from app.core.errors import ApiError
 from app.modules.businesses.access_control import evaluate_business_access
+from app.modules.notifications.order_notifications import NoopOrderNotificationService
 from app.modules.disputes.admin_resolution import AdminDisputeResolutionMixin
 from app.modules.disputes.policy import (
     require_admin_dispute_read,
@@ -21,7 +22,20 @@ from app.modules.users.models import UserRecord
 
 
 class DisputeService(AdminDisputeResolutionMixin):
-    def __init__(self, *, settings: Settings, repository, order_repository, chat_repository, business_repository, ad_repository, audit_writer, rate_limiter, idempotency_store) -> None:  # type: ignore[no-untyped-def]
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        repository,
+        order_repository,
+        chat_repository,
+        business_repository,
+        ad_repository,
+        audit_writer,
+        rate_limiter,
+        idempotency_store,
+        notification_service=None,
+    ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
         self._orders = order_repository
@@ -31,6 +45,7 @@ class DisputeService(AdminDisputeResolutionMixin):
         self._audit = audit_writer
         self._rate_limiter = rate_limiter
         self._idempotency = idempotency_store
+        self._notifications = notification_service or NoopOrderNotificationService()
 
     def _rate_limit(self, action: str, user: UserRecord, resource_id: str | None = None) -> None:
         key = f"disputes:{action}:{user.id}:{resource_id or 'global'}"
@@ -160,6 +175,7 @@ class DisputeService(AdminDisputeResolutionMixin):
             request_id=request_id,
             metadata_json={"order_id": order.id, "previous_order_status": previous_status, "new_order_status": updated_order.status, "reason": payload.reason},
         )
+        self._notifications.order_disputed_parties_admin(order=updated_order, dispute_id=dispute.id, request_id=request_id)
 
     def list_admin_disputes(self, *, user: UserRecord, status: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         require_admin_dispute_read(user)

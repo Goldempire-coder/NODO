@@ -3,6 +3,7 @@ import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import anyio
 import anyio.to_thread
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +32,7 @@ from app.modules.jobs.lock import InMemoryJobLockManager, RedisJobLockManager
 from app.modules.jobs.repository import InMemoryJobRepository, PostgresJobRepository
 from app.modules.jobs.routes import router as jobs_router
 from app.modules.jobs.worker import ExpireAndEscalateOrdersWorker
+from app.modules.notifications.telegram_sender import NotificationSenderWorker
 from app.modules.observability.routes import router as observability_router
 from app.modules.orders.repository import InMemoryOrderRepository, PostgresOrderRepository
 from app.modules.orders.routes import router as orders_router
@@ -118,9 +120,48 @@ def _lifespan(*, settings: Settings, logger):  # type: ignore[no-untyped-def]
             "api_thread_limit_configured",
             extra={"previous_limit": previous_limit, "api_thread_limit": settings.api_thread_limit},
         )
-        yield
+        if not settings.order_notification_sender_enabled:
+            yield
+            return
+
+        async with anyio.create_task_group() as task_group:
+            task_group.start_soon(_order_notification_sender_loop, _app, settings, logger)
+            try:
+                yield
+            finally:
+                task_group.cancel_scope.cancel()
 
     return app_lifespan
+
+
+async def _order_notification_sender_loop(app: FastAPI, settings: Settings, logger) -> None:  # type: ignore[no-untyped-def]
+    await anyio.sleep(1)
+    while True:
+        try:
+            result = await anyio.to_thread.run_sync(
+                lambda: app.state.notification_sender_worker.run(
+                    batch_size=settings.order_notification_sender_batch_size,
+                    request_id="scheduler_order_notification_sender",
+                )
+            )
+            counters = result.get("counters", {})
+            if counters.get("processed"):
+                logger.info(
+                    "order_notification_sender_finished",
+                    extra={
+                        "event": "order_notification_sender_finished",
+                        "processed": counters.get("processed", 0),
+                        "sent": counters.get("sent", 0),
+                        "retryable_failed": counters.get("retryable_failed", 0),
+                        "failed_permanent": counters.get("failed_permanent", 0),
+                    },
+                )
+        except Exception as exc:
+            logger.warning(
+                "order_notification_sender_failed",
+                extra={"event": "order_notification_sender_failed", "error_code": getattr(exc, "code", "INTERNAL_ERROR")},
+            )
+        await anyio.sleep(settings.order_notification_sender_interval_seconds)
 
 def _configure_test_state(app: FastAPI) -> None:
     app.state.user_repository = InMemoryUserRepository()
@@ -208,6 +249,11 @@ def _configure_workers(app: FastAPI) -> None:
         credit_repository=app.state.credit_repository,
         audit_writer=app.state.audit_writer,
         onchain_verifier=app.state.onchain_credit_verifier,
+    )
+    app.state.notification_sender_worker = NotificationSenderWorker(
+        settings=app.state.settings,
+        job_repository=app.state.job_repository,
+        user_repository=app.state.user_repository,
     )
 
 

@@ -14,6 +14,7 @@ from app.modules.orders.policy import require_remitter
 from app.modules.orders.schemas import OrderCreateRequest
 from app.modules.orders.serializers import public_order_payload
 from app.modules.orders.state_machine import now_utc
+from app.modules.notifications.order_notifications import NoopOrderNotificationService
 from app.modules.users.models import UserRecord
 
 class OrderCreateFlow:
@@ -31,6 +32,7 @@ class OrderCreateFlow:
         ad_expired: Callable[[AdRecord], bool],
         clear_marketplace_cache: Callable[[], None],
         clear_marketplace_cache_after_order: Callable[[str], None],
+        notification_service=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._repository = repository
         self._ads = ad_repository
@@ -43,6 +45,7 @@ class OrderCreateFlow:
         self._ad_expired = ad_expired
         self._clear_marketplace_cache = clear_marketplace_cache
         self._clear_marketplace_cache_after_order = clear_marketplace_cache_after_order
+        self._notifications = notification_service or NoopOrderNotificationService()
 
     def create_order(self, *, user: UserRecord, payload: OrderCreateRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         profile = [] if profile_enabled() else None
@@ -106,6 +109,7 @@ class OrderCreateFlow:
             )
             order = self._persist_create_order_plan(ad=ad, plan=plan, profile=profile)
             self._write_created_order_audit(plan=plan, order=order, profile=profile)
+            self._notifications.order_created_business(order=order, request_id=request_id)
             stage_started = time.perf_counter()
             response = {"order": public_order_payload(order), "disclaimer": ORDER_DISCLAIMER}
             profile_mark(profile, "service:public_order_payload", stage_started)

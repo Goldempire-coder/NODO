@@ -5,16 +5,25 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 from app.auth.dependencies import require_current_user
 from app.modules.disputes.schemas import DisputeCreateRequest, DisputeResolveRequest
 from app.modules.disputes.service import DisputeService
+from app.modules.notifications.order_notifications import OrderNotificationService
 from app.modules.users.models import UserRecord
+from app.shared.observability import get_correlation_id, get_operation_id, get_request_id
 
 router = APIRouter(tags=["disputes"])
 
 
 def _request_id(request: Request) -> str:
-    return request.headers.get("x-request-id", "request_id_unavailable")
+    return get_request_id(request)
 
 
 def _service(request: Request) -> DisputeService:
+    notifications = OrderNotificationService(
+        settings=request.app.state.settings,
+        job_repository=request.app.state.job_repository,
+        business_repository=request.app.state.business_repository,
+        correlation_id=get_correlation_id(request),
+        operation_id=get_operation_id(request),
+    )
     return DisputeService(
         settings=request.app.state.settings,
         repository=request.app.state.dispute_repository,
@@ -25,6 +34,7 @@ def _service(request: Request) -> DisputeService:
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,
         idempotency_store=request.app.state.idempotency_store,
+        notification_service=notifications,
     )
 
 

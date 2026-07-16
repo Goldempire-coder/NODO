@@ -77,6 +77,7 @@ class OrderBusinessPaymentConfirmationMixin:
             idempotency_key=idempotency_key,
             profile=profile,
         )
+        self._notifications.payment_confirmed_client(order=updated, request_id=request_id)  # type: ignore[attr-defined]
 
         stage_started = time.perf_counter()
         response = business_payment_confirmation_response(order=updated, report=updated_report, ledger=ledger, disclaimer=ORDER_DISCLAIMER)

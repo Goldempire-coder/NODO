@@ -145,6 +145,13 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "refreshingCreditPurchase" in credits_model
     assert "verifyingCreditTx" in credits_model
     assert "businessOrderAction" in orders_model
+    assert "pollBusinessOrderUpdates" in orders_model
+    assert "businessOrdersWatchReadyRef" in orders_model
+    assert "Nueva orden ${newOrder.public_order_code}" in orders_model
+    assert "Pago reportado en ${updatedOrder.public_order_code}" in orders_model
+    assert 'notifyTelegram("success")' in orders_model
+    assert "orders.pollBusinessOrderUpdates()" in business_model
+    assert "window.setInterval" in business_model
     assert 'recordBusinessActionStarted(telemetryAction, "business-order-detail")' in orders_model
     assert "business_order_confirm_payment" in orders_model
     assert "business_order_reject_payment_report" in orders_model

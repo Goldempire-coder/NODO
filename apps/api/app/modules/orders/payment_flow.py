@@ -4,6 +4,7 @@ from typing import Any, Callable
 
 from app.core.errors import ApiError
 from app.modules.businesses.presenters import decimal_text
+from app.modules.notifications.order_notifications import NoopOrderNotificationService
 from app.modules.orders.helpers import require_uuid
 from app.modules.orders.payment_constants import PAYMENT_INSTRUCTIONS_DISCLAIMER
 from app.modules.orders.payment_evidence import PaymentEvidenceMixin
@@ -23,12 +24,14 @@ class OrderPaymentFlow(PaymentEvidenceMixin, PaymentReportingMixin):
         idempotency_store,
         storage,
         rate_limit: Callable[[str, UserRecord], None],
+        notification_service=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._repository = repository
         self._audit = audit_writer
         self._idempotency = idempotency_store
         self._storage = storage
         self._rate_limit = rate_limit
+        self._notifications = notification_service or NoopOrderNotificationService()
 
     def payment_instructions(self, *, user: UserRecord, order_id: str, request_id: str) -> dict[str, Any]:
         require_remitter(user)

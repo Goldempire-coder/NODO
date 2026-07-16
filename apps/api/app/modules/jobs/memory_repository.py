@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from threading import RLock
 from typing import Any
 
@@ -50,3 +51,54 @@ class InMemoryJobRepository:
             notification = NotificationJobRecord(id=new_id(), status="pending", created_at=now, updated_at=now, **fields)
             self.notification_jobs[notification.id] = notification
             return notification, True
+
+    def list_due_notifications(self, *, now: datetime, limit: int) -> list[NotificationJobRecord]:
+        with self._lock:
+            items = [
+                item
+                for item in self.notification_jobs.values()
+                if item.status == "pending" and item.scheduled_for <= now
+            ]
+            items.sort(key=lambda item: item.scheduled_for)
+            claimed = items[:limit]
+            for item in claimed:
+                item.scheduled_for = now + timedelta(minutes=5)
+                item.metadata_json = {**(item.metadata_json or {}), "delivery_state": "processing"}
+                item.updated_at = utc_now()
+            return claimed
+
+    def list_due_telegram_notifications(self, *, now: datetime, limit: int, notification_types: set[str]) -> list[NotificationJobRecord]:
+        with self._lock:
+            items = [
+                item
+                for item in self.notification_jobs.values()
+                if item.status == "pending"
+                and item.scheduled_for <= now
+                and item.recipient_user_id is not None
+                and item.notification_type in notification_types
+                and _is_processable_telegram_notification(item.metadata_json)
+            ]
+            items.sort(key=lambda item: item.scheduled_for)
+            claimed = items[:limit]
+            for item in claimed:
+                item.scheduled_for = now + timedelta(minutes=5)
+                item.metadata_json = {**(item.metadata_json or {}), "delivery_state": "processing"}
+                item.updated_at = utc_now()
+            return claimed
+
+    def update_notification(self, notification: NotificationJobRecord, **fields: Any) -> NotificationJobRecord:
+        with self._lock:
+            for key, value in fields.items():
+                setattr(notification, key, value)
+            notification.updated_at = utc_now()
+            return notification
+
+
+def _is_processable_telegram_notification(metadata: dict | None) -> bool:
+    if not metadata:
+        return False
+    if metadata.get("channel") != "telegram":
+        return False
+    if metadata.get("target_surface") not in {"business_mini_app", "client_mini_app"}:
+        return False
+    return bool(str(metadata.get("message_text") or "").strip())

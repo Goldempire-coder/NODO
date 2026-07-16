@@ -65,6 +65,7 @@ class PaymentReportingMixin:
         report = self._create_payment_report(user=user, order=order, payload=payload, payload_hash=payload_hash, idempotency_key=idempotency_key)
         updated = self._mark_order_payment_reported(order=order)
         self._record_payment_reported(user=user, order=order, report=report, idempotency_key=idempotency_key, request_id=request_id)
+        self._notifications.payment_reported_business(order=updated, request_id=request_id)  # type: ignore[attr-defined]
         return {"payment_report": payment_report_payload(report), "order": payment_report_order_payload(updated), "disclaimer": PAYMENT_REPORT_DISCLAIMER}
 
     def _reportable_order(self, *, user: UserRecord, order_id: str):  # type: ignore[no-untyped-def]
