@@ -5,7 +5,7 @@ import { sanitizeDecimalInput } from "../../lib/numericInput";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
 
 function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
-  const { openAdDetail, searchResults } = model;
+  const { openAdDetail, openingMarketplaceAdId, searchResults } = model;
   return (
     <div className="marketplace-list">
       {searchResults.length === 0 ? (
@@ -15,7 +15,7 @@ function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
         </div>
       ) : null}
       {searchResults.map((ad) => (
-        <button className="marketplace-business" key={ad.id} type="button" onClick={() => void openAdDetail(ad.id)}>
+        <button className="marketplace-business" disabled={openingMarketplaceAdId === ad.id} key={ad.id} type="button" onClick={() => void openAdDetail(ad.id)}>
           <span className="business-avatar">{displayBusinessName(ad).slice(0, 2).toUpperCase()}</span>
           <span className="business-main">
             <strong>{displayBusinessName(ad)}</strong>
@@ -25,7 +25,7 @@ function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
           <span className="business-rate">
             <strong>{ad.rate_bs_per_usd}</strong>
             <small>Bs / USD</small>
-            <em>Disponible</em>
+            <em>{openingMarketplaceAdId === ad.id ? "Abriendo..." : "Disponible"}</em>
           </span>
         </button>
       ))}
@@ -35,11 +35,13 @@ function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
 
 export function ClientMarketplaceScreens({ model }: { model: RemitterScreensModel }) {
   const {
-    busy,
     loadActiveMarketplace,
+    loadingMarketplace,
+    openingMarketplaceAdId,
     searchAds,
     searchForm,
     searchResults,
+    searchingMarketplace,
     selectedAd,
     setOrderForm,
     setSearchForm,
@@ -74,8 +76,8 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               <span className="status-dot" aria-hidden="true" />
               <Text>Tu familiar recibe por pago móvil en Venezuela.</Text>
             </div>
-            <Button mode="filled" stretched disabled={busy} onClick={() => void searchAds()}>
-              Ver negocios para ${searchForm.amount_usd || "0.00"}
+            <Button mode="filled" stretched disabled={searchingMarketplace} onClick={() => void searchAds()}>
+              {searchingMarketplace ? "Buscando..." : `Ver negocios para $${searchForm.amount_usd || "0.00"}`}
             </Button>
           </div>
 
@@ -110,7 +112,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
                   setSearchForm((current) => ({ ...current, sort }));
                   void loadActiveMarketplace(sort);
                 }}>
-                  {sort === "trust" ? "Mejor confianza" : sort === "rate" ? "Mejor tasa" : "Más rápido"}
+                  {loadingMarketplace && searchForm.sort === sort ? "Cargando..." : sort === "trust" ? "Mejor confianza" : sort === "rate" ? "Mejor tasa" : "Más rápido"}
                 </button>
               ))}
             </div>
@@ -124,7 +126,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               </div>
             ) : null}
             {searchResults.map((ad) => (
-              <button className="marketplace-business" key={ad.id} type="button" onClick={() => void model.openAdDetail(ad.id)}>
+              <button className="marketplace-business" disabled={openingMarketplaceAdId === ad.id} key={ad.id} type="button" onClick={() => void model.openAdDetail(ad.id)}>
                 <span className="business-avatar">{displayBusinessName(ad).slice(0, 2).toUpperCase()}</span>
                 <span className="business-main">
                   <strong>{displayBusinessName(ad)}</strong>
@@ -134,7 +136,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
                 <span className="business-rate">
                   <strong>{ad.rate_bs_per_usd}</strong>
                   <small>Bs / USD</small>
-                  <em>Disponible</em>
+                  <em>{openingMarketplaceAdId === ad.id ? "Abriendo..." : "Disponible"}</em>
                 </span>
               </button>
             ))}

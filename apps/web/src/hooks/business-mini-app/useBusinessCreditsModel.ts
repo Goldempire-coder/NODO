@@ -11,7 +11,7 @@ import {
 import type { BusinessMiniAppView } from "../../constants/businessViews";
 import type { BusinessSummary } from "../../types/business";
 import type { CreditPurchase, CreditWallet, ReferralData } from "../../types/credits";
-import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "./actionTelemetry";
+import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 import { idempotencyKey } from "./helpers";
 

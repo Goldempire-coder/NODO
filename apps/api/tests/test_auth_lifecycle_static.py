@@ -220,6 +220,65 @@ def test_frontend_observability_is_separated_and_redacts_sensitive_metadata() ->
     assert "recordSlowSensitiveAction" in telemetry
     assert "slow_sensitive_action" in telemetry
     assert "slow_screen_transition" in telemetry
+    assert "recordActionBreadcrumb" in _read("apps/web/src/hooks/actionTelemetry.ts")
+
+
+def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
+    client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
+    client_state = _read("apps/web/src/hooks/workspace/useClientWorkspaceState.ts")
+    marketplace_model = _read("apps/web/src/hooks/workspace/useClientMarketplaceModel.ts")
+    orders_model = _read("apps/web/src/hooks/workspace/useRemitterOrdersModel.ts")
+    payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
+    chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    marketplace_screen = _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx")
+    order_screen = _read("apps/web/src/screens/client/ClientOrderScreens.tsx")
+    payment_screen = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
+    chat_screen = _read("apps/web/src/screens/client/ClientScreens.tsx")
+    support_screen = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
+    remitter_types = _read("apps/web/src/screens/client/RemitterScreens.types.ts")
+    telemetry_helper = _read("apps/web/src/hooks/actionTelemetry.ts")
+
+    assert "searchingMarketplace" in client_state
+    assert "creatingOrder" in client_state
+    assert "loadingPaymentInstructions" in client_state
+    assert "uploadingPaymentEvidence" in client_state
+    assert "submittingPaymentReport" in client_state
+    assert "sendingChatMessage" in client_state
+    assert "openingOrderDispute" in client_state
+    assert "mainActionBusy = state.busy || state.creatingOrder || state.submittingPaymentReport" in client_model
+    assert "searchingMarketplace: state.searchingMarketplace" in client_model
+    assert "creatingOrder: state.creatingOrder" in client_model
+    assert "submittingPaymentReport: state.submittingPaymentReport" in client_model
+    assert "sendingChatMessage: state.sendingChatMessage" in client_model
+    assert "creatingSupportTicket: support.creatingSupportTicket" in client_model
+    assert 'recordActionStarted("client_marketplace_search"' in marketplace_model
+    assert 'recordActionStarted("client_order_create"' in orders_model
+    assert 'recordActionStarted("client_order_cancel"' in orders_model
+    assert 'recordActionStarted("client_payment_report_submit"' in payment_model
+    assert 'recordActionStarted("client_chat_message_send"' in chat_model
+    assert 'recordActionStarted("client_order_dispute_open"' in chat_model
+    assert 'recordActionStarted("support_ticket_create"' in support_model
+    assert "setBusy(" not in marketplace_model
+    assert "setBusy(" not in orders_model
+    assert "setBusy(" not in payment_model
+    assert "setBusy(" not in chat_model
+    assert "disabled={busy" not in marketplace_screen
+    assert "disabled={busy" not in order_screen
+    assert "disabled={busy" not in payment_screen
+    assert "disabled={busy" not in chat_screen
+    assert "disabled={busy" not in support_screen
+    assert "Buscando..." in marketplace_screen
+    assert "Creando..." in order_screen
+    assert "Cargando instrucciones..." in order_screen
+    assert "Subiendo comprobante..." in payment_screen
+    assert "Enviando reporte..." in payment_screen
+    assert "Enviando..." in chat_screen
+    assert "Abriendo..." in chat_screen
+    assert "Creando..." in support_screen
+    assert "openingChatOrderId: string | null" in remitter_types
+    assert "recordBusinessActionStarted = recordActionStarted" in telemetry_helper
+    assert "recordSlowSensitiveAction" in telemetry_helper
 
 
 def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
@@ -353,7 +412,7 @@ def test_business_action_breadcrumbs_do_not_include_sensitive_values() -> None:
         "mnemonic",
     )
     for path in (
-        "apps/web/src/hooks/business-mini-app/actionTelemetry.ts",
+        "apps/web/src/hooks/actionTelemetry.ts",
         "apps/web/src/hooks/business-mini-app/useBusinessAccessModel.ts",
         "apps/web/src/hooks/business-mini-app/useBusinessAdsModel.ts",
         "apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts",

@@ -4,7 +4,7 @@ import { getBusinessOrder, listBusinessOrders, mutateBusinessOrder as mutateBusi
 import type { BusinessMiniAppView } from "../../constants/businessViews";
 import { notifyTelegram } from "../../theme/telegramTheme";
 import type { BusinessOrderDetail, BusinessOrderSummary } from "../../types/orders";
-import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "./actionTelemetry";
+import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
 import { idempotencyKey } from "./helpers";
 
 type OrderSnapshot = Map<string, string>;

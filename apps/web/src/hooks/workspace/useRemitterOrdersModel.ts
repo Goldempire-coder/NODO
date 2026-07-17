@@ -4,6 +4,7 @@ import { useRef } from "react";
 import type { AuthenticatedRequest } from "../../api/client";
 import { cancelRemitterOrder, createRemitterOrder, extendPaymentDeadline, getOrder, listMyOrders } from "../../api/orders";
 import type { OrderSummary } from "../../types/orders";
+import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 
 type RemitterOrdersState = Pick<
@@ -13,20 +14,47 @@ type RemitterOrdersState = Pick<
   | "setSelectedOrder"
   | "setMyOrders"
   | "setNotice"
-  | "setBusy"
+  | "setCreatingOrder"
+  | "setLoadingOrders"
+  | "setOpeningOrderId"
+  | "setExtendingOrderId"
+  | "setCancellingOrderId"
   | "setView"
 >;
 
 export function useRemitterOrdersModel(state: RemitterOrdersState & { request: AuthenticatedRequest }) {
-  const { request, selectedAd, orderForm, setSelectedOrder, setMyOrders, setNotice, setBusy, setView } = state;
+  const {
+    request,
+    selectedAd,
+    orderForm,
+    setCancellingOrderId,
+    setCreatingOrder,
+    setExtendingOrderId,
+    setLoadingOrders,
+    setMyOrders,
+    setNotice,
+    setOpeningOrderId,
+    setSelectedOrder,
+    setView
+  } = state;
   const ordersCacheRef = useRef<{ items: OrderSummary[]; loadedAt: number } | null>(null);
+
+  function rememberOrder(order: OrderSummary) {
+    ordersCacheRef.current = {
+      items: [order, ...(ordersCacheRef.current?.items || []).filter((item) => item.id !== order.id)],
+      loadedAt: Date.now()
+    };
+    setMyOrders(ordersCacheRef.current.items);
+  }
 
   async function createOrder() {
     if (!selectedAd) {
       setNotice("Selecciona un anuncio activo.");
       return;
     }
-    setBusy(true);
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_order_create", "create-order");
+    setCreatingOrder(true);
     setNotice("Preparando tu orden");
     try {
       const data = await createRemitterOrder<{ order: OrderSummary }>(
@@ -44,16 +72,23 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
         `order_create_${selectedAd.id}_${Date.now()}`
       );
       setSelectedOrder(data.order);
+      rememberOrder(data.order);
       setView("order-summary");
       setNotice("");
+      recordActionCompleted("client_order_create", "create-order", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos crear la orden. Revisa los datos e intenta de nuevo.");
+      recordActionFailed("client_order_create", "create-order", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
-      setBusy(false);
+      setCreatingOrder(false);
     }
   }
 
   async function loadMyOrders(targetView: "my-orders" | "messages" = "my-orders") {
+    const screen = targetView === "messages" ? "messages" : "my-orders";
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_orders_load", screen);
+    setLoadingOrders(true);
     setView(targetView);
     const cached = ordersCacheRef.current;
     if (cached && Date.now() - cached.loadedAt < 30_000) {
@@ -65,57 +100,76 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
       ordersCacheRef.current = { items: data.items, loadedAt: Date.now() };
       setMyOrders(data.items);
       setNotice(data.items.length ? "" : targetView === "messages" ? "Todavia no tienes conversaciones." : "Todavia no tienes ordenes.");
+      recordActionCompleted("client_orders_load", screen, startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos cargar tus ordenes.");
+      recordActionFailed("client_orders_load", screen, startedAt, error instanceof Error ? error.name : undefined);
+    } finally {
+      setLoadingOrders(false);
     }
   }
 
   async function openOrderDetail(orderId: string) {
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_order_detail_open", "order-summary");
     const optimisticOrder = ordersCacheRef.current?.items.find((order) => order.id === orderId);
     if (optimisticOrder) {
       setSelectedOrder(optimisticOrder);
       setView("order-summary");
       setNotice("");
     } else {
-      setBusy(true);
+      setOpeningOrderId(orderId);
     }
     try {
       const data = await getOrder<{ order: OrderSummary }>(request, orderId);
       setSelectedOrder(data.order);
+      rememberOrder(data.order);
       setView("order-summary");
       setNotice("");
+      recordActionCompleted("client_order_detail_open", "order-summary", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos abrir la orden.");
+      recordActionFailed("client_order_detail_open", "order-summary", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       if (!optimisticOrder) {
-        setBusy(false);
+        setOpeningOrderId(null);
       }
     }
   }
 
   async function extendOrder(orderId: string) {
-    setBusy(true);
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_order_extend", "order-summary");
+    setExtendingOrderId(orderId);
     try {
       const data = await extendPaymentDeadline<{ order: OrderSummary }>(request, orderId, "Necesito unos minutos mas", `order_extend_${orderId}_${Date.now()}`);
       setSelectedOrder(data.order);
+      rememberOrder(data.order);
       setNotice("Tiempo extendido una vez.");
+      recordActionCompleted("client_order_extend", "order-summary", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos extender el tiempo.");
+      recordActionFailed("client_order_extend", "order-summary", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
-      setBusy(false);
+      setExtendingOrderId(null);
     }
   }
 
   async function cancelOrder(orderId: string) {
-    setBusy(true);
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_order_cancel", "order-summary");
+    setCancellingOrderId(orderId);
     try {
       const data = await cancelRemitterOrder<{ order: OrderSummary }>(request, orderId, "No pude realizar el pago", `order_cancel_${orderId}_${Date.now()}`);
       setSelectedOrder(data.order);
+      rememberOrder(data.order);
       setNotice("Orden cancelada.");
+      recordActionCompleted("client_order_cancel", "order-summary", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos cancelar la orden.");
+      recordActionFailed("client_order_cancel", "order-summary", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
-      setBusy(false);
+      setCancellingOrderId(null);
     }
   }
 

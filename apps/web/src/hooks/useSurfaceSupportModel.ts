@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { createSupportTicket, getSupportTicket, listSupportTickets, sendSupportMessage, uploadSupportAttachment } from "../api/support";
 import type { SupportTicket, SupportTicketCategory, SupportTicketCreateInput, SupportTicketScope } from "../types/support";
 import type { AuthenticatedRequest } from "../api/client";
+import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "./actionTelemetry";
 
 const DEFAULT_CATEGORY: SupportTicketCategory = "technical_issue";
 
@@ -33,32 +34,42 @@ export function useSurfaceSupportModel({
   const [uploadingSupportAttachment, setUploadingSupportAttachment] = useState(false);
 
   const loadSupportTickets = useCallback(async () => {
+    const startedAt = actionStartedAt();
+    recordActionStarted("support_tickets_load", "support");
     setLoadingSupportTickets(true);
     try {
       const payload = await listSupportTickets(request);
       setSupportTickets(payload.items);
       setNotice("");
+      recordActionCompleted("support_tickets_load", "support", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos cargar soporte.");
+      recordActionFailed("support_tickets_load", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setLoadingSupportTickets(false);
     }
   }, [request, setNotice]);
 
   const openSupportTicket = useCallback(async (ticketId: string) => {
+    const startedAt = actionStartedAt();
+    recordActionStarted("support_ticket_open", "support");
     setOpeningSupportTicketId(ticketId);
     try {
       const ticket = await getSupportTicket(request, ticketId);
       setSelectedSupportTicket(ticket);
       setNotice("");
+      recordActionCompleted("support_ticket_open", "support", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos abrir el ticket.");
+      recordActionFailed("support_ticket_open", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setOpeningSupportTicketId(null);
     }
   }, [request, setNotice]);
 
   const submitSupportTicket = useCallback(async (input?: Partial<SupportTicketCreateInput>) => {
+    const startedAt = actionStartedAt();
+    recordActionStarted("support_ticket_create", "support");
     setCreatingSupportTicket(true);
     try {
       const ticket = await createSupportTicket(request, { ...supportForm, ...(input || {}) });
@@ -66,8 +77,10 @@ export function useSurfaceSupportModel({
       setSupportTickets((current) => [ticket, ...current.filter((item) => item.id !== ticket.id)]);
       setSupportForm((current) => ({ ...current, subject: "", message: "" }));
       setNotice("Ticket enviado a soporte.");
+      recordActionCompleted("support_ticket_create", "support", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos crear el ticket.");
+      recordActionFailed("support_ticket_create", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setCreatingSupportTicket(false);
     }
@@ -77,6 +90,8 @@ export function useSurfaceSupportModel({
     if (!selectedSupportTicket || !supportReply.trim()) {
       return;
     }
+    const startedAt = actionStartedAt();
+    recordActionStarted("support_reply_send", "support");
     setSendingSupportReply(true);
     try {
       await sendSupportMessage(request, selectedSupportTicket.id, supportReply);
@@ -84,8 +99,10 @@ export function useSurfaceSupportModel({
       setSelectedSupportTicket(ticket);
       setSupportReply("");
       setNotice("");
+      recordActionCompleted("support_reply_send", "support", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos enviar el mensaje.");
+      recordActionFailed("support_reply_send", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setSendingSupportReply(false);
     }
@@ -95,14 +112,18 @@ export function useSurfaceSupportModel({
     if (!selectedSupportTicket || !file) {
       return;
     }
+    const startedAt = actionStartedAt();
+    recordActionStarted("support_attachment_upload", "support");
     setUploadingSupportAttachment(true);
     try {
       await uploadSupportAttachment(request, selectedSupportTicket.id, file);
       const ticket = await getSupportTicket(request, selectedSupportTicket.id);
       setSelectedSupportTicket(ticket);
       setNotice("Adjunto guardado de forma privada.");
+      recordActionCompleted("support_attachment_upload", "support", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos subir el adjunto.");
+      recordActionFailed("support_attachment_upload", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setUploadingSupportAttachment(false);
     }

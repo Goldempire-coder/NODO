@@ -1,0 +1,45 @@
+{
+  "slice": "slice_37_client_mini_app_afos_hardening",
+  "status": "READY_FOR_OWNER_REVIEW",
+  "commands": [
+    {
+      "command": "python -m pytest apps/api/tests/test_auth_lifecycle_static.py -q --tb=short",
+      "result": "8 passed",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm --filter @nodo/web build",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "command": "python -m pytest apps/api/tests/test_order_creation.py apps/api/tests/test_payment_instructions_reports.py apps/api/tests/test_chat_disputes.py apps/api/tests/test_support_ticket_center.py apps/api/tests/test_jobs_notifications.py -q --tb=short",
+      "result": "53 passed, 1 warning",
+      "exit_code": 0
+    },
+    {
+      "command": "python -m ruff check apps/api scripts",
+      "result": "All checks passed",
+      "exit_code": 0
+    },
+    {
+      "command": "python -m compileall apps/api apps/web/src scripts",
+      "result": "passed",
+      "exit_code": 0
+    },
+    {
+      "command": "python -m pytest apps/api/tests -q",
+      "result": "369 passed, 1 warning",
+      "exit_code": 0
+    }
+  ],
+  "scope_confirmations": {
+    "deploy": false,
+    "production": false,
+    "secrets_added": false,
+    "migrations": false,
+    "admin_panel": false,
+    "financial_rule_changes": false,
+    "ready_for_real_use_declared": false
+  }
+}

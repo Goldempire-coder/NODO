@@ -3,6 +3,7 @@
 import type { AuthenticatedRequest } from "../../api/client";
 import { getPaymentInstructions, submitOrderPaymentReport, uploadPaymentEvidence as uploadOrderPaymentEvidence } from "../../api/paymentReports";
 import { PAYMENT_COPY } from "../../constants/copy";
+import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 
 type PaymentReportState = Pick<
@@ -17,7 +18,9 @@ type PaymentReportState = Pick<
   | "setPaymentReportForm"
   | "setSelectedOrder"
   | "setNotice"
-  | "setBusy"
+  | "setLoadingPaymentInstructions"
+  | "setUploadingPaymentEvidence"
+  | "setSubmittingPaymentReport"
   | "setView"
 >;
 
@@ -35,14 +38,18 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
     setPaymentReportForm,
     setSelectedOrder,
     setNotice,
-    setBusy,
+    setLoadingPaymentInstructions,
+    setSubmittingPaymentReport,
+    setUploadingPaymentEvidence,
     setView
   } = state;
 
   async function openPaymentInstructions(orderId: string) {
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_payment_instructions_open", "payment-instructions");
     setView("payment-instructions");
     setNotice("");
-    setBusy(true);
+    setLoadingPaymentInstructions(true);
     try {
       const data = await getPaymentInstructions<any>(request, orderId);
       setPaymentInstructions(data);
@@ -51,10 +58,12 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
       setPaymentReportForm((current) => ({ ...current, payment_amount: data.order.amount_usd }));
       setView("payment-instructions");
       setNotice(data.disclaimer || PAYMENT_COPY);
+      recordActionCompleted("client_payment_instructions_open", "payment-instructions", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Las instrucciones no estan disponibles para esta orden.");
+      recordActionFailed("client_payment_instructions_open", "payment-instructions", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
-      setBusy(false);
+      setLoadingPaymentInstructions(false);
     }
   }
 
@@ -62,16 +71,20 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
     if (!selectedOrder || !file) {
       return;
     }
-    setBusy(true);
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_payment_evidence_upload", "report-payment");
+    setUploadingPaymentEvidence(true);
     try {
       const data = await uploadOrderPaymentEvidence<any>(request, selectedOrder.id, file, pendingPaymentReportId, `payment_evidence_${selectedOrder.id}_${Date.now()}`);
       setPaymentEvidence(data.file);
       setPendingPaymentReportId(data.pending_payment_report_id);
       setNotice("Evidencia privada cargada. La ruta interna no se muestra.");
+      recordActionCompleted("client_payment_evidence_upload", "report-payment", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos cargar el comprobante.");
+      recordActionFailed("client_payment_evidence_upload", "report-payment", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
-      setBusy(false);
+      setUploadingPaymentEvidence(false);
     }
   }
 
@@ -89,7 +102,9 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
       setNotice("USDT TRC20 requiere tx_hash.");
       return;
     }
-    setBusy(true);
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_payment_report_submit", "report-payment");
+    setSubmittingPaymentReport(true);
     try {
       const data = await submitOrderPaymentReport<any>(
         request,
@@ -118,10 +133,12 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
       setView("my-orders");
       setNotice(`${data.disclaimer} Estado: ${data.order.status}.`);
       void loadMyOrders();
+      recordActionCompleted("client_payment_report_submit", "report-payment", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos reportar el pago.");
+      recordActionFailed("client_payment_report_submit", "report-payment", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
-      setBusy(false);
+      setSubmittingPaymentReport(false);
     }
   }
 

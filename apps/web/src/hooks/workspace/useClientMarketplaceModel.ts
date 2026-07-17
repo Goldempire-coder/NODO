@@ -4,13 +4,28 @@ import { useRef } from "react";
 import { getMarketplaceAd, marketplaceSearchKey, searchMarketplaceAds } from "../../api/ads";
 import type { AuthenticatedRequest } from "../../api/client";
 import type { PublicUser } from "../../types/auth";
+import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 
 export function useClientMarketplaceModel(state: ClientWorkspaceState & { request: AuthenticatedRequest; user: PublicUser }) {
-  const { request, searchForm, searchResults, setSearchResults, setSelectedAd, setNotice, setBusy, setView } = state;
+  const {
+    request,
+    searchForm,
+    searchResults,
+    setLoadingMarketplace,
+    setOpeningMarketplaceAdId,
+    setSearchingMarketplace,
+    setSearchResults,
+    setSelectedAd,
+    setNotice,
+    setView
+  } = state;
   const cacheRef = useRef<Record<string, { items: typeof searchResults; loadedAt: number }>>({});
 
   async function searchAds() {
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_marketplace_search", "marketplace-search");
+    setSearchingMarketplace(true);
     setView("marketplace-search");
     setNotice("");
     const params = {
@@ -31,12 +46,19 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
       setSearchResults(data.items);
       setSelectedAd(null);
       setNotice(data.items.length ? "" : "No encontramos negocios para ese monto. Prueba otro monto o metodo.");
+      recordActionCompleted("client_marketplace_search", "marketplace-search", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos buscar negocios en este momento.");
+      recordActionFailed("client_marketplace_search", "marketplace-search", startedAt, error instanceof Error ? error.name : undefined);
+    } finally {
+      setSearchingMarketplace(false);
     }
   }
 
   async function loadActiveMarketplace(sort: "trust" | "rate" | "speed" = searchForm.sort) {
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_marketplace_list", "marketplace-list");
+    setLoadingMarketplace(true);
     setView("marketplace-list");
     setNotice("");
     const params = { sort, limit: "50" };
@@ -52,12 +74,18 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
       setSearchResults(data.items);
       setSelectedAd(null);
       setNotice(data.items.length ? "" : "No hay negocios activos disponibles en este momento.");
+      recordActionCompleted("client_marketplace_list", "marketplace-list", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos cargar los negocios en este momento.");
+      recordActionFailed("client_marketplace_list", "marketplace-list", startedAt, error instanceof Error ? error.name : undefined);
+    } finally {
+      setLoadingMarketplace(false);
     }
   }
 
   async function openAdDetail(adId: string) {
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_ad_detail_open", "marketplace-detail");
     const optimisticAd = searchResults.find((ad) => ad.id === adId);
     if (optimisticAd) {
       setSelectedAd(optimisticAd);
@@ -65,21 +93,23 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
       setNotice("");
     }
     if (!optimisticAd) {
-      setBusy(true);
+      setOpeningMarketplaceAdId(adId);
     }
     try {
       const data = await getMarketplaceAd<{ ad: NonNullable<typeof optimisticAd> }>(request, adId);
       setSelectedAd(data.ad);
       setView("marketplace-detail");
       setNotice("");
+      recordActionCompleted("client_ad_detail_open", "marketplace-detail", startedAt);
     } catch (error) {
       if (!optimisticAd) {
         setSelectedAd(null);
       }
       setNotice(error instanceof Error ? error.message : "Anuncio no disponible.");
+      recordActionFailed("client_ad_detail_open", "marketplace-detail", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       if (!optimisticAd) {
-        setBusy(false);
+        setOpeningMarketplaceAdId(null);
       }
     }
   }

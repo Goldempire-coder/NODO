@@ -7,7 +7,7 @@ import type { BusinessMiniAppView } from "../../constants/businessViews";
 import { recordActionBreadcrumb } from "../../observability/clientTelemetry";
 import type { AdFormState, AdSummary, AdUpdatePayload } from "../../types/ads";
 import type { BusinessSummary } from "../../types/business";
-import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "./actionTelemetry";
+import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 import { idempotencyKey } from "./helpers";
 

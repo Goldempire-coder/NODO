@@ -63,6 +63,7 @@ export function useClientWorkspaceModel({
   const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice });
   const didWarmClientDataRef = useRef(false);
   const handledOrderDeepLinkRef = useRef(false);
+  const mainActionBusy = state.busy || state.creatingOrder || state.submittingPaymentReport;
 
   useEffect(() => {
     if (didWarmClientDataRef.current || view === "welcome" || view === "terms" || view === "client-profile-setup") {
@@ -96,7 +97,7 @@ export function useClientWorkspaceModel({
   }, [remitterOrders, view]);
 
   useClientTelegramNativeShell({
-    busy: state.busy,
+    busy: mainActionBusy,
     canGoBack: state.canGoBack,
     goBack: state.goBack,
     view
@@ -106,7 +107,7 @@ export function useClientWorkspaceModel({
     view,
     createOrder: remitterOrders.createOrder,
     submitPaymentReport: paymentReport.submitPaymentReport,
-    busy: state.busy,
+    busy: mainActionBusy,
     dependencies: [
       state.selectedAd,
       state.orderForm,
@@ -128,6 +129,9 @@ export function useClientWorkspaceModel({
     notice: state.notice,
     setNotice: state.setNotice,
     busy: state.busy,
+    searchingMarketplace: state.searchingMarketplace,
+    loadingMarketplace: state.loadingMarketplace,
+    openingMarketplaceAdId: state.openingMarketplaceAdId,
     searchForm: state.searchForm,
     setSearchForm: state.setSearchForm,
     searchResults: state.searchResults,
@@ -136,18 +140,31 @@ export function useClientWorkspaceModel({
     selectedOrder: state.selectedOrder,
     setSelectedOrder: state.setSelectedOrder,
     myOrders: state.myOrders,
+    creatingOrder: state.creatingOrder,
+    loadingOrders: state.loadingOrders,
+    openingOrderId: state.openingOrderId,
+    extendingOrderId: state.extendingOrderId,
+    cancellingOrderId: state.cancellingOrderId,
     chatOrderId: state.chatOrderId,
     chatMessages: state.chatMessages,
     chatCapabilities: state.chatCapabilities,
     chatBody: state.chatBody,
     setChatBody: state.setChatBody,
     chatAttachments: state.chatAttachments,
+    openingChatOrderId: state.openingChatOrderId,
+    refreshingChat: state.refreshingChat,
+    uploadingChatAttachment: state.uploadingChatAttachment,
+    sendingChatMessage: state.sendingChatMessage,
+    openingOrderDispute: state.openingOrderDispute,
     disputeReason: state.disputeReason,
     setDisputeReason: state.setDisputeReason,
     orderForm: state.orderForm,
     setOrderForm: state.setOrderForm,
     paymentInstructions: state.paymentInstructions,
     paymentEvidence: state.paymentEvidence,
+    loadingPaymentInstructions: state.loadingPaymentInstructions,
+    uploadingPaymentEvidence: state.uploadingPaymentEvidence,
+    submittingPaymentReport: state.submittingPaymentReport,
     paymentReportForm: state.paymentReportForm,
     setPaymentReportForm: state.setPaymentReportForm,
     acceptTerms,
@@ -169,12 +186,17 @@ export function useClientWorkspaceModel({
     sendChatMessage: chatDisputes.sendChatMessage,
     openOrderDispute: chatDisputes.openOrderDispute,
     supportTickets: support.supportTickets,
+    creatingSupportTicket: support.creatingSupportTicket,
+    loadingSupportTickets: support.loadingSupportTickets,
+    openingSupportTicketId: support.openingSupportTicketId,
     selectedSupportTicket: support.selectedSupportTicket,
     setSelectedSupportTicket: support.setSelectedSupportTicket,
     supportForm: support.supportForm,
     setSupportForm: support.setSupportForm,
     supportReply: support.supportReply,
     setSupportReply: support.setSupportReply,
+    sendingSupportReply: support.sendingSupportReply,
+    uploadingSupportAttachment: support.uploadingSupportAttachment,
     loadSupportTickets: support.loadSupportTickets,
     openSupportTicket: support.openSupportTicket,
     submitSupportTicket: support.submitSupportTicket,

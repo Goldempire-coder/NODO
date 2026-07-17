@@ -3,17 +3,21 @@ import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
 
 export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) {
   const {
-    busy,
+    creatingSupportTicket,
     loadSupportTickets,
+    loadingSupportTickets,
     openSupportTicket,
+    openingSupportTicketId,
     selectedSupportTicket,
     setSupportForm,
     supportForm,
     supportReply,
     supportTickets,
     setSupportReply,
+    sendingSupportReply,
     submitSupportReply,
     submitSupportTicket,
+    uploadingSupportAttachment,
     uploadTicketAttachment
   } = model;
 
@@ -52,20 +56,20 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
         <textarea value={supportForm.message} onChange={(event) => setSupportForm((current) => ({ ...current, message: event.target.value }))} />
       </label>
       <div className="business-shell__tabs">
-        <Button mode="filled" size="s" disabled={busy || supportForm.subject.trim().length < 3 || supportForm.message.trim().length < 3} onClick={() => void submitSupportTicket()}>
-          Crear ticket
+        <Button mode="filled" size="s" disabled={creatingSupportTicket || supportForm.subject.trim().length < 3 || supportForm.message.trim().length < 3} onClick={() => void submitSupportTicket()}>
+          {creatingSupportTicket ? "Creando..." : "Crear ticket"}
         </Button>
-        <Button mode="outline" size="s" disabled={busy} onClick={() => void loadSupportTickets()}>
-          Ver mis tickets
+        <Button mode="outline" size="s" disabled={loadingSupportTickets} onClick={() => void loadSupportTickets()}>
+          {loadingSupportTickets ? "Cargando..." : "Ver mis tickets"}
         </Button>
       </div>
       <div className="business-list">
-        {supportTickets.length === 0 ? <Text>Aun no tienes tickets abiertos.</Text> : null}
+        {supportTickets.length === 0 && !loadingSupportTickets ? <Text>Aun no tienes tickets abiertos.</Text> : null}
         {supportTickets.map((ticket) => (
-          <button className="business-row ad-row" key={ticket.id} type="button" onClick={() => void openSupportTicket(ticket.id)}>
+          <button className="business-row ad-row" disabled={openingSupportTicketId === ticket.id} key={ticket.id} type="button" onClick={() => void openSupportTicket(ticket.id)}>
             <span>{ticket.status}</span>
             <span>{ticket.subject}</span>
-            <span>{ticket.scope}</span>
+            <span>{openingSupportTicketId === ticket.id ? "Abriendo..." : ticket.scope}</span>
           </button>
         ))}
       </div>
@@ -89,10 +93,11 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
           </label>
           <label className="business-upload">
             <span>Adjunto privado</span>
-            <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy} type="file" onChange={(event) => void uploadTicketAttachment(event.target.files?.[0] || null)} />
+            <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingSupportAttachment} type="file" onChange={(event) => void uploadTicketAttachment(event.target.files?.[0] || null)} />
+            {uploadingSupportAttachment ? <small>Subiendo adjunto...</small> : null}
           </label>
-          <Button mode="filled" size="s" disabled={busy || !supportReply.trim()} onClick={() => void submitSupportReply()}>
-            Enviar respuesta
+          <Button mode="filled" size="s" disabled={sendingSupportReply || !supportReply.trim()} onClick={() => void submitSupportReply()}>
+            {sendingSupportReply ? "Enviando..." : "Enviar respuesta"}
           </Button>
         </div>
       ) : null}

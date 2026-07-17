@@ -120,3 +120,9 @@ No se permite declarar un slice listo sin revisar lineas exactas.
 | Orden | Slice | Objetivo | Dependencias | Estado contractual |
 |---|---|---|---|---|
 | 35 | slice_35_business_mini_app_afos_hardening | Endurecimiento AFOS de Mini App Negocio: arquitectura limpia, matriz de acciones sensibles, observabilidad segura, fluidez de pantallas y evidencia de controles sin tocar cliente app, deploy ni produccion | 14B,19,20B,24,34T-34Z | READY_FOR_OWNER_APPROVAL_TO_BUILD_35 |
+
+## Slice 37
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 37 | slice_37_client_mini_app_afos_hardening | Endurecimiento AFOS de Mini App Cliente: arquitectura limpia, estados por accion, breadcrumbs seguros, separacion cliente/negocio y repo organizado antes de probar Admin Web | 04,05,07,14A,20B,24,35,36 | READY_FOR_OWNER_REVIEW |

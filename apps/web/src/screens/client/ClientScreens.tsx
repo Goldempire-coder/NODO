@@ -7,7 +7,6 @@ import { RemitterScreens } from "./RemitterScreens";
 export function ClientScreens({ model }: { model: ClientWorkspaceModel }) {
   const {
     view,
-    busy,
     chatOrderId,
     chatMessages,
     chatCapabilities,
@@ -16,9 +15,13 @@ export function ClientScreens({ model }: { model: ClientWorkspaceModel }) {
     chatAttachments,
     disputeReason,
     setDisputeReason,
+    openingOrderDispute,
     refreshChat,
+    refreshingChat,
     uploadChatAttachment,
+    uploadingChatAttachment,
     sendChatMessage,
+    sendingChatMessage,
     openOrderDispute
   } = model;
 
@@ -49,19 +52,19 @@ export function ClientScreens({ model }: { model: ClientWorkspaceModel }) {
           </div>
           <label className="business-field">
             <span>Mensaje</span>
-            <textarea disabled={!chatCapabilities.can_send_message || busy} value={chatBody} onChange={(event) => setChatBody(event.target.value)} />
+            <textarea disabled={!chatCapabilities.can_send_message || sendingChatMessage} value={chatBody} onChange={(event) => setChatBody(event.target.value)} />
           </label>
           <label className="business-upload">
             <span>Adjunto privado</span>
-            <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={!chatCapabilities.can_send_message || busy} type="file" onChange={(event) => void uploadChatAttachment(event.target.files?.[0] || null)} />
-            {chatAttachments.length ? <small>{chatAttachments.length} archivo(s) listo(s)</small> : null}
+            <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={!chatCapabilities.can_send_message || uploadingChatAttachment} type="file" onChange={(event) => void uploadChatAttachment(event.target.files?.[0] || null)} />
+            {uploadingChatAttachment ? <small>Subiendo adjunto...</small> : chatAttachments.length ? <small>{chatAttachments.length} archivo(s) listo(s)</small> : null}
           </label>
           <div className="business-shell__tabs">
-            <Button mode="filled" size="s" disabled={busy || !chatCapabilities.can_send_message || (!chatBody.trim() && chatAttachments.length === 0)} onClick={() => void sendChatMessage()}>
-              Enviar
+            <Button mode="filled" size="s" disabled={sendingChatMessage || !chatCapabilities.can_send_message || (!chatBody.trim() && chatAttachments.length === 0)} onClick={() => void sendChatMessage()}>
+              {sendingChatMessage ? "Enviando..." : "Enviar"}
             </Button>
-            <Button mode="outline" size="s" disabled={busy || !chatOrderId} onClick={() => void refreshChat()}>
-              Recargar
+            <Button mode="outline" size="s" disabled={refreshingChat || !chatOrderId} onClick={() => void refreshChat()}>
+              {refreshingChat ? "Recargando..." : "Recargar"}
             </Button>
           </div>
           {chatCapabilities.can_open_dispute ? (
@@ -77,8 +80,8 @@ export function ClientScreens({ model }: { model: ClientWorkspaceModel }) {
                   <option value="other">Otro</option>
                 </select>
               </label>
-              <Button mode="outline" size="s" disabled={busy} onClick={() => void openOrderDispute()}>
-                Abrir disputa
+              <Button mode="outline" size="s" disabled={openingOrderDispute} onClick={() => void openOrderDispute()}>
+                {openingOrderDispute ? "Abriendo..." : "Abrir disputa"}
               </Button>
             </div>
           ) : (

@@ -7,11 +7,17 @@ const CHAT_STATUSES = ["payment_reported", "payment_rejected", "payment_confirme
 
 export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
   const {
-    busy,
     cancelOrder,
+    cancellingOrderId,
     createOrder,
+    creatingOrder,
     extendOrder,
+    extendingOrderId,
+    loadingOrders,
+    loadingPaymentInstructions,
     myOrders,
+    openingChatOrderId,
+    openingOrderId,
     openOrderChat,
     openOrderDetail,
     openPaymentInstructions,
@@ -52,8 +58,8 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
                 <span>Titular receptor</span>
                 <input value={orderForm.holder} onChange={(event) => setOrderForm((current) => ({ ...current, holder: event.target.value }))} />
               </label>
-              <Button mode="filled" stretched disabled={busy || !orderForm.amount_usd || !orderForm.bank || !orderForm.phone || !orderForm.document || !orderForm.holder} onClick={() => void createOrder()}>
-                Crear orden
+              <Button mode="filled" stretched disabled={creatingOrder || !orderForm.amount_usd || !orderForm.bank || !orderForm.phone || !orderForm.document || !orderForm.holder} onClick={() => void createOrder()}>
+                {creatingOrder ? "Creando..." : "Crear orden"}
               </Button>
             </>
           ) : (
@@ -76,18 +82,18 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
               <Text className="auth-entry__session-meta">Cuenta: {selectedOrder.payment_instructions_masked.account_masked || "masked"}</Text>
               <Text className="auth-entry__session-meta">Receptor: {selectedOrder.receiver_data_masked.bank || "Banco"} - {selectedOrder.receiver_data_masked.phone || "masked"}</Text>
               <Text>Límite: {new Date(selectedOrder.payment_report_deadline_at).toLocaleString()}</Text>
-              <Button mode="filled" stretched disabled={busy || selectedOrder.status !== "waiting_payment"} onClick={() => void openPaymentInstructions(selectedOrder.id)}>
-                Ver instrucciones de pago
+              <Button mode="filled" stretched disabled={loadingPaymentInstructions || selectedOrder.status !== "waiting_payment"} onClick={() => void openPaymentInstructions(selectedOrder.id)}>
+                {loadingPaymentInstructions ? "Cargando instrucciones..." : "Ver instrucciones de pago"}
               </Button>
               <div className="business-shell__tabs">
-                <Button mode="outline" size="s" disabled={busy || selectedOrder.status !== "waiting_payment" || selectedOrder.extension_used} onClick={() => void extendOrder(selectedOrder.id)}>
-                  Extender
+                <Button mode="outline" size="s" disabled={extendingOrderId === selectedOrder.id || selectedOrder.status !== "waiting_payment" || selectedOrder.extension_used} onClick={() => void extendOrder(selectedOrder.id)}>
+                  {extendingOrderId === selectedOrder.id ? "Extendiendo..." : "Extender"}
                 </Button>
-                <Button mode="outline" size="s" disabled={busy || selectedOrder.status !== "waiting_payment"} onClick={() => void cancelOrder(selectedOrder.id)}>
-                  Cancelar
+                <Button mode="outline" size="s" disabled={cancellingOrderId === selectedOrder.id || selectedOrder.status !== "waiting_payment"} onClick={() => void cancelOrder(selectedOrder.id)}>
+                  {cancellingOrderId === selectedOrder.id ? "Cancelando..." : "Cancelar"}
                 </Button>
-                <Button mode="outline" size="s" disabled={busy || !CHAT_STATUSES.includes(selectedOrder.status)} onClick={() => void openOrderChat(selectedOrder.id)}>
-                  Chat
+                <Button mode="outline" size="s" disabled={openingChatOrderId === selectedOrder.id || !CHAT_STATUSES.includes(selectedOrder.status)} onClick={() => void openOrderChat(selectedOrder.id)}>
+                  {openingChatOrderId === selectedOrder.id ? "Abriendo..." : "Chat"}
                 </Button>
               </div>
             </>
@@ -101,11 +107,12 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
         <div className="business-card">
           <Text className="business-card__label">Mis órdenes</Text>
           <div className="business-list">
-            {myOrders.length === 0 ? <Text>Todavía no tienes órdenes.</Text> : null}
+            {loadingOrders ? <Text>Cargando órdenes...</Text> : null}
+            {myOrders.length === 0 && !loadingOrders ? <Text>Todavía no tienes órdenes.</Text> : null}
             {myOrders.map((order) => (
-              <button className="business-row ad-row" key={order.id} type="button" onClick={() => void openOrderDetail(order.id)}>
+              <button className="business-row ad-row" disabled={openingOrderId === order.id} key={order.id} type="button" onClick={() => void openOrderDetail(order.id)}>
                 <span>{order.public_order_code}</span>
-                <span>{order.status}</span>
+                <span>{openingOrderId === order.id ? "Abriendo..." : order.status}</span>
                 <span>{order.amount_usd} USD</span>
               </button>
             ))}
@@ -117,13 +124,14 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
         <div className="business-card">
           <Text className="business-card__label">Mensajes</Text>
           <div className="business-list">
-            {myOrders.length === 0 ? <Text>Todavía no tienes conversaciones.</Text> : null}
+            {loadingOrders ? <Text>Cargando conversaciones...</Text> : null}
+            {myOrders.length === 0 && !loadingOrders ? <Text>Todavía no tienes conversaciones.</Text> : null}
             {myOrders.map((order) => {
               const canOpenChat = CHAT_STATUSES.includes(order.status);
               return (
-                <button className="business-row ad-row" disabled={!canOpenChat} key={order.id} type="button" onClick={() => void openOrderChat(order.id)}>
+                <button className="business-row ad-row" disabled={!canOpenChat || openingChatOrderId === order.id} key={order.id} type="button" onClick={() => void openOrderChat(order.id)}>
                   <span>{order.public_order_code}</span>
-                  <span>{canOpenChat ? "Abrir chat" : "Sin chat aún"}</span>
+                  <span>{openingChatOrderId === order.id ? "Abriendo..." : canOpenChat ? "Abrir chat" : "Sin chat aún"}</span>
                   <span>{order.status}</span>
                 </button>
               );

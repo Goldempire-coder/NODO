@@ -6,15 +6,18 @@ import type { RemitterScreensModel } from "./RemitterScreens.types";
 
 export function ClientPaymentScreens({ model }: { model: RemitterScreensModel }) {
   const {
-    busy,
+    loadingPaymentInstructions,
     openOrderChat,
+    openingChatOrderId,
     paymentEvidence,
     paymentInstructions,
     paymentReportForm,
     selectedOrder,
     setPaymentReportForm,
     setView,
+    submittingPaymentReport,
     submitPaymentReport,
+    uploadingPaymentEvidence,
     uploadPaymentEvidence,
     view
   } = model;
@@ -37,8 +40,8 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
                 {paymentInstructions.payment_instructions.network ? <Text>Red: {paymentInstructions.payment_instructions.network}</Text> : null}
               </div>
               <Text className="auth-entry__session-meta">{PAYMENT_COPY}</Text>
-              <Button mode="filled" stretched disabled={busy} onClick={() => setView("report-payment")}>
-                Ya realicé el pago
+              <Button mode="filled" stretched disabled={loadingPaymentInstructions} onClick={() => setView("report-payment")}>
+                {loadingPaymentInstructions ? "Cargando..." : "Ya realicé el pago"}
               </Button>
             </>
           ) : (
@@ -74,8 +77,8 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
                   </label>
                   <label className="business-upload">
                     <span>Comprobante privado</span>
-                    <input accept="image/jpeg,image/png,image/webp,application/pdf" type="file" onChange={(event) => void uploadPaymentEvidence(event.target.files?.[0] || null)} />
-                    {paymentEvidence ? <small>{paymentEvidence.mime_type} - {paymentEvidence.size_bytes} bytes</small> : null}
+                    <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingPaymentEvidence} type="file" onChange={(event) => void uploadPaymentEvidence(event.target.files?.[0] || null)} />
+                    {uploadingPaymentEvidence ? <small>Subiendo comprobante...</small> : paymentEvidence ? <small>{paymentEvidence.mime_type} - {paymentEvidence.size_bytes} bytes</small> : null}
                   </label>
                 </>
               ) : (
@@ -86,16 +89,16 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
                   </label>
                   <label className="business-upload">
                     <span>Comprobante opcional</span>
-                    <input accept="image/jpeg,image/png,image/webp,application/pdf" type="file" onChange={(event) => void uploadPaymentEvidence(event.target.files?.[0] || null)} />
-                    {paymentEvidence ? <small>{paymentEvidence.mime_type} - {paymentEvidence.size_bytes} bytes</small> : null}
+                    <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingPaymentEvidence} type="file" onChange={(event) => void uploadPaymentEvidence(event.target.files?.[0] || null)} />
+                    {uploadingPaymentEvidence ? <small>Subiendo comprobante...</small> : paymentEvidence ? <small>{paymentEvidence.mime_type} - {paymentEvidence.size_bytes} bytes</small> : null}
                   </label>
                 </>
               )}
-              <Button mode="filled" stretched disabled={busy} onClick={() => void submitPaymentReport()}>
-                Confirmar y enviar
+              <Button mode="filled" stretched disabled={submittingPaymentReport} onClick={() => void submitPaymentReport()}>
+                {submittingPaymentReport ? "Enviando reporte..." : "Confirmar y enviar"}
               </Button>
-              <Button mode="outline" stretched disabled={busy || !selectedOrder || selectedOrder.status === "waiting_payment"} onClick={() => selectedOrder ? void openOrderChat(selectedOrder.id) : undefined}>
-                Abrir tracking/chat
+              <Button mode="outline" stretched disabled={!selectedOrder || selectedOrder.status === "waiting_payment" || openingChatOrderId === selectedOrder.id} onClick={() => selectedOrder ? void openOrderChat(selectedOrder.id) : undefined}>
+                {selectedOrder && openingChatOrderId === selectedOrder.id ? "Abriendo..." : "Abrir tracking/chat"}
               </Button>
               <Text className="auth-entry__session-meta">{CHAT_DISPUTE_COPY}</Text>
             </>
