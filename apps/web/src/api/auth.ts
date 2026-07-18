@@ -13,6 +13,19 @@ export async function authenticateWithTelegram(initData: string, surface?: strin
   return (await response.json()) as AuthResponse;
 }
 
+export async function authenticateAdminCredentials(username: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(resolveApiUrl("/api/v1/auth/admin/login"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-NODO-Surface": "admin_web",
+      "X-Request-Id": `admin_login_${Date.now()}`
+    },
+    body: JSON.stringify({ username, password })
+  });
+  return (await response.json()) as AuthResponse;
+}
+
 export async function logoutSession(surface: AuthSurface, refreshToken: string | null, accessToken: string | null): Promise<void> {
   try {
     if (refreshToken && accessToken) {

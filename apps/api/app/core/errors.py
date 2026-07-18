@@ -12,6 +12,7 @@ ERROR_MESSAGES = {
     "USER_NOT_FOUND": "No encontramos el usuario solicitado.",
     "SESSION_EXPIRED": "Tu sesion expiro. Vuelve a iniciar sesion.",
     "UNAUTHENTICATED": "Necesitas iniciar sesion.",
+    "ADMIN_LOGIN_INVALID": "Usuario o clave invalida.",
     "RATE_LIMITED": "Demasiados intentos. Intenta nuevamente en un momento.",
     "VALIDATION_ERROR": "Revisa los datos enviados.",
     "FORBIDDEN": "No tienes permiso para realizar esta accion.",

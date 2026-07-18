@@ -6,7 +6,7 @@ from fastapi import APIRouter, Header, Request
 from pydantic import Field, ValidationError
 
 from app.core.errors import ApiError
-from app.modules.users.schemas import LogoutRequest, RefreshRequest, TelegramAuthRequest
+from app.modules.users.schemas import AdminCredentialLoginRequest, LogoutRequest, RefreshRequest, TelegramAuthRequest
 from app.modules.users.service import AuthService
 
 router = APIRouter(tags=["auth"])
@@ -52,6 +52,19 @@ async def auth_telegram(
     data = service.login_with_telegram(
         init_data=payload.init_data,
         surface=header_surface or body_surface,
+        request_id=_request_id(request),
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    return {"data": data, "request_id": _request_id(request)}
+
+
+@router.post("/auth/admin/login")
+def auth_admin_login(payload: AdminCredentialLoginRequest, request: Request) -> dict:
+    service = _auth_service(request)
+    data = service.login_with_admin_credentials(
+        username=payload.username,
+        password=payload.password,
         request_id=_request_id(request),
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),

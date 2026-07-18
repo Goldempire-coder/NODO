@@ -1,9 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import RLock
 
-from app.modules.users.models import SessionRecord, UserRecord, new_session_id, new_user_id, utc_now
+from app.modules.users.admin_passwords import normalize_admin_username
+from app.modules.users.models import (
+    AdminCredentialRecord,
+    SessionRecord,
+    UserRecord,
+    new_admin_credential_id,
+    new_session_id,
+    new_user_id,
+    utc_now,
+)
 
 
 class InMemoryUserRepository:
@@ -11,6 +20,8 @@ class InMemoryUserRepository:
         self._lock = RLock()
         self._users_by_id: dict[str, UserRecord] = {}
         self._users_by_telegram_id: dict[int, UserRecord] = {}
+        self._admin_credentials_by_id: dict[str, AdminCredentialRecord] = {}
+        self._admin_credentials_by_username: dict[str, AdminCredentialRecord] = {}
         self._sessions_by_hash: dict[str, SessionRecord] = {}
         self._sessions_by_id: dict[str, SessionRecord] = {}
 
@@ -50,6 +61,70 @@ class InMemoryUserRepository:
 
     def get_user_by_telegram_id(self, telegram_id: int) -> UserRecord | None:
         return self._users_by_telegram_id.get(telegram_id)
+
+    def create_admin_user_with_credentials(
+        self,
+        *,
+        username: str,
+        password_hash: str,
+        role: str,
+        first_name: str | None = None,
+    ) -> UserRecord:
+        with self._lock:
+            normalized = normalize_admin_username(username)
+            if normalized in self._admin_credentials_by_username:
+                raise ValueError("admin username already exists")
+            now = utc_now()
+            user = UserRecord(
+                id=new_user_id(),
+                telegram_id=None,
+                username=normalized,
+                first_name=first_name,
+                last_name=None,
+                role=role,
+                status="active",
+                last_seen_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+            credential = AdminCredentialRecord(
+                id=new_admin_credential_id(),
+                user_id=user.id,
+                username=username.strip(),
+                username_normalized=normalized,
+                password_hash=password_hash,
+                status="active",
+                password_changed_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+            self._users_by_id[user.id] = user
+            self._admin_credentials_by_id[credential.id] = credential
+            self._admin_credentials_by_username[credential.username_normalized] = credential
+            return user
+
+    def get_admin_credential_by_username(self, username_normalized: str) -> AdminCredentialRecord | None:
+        return self._admin_credentials_by_username.get(username_normalized)
+
+    def record_admin_credential_failure(self, credential: AdminCredentialRecord, *, attempt_limit: int, minutes: int) -> AdminCredentialRecord:
+        with self._lock:
+            credential.failed_attempts += 1
+            credential.updated_at = utc_now()
+            if credential.failed_attempts >= attempt_limit:
+                credential.locked_until = utc_now() + timedelta(minutes=minutes)
+            return credential
+
+    def record_admin_credential_success(self, credential: AdminCredentialRecord) -> AdminCredentialRecord:
+        with self._lock:
+            credential.failed_attempts = 0
+            credential.locked_until = None
+            credential.last_login_at = utc_now()
+            credential.updated_at = utc_now()
+            user = self._users_by_id.get(credential.user_id)
+            if user is not None:
+                user.last_seen_at = utc_now()
+                user.updated_at = utc_now()
+            return credential
 
     def set_user_status(self, user_id: str, status: str) -> None:
         with self._lock:

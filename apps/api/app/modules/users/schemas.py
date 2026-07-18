@@ -10,6 +10,11 @@ class TelegramAuthRequest(StrictRequestModel):
     init_data: str = Field(min_length=1, max_length=8192)
 
 
+class AdminCredentialLoginRequest(StrictRequestModel):
+    username: str = Field(min_length=3, max_length=128)
+    password: str = Field(min_length=10, max_length=128)
+
+
 class RefreshRequest(StrictRequestModel):
     refresh_token: str = Field(min_length=16, max_length=512)
 
