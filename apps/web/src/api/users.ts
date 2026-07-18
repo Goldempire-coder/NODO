@@ -1,8 +1,8 @@
 import type { AuthenticatedRequest } from "./client";
 import type { ClientProfileFormState } from "../types/client";
 
-export function acceptTerms(request: AuthenticatedRequest, termsVersion: string) {
-  return request("/api/v1/users/me/terms-acceptance", {
+export function acceptTerms<T>(request: AuthenticatedRequest, termsVersion: string) {
+  return request<T>("/api/v1/users/me/terms-acceptance", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -11,8 +11,8 @@ export function acceptTerms(request: AuthenticatedRequest, termsVersion: string)
   });
 }
 
-export function saveClientProfile(request: AuthenticatedRequest, profile: ClientProfileFormState) {
-  return request("/api/v1/users/me/profile", {
+export function saveClientProfile<T>(request: AuthenticatedRequest, profile: ClientProfileFormState) {
+  return request<T>("/api/v1/users/me/profile", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

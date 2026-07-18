@@ -71,7 +71,7 @@ class PostgresUserRepository(PostgresUserSessionsMixin):
             row = conn.execute(
                 """
                 update users
-                set terms_accepted_at = coalesce(terms_accepted_at, now()),
+                set terms_accepted_at = now(),
                     terms_version = %s,
                     updated_at = now()
                 where id = %s

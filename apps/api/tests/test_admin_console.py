@@ -77,7 +77,15 @@ def _login(client: TestClient, telegram_id: int, username: str) -> dict:
         json={"init_data": _signed_init_data(telegram_id, username)},
     )
     assert response.status_code == 200, response.text
-    return response.json()["data"]
+    login = response.json()["data"]
+    terms = client.post(
+        "/api/v1/users/me/terms-acceptance",
+        headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": f"req_terms_{telegram_id}"},
+        json={"terms_version": "2026-07-06"},
+    )
+    assert terms.status_code == 200, terms.text
+    login["user"] = terms.json()["data"]
+    return login
 
 
 def _headers(login: dict, key: str = "idem") -> dict[str, str]:
@@ -314,6 +322,77 @@ def test_admin_dashboard_metrics_and_read_rbac_are_masked() -> None:
     assert {"admin_viewed_dashboard", "admin_viewed_metrics"}.issubset(set(_event_types(client)))
 
 
+def test_admin_incident_console_summarizes_operational_signals_without_sensitive_values() -> None:
+    client = _client()
+    admin = _login(client, 906, "incident_admin")
+    support = _login(client, 907, "incident_support")
+    business_owner = _login(client, 908, "incident_business_owner")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    client.app.state.user_repository.set_user_role(support["user"]["id"], "support")
+    client.app.state.user_repository.set_user_role(business_owner["user"]["id"], "business_owner")
+    client.app.state.job_repository.create_job_run(
+        job_type="notification_sender",
+        status="failed",
+        started_at=utc_now(),
+        finished_at=utc_now(),
+        failed_count=1,
+        error_code="TELEGRAM_SEND_FAILED",
+        error_message_safe="Telegram temporalmente no disponible.",
+    )
+    notification, _ = client.app.state.job_repository.enqueue_notification(
+        notification_type="order_created_business",
+        recipient_user_id=admin["user"]["id"],
+        recipient_role=None,
+        order_id=None,
+        business_id=None,
+        dispute_id=None,
+        scheduled_for=utc_now(),
+        max_attempts=3,
+        dedupe_key="incident_console_notification",
+        metadata_json={
+            "channel": "telegram",
+            "target_surface": "business_mini_app",
+            "message_text": "Orden NODO",
+            "account_value": "owner@example.com",
+            "storage_path": "private/proof.png",
+        },
+    )
+    client.app.state.job_repository.update_notification(
+        notification,
+        status="failed",
+        attempts=1,
+        last_error_code="TELEGRAM_SEND_FAILED",
+    )
+    client.app.state.audit_writer.write(
+        event_type="credit_purchase_review_failed",
+        actor_user_id=admin["user"]["id"],
+        actor_role="admin",
+        resource_type="credit_purchase",
+        resource_id=None,
+        request_id="req_incident_seed",
+        metadata_json={"account_value": "owner@example.com", "safe": "ok"},
+    )
+
+    incident = client.get("/api/v1/admin/incident-console", headers=_bearer(admin, "req_incident_console"))
+    support_incident = client.get("/api/v1/admin/incident-console", headers=_bearer(support, "req_support_incident_console"))
+    forbidden = client.get("/api/v1/admin/incident-console", headers=_bearer(business_owner, "req_forbidden_incident_console"))
+
+    assert incident.status_code == 200, incident.text
+    assert support_incident.status_code == 200, support_incident.text
+    assert forbidden.status_code == 403
+    data = incident.json()["data"]
+    assert data["status"] in {"critical", "degraded"}
+    assert data["jobs"]["recent_failed"][0]["error_code"] == "TELEGRAM_SEND_FAILED"
+    assert data["notifications"]["recent_problems"][0]["last_error_code"] == "TELEGRAM_SEND_FAILED"
+    assert data["recommended_actions"]
+    combined = incident.text + json.dumps(data, default=str)
+    assert "owner@example.com" not in combined
+    assert "private/proof.png" not in combined
+    assert "storage_path" not in combined
+    assert "account_value" not in combined
+    assert "admin_viewed_incident_console" in _event_types(client)
+
+
 def test_admin_resolve_requires_admin_reason_idempotency_and_consumes_once() -> None:
     client = _client()
     _, business, ad, _, order, dispute = _seed_disputed_order(client, owner_id=910, remitter_id=911)
@@ -519,3 +598,147 @@ def test_slice_09_migration_allows_admin_resolution_values() -> None:
         assert expected in migration
     assert "future_admin_resolution" not in migration
     assert "disputes_resolution_type_future_check" in rollback
+
+
+def test_platform_emergency_mode_blocks_new_operations_but_keeps_existing_order_resolution_open() -> None:
+    client = _client()
+    owner = _login(client, 980, "emergency_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=5)
+    active_ad = _create_ad(client, owner, method_id, key="emergency_active_ad")
+    second_ad_response = client.post(
+        "/api/v1/business/ads",
+        headers={**_headers(owner, "emergency_second_ad"), "Content-Type": "application/json"},
+        json={
+            "payment_method_id": method_id,
+            "payment_method": "zelle",
+            "delivery_method": "pago_movil_ve",
+            "rate_bs_per_usd": "39.5000",
+            "amount_min_usd": "101.00",
+            "amount_max_usd": "500.00",
+        },
+    )
+    assert second_ad_response.status_code == 201, second_ad_response.text
+    second_ad = second_ad_response.json()["data"]["ad"]
+    remitter = _login(client, 981, "emergency_remitter")
+    existing_order = _create_order(client, remitter, active_ad["id"], key="emergency_existing_order")
+    admin = _login(client, 982, "emergency_admin")
+    support = _login(client, 983, "emergency_support")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    client.app.state.user_repository.set_user_role(support["user"]["id"], "support")
+
+    readable = client.get("/api/v1/admin/emergency-mode", headers=_bearer(support, "req_emergency_read"))
+    forbidden = client.post(
+        "/api/v1/admin/emergency-mode/activate",
+        headers={**_headers(support, "support_emergency"), "Content-Type": "application/json"},
+        json={"reason": "Support no puede activar"},
+    )
+    missing_key = client.post(
+        "/api/v1/admin/emergency-mode/activate",
+        headers={**_bearer(admin, "req_emergency_no_key"), "Content-Type": "application/json"},
+        json={"reason": "Incidente transporte"},
+    )
+    missing_reason = client.post(
+        "/api/v1/admin/emergency-mode/activate",
+        headers={**_headers(admin, "emergency_missing_reason"), "Content-Type": "application/json"},
+        json={"reason": ""},
+    )
+    activated = client.post(
+        "/api/v1/admin/emergency-mode/activate",
+        headers={**_headers(admin, "emergency_activate"), "Content-Type": "application/json"},
+        json={"reason": "Incidente de pagos", "message": "Estamos revisando NODO."},
+    )
+    replay = client.post(
+        "/api/v1/admin/emergency-mode/activate",
+        headers={**_headers(admin, "emergency_activate"), "Content-Type": "application/json"},
+        json={"reason": "Incidente de pagos", "message": "Estamos revisando NODO."},
+    )
+
+    assert readable.status_code == 200, readable.text
+    assert readable.json()["data"]["emergency_mode"]["enabled"] is False
+    assert forbidden.status_code == 403
+    assert missing_key.status_code == 400
+    assert missing_key.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
+    assert missing_reason.status_code == 400
+    assert missing_reason.json()["error"]["code"] == "ADMIN_REASON_REQUIRED"
+    assert activated.status_code == 200, activated.text
+    assert activated.json()["data"]["emergency_mode"]["enabled"] is True
+    assert activated.json()["data"]["emergency_mode"]["message"] == "Estamos revisando NODO."
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["data"]["emergency_mode"]["enabled"] is True
+
+    blocked_order = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "emergency_new_order"), "Content-Type": "application/json"},
+        json={
+            "ad_id": second_ad["id"],
+            "amount_usd": "150.00",
+            "receiver_data": {"bank": "Banco", "phone": "+584121234567", "document": "V12345678", "holder": "Receptor Test"},
+        },
+    )
+    blocked_ad = client.post(
+        "/api/v1/business/ads",
+        headers={**_headers(owner, "emergency_new_ad"), "Content-Type": "application/json"},
+        json={
+            "payment_method_id": method_id,
+            "payment_method": "zelle",
+            "delivery_method": "pago_movil_ve",
+            "rate_bs_per_usd": "39.5000",
+            "amount_min_usd": "501.00",
+            "amount_max_usd": "600.00",
+        },
+    )
+    blocked_credit_purchase = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "emergency_credit_purchase"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "token_symbol": "USDC"},
+    )
+    blocked_reactivate = client.post(
+        f"/api/v1/business/ads/{second_ad['id']}/reactivate",
+        headers={**_headers(owner, "emergency_reactivate"), "Content-Type": "application/json"},
+        json={"reason": "Intento en emergencia"},
+    )
+
+    assert blocked_order.status_code == 503
+    assert blocked_order.json()["error"]["code"] == "PLATFORM_EMERGENCY_MODE_ACTIVE"
+    assert blocked_ad.status_code == 503
+    assert blocked_credit_purchase.status_code == 503
+    assert blocked_reactivate.status_code == 503
+
+    report = _report_payment(client, remitter, existing_order, key="emergency_report_existing")
+    confirm = client.post(
+        f"/api/v1/business/orders/{existing_order['id']}/confirm-payment",
+        headers={**_headers(owner, "emergency_confirm_existing"), "Content-Type": "application/json"},
+        json={"reason": "Pago revisado durante emergencia"},
+    )
+
+    assert report["payment_report"]["status"] == "submitted"
+    assert confirm.status_code == 200, confirm.text
+    assert confirm.json()["data"]["order"]["status"] == "payment_confirmed"
+
+    deactivated = client.post(
+        "/api/v1/admin/emergency-mode/deactivate",
+        headers={**_headers(admin, "emergency_deactivate"), "Content-Type": "application/json"},
+        json={"reason": "Incidente resuelto"},
+    )
+    dashboard = client.get("/api/v1/admin/dashboard", headers=_bearer(admin, "req_dashboard_after_emergency"))
+
+    assert deactivated.status_code == 200, deactivated.text
+    assert deactivated.json()["data"]["emergency_mode"]["enabled"] is False
+    assert dashboard.status_code == 200, dashboard.text
+    assert dashboard.json()["data"]["emergency_mode"]["enabled"] is False
+    events = _event_types(client)
+    assert events.count("platform_emergency_mode_activated") == 1
+    assert "platform_emergency_mode_deactivated" in events
+    assert client.app.state.business_repository.get_business(business["id"]).verification_status == "approved"
+
+
+def test_platform_emergency_mode_migration_contract_is_dedicated_and_reversible() -> None:
+    migration = open("database/migrations/0025_platform_emergency_mode.up.sql", encoding="utf-8").read()
+    rollback = open("database/migrations/0025_platform_emergency_mode.down.sql", encoding="utf-8").read()
+
+    assert "create table if not exists platform_emergency_mode" in migration
+    assert "enabled boolean not null default false" in migration
+    assert "activated_by_user_id uuid references users(id)" in migration
+    assert "insert into platform_emergency_mode" in migration
+    assert "app_metadata" not in migration
+    assert "drop table if exists platform_emergency_mode" in rollback

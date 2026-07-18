@@ -1,5 +1,7 @@
 export type AdminWebView =
   | "dashboard"
+  | "incidents"
+  | "ux-friction"
   | "businesses"
   | "business-detail"
   | "users"

@@ -12,8 +12,42 @@ export function getAdminDashboard<T>(request: AuthenticatedRequest) {
   return request<T>("/api/v1/admin/dashboard");
 }
 
+export function getAdminEmergencyMode<T>(request: AuthenticatedRequest) {
+  return request<T>("/api/v1/admin/emergency-mode");
+}
+
+export function activateAdminEmergencyMode<T>(request: AuthenticatedRequest, payload: { reason: string; message?: string }, idempotencyKey: string) {
+  return request<T>("/api/v1/admin/emergency-mode/activate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function deactivateAdminEmergencyMode<T>(request: AuthenticatedRequest, reason: string, idempotencyKey: string) {
+  return request<T>("/api/v1/admin/emergency-mode/deactivate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ reason })
+  });
+}
+
 export function getAdminMetrics<T>(request: AuthenticatedRequest) {
   return request<T>("/api/v1/admin/metrics");
+}
+
+export function getAdminIncidentConsole<T>(request: AuthenticatedRequest) {
+  return request<T>("/api/v1/admin/incident-console");
+}
+
+export function getAdminUXFriction<T>(request: AuthenticatedRequest) {
+  return request<T>("/api/v1/admin/ux-friction");
 }
 
 export function listAdminBusinesses<T>(request: AuthenticatedRequest, status?: string) {

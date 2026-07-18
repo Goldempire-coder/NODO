@@ -41,6 +41,8 @@ type Breadcrumb = {
   duration_ms?: number;
 };
 
+type TelemetrySurface = "client_mini_app" | "business_mini_app" | "admin_web";
+
 export type ObservedRequestContext = {
   headers: Headers;
   method: string;
@@ -53,6 +55,13 @@ export type ObservedRequestContext = {
 };
 
 let breadcrumbs: Breadcrumb[] = [];
+let telemetryAuthToken: string | null = null;
+let telemetrySurface: TelemetrySurface | null = null;
+
+export function configureTelemetryContext(token: string | null, surface: TelemetrySurface | null) {
+  telemetryAuthToken = token;
+  telemetrySurface = surface;
+}
 
 function randomIdPart() {
   const cryptoApi = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
@@ -210,12 +219,67 @@ function pushBreadcrumb(breadcrumb: Breadcrumb) {
   breadcrumbs = [...breadcrumbs.slice(-(MAX_BREADCRUMBS - 1)), breadcrumb];
 }
 
+function emitFrontendTelemetryEvent(event: {
+  eventType: string;
+  severity?: "trace" | "debug" | "info" | "warn" | "error";
+  screen?: string;
+  previousScreen?: string;
+  action?: string;
+  durationMs?: number;
+  errorCode?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  if (!observabilityIngestEnabled() || !telemetryAuthToken || !telemetrySurface) {
+    return;
+  }
+  const headers = new Headers({
+    Authorization: `Bearer ${telemetryAuthToken}`,
+    "Content-Type": "application/json",
+    "X-Request-Id": generatedId("web_obs"),
+    "X-Correlation-Id": correlationId(),
+    "X-NODO-Operation-Id": generatedId("op_frontend_ux"),
+    "X-NODO-Surface": telemetrySurface
+  });
+  const payload = {
+    session_id: telemetrySessionId(),
+    app_version: getPublicEnv().NEXT_PUBLIC_APP_ENV || undefined,
+    build_id: undefined,
+    events: [
+      {
+        event_id: generatedId("evt_ux"),
+        event_type: event.eventType,
+        severity: event.severity || "info",
+        timestamp: new Date().toISOString(),
+        correlation_id: correlationId(),
+        operation_id: generatedId("op_frontend_ux"),
+        screen: event.screen,
+        previous_screen: event.previousScreen,
+        action: event.action,
+        duration_ms: event.durationMs,
+        error_code: event.errorCode,
+        metadata: safeMetadata(event.metadata || {})
+      }
+    ]
+  };
+  void fetch(resolveApiUrl(OBSERVABILITY_ENDPOINT), {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    keepalive: true
+  }).catch(() => undefined);
+}
+
 export function recordScreenView(screen: string, previousScreen?: string | null) {
   pushBreadcrumb({
     timestamp: new Date().toISOString(),
     event_type: "screen_view",
     screen,
     previous_screen: previousScreen || undefined
+  });
+  emitFrontendTelemetryEvent({
+    eventType: "screen_view",
+    screen,
+    previousScreen: previousScreen || undefined
   });
 }
 
@@ -230,6 +294,14 @@ export function recordActionBreadcrumb(
     action,
     error_code: details.errorCode,
     duration_ms: typeof details.durationMs === "number" ? Math.max(0, Math.round(details.durationMs * 100) / 100) : undefined
+  });
+  emitFrontendTelemetryEvent({
+    eventType: details.status ? `action_${details.status}` : "action",
+    severity: details.status === "failed" ? "error" : "info",
+    screen: details.screen,
+    action,
+    errorCode: details.errorCode,
+    durationMs: typeof details.durationMs === "number" ? Math.max(0, Math.round(details.durationMs * 100) / 100) : undefined
   });
 }
 
@@ -248,6 +320,14 @@ export function recordSlowSensitiveAction(
     error_code: details.errorCode,
     duration_ms: Math.max(0, Math.round(details.durationMs * 100) / 100)
   });
+  emitFrontendTelemetryEvent({
+    eventType: "slow_sensitive_action",
+    severity: "warn",
+    screen: details.screen,
+    action,
+    errorCode: details.errorCode,
+    durationMs: Math.max(0, Math.round(details.durationMs * 100) / 100)
+  });
 }
 
 export function recordSlowScreenTransition(screen: string, previousScreen: string | null | undefined, durationMs: number) {
@@ -260,6 +340,13 @@ export function recordSlowScreenTransition(screen: string, previousScreen: strin
     screen,
     previous_screen: previousScreen || undefined,
     duration_ms: Math.max(0, Math.round(durationMs * 100) / 100)
+  });
+  emitFrontendTelemetryEvent({
+    eventType: "slow_screen_transition",
+    severity: "warn",
+    screen,
+    previousScreen: previousScreen || undefined,
+    durationMs: Math.max(0, Math.round(durationMs * 100) / 100)
   });
 }
 
@@ -295,8 +382,9 @@ export function emitApiFailure(
     "X-Correlation-Id": context.correlationId,
     "X-NODO-Operation-Id": context.operationId
   });
-  if (context.surface) {
-    headers.set("X-NODO-Surface", context.surface);
+  const surface = context.surface || telemetrySurface;
+  if (surface) {
+    headers.set("X-NODO-Surface", surface);
   }
   const payload = {
     session_id: telemetrySessionId(),

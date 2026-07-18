@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.shared.validation import StrictRequestModel
+from app.modules.users.terms import CURRENT_TERMS_VERSION
 
 
 class TelegramAuthRequest(StrictRequestModel):
@@ -33,7 +34,7 @@ class PublicUser(BaseModel):
 
 
 class TermsAcceptanceRequest(StrictRequestModel):
-    terms_version: str = Field(default="2026-07-06", min_length=1, max_length=32)
+    terms_version: str = Field(default=CURRENT_TERMS_VERSION, min_length=1, max_length=32)
 
 
 class UserProfileUpdateRequest(StrictRequestModel):

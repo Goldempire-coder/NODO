@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Header, Query, Request, UploadFile
 
-from app.auth.dependencies import require_current_user
+from app.auth.dependencies import require_current_user, require_current_user_with_terms
 from app.modules.chat.models import MAX_ATTACHMENT_SIZE_BYTES
 from app.modules.chat.schemas import MessageCreateRequest
 from app.modules.chat.service import ChatService
@@ -45,7 +45,7 @@ def create_message(
     order_id: str,
     payload: MessageCreateRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     return {"data": _service(request).create_message(user=user, order_id=order_id, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key), "request_id": _request_id(request)}
@@ -56,7 +56,7 @@ async def upload_message_attachment(
     order_id: str,
     request: Request,
     file: UploadFile = File(...),
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     content = await read_limited_upload(

@@ -81,7 +81,7 @@ def _signed_init_data(telegram_id: int = 901, username: str = "user") -> str:
     return urlencode(payload)
 
 
-def _login(client: TestClient, telegram_id: int = 901, username: str = "user") -> dict:
+def _login_without_terms(client: TestClient, telegram_id: int = 901, username: str = "user") -> dict:
     response = client.post(
         "/api/v1/auth/telegram",
         headers={"X-Request-Id": f"req_login_{telegram_id}"},
@@ -89,6 +89,18 @@ def _login(client: TestClient, telegram_id: int = 901, username: str = "user") -
     )
     assert response.status_code == 200
     return response.json()["data"]
+
+
+def _login(client: TestClient, telegram_id: int = 901, username: str = "user") -> dict:
+    login = _login_without_terms(client, telegram_id, username)
+    terms = client.post(
+        "/api/v1/users/me/terms-acceptance",
+        headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": f"req_terms_{telegram_id}"},
+        json={"terms_version": "2026-07-06"},
+    )
+    assert terms.status_code == 200, terms.text
+    login["user"] = terms.json()["data"]
+    return login
 
 
 def _headers(login: dict, key: str = "idem") -> dict[str, str]:
@@ -179,6 +191,37 @@ def _create_order(client: TestClient, remitter: dict, ad_id: str, *, key: str = 
 
 def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
+
+
+def test_create_order_requires_terms_but_user_can_accept_later() -> None:
+    client = _client()
+    owner = _login(client, 923, "owner_terms_gate")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="terms_gate_ad")
+    remitter = _login_without_terms(client, 924, "remitter_terms_gate")
+
+    blocked = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "terms_gate_blocked"), "Content-Type": "application/json"},
+        json={"ad_id": ad["id"], "amount_usd": "50.00", "receiver_data": _receiver()},
+    )
+    assert blocked.status_code == 403
+    assert blocked.json()["error"]["code"] == "TERMS_ACCEPTANCE_REQUIRED"
+
+    accepted = client.post(
+        "/api/v1/users/me/terms-acceptance",
+        headers={"Authorization": f"Bearer {remitter['access_token']}", "X-Request-Id": "req_terms_gate_accept"},
+        json={"terms_version": "2026-07-06"},
+    )
+    assert accepted.status_code == 200, accepted.text
+
+    created = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "terms_gate_created"), "Content-Type": "application/json"},
+        json={"ad_id": ad["id"], "amount_usd": "50.00", "receiver_data": _receiver()},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["data"]["order"]["status"] == "waiting_payment"
 
 
 def test_create_order_success_waiting_payment_snapshot_no_credit_consume_or_instruction_leak() -> None:

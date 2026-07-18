@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Spinner, Text, Title } from "@telegram-apps/telegram-ui";
 import { AnimatedLogo } from "../../components/nodo/AnimatedLogo";
 import type { ClientView } from "../../constants/clientViews";
 import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
+import { elapsedMs, recordScreenView, recordSlowScreenTransition } from "../../observability/clientTelemetry";
 import { ClientScreens } from "./ClientScreens";
 
 const TITLE_BY_VIEW: Partial<Record<ClientView, string>> = {
@@ -69,8 +70,20 @@ function NavIcon({ name }: { name: "home" | "search" | "orders" | "messages" | "
 export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel }) {
   const { busy, canGoBack, goBack, loadActiveMarketplace, loadMyOrders, notice, setView, user, view } = model;
   const [activeNav, setActiveNav] = useState<"home" | "businesses" | "orders" | "messages" | "profile">("home");
+  const previousViewRef = useRef<ClientView | null>(null);
+  const viewStartedAtRef = useRef<number | null>(null);
   const isOnboardingView = view === "welcome" || view === "terms" || view === "client-profile-setup";
   const shouldShowNotice = Boolean(notice) && !["welcome", "terms", "client-profile-setup", "marketplace-search", "create-order", "marketplace-detail"].includes(view);
+
+  useEffect(() => {
+    const previousView = previousViewRef.current;
+    if (viewStartedAtRef.current !== null) {
+      recordSlowScreenTransition(view, previousView, elapsedMs(viewStartedAtRef.current));
+    }
+    recordScreenView(view, previousView);
+    previousViewRef.current = view;
+    viewStartedAtRef.current = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+  }, [view]);
 
   useEffect(() => {
     if (view === "profile") {

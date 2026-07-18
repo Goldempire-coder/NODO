@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@telegram-apps/telegram-ui/dist/styles.css";
 import "./globals.css";
+import "./admin-web.css";
 
 export const metadata: Metadata = {
   title: "NODO",

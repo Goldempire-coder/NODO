@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
 
-from app.auth.dependencies import require_current_user
+from app.auth.dependencies import require_current_user, require_current_user_with_terms
 from app.core.errors import ApiError
 from app.modules.orders.payment_constants import MAX_PAYMENT_EVIDENCE_SIZE_BYTES
 from app.modules.orders.routes_support import order_service, request_id
@@ -25,7 +25,7 @@ async def upload_payment_evidence(
     file: UploadFile = File(...),
     file_type: str = Form(...),
     pending_payment_report_id: str | None = Form(default=None),
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     if file_type != "payment_evidence":
@@ -55,7 +55,7 @@ def report_payment(
     order_id: str,
     payload: PaymentReportRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     return {

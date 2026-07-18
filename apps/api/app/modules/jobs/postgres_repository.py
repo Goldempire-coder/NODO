@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from app.modules.jobs.models import JobRunRecord, NotificationJobRecord
+from app.modules.jobs.models import JobRunRecord, NotificationJobRecord, mask_metadata
 from app.modules.jobs.row_mappers import job_run_from_row, jsonb_metadata, notification_from_row
 from app.shared.db.connection import pooled_connect
 
@@ -196,3 +196,45 @@ class PostgresJobRepository:
             row = conn.execute(f"update notification_jobs set {', '.join(assignments)} where id = %s returning *", params).fetchone()
             conn.commit()
         return notification_from_row(row)
+
+    def notification_incident_summary(self, *, limit: int) -> dict[str, Any]:
+        with self._connect() as conn:
+            counts = conn.execute("select status, count(*) as c from notification_jobs group by status").fetchall()
+            pending_due = conn.execute("select count(*) as c from notification_jobs where status = 'pending' and scheduled_for <= now()").fetchone()["c"]
+            rows = conn.execute(
+                """
+                select id, notification_type, status, recipient_user_id, recipient_role,
+                       order_id, business_id, attempts, last_error_code, metadata_json,
+                       created_at, updated_at
+                from notification_jobs
+                where status = 'failed'
+                   or attempts > 0
+                   or last_error_code is not null
+                order by updated_at desc
+                limit %s
+                """,
+                (limit,),
+            ).fetchall()
+        status_counts = {status: 0 for status in ["pending", "sent", "failed", "skipped", "cancelled"]}
+        status_counts.update({row["status"]: row["c"] for row in counts})
+        return {
+            "status_counts": status_counts,
+            "pending_due": pending_due,
+            "recent_problems": [
+                {
+                    "id": str(row["id"]),
+                    "notification_type": row["notification_type"],
+                    "status": row["status"],
+                    "recipient_role": row["recipient_role"],
+                    "recipient_user_id": str(row["recipient_user_id"]) if row["recipient_user_id"] else None,
+                    "order_id": str(row["order_id"]) if row["order_id"] else None,
+                    "business_id": str(row["business_id"]) if row["business_id"] else None,
+                    "attempts": row["attempts"],
+                    "last_error_code": row["last_error_code"],
+                    "metadata": mask_metadata(row["metadata_json"]),
+                    "created_at": row["created_at"].isoformat(),
+                    "updated_at": row["updated_at"].isoformat(),
+                }
+                for row in rows
+            ],
+        }

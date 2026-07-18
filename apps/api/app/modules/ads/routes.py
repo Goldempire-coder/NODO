@@ -8,6 +8,7 @@ from app.auth.dependencies import require_current_user, require_marketplace_read
 from app.modules.businesses.route_dependencies import business_service as business_access_service
 from app.modules.ads.schemas import AdActionRequest, AdCreateRequest, AdUpdateRequest
 from app.modules.ads.service import AdService
+from app.modules.operations import require_platform_operational
 from app.modules.users.models import UserRecord
 from app.shared.profiling import staging_response_profile_enabled
 
@@ -88,6 +89,7 @@ def create_ad(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    require_platform_operational(request.app.state.emergency_mode_repository, operation="ad_create")
     _require_business_pin(request, user)
     return {
         "data": _service(request).create_ad(user=user, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key),
@@ -168,6 +170,7 @@ def reactivate_ad(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    require_platform_operational(request.app.state.emergency_mode_repository, operation="ad_reactivate")
     _require_business_pin(request, user)
     return {
         "data": _service(request).reactivate_ad(user=user, ad_id=ad_id, reason=payload.reason if payload else None, request_id=_request_id(request), idempotency_key=idempotency_key),
@@ -183,6 +186,7 @@ def republish_ad(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    require_platform_operational(request.app.state.emergency_mode_repository, operation="ad_republish")
     _require_business_pin(request, user)
     return {
         "data": _service(request).republish_ad(user=user, ad_id=ad_id, reason=payload.reason if payload else None, request_id=_request_id(request), idempotency_key=idempotency_key),

@@ -1,0 +1,6 @@
+drop index if exists frontend_observability_events_action_created_at_idx;
+drop index if exists frontend_observability_events_screen_created_at_idx;
+drop index if exists frontend_observability_events_event_type_created_at_idx;
+drop index if exists frontend_observability_events_surface_created_at_idx;
+drop index if exists frontend_observability_events_created_at_idx;
+drop table if exists frontend_observability_events;

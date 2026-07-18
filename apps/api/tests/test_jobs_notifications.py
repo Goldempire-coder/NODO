@@ -75,7 +75,15 @@ def _login(client: TestClient, telegram_id: int, username: str) -> dict:
         json={"init_data": _signed_init_data(telegram_id, username)},
     )
     assert response.status_code == 200, response.text
-    return response.json()["data"]
+    login = response.json()["data"]
+    terms = client.post(
+        "/api/v1/users/me/terms-acceptance",
+        headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": f"req_terms_{telegram_id}"},
+        json={"terms_version": "2026-07-06"},
+    )
+    assert terms.status_code == 200, terms.text
+    login["user"] = terms.json()["data"]
+    return login
 
 
 def _headers(login: dict, key: str = "idem") -> dict[str, str]:

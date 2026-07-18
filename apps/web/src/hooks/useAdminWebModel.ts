@@ -41,9 +41,11 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     adminMutable,
     adminReadable,
     queueCriticalAction: criticalAction.queueCriticalAction,
+    reason: criticalAction.reason,
     request,
     setBusy,
     setNotice,
+    setReason: criticalAction.setReason,
     setView
   });
 
@@ -122,6 +124,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
   const navigation = useMemo(
     () => [
       { view: "dashboard" as const, label: "Dashboard", action: overview.loadDashboard },
+      { view: "incidents" as const, label: "Incidentes", action: overview.loadIncidentConsole },
+      { view: "ux-friction" as const, label: "UX", action: overview.loadUXFriction },
       { view: "businesses" as const, label: "Negocios", action: businessIntake.loadPendingBusinesses },
       { view: "users" as const, label: "Usuarios", action: () => users.loadUsers() },
       { view: "orders" as const, label: "Ordenes", action: () => ordersDisputes.loadOrders("") },
@@ -134,7 +138,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { view: "support" as const, label: "Soporte", action: () => support.loadSupportTickets("") },
       { view: "staff" as const, label: "Staff", action: () => staff.loadStaff("") }
     ],
-    [audit.loadAuditLogs, businessIntake.loadBusinessIntakes, businessIntake.loadPendingBusinesses, credits.loadCreditPurchases, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.loadDashboard, overview.loadJobs, overview.loadMetrics, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
+    [audit.loadAuditLogs, businessIntake.loadBusinessIntakes, businessIntake.loadPendingBusinesses, credits.loadCreditPurchases, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
   );
 
   return {
@@ -146,6 +150,10 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     adminReadable,
     adminMutable,
     dashboard: overview.dashboard,
+    incidentConsole: overview.incidentConsole,
+    uxFriction: overview.uxFriction,
+    emergencyMessage: overview.emergencyMessage,
+    setEmergencyMessage: overview.setEmergencyMessage,
     metrics: overview.metrics,
     businesses: businessIntake.businesses,
     selectedBusiness: businessIntake.selectedBusiness,
@@ -211,6 +219,11 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setPendingAction: criticalAction.setPendingAction,
     navigation,
     loadDashboard: overview.loadDashboard,
+    loadIncidentConsole: overview.loadIncidentConsole,
+    loadUXFriction: overview.loadUXFriction,
+    activateEmergencyMode: overview.activateEmergencyMode,
+    deactivateEmergencyMode: overview.deactivateEmergencyMode,
+    loadEmergencyMode: overview.loadEmergencyMode,
     loadMetrics: overview.loadMetrics,
     loadBusinesses: businessIntake.loadBusinesses,
     loadPendingBusinesses: businessIntake.loadPendingBusinesses,

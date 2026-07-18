@@ -33,7 +33,9 @@ from app.modules.jobs.repository import InMemoryJobRepository, PostgresJobReposi
 from app.modules.jobs.routes import router as jobs_router
 from app.modules.jobs.worker import ExpireAndEscalateOrdersWorker
 from app.modules.notifications.telegram_sender import NotificationSenderWorker
+from app.modules.observability.repository import InMemoryFrontendObservabilityRepository, PostgresFrontendObservabilityRepository
 from app.modules.observability.routes import router as observability_router
+from app.modules.operations import InMemoryEmergencyModeRepository, PostgresEmergencyModeRepository
 from app.modules.orders.repository import InMemoryOrderRepository, PostgresOrderRepository
 from app.modules.orders.routes import router as orders_router
 from app.modules.support.repository import InMemorySupportRepository, PostgresSupportRepository
@@ -193,6 +195,8 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.private_storage = InMemoryPrivateStorage()
     app.state.job_lock_manager = InMemoryJobLockManager()
     app.state.onchain_credit_verifier = JsonRpcBaseUsdcVerifier(rpc_url=None, timeout_seconds=1)
+    app.state.emergency_mode_repository = InMemoryEmergencyModeRepository()
+    app.state.observability_repository = InMemoryFrontendObservabilityRepository()
 
 
 def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> None:  # type: ignore[no-untyped-def]
@@ -232,6 +236,8 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.private_storage = build_private_storage(settings)
     app.state.job_lock_manager = RedisJobLockManager(settings.redis_url)
     app.state.onchain_credit_verifier = JsonRpcBaseUsdcVerifier(rpc_url=settings.base_rpc_url, timeout_seconds=settings.onchain_credit_watcher_timeout_seconds)
+    app.state.emergency_mode_repository = PostgresEmergencyModeRepository(settings.database_url)
+    app.state.observability_repository = PostgresFrontendObservabilityRepository(settings.database_url)
 
 
 def _configure_workers(app: FastAPI) -> None:

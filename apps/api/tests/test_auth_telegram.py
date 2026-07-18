@@ -149,6 +149,35 @@ def test_user_accepts_terms_once_and_profile_persists_acceptance() -> None:
     assert bad_profile.status_code == 422
 
 
+def test_terms_acceptance_rejects_stale_version_and_allows_current_version_later() -> None:
+    client = _client()
+    login = _login(client).json()["data"]
+
+    stale = client.post(
+        "/api/v1/users/me/terms-acceptance",
+        headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": "req_terms_stale"},
+        json={"terms_version": "2025-01-01"},
+    )
+    profile_after_stale = client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": "req_terms_stale_me"},
+    )
+
+    assert stale.status_code == 400
+    assert stale.json()["error"]["code"] == "TERMS_VERSION_NOT_CURRENT"
+    assert profile_after_stale.json()["data"]["terms_accepted_at"] is None
+
+    current = client.post(
+        "/api/v1/users/me/terms-acceptance",
+        headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": "req_terms_current"},
+        json={"terms_version": "2026-07-06"},
+    )
+
+    assert current.status_code == 200, current.text
+    assert current.json()["data"]["terms_accepted_at"]
+    assert current.json()["data"]["terms_version"] == "2026-07-06"
+
+
 def test_invalid_hash_rejects_and_audits_auth_failed() -> None:
     client = _client()
     init_data = _signed_init_data().replace("hash=", "hash=bad")

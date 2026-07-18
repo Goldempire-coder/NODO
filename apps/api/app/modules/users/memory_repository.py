@@ -67,7 +67,7 @@ class InMemoryUserRepository:
         with self._lock:
             user = self._users_by_id[user_id]
             now = utc_now()
-            user.terms_accepted_at = user.terms_accepted_at or now
+            user.terms_accepted_at = now
             user.terms_version = terms_version
             user.updated_at = now
             return user

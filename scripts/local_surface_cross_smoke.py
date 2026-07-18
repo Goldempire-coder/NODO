@@ -127,6 +127,16 @@ def _create_approved_business(client: TestClient, owner: dict, admin: dict) -> t
     return business, payment.id
 
 
+def _setup_business_pin(client: TestClient, owner: dict) -> dict:
+    response = client.post(
+        "/api/v1/business/security/pin/setup",
+        headers={**_bearer(owner, "business_pin_setup"), "Content-Type": "application/json"},
+        json={"pin": "1234"},
+    )
+    _assert_status(response, 200, "business.pin_setup")
+    return _json_data(response)["pin"]
+
+
 def _make_staff_user(client: TestClient, super_admin: dict) -> tuple[dict, str]:
     support = _login(client, 880004, "surface_support")
     client.app.state.user_repository.set_user_role(support["user"]["id"], "support")
@@ -334,6 +344,7 @@ def run_smoke() -> dict:
     intake = _run_business_intake_flow(client, admin)
 
     business, payment_method_id = _create_approved_business(client, owner, admin)
+    business_pin = _setup_business_pin(client, owner)
     base_usdc = _run_base_usdc_credit_flow(client, owner)
 
     surface = client.get("/api/v1/surface/session", headers={**_bearer(owner, "surface_session"), "X-NODO-Surface": "business_mini_app"})
@@ -451,6 +462,8 @@ def run_smoke() -> dict:
         "base_usdc_credits": base_usdc,
         "business": {
             "surface_allowed": _json_data(surface)["allowed"],
+            "pin_configured": business_pin["configured"],
+            "pin_unlocked": business_pin["unlocked"],
             "orders_seen": len(_json_data(business_orders)["items"]),
             "confirm_status": _json_data(confirm)["order"]["status"],
             "wallet_available": wallet.available_credits,

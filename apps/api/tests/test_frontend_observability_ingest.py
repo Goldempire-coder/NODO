@@ -86,6 +86,25 @@ def _headers(token: str, *, surface: str = "business_mini_app") -> dict[str, str
     }
 
 
+def _role_headers(client: TestClient, *, role: str, telegram_id: int, username: str) -> dict[str, str]:
+    user, _ = client.app.state.user_repository.upsert_telegram_user(
+        telegram_id=telegram_id,
+        username=username,
+        first_name=username,
+        last_name=None,
+    )
+    client.app.state.user_repository.set_user_role(user.id, role)
+    user = client.app.state.user_repository.get_user_by_id(user.id)
+    token, _, _ = create_access_token(
+        user_id=user.id,
+        role=user.role,
+        status=user.status,
+        secret=os.environ["JWT_SECRET"],
+        ttl_seconds=900,
+    )
+    return {"Authorization": f"Bearer {token}", "X-Request-Id": f"req_{role}_ux"}
+
+
 def test_frontend_observability_ingest_is_disabled_by_default() -> None:
     client, token, _ = _authenticated_client(enabled=False)
 
@@ -140,6 +159,42 @@ def test_frontend_observability_ingest_logs_redacted_event(caplog) -> None:  # t
     assert record.metadata["account_value"] == "[REDACTED]"
     assert record.metadata["storage_path"] == "[REDACTED]"
     assert record.metadata["safe_counter"] == 3
+
+
+def test_frontend_observability_persists_safe_ux_friction_for_admin() -> None:
+    client, token, _ = _authenticated_client(enabled=True)
+
+    response = client.post(
+        "/api/v1/observability/events",
+        headers=_headers(token),
+        json=_payload(
+            metadata={
+                "wallet": "0x1111111111111111111111111111111111111111",
+                "zelle": "owner@example.com",
+                "storage_path": "private/file.pdf",
+                "safe_counter": 7,
+            }
+        ),
+    )
+    assert response.status_code == 200, response.text
+
+    admin_response = client.get("/api/v1/admin/ux-friction", headers=_role_headers(client, role="admin", telegram_id=9981, username="ux_admin"))
+    forbidden_response = client.get("/api/v1/admin/ux-friction", headers=_role_headers(client, role="business_owner", telegram_id=9982, username="ux_business"))
+
+    assert admin_response.status_code == 200, admin_response.text
+    assert forbidden_response.status_code == 403
+    payload = admin_response.json()["data"]
+    assert payload["ingest_enabled"] is True
+    assert payload["total_events"] == 1
+    assert payload["friction_events"] == 1
+    assert payload["api_failures"][0]["route_template"] == "/api/v1/business/credits/base-payment"
+    assert payload["top_screens"][0]["screen"] == "buy-credits"
+    assert payload["top_actions"][0]["action"] == "POST"
+
+    combined = admin_response.text
+    assert "0x1111111111111111111111111111111111111111" not in combined
+    assert "owner@example.com" not in combined
+    assert "private/file.pdf" not in combined
 
 
 def test_frontend_observability_ingest_rejects_unknown_surface() -> None:

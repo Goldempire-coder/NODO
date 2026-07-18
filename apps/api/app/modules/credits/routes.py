@@ -7,6 +7,7 @@ from app.modules.businesses.route_dependencies import business_service as busine
 from app.modules.credits.models import MAX_PROOF_SIZE_BYTES
 from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest, BaseUsdcPaymentRequest, BaseUsdcTxHashRequest, ReferralApplyRequest, StripeCheckoutRequest
 from app.modules.credits.service import CreditService
+from app.modules.operations import require_platform_operational
 from app.modules.users.models import UserRecord
 from app.shared.validation import read_limited_upload
 
@@ -57,6 +58,7 @@ def create_stripe_checkout(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    require_platform_operational(request.app.state.emergency_mode_repository, operation="credit_stripe_checkout_create")
     _require_business_pin(request, user)
     return {
         "data": _service(request).create_stripe_checkout(user=user, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key),
@@ -76,6 +78,7 @@ async def create_manual_credit_payment(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    require_platform_operational(request.app.state.emergency_mode_repository, operation="credit_manual_payment_create")
     _require_business_pin(request, user)
     content = await read_limited_upload(
         file,
@@ -107,6 +110,7 @@ def create_base_usdc_credit_payment(
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
+    require_platform_operational(request.app.state.emergency_mode_repository, operation="credit_base_payment_create")
     _require_business_pin(request, user)
     return {
         "data": _service(request).create_base_usdc_payment(user=user, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key),

@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
-import { apiRequest } from "../api/client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiClientError, apiRequest } from "../api/client";
 import { acceptTerms as acceptUserTerms, saveClientProfile } from "../api/users";
 import type { ClientView } from "../constants/clientViews";
+import { CURRENT_CLIENT_TERMS_VERSION } from "../constants/legal";
+import { configureTelemetryContext } from "../observability/clientTelemetry";
 import type { PublicUser } from "../types/auth";
 import { useClientChatDisputesModel } from "./workspace/useClientChatDisputesModel";
 import { useClientMarketplaceModel } from "./workspace/useClientMarketplaceModel";
@@ -21,18 +23,32 @@ export function useClientWorkspaceModel({
   user: PublicUser;
   token: string;
 }) {
+  const [currentUser, setCurrentUser] = useState(user);
   const state = useClientWorkspaceState(user);
   const view = state.view;
   const setView = useCallback((nextView: ClientView) => state.setView(nextView), [state]);
   const request = useCallback(
-    async (path: string, options: RequestInit = {}) => apiRequest<any>(path, token, options),
-    [token]
+    async (path: string, options: RequestInit = {}) => {
+      const headers = new Headers(options.headers || {});
+      headers.set("X-NODO-Surface", "client_mini_app");
+      try {
+        return await apiRequest<any>(path, token, { ...options, headers });
+      } catch (error) {
+        if (error instanceof ApiClientError && error.code === "TERMS_ACCEPTANCE_REQUIRED") {
+          state.setNotice("Acepta los terminos vigentes para continuar.");
+          state.setView("terms");
+        }
+        throw error;
+      }
+    },
+    [state, token]
   );
 
   const acceptTerms = useCallback(async () => {
     state.setBusy(true);
     try {
-      await acceptUserTerms(request, "2026-07-06");
+      const updatedUser = await acceptUserTerms<PublicUser>(request, CURRENT_CLIENT_TERMS_VERSION);
+      setCurrentUser(updatedUser);
       state.setNotice("");
       state.setView(state.clientProfileForm.phone ? "marketplace-search" : "client-profile-setup");
     } catch (error) {
@@ -45,7 +61,8 @@ export function useClientWorkspaceModel({
   const submitClientProfile = useCallback(async () => {
     state.setBusy(true);
     try {
-      await saveClientProfile(request, state.clientProfileForm);
+      const updatedUser = await saveClientProfile<PublicUser>(request, state.clientProfileForm);
+      setCurrentUser(updatedUser);
       state.setNotice("");
       state.setView("marketplace-search");
     } catch (error) {
@@ -55,7 +72,7 @@ export function useClientWorkspaceModel({
     }
   }, [request, state]);
 
-  const context = { ...state, request, user };
+  const context = { ...state, request, user: currentUser };
   const marketplace = useClientMarketplaceModel(context);
   const remitterOrders = useRemitterOrdersModel(context);
   const paymentReport = usePaymentReportModel({ ...context, loadMyOrders: remitterOrders.loadMyOrders });
@@ -64,6 +81,11 @@ export function useClientWorkspaceModel({
   const didWarmClientDataRef = useRef(false);
   const handledOrderDeepLinkRef = useRef(false);
   const mainActionBusy = state.busy || state.creatingOrder || state.submittingPaymentReport;
+
+  useEffect(() => {
+    configureTelemetryContext(token, "client_mini_app");
+    return () => configureTelemetryContext(null, null);
+  }, [token]);
 
   useEffect(() => {
     if (didWarmClientDataRef.current || view === "welcome" || view === "terms" || view === "client-profile-setup") {
@@ -119,7 +141,7 @@ export function useClientWorkspaceModel({
   });
 
   return {
-    user,
+    user: currentUser,
     view,
     setView,
     goBack: state.goBack,

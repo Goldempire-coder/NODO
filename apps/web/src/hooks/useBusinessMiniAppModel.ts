@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "../api/client";
 import { isBusinessMiniAppView, type BusinessMiniAppView } from "../constants/businessViews";
 import type { PublicUser } from "../types/auth";
+import { configureTelemetryContext } from "../observability/clientTelemetry";
 import { fallbackForBusinessMiniAppView, ROOT_BUSINESS_VIEWS } from "./business-mini-app/helpers";
 import { useBusinessAccessModel } from "./business-mini-app/useBusinessAccessModel";
 import { useBusinessAdsModel } from "./business-mini-app/useBusinessAdsModel";
@@ -73,6 +74,11 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     view
   });
   const handledOrderDeepLinkRef = useRef(false);
+
+  useEffect(() => {
+    configureTelemetryContext(token, "business_mini_app");
+    return () => configureTelemetryContext(null, null);
+  }, [token]);
 
   useEffect(() => {
     void access.loadBusinessProfile();

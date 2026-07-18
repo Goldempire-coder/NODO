@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from threading import RLock
 from typing import Any
 
-from app.modules.jobs.models import JobRunRecord, NotificationJobRecord, new_id, utc_now
+from app.modules.jobs.models import JobRunRecord, NotificationJobRecord, mask_metadata, new_id, utc_now
 
 
 class InMemoryJobRepository:
@@ -93,6 +93,22 @@ class InMemoryJobRepository:
             notification.updated_at = utc_now()
             return notification
 
+    def notification_incident_summary(self, *, limit: int) -> dict[str, Any]:
+        with self._lock:
+            items = list(self.notification_jobs.values())
+        status_counts = {status: sum(1 for item in items if item.status == status) for status in ["pending", "sent", "failed", "skipped", "cancelled"]}
+        problem_items = [
+            item
+            for item in items
+            if item.status == "failed" or item.attempts > 0 or item.last_error_code
+        ]
+        problem_items.sort(key=lambda item: item.updated_at, reverse=True)
+        return {
+            "status_counts": status_counts,
+            "pending_due": sum(1 for item in items if item.status == "pending" and item.scheduled_for <= utc_now()),
+            "recent_problems": [_notification_incident_item(item) for item in problem_items[:limit]],
+        }
+
 
 def _is_processable_telegram_notification(metadata: dict | None) -> bool:
     if not metadata:
@@ -102,3 +118,20 @@ def _is_processable_telegram_notification(metadata: dict | None) -> bool:
     if metadata.get("target_surface") not in {"business_mini_app", "client_mini_app"}:
         return False
     return bool(str(metadata.get("message_text") or "").strip())
+
+
+def _notification_incident_item(item: NotificationJobRecord) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "notification_type": item.notification_type,
+        "status": item.status,
+        "recipient_role": item.recipient_role,
+        "recipient_user_id": item.recipient_user_id,
+        "order_id": item.order_id,
+        "business_id": item.business_id,
+        "attempts": item.attempts,
+        "last_error_code": item.last_error_code,
+        "metadata": mask_metadata(item.metadata_json),
+        "created_at": item.created_at.isoformat(),
+        "updated_at": item.updated_at.isoformat(),
+    }

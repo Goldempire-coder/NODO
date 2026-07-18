@@ -1,4 +1,5 @@
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
+import { CURRENT_CLIENT_TERMS_VERSION, hasAcceptedCurrentClientTerms } from "../../constants/legal";
 import { sanitizePhoneInput } from "../../lib/numericInput";
 import type { RemitterScreensModel } from "./RemitterScreens.types";
 
@@ -13,6 +14,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
     user,
     view
   } = model;
+  const termsAccepted = hasAcceptedCurrentClientTerms(user);
 
   return (
     <>
@@ -40,9 +42,13 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
           <Text>NODO trabaja con negocios verificados para que puedas comparar con mas confianza.</Text>
           <Text>Tu pago se realiza directamente con el negocio que selecciones.</Text>
           <Text>NODO organiza la orden y guarda el respaldo del proceso para soporte.</Text>
-          <Text>Al continuar aceptas los terminos de uso y el registro de actividad de la orden.</Text>
+          <Text>Al continuar aceptas los terminos de uso vigentes y el registro de actividad de la orden.</Text>
+          <Text className="auth-entry__session-meta">Version: {CURRENT_CLIENT_TERMS_VERSION}</Text>
           <Button mode="filled" stretched disabled={busy} onClick={() => void acceptTerms()}>
             Acepto y continuar
+          </Button>
+          <Button mode="outline" stretched disabled={busy} onClick={() => setView("welcome")}>
+            Ahora no
           </Button>
         </div>
       ) : null}
@@ -51,7 +57,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
         <div className="business-card terms-screen">
           <Text className="business-card__label">Tu contacto</Text>
           <Title level="2" className="business-shell__title">Antes de empezar</Title>
-          <Text>Indícanos tu nombre y teléfono para identificar tus órdenes y ayudarte si necesitas soporte.</Text>
+          <Text>Indicanos tu nombre y telefono para identificar tus ordenes y ayudarte si necesitas soporte.</Text>
           <label className="business-field">
             <span>Nombre</span>
             <input
@@ -61,7 +67,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
             />
           </label>
           <label className="business-field">
-            <span>Teléfono</span>
+            <span>Telefono</span>
             <input
               value={clientProfileForm.phone}
               onChange={(event) => setClientProfileForm((current) => ({ ...current, phone: sanitizePhoneInput(event.target.value) }))}
@@ -78,7 +84,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
           >
             Guardar y continuar
           </Button>
-          <Text className="auth-entry__session-meta">Estos datos quedan disponibles para soporte y administración de NODO.</Text>
+          <Text className="auth-entry__session-meta">Estos datos quedan disponibles para soporte y administracion de NODO.</Text>
         </div>
       ) : null}
 
@@ -87,7 +93,20 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
           <Text className="business-card__label">Tu perfil</Text>
           <Title level="2" className="business-shell__title">{user.first_name || user.username || "Cliente NODO"}</Title>
           <Text>Modo cliente. Desde aqui puedes buscar negocios verificados y revisar tus ordenes.</Text>
-          <Text className="auth-entry__session-meta">Términos: {user.terms_accepted_at ? "aceptados" : "pendientes"}</Text>
+          <div className="business-card business-card--nested">
+            <Text className="business-card__label">Terminos y reglas</Text>
+            <Text>{termsAccepted ? "Tienes aceptados los terminos vigentes." : "Debes aceptar los terminos vigentes para operar en NODO."}</Text>
+            <Text className="auth-entry__session-meta">Version: {CURRENT_CLIENT_TERMS_VERSION}</Text>
+            {termsAccepted ? (
+              <Button mode="outline" stretched onClick={() => setView("terms")}>
+                Ver terminos
+              </Button>
+            ) : (
+              <Button mode="filled" stretched disabled={busy} onClick={() => setView("terms")}>
+                Aceptar terminos
+              </Button>
+            )}
+          </div>
           <Button mode="filled" stretched onClick={() => setView("marketplace-search")}>
             Ir al marketplace
           </Button>

@@ -9,6 +9,7 @@ from fastapi import Header, Request
 from app.auth.jwt import decode_access_token
 from app.core.errors import ApiError
 from app.modules.users.models import UserRecord
+from app.modules.users.terms import require_current_terms
 from app.shared.profiling import internal_profile_enabled, profile_mark, staging_response_profile_enabled
 
 OPERATE_ALLOWED_STATUSES_BY_ROLE = {
@@ -137,6 +138,13 @@ def require_current_user(request: Request, authorization: str | None = Header(de
         request.state.nodo_auth_profile["stages"].append(
             {"stage": "auth:status_check", "elapsed_ms": round((time.perf_counter() - stage_started) * 1000, 4)}
         )
+    return user
+
+
+def require_current_user_with_terms(request: Request, authorization: str | None = Header(default=None)) -> UserRecord:
+    user = require_current_user(request, authorization)
+    if user.role == "remitter":
+        require_current_terms(user)
     return user
 
 

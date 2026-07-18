@@ -20,6 +20,10 @@ export function useAdminDashboardMetricsModel({
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
 
+  const setEmergencyMode = useCallback((emergencyMode: AdminDashboard["emergency_mode"]) => {
+    setDashboard((current) => current ? { ...current, emergency_mode: emergencyMode } : current);
+  }, []);
+
   const loadDashboard = useCallback(async () => {
     if (!adminReadable) {
       setView("dashboard");
@@ -57,6 +61,7 @@ export function useAdminDashboardMetricsModel({
     dashboard,
     loadDashboard,
     loadMetrics,
-    metrics
+    metrics,
+    setEmergencyMode
   };
 }

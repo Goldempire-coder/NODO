@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { coerceClientView, type ClientView } from "../../constants/clientViews";
+import { hasAcceptedCurrentClientTerms } from "../../constants/legal";
 import type { AdSummary } from "../../types/ads";
 import type { PublicUser } from "../../types/auth";
 import type { ChatAttachment, ChatCapabilities, ChatMessage } from "../../types/chat";
@@ -39,7 +40,7 @@ function fallbackClientViewFor(view: ClientView): ClientView {
 }
 
 export function useClientWorkspaceState(user: PublicUser) {
-  const initialView: ClientView = user.terms_accepted_at ? (user.phone ? "marketplace-search" : "client-profile-setup") : "welcome";
+  const initialView: ClientView = hasAcceptedCurrentClientTerms(user) ? (user.phone ? "marketplace-search" : "client-profile-setup") : "welcome";
   const [view, setCurrentView] = useState<ClientView>(initialView);
   const viewHistoryRef = useRef<ClientView[]>([]);
 

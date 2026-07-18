@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from datetime import datetime, timezone
 from collections.abc import Mapping
 from typing import Any
 
@@ -84,8 +85,9 @@ def _serialized_event_size(event: ObservabilityEvent) -> int:
 
 
 class ObservabilityIngestService:
-    def __init__(self, *, settings: Settings) -> None:
+    def __init__(self, *, settings: Settings, repository=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
+        self._repository = repository
 
     def ingest(
         self,
@@ -106,7 +108,10 @@ class ObservabilityIngestService:
         for event in payload.events:
             if _serialized_event_size(event) > self._settings.observability_max_event_bytes:
                 raise ApiError("OBSERVABILITY_EVENT_TOO_LARGE", status_code=413)
-            self._log_event(payload=payload, event=event, user=user, surface=surface, request_id=request_id)
+            metadata = sanitize_metadata(event.metadata)
+            resource_refs = redact_mapping(event.resource_refs.model_dump(exclude_none=True))
+            self._log_event(payload=payload, event=event, user=user, surface=surface, request_id=request_id, metadata=metadata, resource_refs=resource_refs)
+            self._record_event(payload=payload, event=event, user=user, surface=surface, request_id=request_id, metadata=metadata, resource_refs=resource_refs)
             accepted += 1
         return {"accepted": accepted}
 
@@ -118,9 +123,9 @@ class ObservabilityIngestService:
         user: UserRecord,
         surface: str,
         request_id: str,
+        metadata: dict[str, Any],
+        resource_refs: dict[str, Any],
     ) -> None:
-        metadata = sanitize_metadata(event.metadata)
-        resource_refs = redact_mapping(event.resource_refs.model_dump(exclude_none=True))
         level = LOG_LEVEL_BY_SEVERITY.get(event.severity, logging.INFO)
         logger.log(
             level,
@@ -149,4 +154,42 @@ class ObservabilityIngestService:
                 "resource_refs": resource_refs,
                 "metadata": metadata,
             },
+        )
+
+    def _record_event(
+        self,
+        *,
+        payload: ObservabilityEventsRequest,
+        event: ObservabilityEvent,
+        user: UserRecord,
+        surface: str,
+        request_id: str,
+        metadata: dict[str, Any],
+        resource_refs: dict[str, Any],
+    ) -> None:
+        if self._repository is None:
+            return
+        self._repository.record_event(
+            event_id=event.event_id,
+            event_type=event.event_type,
+            severity=event.severity,
+            surface=surface,
+            session_id_hash=_stable_actor_hash(payload.session_id),
+            actor_user_hash=_stable_actor_hash(user.id),
+            actor_role=user.role,
+            request_id=event.request_id or request_id,
+            correlation_id=event.correlation_id,
+            operation_id=event.operation_id,
+            screen=event.screen,
+            previous_screen=event.previous_screen,
+            action=event.action,
+            method=event.method,
+            route_template=event.route_template,
+            status_code=event.status_code,
+            duration_ms=event.duration_ms,
+            error_code=event.error_code,
+            resource_refs_json=json.dumps(resource_refs, separators=(",", ":"), sort_keys=True),
+            metadata_json=json.dumps(metadata, separators=(",", ":"), sort_keys=True),
+            occurred_at=event.timestamp,
+            created_at=datetime.now(timezone.utc),
         )

@@ -4,6 +4,7 @@ ERROR_MESSAGES = {
     "ENV_MISSING": "La configuracion del servicio esta incompleta.",
     "DATABASE_UNAVAILABLE": "La base de datos no esta disponible.",
     "REDIS_UNAVAILABLE": "Redis no esta disponible.",
+    "PLATFORM_EMERGENCY_MODE_ACTIVE": "NODO esta en modo emergencia. Intenta nuevamente cuando el servicio se estabilice.",
     "MIGRATION_FAILED": "No se pudo aplicar la migracion.",
     "TELEGRAM_INIT_DATA_INVALID": "No pudimos validar tu sesion de Telegram.",
     "TELEGRAM_INIT_DATA_EXPIRED": "Tu sesion de Telegram expiro. Reabre la Mini App.",

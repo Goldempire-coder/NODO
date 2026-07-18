@@ -103,6 +103,7 @@ export type AdminUserDetail = {
 };
 
 export type AdminDashboard = {
+  emergency_mode?: AdminEmergencyMode;
   queues: {
     pending_businesses: number;
     pending_credit_purchases: number;
@@ -133,6 +134,17 @@ export type AdminDashboard = {
   disclaimer: string;
 };
 
+export type AdminEmergencyMode = {
+  enabled: boolean;
+  reason?: string | null;
+  message?: string | null;
+  activated_by_user_id?: string | null;
+  activated_at?: string | null;
+  deactivated_by_user_id?: string | null;
+  deactivated_at?: string | null;
+  updated_at?: string | null;
+};
+
 export type AdminMetrics = {
   source: string;
   table_created: boolean;
@@ -140,6 +152,105 @@ export type AdminMetrics = {
   orders: Record<string, number>;
   disputes: Record<string, number>;
   credits: Record<string, number>;
+  disclaimer: string;
+};
+
+export type AdminIncidentStatus = "healthy" | "attention" | "degraded" | "critical";
+
+export type AdminIncidentConsole = {
+  status: AdminIncidentStatus;
+  generated_at?: string | null;
+  environment: string;
+  version: string;
+  build_id: string;
+  emergency_mode: AdminEmergencyMode;
+  dependencies: {
+    ok: boolean;
+    status: string;
+    checks: Record<string, { ok?: boolean; code?: string | null; message?: string | null }>;
+  };
+  queues: Record<string, number>;
+  orders: Record<string, number>;
+  jobs: {
+    status_counts: Record<string, number>;
+    recent_runs: AdminWebJobRun[];
+    recent_failed: AdminWebJobRun[];
+  };
+  notifications: {
+    status_counts: Record<string, number>;
+    pending_due: number;
+    recent_problems: Array<{
+      id: string;
+      notification_type: string;
+      status: string;
+      recipient_role?: string | null;
+      recipient_user_id?: string | null;
+      order_id?: string | null;
+      business_id?: string | null;
+      attempts: number;
+      last_error_code?: string | null;
+      created_at: string;
+      updated_at: string;
+    }>;
+  };
+  recent_audit: AdminAuditLog[];
+  recommended_actions: string[];
+  disclaimer: string;
+};
+
+export type AdminUXFriction = {
+  ingest_enabled: boolean;
+  window_hours: number;
+  total_events: number;
+  unique_sessions: number;
+  friction_events: number;
+  surfaces: Array<{
+    surface: string;
+    event_count: number;
+    friction_count: number;
+    screen_views: number;
+    api_failures: number;
+    slow_events: number;
+  }>;
+  top_screens: Array<{
+    surface: string;
+    screen: string;
+    views: number;
+    friction_count: number;
+    slow_count: number;
+    failure_count: number;
+    p95_duration_ms?: number | null;
+  }>;
+  top_actions: Array<{
+    surface: string;
+    action: string;
+    started: number;
+    completed: number;
+    failed: number;
+    slow_count: number;
+    friction_count: number;
+    p95_duration_ms?: number | null;
+  }>;
+  api_failures: Array<{
+    surface: string;
+    route_template: string;
+    count: number;
+    friction_count: number;
+    status_counts: Record<string, number>;
+    error_codes: Record<string, number>;
+  }>;
+  recent_friction: Array<{
+    event_type: string;
+    surface: string;
+    screen?: string | null;
+    action?: string | null;
+    route_template?: string | null;
+    status_code?: number | null;
+    error_code?: string | null;
+    duration_ms?: number | null;
+    occurred_at?: string | null;
+  }>;
+  recommended_actions: string[];
   disclaimer: string;
 };
 
@@ -174,4 +285,20 @@ export type AdminAuditLog = {
   resource_type: string;
   resource_id: string | null;
   created_at: string;
+};
+
+export type AdminWebJobRun = {
+  id: string;
+  job_type: string;
+  status: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  created_at?: string | null;
+  duration_ms?: number | null;
+  processed_count?: number;
+  changed_count?: number;
+  skipped_count?: number;
+  failed_count?: number;
+  error_code?: string | null;
+  error_message_safe?: string | null;
 };

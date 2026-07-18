@@ -15,6 +15,10 @@ class AdminReasonRequest(StrictRequestModel):
     reason: str = Field(max_length=500)
 
 
+class AdminEmergencyModeRequest(AdminReasonRequest):
+    message: str | None = Field(default=None, max_length=280)
+
+
 def _request_id(request: Request) -> str:
     return request.headers.get("x-request-id", "request_id_unavailable")
 
@@ -28,6 +32,9 @@ def _service(request: Request) -> AdminService:
         read_model_cache=request.app.state.admin_read_model_cache,
         idempotency_store=request.app.state.idempotency_store,
         auth_user_cache=request.app.state.auth_user_cache,
+        emergency_mode_repository=request.app.state.emergency_mode_repository,
+        job_repository=request.app.state.job_repository,
+        observability_repository=getattr(request.app.state, "observability_repository", None),
     )
 
 
@@ -36,9 +43,69 @@ def dashboard(request: Request, user: UserRecord = Depends(require_current_user)
     return {"data": _service(request).dashboard(user=user, request_id=_request_id(request)), "request_id": _request_id(request)}
 
 
+@router.get("/emergency-mode")
+def emergency_mode(request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
+    return {"data": _service(request).emergency_mode(user=user, request_id=_request_id(request)), "request_id": _request_id(request)}
+
+
+@router.post("/emergency-mode/activate")
+def activate_emergency_mode(
+    payload: AdminEmergencyModeRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": _service(request).activate_emergency_mode(
+            user=user,
+            reason=payload.reason,
+            message=payload.message,
+            request_id=_request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": _request_id(request),
+    }
+
+
+@router.post("/emergency-mode/deactivate")
+def deactivate_emergency_mode(
+    payload: AdminReasonRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": _service(request).deactivate_emergency_mode(
+            user=user,
+            reason=payload.reason,
+            request_id=_request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": _request_id(request),
+    }
+
+
 @router.get("/metrics")
 def metrics(request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
     return {"data": _service(request).metrics(user=user, request_id=_request_id(request)), "request_id": _request_id(request)}
+
+
+@router.get("/incident-console")
+def incident_console(request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
+    return {"data": _service(request).incident_console(user=user, request_id=_request_id(request)), "request_id": _request_id(request)}
+
+
+@router.get("/ux-friction")
+def ux_friction(
+    request: Request,
+    window_hours: int = Query(default=24, ge=1, le=168),
+    limit: int = Query(default=10, ge=1, le=25),
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    return {
+        "data": _service(request).ux_friction(user=user, window_hours=window_hours, limit=limit, request_id=_request_id(request)),
+        "request_id": _request_id(request),
+    }
 
 
 @router.get("/businesses")

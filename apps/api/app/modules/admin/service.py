@@ -5,8 +5,10 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.errors import ApiError
-from app.modules.admin.policy import require_admin_read
+from app.modules.jobs.serializers import job_run_summary
+from app.modules.admin.policy import require_admin_mutation, require_admin_read
 from app.modules.users.models import UserRecord
+from app.services.health_service import HealthService
 
 
 ADMIN_DISCLAIMER = "Consola admin: revisa negocios, ordenes y actividad con datos protegidos y trazabilidad."
@@ -20,7 +22,20 @@ def _require_uuid(value: str, code: str = "NOT_FOUND") -> str:
 
 
 class AdminService:
-    def __init__(self, *, settings: Settings, repository, audit_writer, rate_limiter, read_model_cache=None, idempotency_store=None, auth_user_cache=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        repository,
+        audit_writer,
+        rate_limiter,
+        read_model_cache=None,
+        idempotency_store=None,
+        auth_user_cache=None,
+        emergency_mode_repository=None,
+        job_repository=None,
+        observability_repository=None,
+    ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
         self._audit = audit_writer
@@ -28,6 +43,9 @@ class AdminService:
         self._read_model_cache = read_model_cache
         self._idempotency = idempotency_store
         self._auth_user_cache = auth_user_cache
+        self._emergency_mode = emergency_mode_repository
+        self._job_repository = job_repository
+        self._observability_repository = observability_repository
 
     def _rate_limit(self, action: str, user: UserRecord) -> None:
         key = f"admin:{action}:{user.id}"
@@ -72,7 +90,89 @@ class AdminService:
         self._rate_limit("dashboard", user)
         data = self._read_cached_model(self._aggregate_cache_key("dashboard", user), self._repository.dashboard)
         self._audit_view(event_type="admin_viewed_dashboard", user=user, request_id=request_id)
-        return data | {"disclaimer": ADMIN_DISCLAIMER}
+        return data | {"emergency_mode": self._emergency_mode_payload(), "disclaimer": ADMIN_DISCLAIMER}
+
+    def emergency_mode(self, *, user: UserRecord, request_id: str) -> dict[str, Any]:
+        require_admin_read(user)
+        self._rate_limit("emergency_mode", user)
+        self._audit_view(event_type="admin_viewed_emergency_mode", user=user, request_id=request_id)
+        return {"emergency_mode": self._emergency_mode_payload(), "disclaimer": ADMIN_DISCLAIMER}
+
+    def activate_emergency_mode(self, *, user: UserRecord, reason: str, message: str | None, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        return self._change_emergency_mode(
+            user=user,
+            enabled=True,
+            reason=reason,
+            message=message,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def deactivate_emergency_mode(self, *, user: UserRecord, reason: str, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        return self._change_emergency_mode(
+            user=user,
+            enabled=False,
+            reason=reason,
+            message=None,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def _change_emergency_mode(
+        self,
+        *,
+        user: UserRecord,
+        enabled: bool,
+        reason: str,
+        message: str | None,
+        request_id: str,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
+        require_admin_mutation(user)
+        if not idempotency_key:
+            raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
+        reason = reason.strip()
+        message = message.strip() if message else None
+        if not reason:
+            raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
+
+        action = "activate" if enabled else "deactivate"
+
+        def compute() -> dict[str, Any]:
+            record = self._require_emergency_mode_repository().set_enabled(
+                enabled=enabled,
+                reason=reason,
+                message=message,
+                actor_user_id=user.id,
+            )
+            self._audit.write(
+                event_type="platform_emergency_mode_activated" if enabled else "platform_emergency_mode_deactivated",
+                actor_user_id=user.id,
+                actor_role=user.role,
+                resource_type="platform_emergency_mode",
+                resource_id=None,
+                request_id=request_id,
+                metadata_json={"reason": reason, "message": message, "enabled": enabled},
+            )
+            return {"emergency_mode": record.to_payload(), "disclaimer": ADMIN_DISCLAIMER}
+
+        if self._idempotency is None:
+            return compute()
+        return self._idempotency.replay_or_store(
+            f"admin_emergency_mode:{action}:{idempotency_key}",
+            payload={"enabled": enabled, "reason": reason, "message": message},
+            compute=compute,
+        )
+
+    def _require_emergency_mode_repository(self):  # type: ignore[no-untyped-def]
+        if self._emergency_mode is None:
+            raise ApiError("INTERNAL_ERROR", status_code=500)
+        return self._emergency_mode
+
+    def _emergency_mode_payload(self) -> dict[str, Any]:
+        if self._emergency_mode is None:
+            return {"enabled": False, "reason": None, "message": None, "updated_at": None}
+        return self._emergency_mode.get().to_payload()
 
     def metrics(self, *, user: UserRecord, request_id: str) -> dict[str, Any]:
         require_admin_read(user)
@@ -80,6 +180,134 @@ class AdminService:
         data = self._read_cached_model(self._aggregate_cache_key("metrics", user), self._repository.metrics)
         self._audit_view(event_type="admin_viewed_metrics", user=user, request_id=request_id)
         return data | {"disclaimer": ADMIN_DISCLAIMER, "table_created": False}
+
+    def incident_console(self, *, user: UserRecord, request_id: str) -> dict[str, Any]:
+        require_admin_read(user)
+        self._rate_limit("incident_console", user)
+        dashboard = self._read_cached_model(self._aggregate_cache_key("dashboard", user), self._repository.dashboard)
+        readiness = self._safe_readiness()
+        emergency_mode = self._emergency_mode_payload()
+        job_summary = self._job_incident_summary()
+        notification_summary = self._notification_incident_summary()
+        audit_items, _ = self._repository.list_audit_logs(event_type=None, actor_user_id=None, resource_type=None, resource_id=None, cursor=None, limit=10)
+        recent_audit = [{key: value for key, value in item.items() if key != "metadata_json"} for item in audit_items]
+        status = self._incident_status(
+            readiness=readiness,
+            emergency_mode=emergency_mode,
+            dashboard=dashboard,
+            job_summary=job_summary,
+            notification_summary=notification_summary,
+        )
+        self._audit_view(event_type="admin_viewed_incident_console", user=user, request_id=request_id)
+        return {
+            "status": status,
+            "generated_at": None,
+            "environment": self._settings.app_env,
+            "version": self._settings.app_version,
+            "build_id": self._settings.build_id,
+            "emergency_mode": emergency_mode,
+            "dependencies": readiness,
+            "queues": dashboard.get("queues", {}),
+            "orders": dashboard.get("orders", {}),
+            "jobs": job_summary,
+            "notifications": notification_summary,
+            "recent_audit": recent_audit,
+            "recommended_actions": self._incident_actions(status=status, readiness=readiness, emergency_mode=emergency_mode, notification_summary=notification_summary),
+            "disclaimer": "Centro de incidentes: resumen operativo calculado desde fuentes existentes; no reemplaza logs provider.",
+        }
+
+    def ux_friction(self, *, user: UserRecord, window_hours: int, limit: int, request_id: str) -> dict[str, Any]:
+        require_admin_read(user)
+        self._rate_limit("ux_friction", user)
+        if self._observability_repository is None:
+            data = {
+                "ingest_enabled": self._settings.observability_ingest_enabled,
+                "window_hours": window_hours,
+                "total_events": 0,
+                "unique_sessions": 0,
+                "friction_events": 0,
+                "surfaces": [],
+                "top_screens": [],
+                "top_actions": [],
+                "api_failures": [],
+                "recent_friction": [],
+                "recommended_actions": ["Configurar repositorio de observabilidad frontend antes de usar este panel."],
+                "disclaimer": "Panel UX: no hay repositorio de eventos configurado.",
+            }
+        else:
+            data = self._observability_repository.ux_friction_summary(
+                ingest_enabled=self._settings.observability_ingest_enabled,
+                window_hours=window_hours,
+                limit=limit,
+            )
+        self._audit_view(event_type="admin_viewed_ux_friction", user=user, request_id=request_id, metadata={"window_hours": window_hours, "limit": limit})
+        return data
+
+    def _safe_readiness(self) -> dict[str, Any]:
+        try:
+            ok, payload = HealthService(self._settings).readiness()
+            return {"ok": ok, **payload}
+        except Exception as exc:
+            return {
+                "ok": False,
+                "status": "not_ready",
+                "checks": {
+                    "readiness": {
+                        "ok": False,
+                        "code": getattr(exc, "code", "READINESS_CHECK_FAILED"),
+                        "message": "No se pudo verificar readiness desde admin.",
+                    }
+                },
+            }
+
+    def _job_incident_summary(self) -> dict[str, Any]:
+        if self._job_repository is None:
+            return {"status_counts": {}, "recent_runs": [], "recent_failed": []}
+        runs, _ = self._job_repository.list_job_runs(job_type=None, status=None, cursor=None, limit=20)
+        status_counts: dict[str, int] = {}
+        for run in runs:
+            status_counts[run.status] = status_counts.get(run.status, 0) + 1
+        recent_failed = [job_run_summary(run) | {"error_message_safe": run.error_message_safe} for run in runs if run.status == "failed" or run.failed_count > 0]
+        return {
+            "status_counts": status_counts,
+            "recent_runs": [job_run_summary(run) for run in runs[:5]],
+            "recent_failed": recent_failed[:5],
+        }
+
+    def _notification_incident_summary(self) -> dict[str, Any]:
+        if self._job_repository is None or not hasattr(self._job_repository, "notification_incident_summary"):
+            return {"status_counts": {}, "pending_due": 0, "recent_problems": []}
+        return self._job_repository.notification_incident_summary(limit=10)
+
+    def _incident_status(
+        self,
+        *,
+        readiness: dict[str, Any],
+        emergency_mode: dict[str, Any],
+        dashboard: dict[str, Any],
+        job_summary: dict[str, Any],
+        notification_summary: dict[str, Any],
+    ) -> str:
+        if not readiness.get("ok") or emergency_mode.get("enabled"):
+            return "critical"
+        if job_summary.get("recent_failed") or notification_summary.get("recent_problems"):
+            return "degraded"
+        queues = dashboard.get("queues", {})
+        orders = dashboard.get("orders", {})
+        if queues.get("open_disputes", 0) or queues.get("pending_credit_purchases", 0) or orders.get("delivered_waiting_close_count", 0):
+            return "attention"
+        return "healthy"
+
+    def _incident_actions(self, *, status: str, readiness: dict[str, Any], emergency_mode: dict[str, Any], notification_summary: dict[str, Any]) -> list[str]:
+        actions: list[str] = []
+        if not readiness.get("ok"):
+            actions.append("Revisar dependencias en Railway/Supabase/Redis antes de tocar producto.")
+        if status == "critical" and not emergency_mode.get("enabled"):
+            actions.append("Considerar activar modo emergencia si hay impacto en usuarios.")
+        if notification_summary.get("recent_problems"):
+            actions.append("Revisar notificaciones fallidas y correlacionarlas con ordenes afectadas.")
+        actions.append("Usar request_id/correlation_id para buscar el detalle en logs provider.")
+        return actions
 
     def list_businesses(self, *, user: UserRecord, verification_status: str | None, risk_level: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         require_admin_read(user)
