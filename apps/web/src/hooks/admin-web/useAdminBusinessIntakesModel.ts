@@ -36,15 +36,16 @@ export function useAdminBusinessIntakesModel({
 }) {
   const [businessIntakes, setBusinessIntakes] = useState<AdminBusinessIntakeSummary[]>([]);
   const [selectedBusinessIntake, setSelectedBusinessIntake] = useState<AdminBusinessIntakeDetail | null>(null);
-  const [intakeFilter, setIntakeFilter] = useState("submitted");
+  const [intakeFilter, setIntakeFilter] = useState("all");
   const [intakePublicBusinessName, setIntakePublicBusinessName] = useState("");
 
   const loadBusinessIntakes = useCallback(async (status = intakeFilter) => {
+    const normalizedStatus = status.trim().toLowerCase() || "all";
     setBusy(true);
     try {
-      const data = await listAdminBusinessIntakes<ListResponse<AdminBusinessIntakeSummary>>(request, status);
+      const data = await listAdminBusinessIntakes<ListResponse<AdminBusinessIntakeSummary>>(request, normalizedStatus);
       setBusinessIntakes(data.items);
-      setIntakeFilter(status);
+      setIntakeFilter(normalizedStatus);
       setView("intake");
       setNotice(data.items.length ? "Solicitudes de negocio cargadas." : "No hay solicitudes para ese filtro.");
     } catch (error) {

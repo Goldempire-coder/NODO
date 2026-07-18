@@ -225,7 +225,9 @@ export function listAdminJobRuns<T>(request: AuthenticatedRequest) {
 }
 
 export function listAdminBusinessIntakes<T>(request: AuthenticatedRequest, status?: string) {
-  return request<T>(`/api/v1/admin/business-intake?${listParams(20, "status", status)}`);
+  const normalizedStatus = status?.trim().toLowerCase();
+  const filter = normalizedStatus && normalizedStatus !== "all" ? normalizedStatus : undefined;
+  return request<T>(`/api/v1/admin/business-intake?${listParams(20, "status", filter)}`);
 }
 
 export function getAdminBusinessIntake<T>(request: AuthenticatedRequest, intakeId: string) {

@@ -17,6 +17,7 @@ def _idempotency_lines(source: str) -> str:
 def test_base_usdc_credit_watcher_runtime_is_wired_without_sensitive_logs() -> None:
     main_source = _read("apps/api/app/main.py")
     config_source = _read("apps/api/app/core/config.py")
+    env_example = _read(".env.example")
     watcher_loop = main_source.split("async def _base_usdc_credit_watcher_loop", 1)[1].split("def _configure_test_state", 1)[0]
 
     assert "onchain_credit_watcher_enabled" in config_source
@@ -28,6 +29,11 @@ def test_base_usdc_credit_watcher_runtime_is_wired_without_sensitive_logs() -> N
     assert "base_usdc_credit_watcher_finished" in watcher_loop
     assert "base_usdc_credit_watcher_failed" in watcher_loop
     assert "errors_count" in watcher_loop
+    assert "ONCHAIN_CREDIT_WATCHER_ENABLED=0" in env_example
+    assert "ONCHAIN_CREDIT_WATCHER_INTERVAL_SECONDS=30" in env_example
+    assert "TELEGRAM_WEB_APP_URL=http://localhost:3000" in env_example
+    assert "ORDER_NOTIFICATION_SENDER_ENABLED=1" in env_example
+    assert "ORDER_NOTIFICATION_SENDER_INTERVAL_SECONDS=10" in env_example
 
     for sensitive_fragment in ("tx_hash", "destination_wallet", "base_rpc_url", "rpc_url", "wallet_address"):
         assert sensitive_fragment not in watcher_loop.lower()

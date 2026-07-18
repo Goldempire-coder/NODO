@@ -10,10 +10,13 @@ export function BusinessIntake({ model }: { model: AdminWebModel }) {
     <section className="admin-web-panel">
       <Header title="Intake de negocios" action={<button onClick={() => void model.loadBusinessIntakes(model.intakeFilter)} type="button">Aplicar filtro</button>} />
       <div className="admin-web-toolbar">
-        <label><span>Status</span><input value={model.intakeFilter} onChange={(event) => model.setIntakeFilter(event.target.value)} placeholder="submitted, draft, rejected..." /></label>
-        <button type="button" onClick={() => void model.loadBusinessIntakes("submitted")}>Submitted</button>
-        <button type="button" onClick={() => void model.loadBusinessIntakes("draft")}>Draft</button>
+        <label><span>Filtro</span><input value={model.intakeFilter} onChange={(event) => model.setIntakeFilter(event.target.value)} placeholder="all, submitted, draft..." /></label>
+        <button type="button" onClick={() => void model.loadBusinessIntakes("all")}>Todas</button>
+        <button type="button" onClick={() => void model.loadBusinessIntakes("submitted")}>En revision</button>
+        <button type="button" onClick={() => void model.loadBusinessIntakes("draft")}>Borradores</button>
+        <button type="button" onClick={() => void model.loadBusinessIntakes("accepted")}>Aceptadas</button>
       </div>
+      <p className="admin-web-muted">Si un negocio empezo el registro pero no lo finalizo, aparece como borrador.</p>
       <Table headers={["Solicitud", "Status", "Telefono", "Ciudad", "Fecha", ""]}>
         {model.businessIntakes.map((item) => (
           <tr key={item.id}>
@@ -26,7 +29,7 @@ export function BusinessIntake({ model }: { model: AdminWebModel }) {
           </tr>
         ))}
       </Table>
-      {model.businessIntakes.length === 0 ? <Empty text="No hay solicitudes para el filtro actual." /> : null}
+      {model.businessIntakes.length === 0 ? <Empty text="No hay solicitudes para el filtro actual. Prueba con Todas para ver registros incompletos." /> : null}
     </section>
   );
 }
@@ -53,6 +56,9 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
           <dt>Horario</dt><dd>{intake.schedule || "-"}</dd>
           <dt>Negocio creado</dt><dd>{intake.created_business_id || "-"}</dd>
         </dl>
+        {intake.status === "draft" ? (
+          <p className="admin-web-muted">Este registro todavia no fue finalizado desde Telegram. Sirve para revisar que el bot recibio datos, pero no deberia aprobarse hasta completarlo.</p>
+        ) : null}
       </div>
       <div className="admin-web-panel">
         <h3>Documentos y control</h3>

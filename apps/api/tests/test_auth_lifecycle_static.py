@@ -63,6 +63,22 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
     assert '"X-NODO-Surface": "admin_web"' in admin_model
 
 
+def test_admin_business_intake_defaults_to_all_records_for_real_flow_review() -> None:
+    admin_api = _read("apps/web/src/api/admin.ts")
+    admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
+    intake_model = _read("apps/web/src/hooks/admin-web/useAdminBusinessIntakesModel.ts")
+    intake_screen = _read("apps/web/src/screens/admin-web/AdminBusinessIntakeScreens.tsx")
+
+    assert 'const [intakeFilter, setIntakeFilter] = useState("all")' in intake_model
+    assert "const normalizedStatus = status.trim().toLowerCase() || \"all\"" in intake_model
+    assert 'businessIntake.loadBusinessIntakes("all")' in admin_model
+    assert 'normalizedStatus !== "all" ? normalizedStatus : undefined' in admin_api
+    assert "Todas" in intake_screen
+    assert "En revision" in intake_screen
+    assert "Borradores" in intake_screen
+    assert "si un negocio empezo el registro".lower() in intake_screen.lower()
+
+
 def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() -> None:
     business_model = _read("apps/web/src/hooks/useBusinessMiniAppModel.ts")
     access_model = _read("apps/web/src/hooks/business-mini-app/useBusinessAccessModel.ts")

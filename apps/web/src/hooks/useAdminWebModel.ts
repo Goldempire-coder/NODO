@@ -134,7 +134,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { view: "audit-logs" as const, label: "Audit", action: audit.loadAuditLogs },
       { view: "metrics" as const, label: "Metricas", action: overview.loadMetrics },
       { view: "jobs" as const, label: "Jobs", action: overview.loadJobs },
-      { view: "intake" as const, label: "Intake", action: () => businessIntake.loadBusinessIntakes("submitted") },
+      { view: "intake" as const, label: "Intake", action: () => businessIntake.loadBusinessIntakes("all") },
       { view: "support" as const, label: "Soporte", action: () => support.loadSupportTickets("") },
       { view: "staff" as const, label: "Staff", action: () => staff.loadStaff("") }
     ],
