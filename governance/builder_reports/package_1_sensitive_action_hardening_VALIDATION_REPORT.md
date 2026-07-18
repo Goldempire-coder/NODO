@@ -1,19 +1,20 @@
 # Package 1 Sensitive Action Hardening - Validation Report
 
 Status: VALIDATED_LOCAL_CLEAN_COMMIT
-Commit: b1d188d9099b8c95eafeeb7248f11f6c09694fae
 Branch: staging/three-app-connected
 Validated at: 2026-07-18
 Environment: local Windows Codex runtime
+Validated code target: package `fix: harden three-app sensitive actions`
 
 ## Scope
 
-This report validates the committed package:
+This report validates the package:
 
 `fix: harden three-app sensitive actions`
 
 Validation was executed from a clean detached worktree created from commit
-`b1d188d9099b8c95eafeeb7248f11f6c09694fae`, not from the dirty main working tree.
+`b1d188d9099b8c95eafeeb7248f11f6c09694fae`, before this report was added as documentation.
+The documentation-only follow-up does not change runtime code.
 
 ## Validated Areas
 
@@ -107,9 +108,7 @@ Those require a staging walkthrough with backend, bots, admin, client and busine
 
 ## Repo Boundary
 
-The main working tree still had unrelated pending changes from other packages during validation. They were not included in commit `b1d188d`.
+The main working tree still had unrelated pending changes from other packages during validation.
+They were not included in the validated package.
 
-This report applies only to commit:
-
-`b1d188d9099b8c95eafeeb7248f11f6c09694fae`
-
+This report applies only to the package `fix: harden three-app sensitive actions`.
