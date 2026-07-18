@@ -14,6 +14,7 @@ Secrets must never live in frontend code or repo.
 - APP_NAME
 - APP_VERSION
 - NODO_BUILD_ID
+- TELEGRAM_WEB_APP_URL
 
 ## Supabase PostgreSQL
 
@@ -78,6 +79,9 @@ Use Upstash Redis for staging/production sensitive rate limits, idempotency, job
 Railway must receive backend-only env vars:
 
 - APP_ENV
+- APP_NAME
+- APP_VERSION
+- NODO_BUILD_ID
 - DATABASE_URL
 - NODO_DB_POOL_MAX_SIZE
 - NODO_DB_POOL_TIMEOUT_SECONDS
@@ -91,6 +95,19 @@ Railway must receive backend-only env vars:
 - BUSINESS_INTAKE_BOT_TOKEN
 - JWT_SECRET
 - JWT_REFRESH_SECRET
+- TELEGRAM_WEB_APP_URL
+- ORDER_NOTIFICATION_SENDER_ENABLED
+- ORDER_NOTIFICATION_SENDER_INTERVAL_SECONDS
+- ORDER_NOTIFICATION_SENDER_BATCH_SIZE
+- BASE_RPC_URL
+- NODO_CREDIT_RECEIVING_WALLET_BASE
+- ONCHAIN_CREDIT_MIN_CONFIRMATIONS
+- ONCHAIN_CREDIT_PURCHASE_TTL_MINUTES
+- ONCHAIN_CREDIT_WATCHER_ENABLED
+- ONCHAIN_CREDIT_WATCHER_INTERVAL_SECONDS
+- ONCHAIN_CREDIT_WATCHER_BATCH_SIZE
+- ONCHAIN_CREDIT_WATCHER_TIMEOUT_SECONDS
+- LEGACY_CREDIT_PAYMENT_METHODS_ENABLED
 - STRIPE_SECRET_KEY
 - STRIPE_WEBHOOK_SECRET
 - Storage backend secrets
@@ -100,8 +117,12 @@ Railway must receive backend-only env vars:
 Cloudflare Pages must receive public env vars only:
 
 - NEXT_PUBLIC_API_BASE_URL
+- NEXT_PUBLIC_APP_URL
 - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME
 - NEXT_PUBLIC_APP_ENV
+- NEXT_PUBLIC_OBSERVABILITY_INGEST_ENABLED
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 Cloudflare Pages must not receive backend secrets.
 
@@ -110,8 +131,12 @@ Cloudflare Pages must not receive backend secrets.
 Public env must only contain non-secret values:
 
 - NEXT_PUBLIC_API_BASE_URL
+- NEXT_PUBLIC_APP_URL
 - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME
 - NEXT_PUBLIC_APP_ENV
+- NEXT_PUBLIC_OBSERVABILITY_INGEST_ENABLED
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 ## Prohibited
 
@@ -137,9 +162,6 @@ Backend variables:
 
 Frontend public variables:
 
-- `NEXT_PUBLIC_APP_VERSION`
-- `NEXT_PUBLIC_NODO_BUILD_ID`
-- `NEXT_PUBLIC_OBSERVABILITY_ENABLED`
-- `NEXT_PUBLIC_OBSERVABILITY_MODE`
+- `NEXT_PUBLIC_OBSERVABILITY_INGEST_ENABLED`
 
 Public frontend variables must not include secrets. Backend can reject ingestion even if frontend collection is enabled.
