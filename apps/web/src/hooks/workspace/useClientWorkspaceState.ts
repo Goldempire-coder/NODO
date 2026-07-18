@@ -1,91 +1,23 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { coerceClientView, type ClientView } from "../../constants/clientViews";
-import { hasAcceptedCurrentClientTerms } from "../../constants/legal";
+import { useState } from "react";
 import type { AdSummary } from "../../types/ads";
 import type { PublicUser } from "../../types/auth";
 import type { ChatAttachment, ChatCapabilities, ChatMessage } from "../../types/chat";
 import type { ClientProfileFormState, SearchFormState } from "../../types/client";
 import type { OrderFormState, OrderSummary } from "../../types/orders";
 import type { PaymentEvidence, PaymentInstructions, PaymentReportFormState } from "../../types/payments";
-
-const CLIENT_ROOT_VIEWS = new Set<ClientView>([
-  "welcome",
-  "client-profile-setup",
-  "profile",
-  "marketplace-search",
-  "marketplace-list",
-  "my-orders",
-  "messages"
-]);
-
-function fallbackClientViewFor(view: ClientView): ClientView {
-  if (view === "terms") {
-    return "welcome";
-  }
-  if (view === "client-profile-setup") {
-    return "terms";
-  }
-  if (view === "marketplace-detail" || view === "create-order" || view === "order-summary") {
-    return "marketplace-search";
-  }
-  if (view === "payment-instructions" || view === "report-payment") {
-    return "my-orders";
-  }
-  if (view === "order-chat") {
-    return "messages";
-  }
-  return "marketplace-search";
-}
+import { useClientActionState } from "./useClientActionState";
+import { useClientNavigationState } from "./useClientNavigationState";
 
 export function useClientWorkspaceState(user: PublicUser) {
-  const initialView: ClientView = hasAcceptedCurrentClientTerms(user) ? (user.phone ? "marketplace-search" : "client-profile-setup") : "welcome";
-  const [view, setCurrentView] = useState<ClientView>(initialView);
-  const viewHistoryRef = useRef<ClientView[]>([]);
-
-  const setView = useCallback((nextView: ClientView) => {
-    const nextClientView = coerceClientView(nextView);
-    setCurrentView((currentView) => {
-      if (currentView === nextClientView) {
-        return currentView;
-      }
-      viewHistoryRef.current = [...viewHistoryRef.current, currentView].slice(-20);
-      return nextClientView;
-    });
-  }, []);
-
-  const goBack = useCallback(() => {
-    setCurrentView((currentView) => {
-      const previousView = viewHistoryRef.current.pop();
-      const fallbackView = fallbackClientViewFor(currentView);
-      const nextView = previousView && previousView !== currentView ? previousView : fallbackView;
-      return nextView === currentView ? currentView : nextView;
-    });
-  }, []);
-
+  const navigation = useClientNavigationState(user);
+  const actions = useClientActionState();
   const [clientProfileForm, setClientProfileForm] = useState<ClientProfileFormState>({
     first_name: user.first_name || "",
     phone: user.phone || ""
   });
   const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [searchingMarketplace, setSearchingMarketplace] = useState(false);
-  const [loadingMarketplace, setLoadingMarketplace] = useState(false);
-  const [openingMarketplaceAdId, setOpeningMarketplaceAdId] = useState<string | null>(null);
-  const [creatingOrder, setCreatingOrder] = useState(false);
-  const [loadingOrders, setLoadingOrders] = useState(false);
-  const [openingOrderId, setOpeningOrderId] = useState<string | null>(null);
-  const [extendingOrderId, setExtendingOrderId] = useState<string | null>(null);
-  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
-  const [loadingPaymentInstructions, setLoadingPaymentInstructions] = useState(false);
-  const [uploadingPaymentEvidence, setUploadingPaymentEvidence] = useState(false);
-  const [submittingPaymentReport, setSubmittingPaymentReport] = useState(false);
-  const [openingChatOrderId, setOpeningChatOrderId] = useState<string | null>(null);
-  const [refreshingChat, setRefreshingChat] = useState(false);
-  const [uploadingChatAttachment, setUploadingChatAttachment] = useState(false);
-  const [sendingChatMessage, setSendingChatMessage] = useState(false);
-  const [openingOrderDispute, setOpeningOrderDispute] = useState(false);
   const [searchForm, setSearchForm] = useState<SearchFormState>({
     amount_usd: "50.00",
     payment_method: "zelle",
@@ -121,48 +53,48 @@ export function useClientWorkspaceState(user: PublicUser) {
   });
 
   return {
-    view,
-    setView,
-    goBack,
-    canGoBack: !CLIENT_ROOT_VIEWS.has(view),
+    view: navigation.view,
+    setView: navigation.setView,
+    goBack: navigation.goBack,
+    canGoBack: navigation.canGoBack,
     clientProfileForm,
     setClientProfileForm,
     notice,
     setNotice,
-    busy,
-    setBusy,
-    searchingMarketplace,
-    setSearchingMarketplace,
-    loadingMarketplace,
-    setLoadingMarketplace,
-    openingMarketplaceAdId,
-    setOpeningMarketplaceAdId,
-    creatingOrder,
-    setCreatingOrder,
-    loadingOrders,
-    setLoadingOrders,
-    openingOrderId,
-    setOpeningOrderId,
-    extendingOrderId,
-    setExtendingOrderId,
-    cancellingOrderId,
-    setCancellingOrderId,
-    loadingPaymentInstructions,
-    setLoadingPaymentInstructions,
-    uploadingPaymentEvidence,
-    setUploadingPaymentEvidence,
-    submittingPaymentReport,
-    setSubmittingPaymentReport,
-    openingChatOrderId,
-    setOpeningChatOrderId,
-    refreshingChat,
-    setRefreshingChat,
-    uploadingChatAttachment,
-    setUploadingChatAttachment,
-    sendingChatMessage,
-    setSendingChatMessage,
-    openingOrderDispute,
-    setOpeningOrderDispute,
+    busy: actions.busy,
+    setBusy: actions.setBusy,
+    searchingMarketplace: actions.searchingMarketplace,
+    setSearchingMarketplace: actions.setSearchingMarketplace,
+    loadingMarketplace: actions.loadingMarketplace,
+    setLoadingMarketplace: actions.setLoadingMarketplace,
+    openingMarketplaceAdId: actions.openingMarketplaceAdId,
+    setOpeningMarketplaceAdId: actions.setOpeningMarketplaceAdId,
+    creatingOrder: actions.creatingOrder,
+    setCreatingOrder: actions.setCreatingOrder,
+    loadingOrders: actions.loadingOrders,
+    setLoadingOrders: actions.setLoadingOrders,
+    openingOrderId: actions.openingOrderId,
+    setOpeningOrderId: actions.setOpeningOrderId,
+    extendingOrderId: actions.extendingOrderId,
+    setExtendingOrderId: actions.setExtendingOrderId,
+    cancellingOrderId: actions.cancellingOrderId,
+    setCancellingOrderId: actions.setCancellingOrderId,
+    loadingPaymentInstructions: actions.loadingPaymentInstructions,
+    setLoadingPaymentInstructions: actions.setLoadingPaymentInstructions,
+    uploadingPaymentEvidence: actions.uploadingPaymentEvidence,
+    setUploadingPaymentEvidence: actions.setUploadingPaymentEvidence,
+    submittingPaymentReport: actions.submittingPaymentReport,
+    setSubmittingPaymentReport: actions.setSubmittingPaymentReport,
+    openingChatOrderId: actions.openingChatOrderId,
+    setOpeningChatOrderId: actions.setOpeningChatOrderId,
+    refreshingChat: actions.refreshingChat,
+    setRefreshingChat: actions.setRefreshingChat,
+    uploadingChatAttachment: actions.uploadingChatAttachment,
+    setUploadingChatAttachment: actions.setUploadingChatAttachment,
+    sendingChatMessage: actions.sendingChatMessage,
+    setSendingChatMessage: actions.setSendingChatMessage,
+    openingOrderDispute: actions.openingOrderDispute,
+    setOpeningOrderDispute: actions.setOpeningOrderDispute,
     searchForm,
     setSearchForm,
     searchResults,

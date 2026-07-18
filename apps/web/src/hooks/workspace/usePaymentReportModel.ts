@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from "../../api/client";
 import { getPaymentInstructions, submitOrderPaymentReport, uploadPaymentEvidence as uploadOrderPaymentEvidence } from "../../api/paymentReports";
 import { PAYMENT_COPY } from "../../constants/copy";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
+import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 
 type PaymentReportState = Pick<
@@ -43,6 +44,7 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
     setUploadingPaymentEvidence,
     setView
   } = state;
+  const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   async function openPaymentInstructions(orderId: string) {
     const startedAt = actionStartedAt();
@@ -74,8 +76,10 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
     const startedAt = actionStartedAt();
     recordActionStarted("client_payment_evidence_upload", "report-payment");
     setUploadingPaymentEvidence(true);
+    const idempotencyScope = `payment_evidence_${selectedOrder.id}`;
     try {
-      const data = await uploadOrderPaymentEvidence<any>(request, selectedOrder.id, file, pendingPaymentReportId, `payment_evidence_${selectedOrder.id}_${Date.now()}`);
+      const data = await uploadOrderPaymentEvidence<any>(request, selectedOrder.id, file, pendingPaymentReportId, getIdempotencyKey(idempotencyScope, { orderId: selectedOrder.id, pendingPaymentReportId, name: file.name, size: file.size }));
+      clearIdempotencyKey(idempotencyScope);
       setPaymentEvidence(data.file);
       setPendingPaymentReportId(data.pending_payment_report_id);
       setNotice("Evidencia privada cargada. La ruta interna no se muestra.");
@@ -105,6 +109,7 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
     const startedAt = actionStartedAt();
     recordActionStarted("client_payment_report_submit", "report-payment");
     setSubmittingPaymentReport(true);
+    const idempotencyScope = `payment_report_${selectedOrder.id}`;
     try {
       const data = await submitOrderPaymentReport<any>(
         request,
@@ -127,8 +132,9 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
               proof_file_id: paymentEvidence?.id || undefined,
               pending_payment_report_id: pendingPaymentReportId || undefined
             },
-        `payment_report_${selectedOrder.id}_${Date.now()}`
+        getIdempotencyKey(idempotencyScope, { orderId: selectedOrder.id, isZelle, paymentReportForm, pendingPaymentReportId, proofFileId: paymentEvidence?.id })
       );
+      clearIdempotencyKey(idempotencyScope);
       setSelectedOrder((current) => (current ? { ...current, status: data.order.status } : current));
       setView("my-orders");
       setNotice(`${data.disclaimer} Estado: ${data.order.status}.`);

@@ -1,5 +1,6 @@
 import { ApiClientError } from "../../api/client";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
+import { createIdempotencyKey } from "../useStableIdempotencyKeys";
 
 export type BusinessAccessState =
   | "loading"
@@ -40,7 +41,7 @@ export function fallbackForBusinessMiniAppView(view: BusinessMiniAppView): Busin
 }
 
 export function idempotencyKey(prefix: string) {
-  return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  return createIdempotencyKey(prefix);
 }
 
 export function accessStateFromError(error: unknown): BusinessAccessState {

@@ -12,8 +12,8 @@ import type { BusinessMiniAppView } from "../../constants/businessViews";
 import type { BusinessSummary } from "../../types/business";
 import type { CreditPurchase, CreditWallet, ReferralData } from "../../types/credits";
 import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
+import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
-import { idempotencyKey } from "./helpers";
 
 const BASE_USDC_CREDIT_NOTICE = "Asegurate de usar la red Base para comprar tus creditos.";
 const BASE_USDC_PENDING_PURCHASE_KEY = "nodo_base_usdc_pending_purchase_id";
@@ -77,6 +77,7 @@ export function useBusinessCreditsModel({
   const [generatingCreditPayment, setGeneratingCreditPayment] = useState(false);
   const [refreshingCreditPurchase, setRefreshingCreditPurchase] = useState(false);
   const [verifyingCreditTx, setVerifyingCreditTx] = useState(false);
+  const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   const requireBusinessPinFor = useCallback((action: string) => {
     return requireUnlockedBusinessPin({ action, business, setNotice, setView });
@@ -142,12 +143,14 @@ export function useBusinessCreditsModel({
     setGeneratingCreditPayment(true);
     const startedAt = actionStartedAt();
     recordBusinessActionStarted("credit_payment_create", "buy-credits");
+    const idempotencyScope = `base_usdc_payment_${creditPackage}`;
     try {
       const data = await startBusinessBaseUsdcPayment<{
         purchase: CreditPurchase;
         payment: { expected_amount_display?: string; network?: string; expires_at?: string | null };
         disclaimer?: string;
-      }>(request, creditPackage, idempotencyKey("base_usdc_payment"));
+      }>(request, creditPackage, getIdempotencyKey(idempotencyScope, { creditPackage }));
+      clearIdempotencyKey(idempotencyScope);
       setSelectedCreditPurchase(data.purchase);
       setBaseUsdcTxHash("");
       rememberPendingBaseUsdcPurchase(data.purchase);
@@ -164,7 +167,7 @@ export function useBusinessCreditsModel({
     } finally {
       setGeneratingCreditPayment(false);
     }
-  }, [creditPackage, handleBusinessPinError, request, requireBusinessPinFor, setNotice, setView]);
+  }, [clearIdempotencyKey, creditPackage, getIdempotencyKey, handleBusinessPinError, request, requireBusinessPinFor, setNotice, setView]);
 
   const refreshSelectedCreditPurchase = useCallback(async () => {
     if (!selectedCreditPurchase) {
@@ -195,13 +198,15 @@ export function useBusinessCreditsModel({
     setVerifyingCreditTx(true);
     const startedAt = actionStartedAt();
     recordBusinessActionStarted("credit_tx_submit", "credit-payment-pending");
+    const idempotencyScope = `base_usdc_tx_${selectedCreditPurchase.id}`;
     try {
       const data = await submitBusinessBaseUsdcTxHash<{ purchase: CreditPurchase; credited: boolean }>(
         request,
         selectedCreditPurchase.id,
         baseUsdcTxHash.trim(),
-        idempotencyKey("base_usdc_tx")
+        getIdempotencyKey(idempotencyScope, { purchaseId: selectedCreditPurchase.id, txHash: baseUsdcTxHash.trim() })
       );
+      clearIdempotencyKey(idempotencyScope);
       setSelectedCreditPurchase(data.purchase);
       rememberPendingBaseUsdcPurchase(data.purchase);
       if (data.credited) {
@@ -219,7 +224,7 @@ export function useBusinessCreditsModel({
     } finally {
       setVerifyingCreditTx(false);
     }
-  }, [baseUsdcTxHash, handleBusinessPinError, refreshCreditWallet, request, requireBusinessPinFor, selectedCreditPurchase, setNotice]);
+  }, [baseUsdcTxHash, clearIdempotencyKey, getIdempotencyKey, handleBusinessPinError, refreshCreditWallet, request, requireBusinessPinFor, selectedCreditPurchase, setNotice]);
 
   const loadReferrals = useCallback(async () => {
     setView("referrals");
@@ -238,8 +243,10 @@ export function useBusinessCreditsModel({
 
   const applyReferral = useCallback(async () => {
     setBusy(true);
+    const idempotencyScope = `apply_referral_${referralCodeInput.trim()}`;
     try {
-      await applyBusinessReferral(request, referralCodeInput, idempotencyKey("apply_referral"));
+      await applyBusinessReferral(request, referralCodeInput, getIdempotencyKey(idempotencyScope, { referralCodeInput: referralCodeInput.trim() }));
+      clearIdempotencyKey(idempotencyScope);
       await loadReferrals();
       setNotice("Codigo referido registrado. El bono se evalua con la primera compra aprobada.");
     } catch (error) {
@@ -247,7 +254,7 @@ export function useBusinessCreditsModel({
     } finally {
       setBusy(false);
     }
-  }, [loadReferrals, referralCodeInput, request, setBusy, setNotice]);
+  }, [clearIdempotencyKey, getIdempotencyKey, loadReferrals, referralCodeInput, request, setBusy, setNotice]);
 
   return {
     applyReferral,

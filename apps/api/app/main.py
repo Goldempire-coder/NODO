@@ -122,12 +122,11 @@ def _lifespan(*, settings: Settings, logger):  # type: ignore[no-untyped-def]
             "api_thread_limit_configured",
             extra={"previous_limit": previous_limit, "api_thread_limit": settings.api_thread_limit},
         )
-        if not settings.order_notification_sender_enabled:
-            yield
-            return
-
         async with anyio.create_task_group() as task_group:
-            task_group.start_soon(_order_notification_sender_loop, _app, settings, logger)
+            if settings.order_notification_sender_enabled:
+                task_group.start_soon(_order_notification_sender_loop, _app, settings, logger)
+            if settings.onchain_credit_watcher_enabled:
+                task_group.start_soon(_base_usdc_credit_watcher_loop, _app, settings, logger)
             try:
                 yield
             finally:
@@ -164,6 +163,39 @@ async def _order_notification_sender_loop(app: FastAPI, settings: Settings, logg
                 extra={"event": "order_notification_sender_failed", "error_code": getattr(exc, "code", "INTERNAL_ERROR")},
             )
         await anyio.sleep(settings.order_notification_sender_interval_seconds)
+
+
+async def _base_usdc_credit_watcher_loop(app: FastAPI, settings: Settings, logger) -> None:  # type: ignore[no-untyped-def]
+    await anyio.sleep(2)
+    while True:
+        try:
+            result = await anyio.to_thread.run_sync(
+                lambda: app.state.verify_base_usdc_credit_purchases_worker.run_once(
+                    request_id="scheduler_base_usdc_credit_watcher"
+                )
+            )
+            if result.get("eligible") or result.get("credited") or result.get("errors"):
+                logger.info(
+                    "base_usdc_credit_watcher_finished",
+                    extra={
+                        "event": "base_usdc_credit_watcher_finished",
+                        "scanned": result.get("scanned", 0),
+                        "eligible": result.get("eligible", 0),
+                        "verified_attempts": result.get("verified_attempts", 0),
+                        "credited": result.get("credited", 0),
+                        "under_review": result.get("under_review", 0),
+                        "pending": result.get("pending", 0),
+                        "errors_count": len(result.get("errors", [])),
+                        "rpc_calls": result.get("rpc_calls", 0),
+                    },
+                )
+        except Exception as exc:
+            logger.warning(
+                "base_usdc_credit_watcher_failed",
+                extra={"event": "base_usdc_credit_watcher_failed", "error_code": getattr(exc, "code", "INTERNAL_ERROR")},
+            )
+        await anyio.sleep(settings.onchain_credit_watcher_interval_seconds)
+
 
 def _configure_test_state(app: FastAPI) -> None:
     app.state.user_repository = InMemoryUserRepository()

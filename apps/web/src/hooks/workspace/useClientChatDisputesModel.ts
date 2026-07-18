@@ -4,6 +4,7 @@ import { listOrderMessages, openOrderDispute as openOrderDisputeRequest, sendOrd
 import type { AuthenticatedRequest } from "../../api/client";
 import { CHAT_DISPUTE_COPY } from "../../constants/copy";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
+import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 
 export function useClientChatDisputesModel(state: ClientWorkspaceState & { request: AuthenticatedRequest }) {
@@ -26,6 +27,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     setUploadingChatAttachment,
     setView
   } = state;
+  const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   async function openOrderChat(orderId: string) {
     const startedAt = actionStartedAt();
@@ -81,8 +83,10 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     const startedAt = actionStartedAt();
     recordActionStarted("client_chat_attachment_upload", "order-chat");
     setUploadingChatAttachment(true);
+    const idempotencyScope = `message_attachment_${chatOrderId}`;
     try {
-      const data = await uploadOrderMessageAttachment<any>(request, chatOrderId, file, `message_attachment_${chatOrderId}_${Date.now()}`);
+      const data = await uploadOrderMessageAttachment<any>(request, chatOrderId, file, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, name: file.name, size: file.size }));
+      clearIdempotencyKey(idempotencyScope);
       setChatAttachments((current) => [...current, data.attachment]);
       setNotice("Archivo privado agregado al mensaje. No se muestra ruta interna.");
       recordActionCompleted("client_chat_attachment_upload", "order-chat", startedAt);
@@ -101,11 +105,13 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     const startedAt = actionStartedAt();
     recordActionStarted("client_chat_message_send", "order-chat");
     setSendingChatMessage(true);
+    const idempotencyScope = `message_${chatOrderId}`;
     try {
       await sendOrderMessage(request, chatOrderId, {
         body: chatBody,
         attachment_ids: chatAttachments.map((attachment) => attachment.id)
-      }, `message_${chatOrderId}_${Date.now()}`);
+      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, body: chatBody, attachmentIds: chatAttachments.map((attachment) => attachment.id) }));
+      clearIdempotencyKey(idempotencyScope);
       setChatBody("");
       setChatAttachments([]);
       await refreshChat();
@@ -126,12 +132,14 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     const startedAt = actionStartedAt();
     recordActionStarted("client_order_dispute_open", "order-chat");
     setOpeningOrderDispute(true);
+    const idempotencyScope = `dispute_${chatOrderId}`;
     try {
       await openOrderDisputeRequest(request, chatOrderId, {
         reason: disputeReason,
         description: chatBody || undefined,
         evidence_file_ids: []
-      }, `dispute_${chatOrderId}_${Date.now()}`);
+      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, disputeReason, description: chatBody || undefined }));
+      clearIdempotencyKey(idempotencyScope);
       await refreshChat();
       setNotice("Disputa abierta. La resolucion admin queda para contrato futuro.");
       recordActionCompleted("client_order_dispute_open", "order-chat", startedAt);

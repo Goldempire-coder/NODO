@@ -12,6 +12,7 @@ import {
   adminSupportAttachmentViewUrl
 } from "../../api/support";
 import type { SupportTicket } from "../../types/support";
+import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
 
 export function useAdminSupportModel({
@@ -31,6 +32,7 @@ export function useAdminSupportModel({
   const [supportReply, setSupportReply] = useState("");
   const [supportAssigneeId, setSupportAssigneeId] = useState("");
   const [supportAttachmentUrl, setSupportAttachmentUrl] = useState("");
+  const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   const loadSupportTickets = useCallback(async (filter = supportFilter) => {
     setBusy(true);
@@ -75,8 +77,10 @@ export function useAdminSupportModel({
       return;
     }
     setBusy(true);
+    const idempotencyScope = `admin_support_msg_${selectedSupportTicket.id}`;
     try {
-      await adminSendSupportMessage(request, selectedSupportTicket.id, supportReply);
+      await adminSendSupportMessage(request, selectedSupportTicket.id, supportReply, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body: supportReply }));
+      clearIdempotencyKey(idempotencyScope);
       setSupportReply("");
       await refreshSelected();
       setNotice("");
@@ -85,15 +89,17 @@ export function useAdminSupportModel({
     } finally {
       setBusy(false);
     }
-  }, [refreshSelected, request, selectedSupportTicket, setBusy, setNotice, supportReply]);
+  }, [clearIdempotencyKey, getIdempotencyKey, refreshSelected, request, selectedSupportTicket, setBusy, setNotice, supportReply]);
 
   const assignSupportTicket = useCallback(async (reason: string) => {
     if (!selectedSupportTicket || !supportAssigneeId.trim()) {
       return;
     }
     setBusy(true);
+    const idempotencyScope = `support_assign_${selectedSupportTicket.id}`;
     try {
-      const ticket = await adminAssignSupportTicket(request, selectedSupportTicket.id, supportAssigneeId, reason);
+      const ticket = await adminAssignSupportTicket(request, selectedSupportTicket.id, supportAssigneeId, reason, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, supportAssigneeId, reason }));
+      clearIdempotencyKey(idempotencyScope);
       setSelectedSupportTicket(ticket);
       setNotice("Ticket asignado.");
     } catch (error) {
@@ -101,20 +107,22 @@ export function useAdminSupportModel({
     } finally {
       setBusy(false);
     }
-  }, [request, selectedSupportTicket, setBusy, setNotice, supportAssigneeId]);
+  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setBusy, setNotice, supportAssigneeId]);
 
   const changeSupportStatus = useCallback(async (action: "escalate" | "resolve" | "close", reason: string) => {
     if (!selectedSupportTicket) {
       return;
     }
     setBusy(true);
+    const idempotencyScope = `support_${action}_${selectedSupportTicket.id}`;
     try {
       const methods = {
         escalate: adminEscalateSupportTicket,
         resolve: adminResolveSupportTicket,
         close: adminCloseSupportTicket
       };
-      const ticket = await methods[action](request, selectedSupportTicket.id, reason);
+      const ticket = await methods[action](request, selectedSupportTicket.id, reason, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, action, reason }));
+      clearIdempotencyKey(idempotencyScope);
       setSelectedSupportTicket(ticket);
       setNotice("Ticket actualizado.");
     } catch (error) {
@@ -122,7 +130,7 @@ export function useAdminSupportModel({
     } finally {
       setBusy(false);
     }
-  }, [request, selectedSupportTicket, setBusy, setNotice]);
+  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setBusy, setNotice]);
 
   const openSupportAttachment = useCallback(async (fileId: string, reason: string) => {
     if (!selectedSupportTicket) {

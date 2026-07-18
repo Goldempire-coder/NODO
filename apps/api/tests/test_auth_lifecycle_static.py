@@ -66,6 +66,8 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
 def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() -> None:
     business_model = _read("apps/web/src/hooks/useBusinessMiniAppModel.ts")
     access_model = _read("apps/web/src/hooks/business-mini-app/useBusinessAccessModel.ts")
+    payment_methods_model = _read("apps/web/src/hooks/business-mini-app/useBusinessPaymentMethodsModel.ts")
+    availability_model = _read("apps/web/src/hooks/business-mini-app/useBusinessAvailabilityModel.ts")
     home_summary_model = _read("apps/web/src/hooks/business-mini-app/useBusinessHomeSummaryModel.ts")
     pin_guards = _read("apps/web/src/hooks/business-mini-app/businessPinGuards.ts")
     business_shell = _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
@@ -92,13 +94,13 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "routeBusinessPinError" in ads_model
     assert "routeBusinessPinError" in credits_model
     assert "handleBusinessPinError" in access_model
-    assert 'setView("business-pin")' in access_model
-    assert "pendingPaymentMethodDeleteId" in access_model
-    assert "deletingPaymentMethodId" in access_model
-    assert "queuePaymentMethodDeleteUntilPin" in access_model
-    assert "deletePaymentMethodUnlocked" in access_model
-    assert "await deletePaymentMethodUnlocked(pendingDeleteId)" in access_model
-    assert "await loadPaymentMethods()" in access_model
+    assert 'setView("business-pin")' in pin_guards
+    assert "pendingPaymentMethodDeleteId" in payment_methods_model
+    assert "deletingPaymentMethodId" in payment_methods_model
+    assert "queuePaymentMethodDeleteUntilPin" in payment_methods_model
+    assert "deletePaymentMethodUnlocked" in payment_methods_model
+    assert "await paymentMethods.deletePaymentMethodUnlocked(pendingDeleteId)" in access_model
+    assert "await paymentMethods.loadPaymentMethods()" in access_model
     assert "refreshCreditWallet: credits.refreshCreditWallet" in business_model
     assert "const loadHomeSummary = useCallback" not in business_model
     assert "view !== \"business-dashboard\"" not in business_model
@@ -160,8 +162,8 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "uploadingChatAttachment" in _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
     assert "creatingSupportTicket" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "sendingSupportReply" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
-    assert "business_availability_" in access_model
-    assert "pendingAvailabilityTarget" in access_model
+    assert "business_availability_" in availability_model
+    assert "pendingAvailabilityTarget" in availability_model
     assert "Idempotency-Key" in _read("apps/web/src/api/businesses.ts")
     assert "disabled={busy || !baseUsdcTxHash.trim()}" not in credits_screen
     assert "disabled={verifyingCreditTx || !baseUsdcTxHash.trim()}" in credits_screen
@@ -288,9 +290,11 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     ad_helpers = _read("apps/web/src/screens/business-app/ads/businessAdViewHelpers.ts")
     ad_view_sources = "\n".join((ads_screen, ad_card, ad_detail, ad_helpers))
     ads_model = _read("apps/web/src/hooks/business-mini-app/useBusinessAdsModel.ts")
+    ad_actions_model = _read("apps/web/src/hooks/business-mini-app/useBusinessAdActionsModel.ts")
     ads_api = _read("apps/web/src/api/businessAds.ts")
     business_api = _read("apps/web/src/api/businesses.ts")
-    access_model_updated = _read("apps/web/src/hooks/business-mini-app/useBusinessAccessModel.ts")
+    payment_methods_model = _read("apps/web/src/hooks/business-mini-app/useBusinessPaymentMethodsModel.ts")
+    payment_method_helpers = _read("apps/web/src/hooks/business-mini-app/businessPaymentMethodHelpers.ts")
     business_shell = _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
     globals_css = _read("apps/web/src/app/globals.css")
     pin_screen = _read("apps/web/src/screens/business-app/BusinessPinScreen.tsx")
@@ -314,17 +318,17 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert "Zelle donde recibes" in ads_screen
     assert "routeMethods.map" in ads_screen
     assert "selectAdPaymentType" in ads_screen
-    assert "selectAdPaymentType" in access_model_updated
+    assert "selectAdPaymentType" in payment_methods_model
     assert "Agrega una wallet USDT TRC20 para publicar USDT -> Bs." in ads_screen
     assert "Recibiras {previewAmount} USD y entregaras aprox. Bs." in ads_screen
     assert "Metodos de cobro" in ads_screen
     assert "Estas editando este metodo" in ads_screen
     assert "mini-action-button--danger" in ads_screen
     assert "Borrando..." in ads_screen
-    assert "startPaymentMethodCreate" in access_model_updated
+    assert "startPaymentMethodCreate" in payment_methods_model
     assert "startPaymentMethodCreate" in ads_screen
-    assert "activeBusinessPaymentMethods" in access_model_updated
-    assert 'return current.payment_method_id ? { ...current, payment_method_id: "" } : current;' in access_model_updated
+    assert "activeBusinessPaymentMethods" in payment_methods_model
+    assert 'return current.payment_method_id ? { ...current, payment_method_id: "" } : current;' in payment_methods_model
     assert "Confirmar borrar" in ads_screen
     assert "setConfirmDeleteId(method.id)" in ads_screen
     assert "void deletePaymentMethod(method.id)" in ads_screen
@@ -337,7 +341,7 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert "(borrado)" in ad_helpers
     assert "Edita el anuncio y selecciona un metodo activo para poder reactivarlo." in ad_detail
     assert "Agregar metodo" in ad_detail
-    assert "Ese anuncio usa un metodo de cobro que ya no esta activo. Editalo y selecciona un metodo activo." in ads_model
+    assert "Ese anuncio usa un metodo de cobro que ya no esta activo. Editalo y selecciona un metodo activo." in ad_actions_model
     assert '<div className="business-ad-card__main">' in ad_card
     assert 'onClick={onOpen}>Ver' in ad_card
     assert "disabled={busy} onClick={onOpen}>Ver" not in ad_card
@@ -349,20 +353,20 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert 'if (view === "my-ads")' in business_shell
     assert "deleteAd" in ads_model
     assert "republishAd" in ads_model
-    assert "replaceOwnAd(data.ad)" in ads_model
-    assert "Reactivando anuncio..." in ads_model
-    assert "pausingAdId" in ads_model
-    assert "reactivatingAdId" in ads_model
-    assert "deletingAdId" in ads_model
-    assert "savingAdId" in ads_model
+    assert "replaceOwnAd(data.ad)" in ad_actions_model
+    assert "Reactivando anuncio..." in ad_actions_model
+    assert "pausingAdId" in ad_actions_model
+    assert "reactivatingAdId" in ad_actions_model
+    assert "deletingAdId" in ad_actions_model
+    assert "savingAdId" in ad_actions_model
     assert "loadingScreen" in ads_model
-    assert '"ad_pause"' in ads_model
-    assert '"ad_reactivate"' in ads_model
-    assert '"ad_delete"' in ads_model
-    assert '"ad_republish"' in ads_model
-    assert "recordActionBreadcrumb(telemetryAction" in ads_model
-    assert 'recordActionBreadcrumb("ad_edit"' in ads_model
-    assert 'recordActionBreadcrumb("ad_create"' in ads_model
+    assert '"ad_pause"' in ad_actions_model
+    assert '"ad_reactivate"' in ad_actions_model
+    assert '"ad_delete"' in ad_actions_model
+    assert '"ad_republish"' in ad_actions_model
+    assert "recordActionBreadcrumb(telemetryAction" in ad_actions_model
+    assert 'recordActionBreadcrumb("ad_edit"' in ad_actions_model
+    assert 'recordActionBreadcrumb("ad_create"' in ad_actions_model
     assert "disabled={isReactivating || !canReactivate}" in ad_view_sources
     assert 'disabled={isPausing || status !== "active"}' in ad_view_sources
     assert "disabled={isDeleting || !canDeleteAd(ad)}" in ad_view_sources
@@ -375,16 +379,16 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert "deletingPaymentMethodId" in ads_screen
     assert "window.confirm" not in ads_screen
     assert "window.confirm" not in ad_detail
-    assert "paymentMethodTelemetry" in access_model_updated
-    assert "usdt_wallet_" in access_model_updated
-    assert '"zelle_edit"' in access_model_updated
-    assert '"zelle_add"' in access_model_updated
-    assert "business_payment_method_create" in access_model_updated
-    assert "business_payment_method_update_" in access_model_updated
-    assert "business_payment_method_delete_" in access_model_updated
+    assert "paymentMethodTelemetry" in payment_method_helpers
+    assert "usdt_wallet_" in payment_method_helpers
+    assert '"zelle_edit"' in payment_method_helpers
+    assert '"zelle_add"' in payment_method_helpers
+    assert "business_payment_method_create" in payment_methods_model
+    assert "business_payment_method_update_" in payment_methods_model
+    assert "business_payment_method_delete_" in payment_methods_model
     assert "`business_payment_method_${Date.now()}`" not in business_api
-    assert "recordActionBreadcrumb(telemetryAction" in access_model_updated
-    assert "await refreshCreditWallet();" in ads_model
+    assert "recordActionBreadcrumb(telemetryAction" in payment_methods_model
+    assert "await refreshCreditWallet();" in ad_actions_model
     assert 'ad.status !== "paused"' not in ad_view_sources
     assert 'ad.status !== "active"' not in ad_view_sources
     assert "refreshCreditWallet" in ads_model

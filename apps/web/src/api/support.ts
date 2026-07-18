@@ -6,12 +6,12 @@ export type SupportListResponse = {
   next_cursor: string | null;
 };
 
-export async function createSupportTicket(request: AuthenticatedRequest, input: SupportTicketCreateInput): Promise<SupportTicket> {
+export async function createSupportTicket(request: AuthenticatedRequest, input: SupportTicketCreateInput, idempotencyKey: string): Promise<SupportTicket> {
   return request<SupportTicket>("/api/v1/support/tickets", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Idempotency-Key": `support_ticket_${Date.now()}`
+      "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify(input)
   });
@@ -25,24 +25,24 @@ export async function getSupportTicket(request: AuthenticatedRequest, ticketId: 
   return request<SupportTicket>(`/api/v1/support/tickets/${ticketId}`);
 }
 
-export async function sendSupportMessage(request: AuthenticatedRequest, ticketId: string, body: string): Promise<{ message: unknown; ticket: SupportTicket }> {
+export async function sendSupportMessage(request: AuthenticatedRequest, ticketId: string, body: string, idempotencyKey: string): Promise<{ message: unknown; ticket: SupportTicket }> {
   return request(`/api/v1/support/tickets/${ticketId}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Idempotency-Key": `support_msg_${ticketId}_${Date.now()}`
+      "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({ body })
   });
 }
 
-export async function uploadSupportAttachment(request: AuthenticatedRequest, ticketId: string, file: File): Promise<unknown> {
+export async function uploadSupportAttachment(request: AuthenticatedRequest, ticketId: string, file: File, idempotencyKey: string): Promise<unknown> {
   const data = new FormData();
   data.append("file", file);
   return request(`/api/v1/support/tickets/${ticketId}/attachments`, {
     method: "POST",
     headers: {
-      "Idempotency-Key": `support_file_${ticketId}_${Date.now()}`
+      "Idempotency-Key": idempotencyKey
     },
     body: data
   });
@@ -56,56 +56,56 @@ export async function adminGetSupportTicket(request: AuthenticatedRequest, ticke
   return request<SupportTicket>(`/api/v1/admin/support/tickets/${ticketId}`);
 }
 
-export async function adminSendSupportMessage(request: AuthenticatedRequest, ticketId: string, body: string): Promise<unknown> {
+export async function adminSendSupportMessage(request: AuthenticatedRequest, ticketId: string, body: string, idempotencyKey: string): Promise<unknown> {
   return request(`/api/v1/admin/support/tickets/${ticketId}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Idempotency-Key": `admin_support_msg_${ticketId}_${Date.now()}`
+      "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({ body, visibility: "participants" })
   });
 }
 
-export async function adminAssignSupportTicket(request: AuthenticatedRequest, ticketId: string, assignedSupportUserId: string, reason: string): Promise<SupportTicket> {
+export async function adminAssignSupportTicket(request: AuthenticatedRequest, ticketId: string, assignedSupportUserId: string, reason: string, idempotencyKey: string): Promise<SupportTicket> {
   return request<SupportTicket>(`/api/v1/admin/support/tickets/${ticketId}/assign`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Idempotency-Key": `support_assign_${ticketId}_${Date.now()}`
+      "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({ assigned_support_user_id: assignedSupportUserId, reason })
   });
 }
 
-export async function adminEscalateSupportTicket(request: AuthenticatedRequest, ticketId: string, reason: string): Promise<SupportTicket> {
+export async function adminEscalateSupportTicket(request: AuthenticatedRequest, ticketId: string, reason: string, idempotencyKey: string): Promise<SupportTicket> {
   return request<SupportTicket>(`/api/v1/admin/support/tickets/${ticketId}/escalate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Idempotency-Key": `support_escalate_${ticketId}_${Date.now()}`
+      "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({ reason })
   });
 }
 
-export async function adminResolveSupportTicket(request: AuthenticatedRequest, ticketId: string, reason: string): Promise<SupportTicket> {
+export async function adminResolveSupportTicket(request: AuthenticatedRequest, ticketId: string, reason: string, idempotencyKey: string): Promise<SupportTicket> {
   return request<SupportTicket>(`/api/v1/admin/support/tickets/${ticketId}/resolve`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Idempotency-Key": `support_resolve_${ticketId}_${Date.now()}`
+      "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({ reason })
   });
 }
 
-export async function adminCloseSupportTicket(request: AuthenticatedRequest, ticketId: string, reason: string): Promise<SupportTicket> {
+export async function adminCloseSupportTicket(request: AuthenticatedRequest, ticketId: string, reason: string, idempotencyKey: string): Promise<SupportTicket> {
   return request<SupportTicket>(`/api/v1/admin/support/tickets/${ticketId}/close`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Idempotency-Key": `support_close_${ticketId}_${Date.now()}`
+      "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({ reason })
   });

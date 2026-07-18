@@ -5,7 +5,7 @@ import type { BusinessMiniAppView } from "../../constants/businessViews";
 import { notifyTelegram } from "../../theme/telegramTheme";
 import type { BusinessOrderDetail, BusinessOrderSummary } from "../../types/orders";
 import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
-import { idempotencyKey } from "./helpers";
+import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 
 type OrderSnapshot = Map<string, string>;
 
@@ -57,6 +57,7 @@ export function useBusinessOrdersModel({
   const [businessOrderAction, setBusinessOrderAction] = useState<"confirm-payment" | "reject-payment-report" | "mark-delivered" | null>(null);
   const businessOrdersSnapshotRef = useRef<OrderSnapshot>(new Map());
   const businessOrdersWatchReadyRef = useRef(false);
+  const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   const loadBusinessOrders = useCallback(async (status?: string) => {
     const requestedStatus = status || "open";
@@ -144,8 +145,16 @@ export function useBusinessOrdersModel({
     const telemetryAction = action === "confirm-payment" ? "business_order_confirm_payment" : action === "mark-delivered" ? "business_order_mark_delivered" : "business_order_reject_payment_report";
     const startedAt = actionStartedAt();
     recordBusinessActionStarted(telemetryAction, "business-order-detail");
+    const idempotencyScope = `business_order_${action}_${businessOrderDetail.order.id}`;
     try {
-      await mutateBusinessOrderRequest(request, businessOrderDetail.order.id, action, businessOrderReason || undefined, idempotencyKey(`business_order_${action}_${businessOrderDetail.order.id}`));
+      await mutateBusinessOrderRequest(
+        request,
+        businessOrderDetail.order.id,
+        action,
+        businessOrderReason || undefined,
+        getIdempotencyKey(idempotencyScope, { orderId: businessOrderDetail.order.id, action, reason: businessOrderReason || undefined })
+      );
+      clearIdempotencyKey(idempotencyScope);
       const data = await getBusinessOrder<BusinessOrderDetail>(request, businessOrderDetail.order.id);
       setBusinessOrderDetail(data);
       setBusinessOrderReason("");
@@ -157,7 +166,7 @@ export function useBusinessOrdersModel({
     } finally {
       setBusinessOrderAction(null);
     }
-  }, [businessOrderDetail, businessOrderReason, request, setNotice]);
+  }, [businessOrderDetail, businessOrderReason, clearIdempotencyKey, getIdempotencyKey, request, setNotice]);
 
   return {
     businessOrderAction,

@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from "../../api/client";
 import { cancelRemitterOrder, createRemitterOrder, extendPaymentDeadline, getOrder, listMyOrders } from "../../api/orders";
 import type { OrderSummary } from "../../types/orders";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
+import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 
 type RemitterOrdersState = Pick<
@@ -38,6 +39,7 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     setView
   } = state;
   const ordersCacheRef = useRef<{ items: OrderSummary[]; loadedAt: number } | null>(null);
+  const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   function rememberOrder(order: OrderSummary) {
     ordersCacheRef.current = {
@@ -56,6 +58,7 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     recordActionStarted("client_order_create", "create-order");
     setCreatingOrder(true);
     setNotice("Preparando tu orden");
+    const idempotencyScope = `order_create_${selectedAd.id}`;
     try {
       const data = await createRemitterOrder<{ order: OrderSummary }>(
         request,
@@ -69,8 +72,9 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
             holder: orderForm.holder
           }
         },
-        `order_create_${selectedAd.id}_${Date.now()}`
+        getIdempotencyKey(idempotencyScope, { ad_id: selectedAd.id, ...orderForm })
       );
+      clearIdempotencyKey(idempotencyScope);
       setSelectedOrder(data.order);
       rememberOrder(data.order);
       setView("order-summary");
@@ -141,8 +145,10 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     const startedAt = actionStartedAt();
     recordActionStarted("client_order_extend", "order-summary");
     setExtendingOrderId(orderId);
+    const idempotencyScope = `order_extend_${orderId}`;
     try {
-      const data = await extendPaymentDeadline<{ order: OrderSummary }>(request, orderId, "Necesito unos minutos mas", `order_extend_${orderId}_${Date.now()}`);
+      const data = await extendPaymentDeadline<{ order: OrderSummary }>(request, orderId, "Necesito unos minutos mas", getIdempotencyKey(idempotencyScope, { orderId, reason: "Necesito unos minutos mas" }));
+      clearIdempotencyKey(idempotencyScope);
       setSelectedOrder(data.order);
       rememberOrder(data.order);
       setNotice("Tiempo extendido una vez.");
@@ -159,8 +165,10 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     const startedAt = actionStartedAt();
     recordActionStarted("client_order_cancel", "order-summary");
     setCancellingOrderId(orderId);
+    const idempotencyScope = `order_cancel_${orderId}`;
     try {
-      const data = await cancelRemitterOrder<{ order: OrderSummary }>(request, orderId, "No pude realizar el pago", `order_cancel_${orderId}_${Date.now()}`);
+      const data = await cancelRemitterOrder<{ order: OrderSummary }>(request, orderId, "No pude realizar el pago", getIdempotencyKey(idempotencyScope, { orderId, reason: "No pude realizar el pago" }));
+      clearIdempotencyKey(idempotencyScope);
       setSelectedOrder(data.order);
       rememberOrder(data.order);
       setNotice("Orden cancelada.");

@@ -51,6 +51,8 @@ class Settings:
     nodo_credit_receiving_wallet_base: str | None
     onchain_credit_min_confirmations: int
     onchain_credit_purchase_ttl_minutes: int
+    onchain_credit_watcher_enabled: bool
+    onchain_credit_watcher_interval_seconds: int
     onchain_credit_watcher_batch_size: int
     onchain_credit_watcher_timeout_seconds: int
     legacy_credit_payment_methods_enabled: bool
@@ -143,6 +145,16 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         nodo_credit_receiving_wallet_base=source.get("NODO_CREDIT_RECEIVING_WALLET_BASE") or None,
         onchain_credit_min_confirmations=_read_int(source, "ONCHAIN_CREDIT_MIN_CONFIRMATIONS", 6),
         onchain_credit_purchase_ttl_minutes=_read_int(source, "ONCHAIN_CREDIT_PURCHASE_TTL_MINUTES", 30),
+        onchain_credit_watcher_enabled=_read_bool(
+            source,
+            "ONCHAIN_CREDIT_WATCHER_ENABLED",
+            bool(
+                source.get("APP_ENV") != "test"
+                and source.get("BASE_RPC_URL")
+                and source.get("NODO_CREDIT_RECEIVING_WALLET_BASE")
+            ),
+        ),
+        onchain_credit_watcher_interval_seconds=_read_int(source, "ONCHAIN_CREDIT_WATCHER_INTERVAL_SECONDS", 30),
         onchain_credit_watcher_batch_size=_read_int(source, "ONCHAIN_CREDIT_WATCHER_BATCH_SIZE", 50),
         onchain_credit_watcher_timeout_seconds=_read_int(source, "ONCHAIN_CREDIT_WATCHER_TIMEOUT_SECONDS", 10),
         legacy_credit_payment_methods_enabled=_read_bool(source, "LEGACY_CREDIT_PAYMENT_METHODS_ENABLED", False),

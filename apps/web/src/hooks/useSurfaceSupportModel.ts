@@ -5,6 +5,7 @@ import { createSupportTicket, getSupportTicket, listSupportTickets, sendSupportM
 import type { SupportTicket, SupportTicketCategory, SupportTicketCreateInput, SupportTicketScope } from "../types/support";
 import type { AuthenticatedRequest } from "../api/client";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "./actionTelemetry";
+import { useStableIdempotencyKeys } from "./useStableIdempotencyKeys";
 
 const DEFAULT_CATEGORY: SupportTicketCategory = "technical_issue";
 
@@ -32,6 +33,7 @@ export function useSurfaceSupportModel({
   const [openingSupportTicketId, setOpeningSupportTicketId] = useState<string | null>(null);
   const [sendingSupportReply, setSendingSupportReply] = useState(false);
   const [uploadingSupportAttachment, setUploadingSupportAttachment] = useState(false);
+  const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   const loadSupportTickets = useCallback(async () => {
     const startedAt = actionStartedAt();
@@ -71,8 +73,11 @@ export function useSurfaceSupportModel({
     const startedAt = actionStartedAt();
     recordActionStarted("support_ticket_create", "support");
     setCreatingSupportTicket(true);
+    const payload = { ...supportForm, ...(input || {}) };
+    const idempotencyScope = `support_ticket_${payload.scope}`;
     try {
-      const ticket = await createSupportTicket(request, { ...supportForm, ...(input || {}) });
+      const ticket = await createSupportTicket(request, payload, getIdempotencyKey(idempotencyScope, payload));
+      clearIdempotencyKey(idempotencyScope);
       setSelectedSupportTicket(ticket);
       setSupportTickets((current) => [ticket, ...current.filter((item) => item.id !== ticket.id)]);
       setSupportForm((current) => ({ ...current, subject: "", message: "" }));
@@ -84,7 +89,7 @@ export function useSurfaceSupportModel({
     } finally {
       setCreatingSupportTicket(false);
     }
-  }, [request, setNotice, supportForm]);
+  }, [clearIdempotencyKey, getIdempotencyKey, request, setNotice, supportForm]);
 
   const submitSupportReply = useCallback(async () => {
     if (!selectedSupportTicket || !supportReply.trim()) {
@@ -93,8 +98,10 @@ export function useSurfaceSupportModel({
     const startedAt = actionStartedAt();
     recordActionStarted("support_reply_send", "support");
     setSendingSupportReply(true);
+    const idempotencyScope = `support_msg_${selectedSupportTicket.id}`;
     try {
-      await sendSupportMessage(request, selectedSupportTicket.id, supportReply);
+      await sendSupportMessage(request, selectedSupportTicket.id, supportReply, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body: supportReply }));
+      clearIdempotencyKey(idempotencyScope);
       const ticket = await getSupportTicket(request, selectedSupportTicket.id);
       setSelectedSupportTicket(ticket);
       setSupportReply("");
@@ -106,7 +113,7 @@ export function useSurfaceSupportModel({
     } finally {
       setSendingSupportReply(false);
     }
-  }, [request, selectedSupportTicket, setNotice, supportReply]);
+  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setNotice, supportReply]);
 
   const uploadTicketAttachment = useCallback(async (file: File | null) => {
     if (!selectedSupportTicket || !file) {
@@ -115,8 +122,10 @@ export function useSurfaceSupportModel({
     const startedAt = actionStartedAt();
     recordActionStarted("support_attachment_upload", "support");
     setUploadingSupportAttachment(true);
+    const idempotencyScope = `support_file_${selectedSupportTicket.id}`;
     try {
-      await uploadSupportAttachment(request, selectedSupportTicket.id, file);
+      await uploadSupportAttachment(request, selectedSupportTicket.id, file, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, name: file.name, size: file.size }));
+      clearIdempotencyKey(idempotencyScope);
       const ticket = await getSupportTicket(request, selectedSupportTicket.id);
       setSelectedSupportTicket(ticket);
       setNotice("Adjunto guardado de forma privada.");
@@ -127,7 +136,7 @@ export function useSurfaceSupportModel({
     } finally {
       setUploadingSupportAttachment(false);
     }
-  }, [request, selectedSupportTicket, setNotice]);
+  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setNotice]);
 
   const setSupportScope = useCallback((scope: SupportTicketScope) => {
     setSupportForm((current) => ({ ...current, scope }));

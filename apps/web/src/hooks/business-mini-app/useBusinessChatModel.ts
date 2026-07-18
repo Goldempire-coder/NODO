@@ -3,7 +3,7 @@ import { listOrderMessages, openOrderDispute as openOrderDisputeRequest, sendOrd
 import type { AuthenticatedRequest } from "../../api/client";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
 import type { ChatAttachment, ChatCapabilities, ChatMessage } from "../../types/chat";
-import { idempotencyKey } from "./helpers";
+import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 
 export function useBusinessChatModel({
   request,
@@ -26,6 +26,7 @@ export function useBusinessChatModel({
   const [refreshingChat, setRefreshingChat] = useState(false);
   const [sendingChatMessage, setSendingChatMessage] = useState(false);
   const [uploadingChatAttachment, setUploadingChatAttachment] = useState(false);
+  const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   const openBusinessChat = useCallback(async (orderId: string) => {
     setBusy(true);
@@ -71,8 +72,10 @@ export function useBusinessChatModel({
       return;
     }
     setUploadingChatAttachment(true);
+    const idempotencyScope = `message_attachment_${chatOrderId}`;
     try {
-      const data = await uploadOrderMessageAttachment<{ attachment: ChatAttachment }>(request, chatOrderId, file, idempotencyKey(`message_attachment_${chatOrderId}`));
+      const data = await uploadOrderMessageAttachment<{ attachment: ChatAttachment }>(request, chatOrderId, file, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, name: file.name, size: file.size }));
+      clearIdempotencyKey(idempotencyScope);
       setChatAttachments((current) => [...current, data.attachment]);
       setNotice("Archivo privado agregado al mensaje.");
     } catch (error) {
@@ -80,18 +83,20 @@ export function useBusinessChatModel({
     } finally {
       setUploadingChatAttachment(false);
     }
-  }, [chatOrderId, request, setNotice]);
+  }, [chatOrderId, clearIdempotencyKey, getIdempotencyKey, request, setNotice]);
 
   const sendChatMessage = useCallback(async () => {
     if (!chatOrderId) {
       return;
     }
     setSendingChatMessage(true);
+    const idempotencyScope = `message_${chatOrderId}`;
     try {
       await sendOrderMessage(request, chatOrderId, {
         body: chatBody,
         attachment_ids: chatAttachments.map((attachment) => attachment.id)
-      }, idempotencyKey(`message_${chatOrderId}`));
+      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, body: chatBody, attachmentIds: chatAttachments.map((attachment) => attachment.id) }));
+      clearIdempotencyKey(idempotencyScope);
       setChatBody("");
       setChatAttachments([]);
       await refreshChat();
@@ -101,19 +106,21 @@ export function useBusinessChatModel({
     } finally {
       setSendingChatMessage(false);
     }
-  }, [chatAttachments, chatBody, chatOrderId, refreshChat, request, setNotice]);
+  }, [chatAttachments, chatBody, chatOrderId, clearIdempotencyKey, getIdempotencyKey, refreshChat, request, setNotice]);
 
   const openOrderDispute = useCallback(async () => {
     if (!chatOrderId) {
       return;
     }
     setOpeningOrderDispute(true);
+    const idempotencyScope = `dispute_${chatOrderId}`;
     try {
       await openOrderDisputeRequest(request, chatOrderId, {
         reason: disputeReason,
         description: chatBody || undefined,
         evidence_file_ids: []
-      }, idempotencyKey(`dispute_${chatOrderId}`));
+      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, disputeReason, description: chatBody || undefined }));
+      clearIdempotencyKey(idempotencyScope);
       await refreshChat();
       setNotice("Caso abierto para revision de NODO.");
     } catch (error) {
@@ -121,7 +128,7 @@ export function useBusinessChatModel({
     } finally {
       setOpeningOrderDispute(false);
     }
-  }, [chatBody, chatOrderId, disputeReason, refreshChat, request, setNotice]);
+  }, [chatBody, chatOrderId, clearIdempotencyKey, disputeReason, getIdempotencyKey, refreshChat, request, setNotice]);
 
   return {
     chatAttachments,

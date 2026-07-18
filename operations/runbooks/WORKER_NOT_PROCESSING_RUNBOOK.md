@@ -18,11 +18,19 @@ SEV-2; SEV-1 si afecta creditos.
   # requiere JWT admin
   # POST /api/v1/admin/jobs/expire-and-escalate-orders/dry-run
   ```
-- Revisar watcher Base USDC logs/result si existe runner.
+- Revisar watcher Base USDC:
+  - `base_usdc_credit_watcher_finished`
+  - `base_usdc_credit_watcher_failed`
+  - env `ONCHAIN_CREDIT_WATCHER_ENABLED`
+  - env `BASE_RPC_URL`
+  - env `NODO_CREDIT_RECEIVING_WALLET_BASE`
+  - compras `pending_payment` o `pending_onchain_confirmation` con `tx_hash`.
 
 ## GAPS
 
-No hay scheduler/runner operativo versionado para `verify_base_usdc_credit_purchases_worker`.
+- El scheduler Base USDC existe dentro del API runtime.
+- Falta prueba provider/staging con una transaccion controlada.
+- Falta alerta real conectada a `base_usdc_credit_watcher_failed` o backlog/edad de compras pendientes.
 
 ## PROHIBICIONES
 
