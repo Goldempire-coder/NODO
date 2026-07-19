@@ -14,6 +14,7 @@ from app.modules.businesses.models import BusinessAccessLinkRecord, BusinessReco
 from app.modules.businesses.pin_security import hash_pin, verify_pin
 from app.modules.businesses.presenters import business_payload, mask_account, payment_method_display
 from app.modules.businesses.schemas import BusinessAvailabilityUpdateRequest, BusinessOwnPaymentMethodCreateRequest, BusinessOwnPaymentMethodUpdateRequest, BusinessPinSetupRequest, BusinessPinVerifyRequest
+from app.modules.notifications.business_access_notifications import NoopBusinessAccessNotificationService
 from app.modules.notifications.business_status_notifications import NoopBusinessStatusNotificationService
 from app.modules.users.models import UserRecord
 
@@ -24,7 +25,7 @@ TRON_BASE58_ALPHABET = set("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrst
 
 
 class BusinessService(BusinessAccessLinkServiceMixin, BusinessAdminReviewServiceMixin):
-    def __init__(self, *, settings: Settings, repository, user_repository, audit_writer, rate_limiter, idempotency_store, storage, marketplace_cache=None, business_status_notifications=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, settings: Settings, repository, user_repository, audit_writer, rate_limiter, idempotency_store, storage, marketplace_cache=None, business_status_notifications=None, business_access_notifications=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
         self._users = user_repository
@@ -34,6 +35,7 @@ class BusinessService(BusinessAccessLinkServiceMixin, BusinessAdminReviewService
         self._storage = storage
         self._marketplace_cache = marketplace_cache
         self._business_status_notifications = business_status_notifications or NoopBusinessStatusNotificationService()
+        self._business_access_notifications = business_access_notifications or NoopBusinessAccessNotificationService()
 
     def _rate_limit(self, action: str, user: UserRecord) -> None:
         key = f"business:{action}:{user.id}"

@@ -5,6 +5,7 @@ from fastapi import Request
 from app.core.errors import ApiError
 from app.modules.businesses.legacy_onboarding_service import LegacyBusinessOnboardingService
 from app.modules.businesses.service import BusinessService
+from app.modules.notifications.business_access_notifications import BusinessAccessNotificationService
 from app.modules.notifications.business_status_notifications import BusinessStatusNotificationService
 
 TEST_FIXTURE_BUSINESS_CREATE_HEADER = "x-nodo-test-fixture"
@@ -20,6 +21,10 @@ def business_service(request: Request) -> BusinessService:
         settings=request.app.state.settings,
         job_repository=request.app.state.job_repository,
     )
+    business_access_notifications = BusinessAccessNotificationService(
+        settings=request.app.state.settings,
+        job_repository=request.app.state.job_repository,
+    )
     return BusinessService(
         settings=request.app.state.settings,
         repository=request.app.state.business_repository,
@@ -30,6 +35,7 @@ def business_service(request: Request) -> BusinessService:
         storage=request.app.state.private_storage,
         marketplace_cache=getattr(request.app.state, "marketplace_cache", None),
         business_status_notifications=business_status_notifications,
+        business_access_notifications=business_access_notifications,
     )
 
 

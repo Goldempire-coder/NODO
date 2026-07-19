@@ -144,6 +144,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
     credits_api = _read("apps/web/src/api/credits.ts")
     surface_api = _read("apps/web/src/api/surface.ts")
+    business_helpers = _read("apps/web/src/hooks/business-mini-app/helpers.ts")
 
     assert "useBusinessAccessModel" in business_model
     assert "acceptBusinessTerms" in business_model
@@ -188,6 +189,11 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "Zelle / USDT" in business_dashboard
     assert 'cache: "no-store"' in credits_api
     assert "getBusinessSurfaceSession" in access_model
+    assert "businessAccessNoticeFromError" in access_model
+    assert "error instanceof Error ? error.message" not in access_model.split("const loadBusinessProfile = useCallback", 1)[1].split("const refreshBusinessAfterPin", 1)[0]
+    assert "BUSINESS_ACCESS_SUSPENDED: \"Tu acceso al negocio esta suspendido.\"" in business_helpers
+    assert "BUSINESS_ACCESS_BLOCKED: \"Tu acceso al negocio esta bloqueado.\"" in business_helpers
+    assert "BUSINESS_ACCESS_REVOKED: \"Este Telegram ya no esta vinculado al negocio.\"" in business_helpers
     assert "const openHome = () =>" in business_shell
     assert 'if (view === "business-dashboard")' not in business_shell
     assert 'if (busy || view === "business-dashboard")' not in business_shell

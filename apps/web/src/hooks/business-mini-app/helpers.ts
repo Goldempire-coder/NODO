@@ -66,6 +66,25 @@ export function accessStateFromError(error: unknown): BusinessAccessState {
   return map[error.code] || "error";
 }
 
+export function businessAccessNoticeFromError(error: unknown): string {
+  if (!(error instanceof ApiClientError)) {
+    return "No pudimos validar el acceso del negocio.";
+  }
+  const map: Record<string, string> = {
+    BUSINESS_ACCESS_SUSPENDED: "Tu acceso al negocio esta suspendido.",
+    BUSINESS_ACCESS_BLOCKED: "Tu acceso al negocio esta bloqueado.",
+    BUSINESS_ACCESS_REVOKED: "Este Telegram ya no esta vinculado al negocio.",
+    BUSINESS_SUSPENDED: "El negocio esta suspendido temporalmente.",
+    BUSINESS_BLOCKED: "El negocio esta bloqueado.",
+    BUSINESS_NOT_APPROVED: "Tu negocio todavia esta en revision.",
+    BUSINESS_ACCESS_LINK_REQUIRED: "Este Telegram no tiene un negocio aprobado asociado.",
+    USER_NOT_ACTIVE: "Tu cuenta no esta activa en este momento.",
+    USER_BLOCKED: "Tu cuenta esta bloqueada.",
+    SURFACE_ACCESS_DENIED: "Este Telegram no tiene acceso a NODO Negocio."
+  };
+  return map[error.code] || "No pudimos validar el acceso del negocio.";
+}
+
 export function humanizeOrderStatus(status: string) {
   const labels: Record<string, string> = {
     waiting_payment: "Esperando pago",

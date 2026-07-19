@@ -321,6 +321,72 @@ def test_admin_business_status_lifecycle_controls_business_surface_access() -> N
         assert "confirmed business abuse" not in notification.metadata_json["message_text"]
 
 
+def test_admin_business_access_link_status_lifecycle_notifies_owner_and_controls_surface_access() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    admin = _make_admin(client, 20241, "admin")
+    owner = _login(client, 20242, "owner_access_link_status")
+    business = _approved_business(client, owner)
+    link = _link_business(client, admin, business, owner)
+
+    allowed = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_access_link_surface_allowed"))
+    suspended = client.post(
+        f"/api/v1/admin/businesses/{business['id']}/access-links/{link['id']}/suspend",
+        headers={**_headers(admin, "suspend_access_link"), "Content-Type": "application/json"},
+        json={"reason": "temporary access review"},
+    )
+    denied_suspended = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_access_link_surface_suspended"))
+    reactivated = client.post(
+        f"/api/v1/admin/businesses/{business['id']}/access-links/{link['id']}/reactivate",
+        headers={**_headers(admin, "reactivate_access_link"), "Content-Type": "application/json"},
+        json={"reason": "access review completed"},
+    )
+    allowed_again = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_access_link_surface_reactivated"))
+    blocked = client.post(
+        f"/api/v1/admin/businesses/{business['id']}/access-links/{link['id']}/block",
+        headers={**_headers(admin, "block_access_link"), "Content-Type": "application/json"},
+        json={"reason": "confirmed access abuse"},
+    )
+    denied_blocked = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_access_link_surface_blocked"))
+
+    assert allowed.status_code == 200, allowed.text
+    assert suspended.status_code == 200, suspended.text
+    assert suspended.json()["data"]["access_link"]["status"] == "suspended"
+    assert denied_suspended.status_code == 403
+    assert denied_suspended.json()["error"]["code"] == "BUSINESS_ACCESS_SUSPENDED"
+    assert reactivated.status_code == 200, reactivated.text
+    assert reactivated.json()["data"]["access_link"]["status"] == "active"
+    assert allowed_again.status_code == 200, allowed_again.text
+    assert blocked.status_code == 200, blocked.text
+    assert blocked.json()["data"]["access_link"]["status"] == "blocked"
+    assert denied_blocked.status_code == 403
+    assert denied_blocked.json()["error"]["code"] == "BUSINESS_ACCESS_BLOCKED"
+    assert {"business_access_suspended", "business_access_reactivated", "business_access_blocked"}.issubset(set(_event_types(client)))
+
+    suspended_notifications = _notifications_by_type(client, "business_access_suspended_owner")
+    reactivated_notifications = _notifications_by_type(client, "business_access_reactivated_owner")
+    blocked_notifications = _notifications_by_type(client, "business_access_blocked_owner")
+    assert len(suspended_notifications) == 1
+    assert len(reactivated_notifications) == 1
+    assert len(blocked_notifications) == 1
+
+    for notification, expected_text in [
+        (suspended_notifications[0], "suspendido"),
+        (reactivated_notifications[0], "reactivado"),
+        (blocked_notifications[0], "bloqueado"),
+    ]:
+        assert notification.recipient_user_id == owner["user"]["id"]
+        assert notification.business_id == business["id"]
+        assert notification.order_id is None
+        assert notification.status == "pending"
+        assert notification.metadata_json["channel"] == "telegram"
+        assert notification.metadata_json["target_surface"] == "business_mini_app"
+        assert notification.metadata_json["action_text"] == "Abrir NODO Negocio"
+        assert notification.metadata_json["action_url"].endswith("/business/")
+        assert expected_text in notification.metadata_json["message_text"]
+        assert "temporary access review" not in notification.metadata_json["message_text"]
+        assert "confirmed access abuse" not in notification.metadata_json["message_text"]
+
+
 def test_admin_user_status_change_invalidates_auth_user_cache() -> None:
     from app.shared.cache import InMemoryTTLCache
 

@@ -6,7 +6,7 @@ import type { BusinessMiniAppView } from "../../constants/businessViews";
 import type { AdFormState } from "../../types/ads";
 import type { BusinessSummary } from "../../types/business";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
-import { accessStateFromError, type BusinessAccessState } from "./helpers";
+import { accessStateFromError, businessAccessNoticeFromError, type BusinessAccessState } from "./helpers";
 import { useBusinessAvailabilityModel } from "./useBusinessAvailabilityModel";
 import { useBusinessPaymentMethodsModel } from "./useBusinessPaymentMethodsModel";
 
@@ -72,7 +72,7 @@ export function useBusinessAccessModel({
     } catch (error) {
       setBusiness(null);
       setAccessState(accessStateFromError(error));
-      setNotice(error instanceof Error ? error.message : "No pudimos validar el acceso del negocio.");
+      setNotice(businessAccessNoticeFromError(error));
     } finally {
       setBusy(false);
     }

@@ -132,9 +132,18 @@ class BusinessAccessLinkServiceMixin:
         reason: str,
         request_id: str,
     ) -> dict[str, Any]:
+        previous_status = link.status
         updated = self._repository.set_access_link_status(link=link, status=status, reason=reason)  # type: ignore[attr-defined]
         event_type = event_type_for_access_link_status(status)
         self._audit_access_link_event(event_type=event_type, user=user, link=updated, business=business, target_user_id=updated.user_id, reason=reason, request_id=request_id)
+        target = self._users.get_user_by_id(updated.user_id)  # type: ignore[attr-defined]
+        self._business_access_notifications.access_link_status_changed(  # type: ignore[attr-defined]
+            business=business,
+            link=updated,
+            target=target,
+            previous_status=previous_status,
+            request_id=request_id,
+        )
         return {"access_link": access_link_payload(updated)}
 
     def _audit_access_link_event(

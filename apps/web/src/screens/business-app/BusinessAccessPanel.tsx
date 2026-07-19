@@ -22,17 +22,17 @@ export function BusinessAccessPanel({ model }: { model: BusinessMiniAppModel }) 
     business_suspended: {
       label: "Pausado",
       title: "Negocio suspendido",
-      body: "El acceso operativo esta pausado temporalmente. Contacta a NODO."
+      body: "NODO pauso temporalmente este negocio. Te avisaremos por Telegram cuando cambie el estado."
     },
     business_blocked: {
       label: "Bloqueado",
       title: "Acceso bloqueado",
-      body: "Este negocio no puede operar desde la app en este momento."
+      body: "Este negocio no puede operar desde la app. Contacta a NODO si crees que es un error."
     },
     link_suspended: {
       label: "Pausado",
       title: "Acceso suspendido",
-      body: "Tu acceso personal al negocio esta pausado temporalmente."
+      body: "NODO pauso temporalmente tu acceso a este negocio. Te avisaremos por Telegram cuando cambie el estado."
     },
     link_revoked: {
       label: "Sin acceso",
@@ -42,7 +42,7 @@ export function BusinessAccessPanel({ model }: { model: BusinessMiniAppModel }) 
     link_blocked: {
       label: "Bloqueado",
       title: "Acceso bloqueado",
-      body: "Tu acceso personal al espacio negocio esta bloqueado."
+      body: "Tu acceso personal al espacio negocio esta bloqueado. Contacta a NODO si crees que es un error."
     },
     user_not_active: {
       label: "No disponible",
