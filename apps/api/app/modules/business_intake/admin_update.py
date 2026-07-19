@@ -7,6 +7,7 @@ from app.modules.business_intake.conversation_validation import (
     clean_text,
     normalize_methods,
     normalize_operation,
+    normalize_social_references,
     split_clean_list,
     validated_amount_range,
     validated_positive_amount,
@@ -81,7 +82,7 @@ class BusinessIntakeAdminUpdateMixin:
         if provided.get("banks") is not None:
             updates["banks_json"] = split_clean_list(", ".join(provided["banks"] or []))
         if provided.get("references") is not None:
-            updates["references_json"] = split_clean_list(", ".join(provided["references"] or []))
+            updates["references_json"] = normalize_social_references(", ".join(provided["references"] or []))
         if "min_amount_usd" in provided or "max_amount_usd" in provided:
             min_candidate = provided.get("min_amount_usd") or updates.get("min_amount_usd") or current.min_amount_usd
             max_candidate = provided.get("max_amount_usd") or updates.get("max_amount_usd") or current.max_amount_usd

@@ -234,9 +234,6 @@ def _drive_conversation_to_documents(
         "both",
         "Mercantil, Banesco",
         "zelle, usdt_trc20",
-        "20",
-        "500",
-        "Lunes a viernes 9am a 6pm",
         "@referenciauno, @referenciados",
     ]
     for offset, answer in enumerate(answers, start=1):
@@ -357,20 +354,23 @@ def test_contact_is_required_and_must_belong_to_same_telegram_user() -> None:
     assert bad_contact.json()["error"]["code"] == "BOT_CONTACT_REQUIRED"
 
 
-def test_submit_rejects_invalid_amount_range_before_persistence() -> None:
+def test_public_submit_uses_backend_default_limits_even_if_payload_amounts_are_invalid() -> None:
     client = _client()
     started = _start(client, update_id=250, telegram_id=7015, chat_id=8015)
     _contact(client, started["id"], update_id=251, telegram_id=7015, chat_id=8015)
+    _upload_intake_doc(client, started["id"], update_id=252, request_id="default_limits_doc")
 
     response = client.post(
         f"/api/v1/business-intake/{started['id']}/submit",
         headers=_bot_headers("invalid_amount_range"),
         json={
-            "telegram_update_id": 252,
+            "telegram_update_id": 253,
             "telegram_user_id": 7015,
             "telegram_chat_id": 8015,
             "business_name": "Casa Monto Invalido",
+            "business_tax_id": "J-12345678-9",
             "responsible_name": "Responsable",
+            "responsible_id_number": "V-12345678",
             "city": "Caracas",
             "business_phone": "+582121234567",
             "operation": "both",
@@ -378,16 +378,19 @@ def test_submit_rejects_invalid_amount_range_before_persistence() -> None:
             "methods": ["zelle"],
             "min_amount_usd": "500.00",
             "max_amount_usd": "20.00",
+            "daily_limit_usd": "999999.00",
             "schedule": "Lunes",
-            "references": [],
+            "references": ["@casa_monto"],
         },
     )
 
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.status_code == 200, response.text
     intake = client.app.state.business_intake_repository.get(started["id"])
     assert intake is not None
-    assert intake.status == "draft"
+    assert intake.status == "submitted"
+    assert intake.min_amount_usd == "20.00"
+    assert intake.max_amount_usd == "100.00"
+    assert intake.daily_limit_usd == "1000.00"
 
 
 def test_telegram_update_id_duplicate_does_not_duplicate_request_or_document() -> None:
@@ -628,7 +631,7 @@ def test_admin_accept_can_create_pending_business_with_public_name() -> None:
     assert business.owner_user_id == applicant.id
     assert business.rif == "J-12345678-9"
     assert str(business.min_order_amount_usd) == "20.00"
-    assert str(business.max_order_amount_usd) == "500.00"
+    assert str(business.max_order_amount_usd) == "100.00"
     assert str(business.daily_limit_usd) == "1000.00"
     assert business.verification_status == "pending"
     assert applicant.role == "remitter"
@@ -1066,7 +1069,15 @@ def test_business_intake_conversation_persists_each_step_and_submits(monkeypatch
     assert intake.last_step == "awaiting_documents"
     assert intake.referral_code == "REF-CARLOS-01"
     assert intake.contact_phone == "+584121234567"
+    assert intake.min_amount_usd == "20.00"
+    assert intake.max_amount_usd == "100.00"
+    assert intake.daily_limit_usd == "1000.00"
+    assert intake.schedule_text == "El negocio opera con el boton online/offline de NODO."
+    assert intake.references_json == ["@referenciauno", "@referenciados"]
     assert all(message["bot_token"] == BUSINESS_INTAKE_BOT_TOKEN for message in sent_messages)
+    assert any("Redes sociales obligatorias" in message["text"] for message in sent_messages)
+    assert all("monto minimo" not in message["text"].lower() for message in sent_messages)
+    assert all("horario habitual" not in message["text"].lower() for message in sent_messages)
 
     async def fake_download(bot_token: str, file_id: str) -> bytes:
         return b"private-pdf-content"
@@ -1075,7 +1086,7 @@ def test_business_intake_conversation_persists_each_step_and_submits(monkeypatch
     upload = _business_webhook(
         client,
         _telegram_message(
-            1116,
+            1113,
             telegram_id=7311,
             chat_id=8311,
             extra={
@@ -1091,7 +1102,7 @@ def test_business_intake_conversation_persists_each_step_and_submits(monkeypatch
     )
     assert upload.status_code == 200, upload.text
 
-    submitted = _business_webhook(client, _telegram_message(1117, telegram_id=7311, chat_id=8311, text="finalizar"))
+    submitted = _business_webhook(client, _telegram_message(1114, telegram_id=7311, chat_id=8311, text="finalizar"))
     assert submitted.status_code == 200, submitted.text
     assert submitted.json()["data"]["status"] == "submitted"
     assert submitted.json()["data"]["last_step"] == "submitted"
@@ -1148,7 +1159,7 @@ def test_business_intake_webhook_message_after_submitted_does_not_create_new_dra
     upload = _business_webhook(
         client,
         _telegram_message(
-            1616,
+            1613,
             telegram_id=7361,
             chat_id=8361,
             extra={
@@ -1163,12 +1174,12 @@ def test_business_intake_webhook_message_after_submitted_does_not_create_new_dra
         ),
     )
     assert upload.status_code == 200, upload.text
-    submitted = _business_webhook(client, _telegram_message(1617, telegram_id=7361, chat_id=8361, text="finalizar"))
+    submitted = _business_webhook(client, _telegram_message(1614, telegram_id=7361, chat_id=8361, text="finalizar"))
     assert submitted.status_code == 200, submitted.text
     assert submitted.json()["data"]["status"] == "submitted"
     intake_count = len(client.app.state.business_intake_repository.intakes)
 
-    extra_message = _business_webhook(client, _telegram_message(1618, telegram_id=7361, chat_id=8361, text="otro mensaje"))
+    extra_message = _business_webhook(client, _telegram_message(1615, telegram_id=7361, chat_id=8361, text="otro mensaje"))
     assert extra_message.status_code == 200, extra_message.text
     assert extra_message.json()["data"]["intake_id"] == intake_id
     assert extra_message.json()["data"]["status"] == "submitted"
@@ -1227,6 +1238,62 @@ def test_business_intake_conversation_rejects_bad_contact_and_invalid_step_input
     assert "No pude usar esa respuesta" in sent_messages[-1]["text"]
 
 
+def test_business_intake_conversation_requires_social_references_before_documents(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    client = _client()
+    sent_messages: list[dict[str, Any]] = []
+
+    async def fake_send(bot_token: str, chat_id: int, text: str, reply_markup: dict[str, Any] | None = None) -> None:
+        sent_messages.append({"bot_token": bot_token, "chat_id": chat_id, "text": text, "reply_markup": reply_markup})
+
+    monkeypatch.setattr(intake_service, "telegram_send_message", fake_send)
+    monkeypatch.setattr(intake_routes, "telegram_send_message", fake_send)
+
+    start_update = 1800
+    telegram_id = 7381
+    chat_id = 8381
+    start = _business_webhook(client, _telegram_message(start_update, telegram_id=telegram_id, chat_id=chat_id, text="/start"))
+    assert start.status_code == 200, start.text
+    intake_id = start.json()["data"]["intake_id"]
+    answers_to_methods = [
+        "REF-CARLOS-01",
+        "+584121234567",
+        "Casa Cambio Centro",
+        "J-12345678-9",
+        "Carlo Responsable",
+        "V-12345678",
+        "Caracas",
+        "+582121234567",
+        "both",
+        "Mercantil, Banesco",
+        "zelle, usdt_trc20",
+    ]
+    for offset, answer in enumerate(answers_to_methods, start=1):
+        response = _business_webhook(client, _telegram_message(start_update + offset, telegram_id=telegram_id, chat_id=chat_id, text=answer))
+        assert response.status_code == 200, response.text
+
+    intake = client.app.state.business_intake_repository.get(intake_id)
+    assert intake is not None
+    assert intake.last_step == "awaiting_references"
+    assert intake.min_amount_usd == "20.00"
+    assert intake.max_amount_usd == "100.00"
+    assert intake.daily_limit_usd == "1000.00"
+    assert any("Redes sociales obligatorias" in message["text"] for message in sent_messages)
+
+    rejected = _business_webhook(client, _telegram_message(1812, telegram_id=telegram_id, chat_id=chat_id, text="no"))
+    assert rejected.status_code == 200, rejected.text
+    assert rejected.json()["data"]["recoverable_error"] == "BOT_INPUT_INVALID"
+    rejected_intake = client.app.state.business_intake_repository.get(intake_id)
+    assert rejected_intake is not None
+    assert rejected_intake.last_step == "awaiting_references"
+
+    accepted = _business_webhook(client, _telegram_message(1813, telegram_id=telegram_id, chat_id=chat_id, text="@casa_cambio"))
+    assert accepted.status_code == 200, accepted.text
+    accepted_intake = client.app.state.business_intake_repository.get(intake_id)
+    assert accepted_intake is not None
+    assert accepted_intake.last_step == "awaiting_documents"
+    assert accepted_intake.references_json == ["@casa_cambio"]
+
+
 def test_business_intake_telegram_document_downloads_private_storage_and_dedupes(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     client = _client()
     intake_id, sent_messages = _drive_conversation_to_documents(client, monkeypatch, telegram_id=7331, chat_id=8331, start_update=1300)
@@ -1240,7 +1307,7 @@ def test_business_intake_telegram_document_downloads_private_storage_and_dedupes
     monkeypatch.setattr(intake_service, "telegram_download_file", fake_download)
 
     document_update = _telegram_message(
-        1316,
+        1313,
         telegram_id=7331,
         chat_id=8331,
         extra={
@@ -1283,7 +1350,7 @@ def test_business_intake_photo_album_does_not_repeat_document_prompt(monkeypatch
 
     for index in range(5):
         photo_update = _telegram_message(
-            1716 + index,
+            1713 + index,
             telegram_id=7371,
             chat_id=8371,
             extra={

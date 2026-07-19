@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.modules.business_intake.defaults import DEFAULT_DAILY_LIMIT_USD, DEFAULT_MAX_AMOUNT_USD, DEFAULT_MIN_AMOUNT_USD
 from app.modules.business_intake.models import BusinessIntakeDocumentRecord, BusinessIntakeRequestRecord
 
 
@@ -38,9 +39,9 @@ def public_intake_payload(intake: BusinessIntakeRequestRecord, *, admin: bool = 
             "business_phone": intake.business_phone,
             "banks": intake.banks_json,
             "methods": intake.methods_json,
-            "min_amount_usd": intake.min_amount_usd,
-            "max_amount_usd": intake.max_amount_usd,
-            "daily_limit_usd": intake.daily_limit_usd,
+            "min_amount_usd": intake.min_amount_usd or DEFAULT_MIN_AMOUNT_USD,
+            "max_amount_usd": intake.max_amount_usd or DEFAULT_MAX_AMOUNT_USD,
+            "daily_limit_usd": intake.daily_limit_usd or DEFAULT_DAILY_LIMIT_USD,
             "schedule": intake.schedule_text,
             "references": intake.references_json,
             "reviewed_at": intake.reviewed_at.isoformat() if intake.reviewed_at else None,

@@ -38,10 +38,10 @@ class BusinessIntakeSubmitRequest(StrictRequestModel):
     operation: str = Field(min_length=1, max_length=32)
     banks: list[IntakeListItem] = Field(default_factory=list, max_length=20)
     methods: list[IntakeListItem] = Field(default_factory=list, max_length=10)
-    min_amount_usd: str = Field(min_length=1, max_length=32)
-    max_amount_usd: str = Field(min_length=1, max_length=32)
-    daily_limit_usd: str = Field(default="1000.00", min_length=1, max_length=32)
-    schedule: str = Field(min_length=2, max_length=240)
+    min_amount_usd: str | None = Field(default=None, min_length=1, max_length=32)
+    max_amount_usd: str | None = Field(default=None, min_length=1, max_length=32)
+    daily_limit_usd: str | None = Field(default=None, min_length=1, max_length=32)
+    schedule: str | None = Field(default=None, min_length=2, max_length=240)
     references: list[IntakeListItem] = Field(default_factory=list, max_length=10)
 
 

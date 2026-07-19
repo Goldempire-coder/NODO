@@ -18,6 +18,7 @@ REQUIRED_INTAKE_FIELDS: tuple[tuple[str, str], ...] = (
     ("min_amount_usd", "monto minimo"),
     ("max_amount_usd", "monto maximo"),
     ("daily_limit_usd", "limite diario"),
+    ("references_json", "redes sociales"),
 )
 
 

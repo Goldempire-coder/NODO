@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from app.core.errors import ApiError
 from app.modules.business_intake.conversation import INTAKE_CONFIRMATION
-from app.modules.business_intake.conversation_validation import validated_amount_range, validated_positive_amount
+from app.modules.business_intake.conversation_validation import normalize_social_references
+from app.modules.business_intake.defaults import DEFAULT_SCHEDULE_TEXT, default_intake_limits
 from app.modules.business_intake.intake_requirements import ensure_intake_ready_for_review
 from app.modules.business_intake.models import INTAKE_OPERATIONS
 from app.modules.business_intake.public_documents import BusinessIntakePublicDocumentsMixin
@@ -51,8 +52,7 @@ class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
             raise ApiError("VALIDATION_ERROR", status_code=422)
         if any(method not in {"zelle", "usdt_trc20"} for method in payload.methods):
             raise ApiError("VALIDATION_ERROR", status_code=422)
-        min_amount_usd, max_amount_usd = validated_amount_range(payload.min_amount_usd, payload.max_amount_usd)
-        daily_limit_usd = validated_positive_amount(payload.daily_limit_usd)
+        limits = default_intake_limits()
         intake = self._get_intake(intake_id)  # type: ignore[attr-defined]
         self._validate_intake_context(intake=intake, telegram_user_id=payload.telegram_user_id, telegram_chat_id=payload.telegram_chat_id)  # type: ignore[attr-defined]
         if intake.last_update_id == payload.telegram_update_id and intake.status == "submitted":
@@ -64,6 +64,7 @@ class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
         documents = self._repository.list_documents(intake.id)  # type: ignore[attr-defined]
         if not documents or not payload.methods or not payload.references:
             raise ApiError("BUSINESS_INTAKE_INCOMPLETE", status_code=409)
+        references = normalize_social_references(", ".join(payload.references))
         updated = self._repository.submit(  # type: ignore[attr-defined]
             intake=intake,
             update_id=payload.telegram_update_id,
@@ -76,11 +77,11 @@ class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
             operation=payload.operation,
             banks=payload.banks,
             methods=payload.methods,
-            min_amount_usd=min_amount_usd,
-            max_amount_usd=max_amount_usd,
-            daily_limit_usd=daily_limit_usd,
-            schedule=payload.schedule,
-            references=payload.references,
+            min_amount_usd=limits["min_amount_usd"],
+            max_amount_usd=limits["max_amount_usd"],
+            daily_limit_usd=limits["daily_limit_usd"],
+            schedule=DEFAULT_SCHEDULE_TEXT,
+            references=references,
         )
         ensure_intake_ready_for_review(
             updated,

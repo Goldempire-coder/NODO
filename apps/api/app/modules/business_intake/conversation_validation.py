@@ -6,6 +6,17 @@ from typing import Any
 from app.core.errors import ApiError
 
 MAX_BOT_TEXT_LENGTH = 500
+NEGATIVE_REFERENCE_RESPONSES = {
+    "no",
+    "no tengo",
+    "ninguna",
+    "ninguno",
+    "sin redes",
+    "sin redes sociales",
+    "no aplica",
+    "n/a",
+    "na",
+}
 
 
 def validated_amount_range(min_amount_usd: str, max_amount_usd: str) -> tuple[str, str]:
@@ -44,6 +55,14 @@ def split_clean_list(value: str) -> list[str]:
     if not cleaned or any(len(item) > 80 for item in cleaned):
         raise ApiError("BOT_INPUT_INVALID", status_code=400)
     return cleaned[:20]
+
+
+def normalize_social_references(value: str) -> list[str]:
+    references = split_clean_list(value)
+    normalized = {item.strip().lower().rstrip(".") for item in references}
+    if normalized.issubset(NEGATIVE_REFERENCE_RESPONSES):
+        raise ApiError("BOT_INPUT_INVALID", status_code=400)
+    return references
 
 
 def normalize_operation(value: str) -> str:

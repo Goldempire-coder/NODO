@@ -7,9 +7,10 @@ from app.modules.business_intake.conversation_validation import (
     clean_text,
     normalize_methods,
     normalize_operation,
+    normalize_social_references,
     split_clean_list,
-    validated_amount_range,
 )
+from app.modules.business_intake.defaults import DEFAULT_SCHEDULE_TEXT, default_intake_limits
 from app.modules.business_intake.models import BusinessIntakeRequestRecord
 
 
@@ -53,23 +54,23 @@ def conversation_fields_for_step(
         fields = {"banks_json": split_clean_list(cleaned)}
         next_step = "awaiting_methods"
     elif current_step == "awaiting_methods":
-        fields = {"methods_json": normalize_methods(cleaned)}
-        next_step = "awaiting_min_amount"
-    elif current_step == "awaiting_min_amount":
-        min_amount, _ = validated_amount_range(cleaned, cleaned)
-        fields = {"min_amount_usd": min_amount}
-        next_step = "awaiting_max_amount"
-    elif current_step == "awaiting_max_amount":
-        if intake.min_amount_usd is None:
-            raise ApiError("BOT_INPUT_INVALID", status_code=400)
-        min_amount, max_amount = validated_amount_range(intake.min_amount_usd, cleaned)
-        fields = {"min_amount_usd": min_amount, "max_amount_usd": max_amount, "daily_limit_usd": "1000.00"}
-        next_step = "awaiting_schedule"
-    elif current_step == "awaiting_schedule":
-        fields = {"schedule_text": cleaned}
+        fields = {
+            "methods_json": normalize_methods(cleaned),
+            "schedule_text": DEFAULT_SCHEDULE_TEXT,
+            **default_intake_limits(),
+        }
         next_step = "awaiting_references"
+    elif current_step == "awaiting_min_amount":
+        fields = {**default_intake_limits(), "schedule_text": DEFAULT_SCHEDULE_TEXT}
+        next_step = "awaiting_references"
+    elif current_step == "awaiting_max_amount":
+        fields = {**default_intake_limits(), "schedule_text": DEFAULT_SCHEDULE_TEXT}
+        next_step = "awaiting_references"
+    elif current_step == "awaiting_schedule":
+        fields = {"schedule_text": DEFAULT_SCHEDULE_TEXT, "references_json": normalize_social_references(cleaned)}
+        next_step = "awaiting_documents"
     elif current_step == "awaiting_references":
-        fields = {"references_json": split_clean_list(cleaned)}
+        fields = {"references_json": normalize_social_references(cleaned)}
         next_step = "awaiting_documents"
     else:
         raise ApiError("BOT_INPUT_INVALID", status_code=400)

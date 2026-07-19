@@ -45,6 +45,7 @@ function reviewChecklist(detail: AdminBusinessIntakeDetail) {
     { label: "Telefono negocio", ok: Boolean(intake.business_phone || intake.business_phone_masked) },
     { label: "Minimo y maximo", ok: Boolean(intake.min_amount_usd && intake.max_amount_usd) },
     { label: "Limite diario", ok: Boolean(intake.daily_limit_usd) },
+    { label: "Redes sociales", ok: Boolean(intake.references && intake.references.length > 0) },
     { label: "Documentos adjuntos", ok: detail.documents.length > 0 }
   ];
 }
@@ -91,6 +92,9 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
   const businessPhone = intake.business_phone || intake.business_phone_masked || "-";
   const canManualEdit = model.adminMutable && !intake.created_business_id && intake.status !== "accepted";
   const draft = model.intakeEditDraft;
+  const minAmount = intake.min_amount_usd || "20.00";
+  const maxAmount = intake.max_amount_usd || "100.00";
+  const dailyLimit = intake.daily_limit_usd || "1000.00";
   const updateDraft = (patch: Partial<typeof draft>) => {
     model.setIntakeEditDraft({ ...draft, ...patch });
   };
@@ -130,8 +134,8 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
           </div>
           <div>
             <span>Montos autorizados</span>
-            <strong>{intake.min_amount_usd || "-"} - {intake.max_amount_usd || "-"} USD</strong>
-            <small>Limite diario: {intake.daily_limit_usd || "1000.00"} USD</small>
+            <strong>{minAmount} - {maxAmount} USD</strong>
+            <small>Limite diario: {dailyLimit} USD</small>
           </div>
         </div>
 
@@ -144,7 +148,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
           <div className="admin-web-row"><span>Telefono negocio</span><strong>{businessPhone}</strong></div>
           <div className="admin-web-row"><span>Operacion declarada</span><strong>{intake.operation || "-"}</strong></div>
           <div className="admin-web-row"><span>Metodos declarados</span><strong>{listText(intake.methods)}</strong></div>
-          <div className="admin-web-row"><span>Notas / referencias</span><strong>{listText(intake.references)}</strong></div>
+          <div className="admin-web-row"><span>Redes sociales</span><strong>{listText(intake.references)}</strong></div>
           <div className="admin-web-row"><span>Paso bot</span><strong>{intake.last_step}</strong></div>
           <div className="admin-web-row"><span>Negocio creado</span><strong>{intake.created_business_id || "-"}</strong></div>
         </div>
@@ -220,8 +224,8 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
               <input disabled={!canManualEdit} inputMode="decimal" value={draft.daily_limit_usd} onChange={(event) => updateDraft({ daily_limit_usd: event.target.value })} placeholder="1000" />
             </label>
             <label className="span-3">
-              <span>Notas / referencias</span>
-              <textarea disabled={!canManualEdit} value={draft.references} onChange={(event) => updateDraft({ references: event.target.value })} placeholder="Nombre, telefono o nota. Separa varias referencias con coma." />
+              <span>Redes sociales / referencias publicas</span>
+              <textarea disabled={!canManualEdit} value={draft.references} onChange={(event) => updateDraft({ references: event.target.value })} placeholder="Instagram, TikTok, Google Maps o web. Obligatorio; separa varias con coma." />
             </label>
           </div>
           <div className="admin-web-actions">
