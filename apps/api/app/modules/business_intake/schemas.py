@@ -50,8 +50,25 @@ class AdminBusinessIntakeReviewRequest(StrictRequestModel):
 
 
 class AdminBusinessIntakeDeleteRequest(StrictRequestModel):
-    reason: str = Field(min_length=1, max_length=500)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class AdminBusinessIntakeUpdateRequest(StrictRequestModel):
+    referral_code: str | None = Field(default=None, min_length=1, max_length=80)
+    contact_phone: str | None = Field(default=None, min_length=6, max_length=32)
+    business_name: str | None = Field(default=None, min_length=2, max_length=160)
+    responsible_name: str | None = Field(default=None, min_length=2, max_length=160)
+    city: str | None = Field(default=None, min_length=2, max_length=120)
+    business_phone: str | None = Field(default=None, min_length=6, max_length=32)
+    operation: str | None = Field(default=None, min_length=1, max_length=32)
+    banks: list[IntakeListItem] | None = Field(default=None, max_length=20)
+    methods: list[IntakeListItem] | None = Field(default=None, max_length=10)
+    min_amount_usd: str | None = Field(default=None, min_length=1, max_length=32)
+    max_amount_usd: str | None = Field(default=None, min_length=1, max_length=32)
+    schedule: str | None = Field(default=None, min_length=2, max_length=240)
+    references: list[IntakeListItem] | None = Field(default=None, max_length=10)
+    submit_for_review: bool = False
 
 
 class AdminBusinessIntakeDocumentViewRequest(StrictRequestModel):
-    reason: str = Field(min_length=1, max_length=500)
+    reason: str | None = Field(default=None, max_length=500)

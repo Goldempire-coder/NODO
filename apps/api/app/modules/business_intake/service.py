@@ -21,6 +21,7 @@ from app.modules.business_intake.schemas import (
     AdminBusinessIntakeDocumentViewRequest,
     AdminBusinessIntakeDeleteRequest,
     AdminBusinessIntakeReviewRequest,
+    AdminBusinessIntakeUpdateRequest,
 )
 from app.modules.users.models import UserRecord
 
@@ -132,6 +133,9 @@ class BusinessIntakeService(BusinessIntakePublicActionsMixin):
 
     def admin_delete(self, *, user: UserRecord, intake_id: str, payload: AdminBusinessIntakeDeleteRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         return self._admin_actions.delete(user=user, intake_id=intake_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
+
+    def admin_update(self, *, user: UserRecord, intake_id: str, payload: AdminBusinessIntakeUpdateRequest, request_id: str) -> dict[str, Any]:
+        return self._admin_actions.update(user=user, intake_id=intake_id, payload=payload, request_id=request_id)
 
     def admin_document_view_url(
         self,

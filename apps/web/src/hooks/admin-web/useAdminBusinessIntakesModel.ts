@@ -4,17 +4,80 @@ import {
   deleteAdminBusinessIntake,
   getAdminBusinessIntake,
   getAdminBusinessIntakeDocumentViewUrl,
-  listAdminBusinessIntakes
+  listAdminBusinessIntakes,
+  updateAdminBusinessIntake
 } from "../../api/admin";
 import type { AuthenticatedRequest } from "../../api/client";
 import { idempotencyKey } from "./helpers";
 import type {
   AdminBusinessIntakeDetail,
+  AdminBusinessIntakeEditDraft,
   AdminBusinessIntakeSummary,
   BusinessIntakeView,
   ListResponse,
   QueueCriticalAction
 } from "./adminBusinessIntakeTypes";
+
+function listToInput(items?: string[] | null) {
+  return items?.join(", ") || "";
+}
+
+function inputToList(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function editDraftFromIntake(intake: AdminBusinessIntakeSummary): AdminBusinessIntakeEditDraft {
+  return {
+    referral_code: intake.referral_code || "",
+    contact_phone: intake.contact_phone || "",
+    business_name: intake.business_name || "",
+    responsible_name: intake.responsible_name || "",
+    city: intake.city || "",
+    business_phone: intake.business_phone || "",
+    operation: intake.operation || "",
+    banks: listToInput(intake.banks),
+    methods: listToInput(intake.methods),
+    min_amount_usd: intake.min_amount_usd || "",
+    max_amount_usd: intake.max_amount_usd || "",
+    schedule: intake.schedule || "",
+    references: listToInput(intake.references)
+  };
+}
+
+function assignIfFilled(payload: Record<string, unknown>, key: string, value: string) {
+  const trimmed = value.trim();
+  if (trimmed) {
+    payload[key] = trimmed;
+  }
+}
+
+function assignListIfFilled(payload: Record<string, unknown>, key: string, value: string) {
+  const items = inputToList(value);
+  if (items.length > 0) {
+    payload[key] = items;
+  }
+}
+
+function editPayload(draft: AdminBusinessIntakeEditDraft, submitForReview: boolean) {
+  const payload: Record<string, unknown> = { submit_for_review: submitForReview };
+  assignIfFilled(payload, "referral_code", draft.referral_code);
+  assignIfFilled(payload, "contact_phone", draft.contact_phone);
+  assignIfFilled(payload, "business_name", draft.business_name);
+  assignIfFilled(payload, "responsible_name", draft.responsible_name);
+  assignIfFilled(payload, "city", draft.city);
+  assignIfFilled(payload, "business_phone", draft.business_phone);
+  assignIfFilled(payload, "operation", draft.operation);
+  assignIfFilled(payload, "min_amount_usd", draft.min_amount_usd);
+  assignIfFilled(payload, "max_amount_usd", draft.max_amount_usd);
+  assignIfFilled(payload, "schedule", draft.schedule);
+  assignListIfFilled(payload, "banks", draft.banks);
+  assignListIfFilled(payload, "methods", draft.methods);
+  assignListIfFilled(payload, "references", draft.references);
+  return payload;
+}
 
 export function useAdminBusinessIntakesModel({
   adminMutable,
@@ -39,6 +102,7 @@ export function useAdminBusinessIntakesModel({
   const [selectedBusinessIntake, setSelectedBusinessIntake] = useState<AdminBusinessIntakeDetail | null>(null);
   const [intakeFilter, setIntakeFilter] = useState("all");
   const [intakePublicBusinessName, setIntakePublicBusinessName] = useState("");
+  const [intakeEditDraft, setIntakeEditDraft] = useState<AdminBusinessIntakeEditDraft>(() => editDraftFromIntake({ id: "", status: "", last_step: "", created_at: "", updated_at: "" }));
 
   const loadBusinessIntakes = useCallback(async (status = intakeFilter) => {
     const normalizedStatus = status.trim().toLowerCase() || "all";
@@ -63,6 +127,7 @@ export function useAdminBusinessIntakesModel({
       const data = await getAdminBusinessIntake<AdminBusinessIntakeDetail>(request, intakeId);
       setSelectedBusinessIntake(data);
       setIntakePublicBusinessName(data.intake.business_name || "");
+      setIntakeEditDraft(editDraftFromIntake(data.intake));
       setView("intake-detail");
       setNotice("Detalle de solicitud cargado.");
     } catch (error) {
@@ -77,10 +142,6 @@ export function useAdminBusinessIntakesModel({
       setNotice("Solo admin/super_admin puede solicitar URL privada.");
       return;
     }
-    if (!reason.trim()) {
-      setNotice("Escribe un motivo de revision antes de ver o descargar documentos.");
-      return;
-    }
     queueCriticalAction("Ver documento de solicitud", "La URL temporal no se guarda y la apertura queda auditada.", async () => {
       const data = await getAdminBusinessIntakeDocumentViewUrl<{ url: string; expires_in: number }>(
         request,
@@ -89,10 +150,32 @@ export function useAdminBusinessIntakesModel({
         reason
       );
       window.open(data.url, "_blank", "noopener,noreferrer");
-      setReason("");
       setNotice(`Documento disponible por ${data.expires_in}s.`);
-    });
-  }, [adminMutable, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice, setReason]);
+    }, { requiresReason: false });
+  }, [adminMutable, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice]);
+
+  const saveBusinessIntakeManual = useCallback((submitForReview = false) => {
+    if (!selectedBusinessIntake || !adminMutable) {
+      setNotice("Accion no permitida para este rol.");
+      return;
+    }
+    const title = submitForReview ? "Guardar y poner en revision" : "Guardar ficha de negocio";
+    const detail = submitForReview
+      ? "Se guardaran los datos y la solicitud quedara lista para revision admin si cumple los requisitos."
+      : "Se guardaran los datos confirmados por WhatsApp o revision manual.";
+    queueCriticalAction(title, detail, async () => {
+      const data = await updateAdminBusinessIntake<{ intake: AdminBusinessIntakeSummary }>(
+        request,
+        selectedBusinessIntake.intake.id,
+        editPayload(intakeEditDraft, submitForReview)
+      );
+      const updatedDetail = { ...selectedBusinessIntake, intake: data.intake };
+      setSelectedBusinessIntake(updatedDetail);
+      setIntakePublicBusinessName(data.intake.business_name || "");
+      setIntakeEditDraft(editDraftFromIntake(data.intake));
+      setNotice(submitForReview ? "Ficha guardada y puesta en revision." : "Ficha guardada.");
+    }, { requiresReason: false });
+  }, [adminMutable, intakeEditDraft, queueCriticalAction, request, selectedBusinessIntake, setNotice]);
 
   const deleteBusinessIntake = useCallback(() => {
     if (!selectedBusinessIntake || !adminMutable) {
@@ -100,13 +183,12 @@ export function useAdminBusinessIntakesModel({
       return;
     }
     queueCriticalAction("Borrar solicitud de negocio", "El registro se elimina del panel; audit logs quedan intactos.", async () => {
-      await deleteAdminBusinessIntake(request, selectedBusinessIntake.intake.id, reason, idempotencyKey("business_intake_delete"));
+      await deleteAdminBusinessIntake(request, selectedBusinessIntake.intake.id, idempotencyKey("business_intake_delete"));
       setSelectedBusinessIntake(null);
-      setReason("");
       setNotice("Solicitud borrada del panel. Audit log preservado.");
       await loadBusinessIntakes(intakeFilter);
-    });
-  }, [adminMutable, intakeFilter, loadBusinessIntakes, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice, setReason]);
+    }, { requiresReason: false });
+  }, [adminMutable, intakeFilter, loadBusinessIntakes, queueCriticalAction, request, selectedBusinessIntake, setNotice]);
 
   const createBusinessFromIntake = useCallback(() => {
     if (!selectedBusinessIntake || !adminMutable) {
@@ -203,11 +285,14 @@ export function useAdminBusinessIntakesModel({
     createBusinessFromIntake,
     deleteBusinessIntake,
     intakeFilter,
+    intakeEditDraft,
     intakePublicBusinessName,
     loadBusinessIntakes,
     openBusinessIntake,
     openBusinessIntakeDocument,
+    saveBusinessIntakeManual,
     selectedBusinessIntake,
+    setIntakeEditDraft,
     setIntakeFilter,
     setIntakePublicBusinessName
   };

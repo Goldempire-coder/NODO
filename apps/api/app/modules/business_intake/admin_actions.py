@@ -5,6 +5,7 @@ from typing import Any, Callable
 from app.core.errors import ApiError
 from app.modules.business_intake.admin_delete import BusinessIntakeAdminDeleteMixin
 from app.modules.business_intake.admin_review import BusinessIntakeAdminReviewMixin
+from app.modules.business_intake.admin_update import BusinessIntakeAdminUpdateMixin
 from app.modules.business_intake.business_creation import BusinessIntakeBusinessCreationMixin
 from app.modules.business_intake.models import BusinessIntakeRequestRecord
 from app.modules.business_intake.policy import require_admin_mutation, require_admin_read
@@ -13,6 +14,7 @@ from app.modules.users.models import UserRecord
 
 class BusinessIntakeAdminActions(
     BusinessIntakeAdminReviewMixin,
+    BusinessIntakeAdminUpdateMixin,
     BusinessIntakeAdminDeleteMixin,
     BusinessIntakeBusinessCreationMixin,
 ):
@@ -106,14 +108,12 @@ class BusinessIntakeAdminActions(
         user: UserRecord,
         intake_id: str,
         file_id: str,
-        reason: str,
+        reason: str | None,
         request_id: str,
     ) -> dict[str, Any]:
         require_admin_mutation(user)
         self._rate_limit("admin_document_view_url", user.id)
-        clean_reason = reason.strip()
-        if not clean_reason:
-            raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
+        clean_reason = (reason or "").strip() or "admin_document_review"
         intake = self._get_intake(intake_id)
         document = self._repository.get_document(intake.id, file_id)
         if document is None:

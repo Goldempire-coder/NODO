@@ -238,18 +238,30 @@ export function getAdminBusinessIntakeDocumentViewUrl<T>(request: AuthenticatedR
   return request<T>(`/api/v1/admin/business-intake/${intakeId}/documents/${fileId}/view-url`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ reason })
+    body: JSON.stringify(reason.trim() ? { reason } : {})
   });
 }
 
-export function deleteAdminBusinessIntake<T>(request: AuthenticatedRequest, intakeId: string, reason: string, idempotencyKey: string) {
+export function updateAdminBusinessIntake<T>(
+  request: AuthenticatedRequest,
+  intakeId: string,
+  payload: Record<string, unknown>
+) {
+  return request<T>(`/api/v1/admin/business-intake/${intakeId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function deleteAdminBusinessIntake<T>(request: AuthenticatedRequest, intakeId: string, idempotencyKey: string, reason?: string) {
   return request<T>(`/api/v1/admin/business-intake/${intakeId}/delete`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey
     },
-    body: JSON.stringify({ reason })
+    body: JSON.stringify(reason?.trim() ? { reason } : {})
   });
 }
 

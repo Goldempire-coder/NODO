@@ -11,8 +11,8 @@ export function useAdminCriticalAction({
   const [reason, setReason] = useState("");
   const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
 
-  const queueCriticalAction = useCallback((title: string, detail: string, run: () => Promise<void>) => {
-    if (!reason.trim()) {
+  const queueCriticalAction = useCallback((title: string, detail: string, run: () => Promise<void>, options?: { requiresReason?: boolean }) => {
+    if ((options?.requiresReason ?? true) && !reason.trim()) {
       setNotice("Motivo obligatorio antes de ejecutar accion admin.");
       return;
     }

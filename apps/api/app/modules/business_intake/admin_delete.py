@@ -21,9 +21,7 @@ class BusinessIntakeAdminDeleteMixin:
         require_admin_mutation(user)
         if not idempotency_key:
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
-        reason = payload.reason.strip()
-        if not reason:
-            raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
+        reason = (payload.reason or "").strip() or "admin_reset_onboarding"
         self._rate_limit("admin_delete", user.id)  # type: ignore[attr-defined]
 
         def compute() -> dict[str, Any]:

@@ -8,17 +8,20 @@ export type ListResponse<T> = {
   disclaimer?: string;
 };
 
-export type QueueCriticalAction = (title: string, detail: string, run: () => Promise<void>) => void;
+export type QueueCriticalAction = (title: string, detail: string, run: () => Promise<void>, options?: { requiresReason?: boolean }) => void;
 
 export type AdminBusinessIntakeSummary = {
   id: string;
   status: string;
   last_step: string;
+  referral_code?: string | null;
   business_name?: string | null;
   responsible_name?: string | null;
   city?: string | null;
   operation?: string | null;
+  contact_phone?: string | null;
   contact_phone_masked?: string | null;
+  business_phone?: string | null;
   business_phone_masked?: string | null;
   submitted_at?: string | null;
   created_at: string;
@@ -33,6 +36,22 @@ export type AdminBusinessIntakeSummary = {
   admin_reason?: string | null;
   created_business_id?: string | null;
   linked_telegram_user_id?: number | null;
+};
+
+export type AdminBusinessIntakeEditDraft = {
+  referral_code: string;
+  contact_phone: string;
+  business_name: string;
+  responsible_name: string;
+  city: string;
+  business_phone: string;
+  operation: string;
+  banks: string;
+  methods: string;
+  min_amount_usd: string;
+  max_amount_usd: string;
+  schedule: string;
+  references: string;
 };
 
 export type AdminBusinessIntakeDetail = {

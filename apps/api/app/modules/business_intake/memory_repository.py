@@ -81,6 +81,24 @@ class InMemoryBusinessIntakeRepository(InMemoryBusinessIntakeConversationMixin, 
             intake.updated_at = now
             return intake
 
+    def admin_update(
+        self,
+        *,
+        intake: BusinessIntakeRequestRecord,
+        updates: dict[str, object],
+        submit_for_review: bool,
+    ) -> BusinessIntakeRequestRecord:
+        with self._lock:
+            now = utc_now()
+            for field, value in updates.items():
+                setattr(intake, field, value)
+            if submit_for_review:
+                intake.status = "submitted"
+                intake.last_step = "submitted"
+                intake.submitted_at = intake.submitted_at or now
+            intake.updated_at = now
+            return intake
+
     def attach_created_business(
         self,
         *,

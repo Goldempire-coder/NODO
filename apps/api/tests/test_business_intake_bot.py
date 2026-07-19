@@ -854,6 +854,99 @@ def test_admin_can_delete_bad_intake_with_reason_and_idempotency() -> None:
     assert _event_types(client).count("business_intake_deleted") == 1
 
 
+def test_admin_can_reset_intake_without_typing_reason() -> None:
+    client = _client()
+    started = _start(client, update_id=655, telegram_id=7065, chat_id=8065)
+    _contact(client, started["id"], update_id=656, telegram_id=7065, chat_id=8065)
+    _submit(client, started["id"], update_id=657, telegram_id=7065, chat_id=8065)
+    admin = _login(client, 9025, "admin_delete_without_reason")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    deleted = client.post(
+        f"/api/v1/admin/business-intake/{started['id']}/delete",
+        headers={**_admin_headers(admin, "delete_without_reason"), "Content-Type": "application/json"},
+        json={},
+    )
+
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json()["data"]["deleted"] is True
+    assert client.app.state.business_intake_repository.get(started["id"]) is None
+    delete_events = [event for event in client.app.state.audit_writer.events if event.event_type == "business_intake_deleted"]
+    assert delete_events[-1].metadata_json["reason"] == "admin_reset_onboarding"
+
+
+def test_admin_can_complete_intake_manually_and_submit_for_review() -> None:
+    client = _client()
+    started = _start(client, update_id=660, telegram_id=7066, chat_id=8066)
+    _contact(client, started["id"], update_id=661, telegram_id=7066, chat_id=8066)
+    _upload_intake_doc(client, started["id"], update_id=662, request_id="manual_complete_doc")
+    admin = _login(client, 9026, "admin_manual_intake_update")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    updated = client.patch(
+        f"/api/v1/admin/business-intake/{started['id']}",
+        headers={**_admin_headers(admin, "manual_update_intake"), "Content-Type": "application/json"},
+        json={
+            "referral_code": "REF-MANUAL",
+            "contact_phone": "+584121112233",
+            "business_name": "Cambio Manual",
+            "responsible_name": "Carlo Responsable",
+            "city": "Caracas",
+            "business_phone": "+584129998877",
+            "operation": "ambas",
+            "banks": ["Banesco", "Mercantil"],
+            "methods": ["Zelle", "USDT TRC20"],
+            "min_amount_usd": "20",
+            "max_amount_usd": "100",
+            "schedule": "Lunes a viernes 9am a 6pm",
+            "references": ["@referencia"],
+            "submit_for_review": True,
+        },
+    )
+
+    assert updated.status_code == 200, updated.text
+    intake = updated.json()["data"]["intake"]
+    assert intake["status"] == "submitted"
+    assert intake["last_step"] == "submitted"
+    assert intake["referral_code"] == "REF-MANUAL"
+    assert intake["contact_phone"] == "+584121112233"
+    assert intake["business_phone"] == "+584129998877"
+    assert intake["business_name"] == "Cambio Manual"
+    assert intake["operation"] == "both"
+    assert intake["methods"] == ["zelle", "usdt_trc20"]
+    assert "business_intake_admin_updated" in _event_types(client)
+
+    approved = client.post(
+        f"/api/v1/admin/business-intake/{started['id']}/accept",
+        headers={**_admin_headers(admin, "manual_update_then_accept"), "Content-Type": "application/json"},
+        json={"reason": "datos confirmados por whatsapp"},
+    )
+
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["data"]["intake"]["status"] == "accepted"
+
+
+def test_admin_can_view_intake_document_without_manual_reason() -> None:
+    client = _client()
+    started = _start(client, update_id=665, telegram_id=7067, chat_id=8067)
+    _contact(client, started["id"], update_id=666, telegram_id=7067, chat_id=8067)
+    _submit(client, started["id"], update_id=667, telegram_id=7067, chat_id=8067)
+    admin = _login(client, 9027, "admin_view_document_without_reason")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    detail = client.get(f"/api/v1/admin/business-intake/{started['id']}", headers=_bearer(admin, "doc_without_reason_detail"))
+    file_id = detail.json()["data"]["documents"][0]["id"]
+
+    viewed = client.post(
+        f"/api/v1/admin/business-intake/{started['id']}/documents/{file_id}/view-url",
+        headers={**_bearer(admin, "doc_without_reason"), "Content-Type": "application/json"},
+        json={},
+    )
+
+    assert viewed.status_code == 200, viewed.text
+    document_events = [event for event in client.app.state.audit_writer.events if event.event_type == "business_intake_document_viewed"]
+    assert document_events[-1].metadata_json["reason"] == "admin_document_review"
+
+
 def test_business_intake_webhook_requires_business_bot_secret_and_rejects_client_secret() -> None:
     client = _client()
     update = _telegram_message(900, text="/start")

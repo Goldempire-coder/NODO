@@ -37,9 +37,9 @@ function documentKindLabel(kind?: string | null) {
 function reviewChecklist(detail: AdminBusinessIntakeDetail) {
   const intake = detail.intake;
   return [
-    { label: "WhatsApp recibido", ok: Boolean(intake.contact_phone_masked) },
+    { label: "WhatsApp recibido", ok: Boolean(intake.contact_phone || intake.contact_phone_masked) },
     { label: "Nombre y responsable", ok: Boolean(intake.business_name && intake.responsible_name) },
-    { label: "Ciudad y telefono del negocio", ok: Boolean(intake.city && intake.business_phone_masked) },
+    { label: "Ciudad y telefono del negocio", ok: Boolean(intake.city && (intake.business_phone || intake.business_phone_masked)) },
     { label: "Operacion y metodos", ok: Boolean(intake.operation && intake.methods?.length) },
     { label: "Bancos declarados", ok: Boolean(intake.banks?.length) },
     { label: "Rango autorizado", ok: Boolean(intake.min_amount_usd && intake.max_amount_usd) },
@@ -60,12 +60,13 @@ export function BusinessIntake({ model }: { model: AdminWebModel }) {
         <button type="button" onClick={() => void model.loadBusinessIntakes("accepted")}>Aceptadas</button>
       </div>
       <p className="admin-web-muted">Si un negocio empezo el registro pero no lo finalizo, aparece como borrador.</p>
-      <Table headers={["Solicitud", "Status", "Telefono", "Ciudad", "Fecha", ""]}>
+      <Table headers={["Solicitud", "Status", "Codigo", "WhatsApp", "Ciudad", "Fecha", ""]}>
         {model.businessIntakes.map((item) => (
           <tr key={item.id}>
             <td>{intakeName(item)}</td>
             <td>{item.status}</td>
-            <td>{item.contact_phone_masked || "-"}</td>
+            <td>{item.referral_code || "-"}</td>
+            <td>{item.contact_phone || item.contact_phone_masked || "-"}</td>
             <td>{item.city || "-"}</td>
             <td>{dateText(item.submitted_at || item.updated_at || item.created_at)}</td>
             <td><button type="button" onClick={() => void model.openBusinessIntake(item.id)}>Abrir</button></td>
@@ -85,6 +86,13 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
   const intake = detail.intake;
   const checklist = reviewChecklist(detail);
   const missing = checklist.filter((item) => !item.ok).map((item) => item.label);
+  const contactPhone = intake.contact_phone || intake.contact_phone_masked || "-";
+  const businessPhone = intake.business_phone || intake.business_phone_masked || "-";
+  const canManualEdit = model.adminMutable && !intake.created_business_id && intake.status !== "accepted";
+  const draft = model.intakeEditDraft;
+  const updateDraft = (patch: Partial<typeof draft>) => {
+    model.setIntakeEditDraft({ ...draft, ...patch });
+  };
   const canReview = model.adminMutable && missing.length === 0 && ["submitted", "accepted"].includes(intake.status);
   const decisionText = missing.length === 0
     ? "Lista para revision admin. Revisa documentos y motivo antes de aprobar."
@@ -97,7 +105,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
           <div>
             <span>{intake.status}</span>
             <strong>{intakeName(intake)}</strong>
-            <small>{intake.city || "Ciudad pendiente"} - {intake.contact_phone_masked || "WhatsApp pendiente"}</small>
+            <small>{intake.city || "Ciudad pendiente"} - {contactPhone}</small>
           </div>
           <div>
             <span>Rango declarado</span>
@@ -107,14 +115,93 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
         </div>
 
         <div className="admin-web-detail-grid">
+          <div className="admin-web-row"><span>Codigo invitacion</span><strong>{intake.referral_code || "-"}</strong></div>
+          <div className="admin-web-row"><span>WhatsApp solicitante</span><strong>{contactPhone}</strong></div>
           <div className="admin-web-row"><span>Responsable</span><strong>{intake.responsible_name || "-"}</strong></div>
-          <div className="admin-web-row"><span>Telefono negocio</span><strong>{intake.business_phone_masked || "-"}</strong></div>
+          <div className="admin-web-row"><span>Telefono negocio</span><strong>{businessPhone}</strong></div>
           <div className="admin-web-row"><span>Operacion</span><strong>{intake.operation || "-"}</strong></div>
           <div className="admin-web-row"><span>Horario</span><strong>{intake.schedule || "-"}</strong></div>
           <div className="admin-web-row"><span>Bancos</span><strong>{listText(intake.banks)}</strong></div>
           <div className="admin-web-row"><span>Referencias</span><strong>{listText(intake.references)}</strong></div>
           <div className="admin-web-row"><span>Paso bot</span><strong>{intake.last_step}</strong></div>
           <div className="admin-web-row"><span>Negocio creado</span><strong>{intake.created_business_id || "-"}</strong></div>
+        </div>
+
+        <div className="admin-web-intake-edit">
+          <div className="admin-web-section-title">
+            <div>
+              <h3>Completar ficha manualmente</h3>
+              <p className="admin-web-muted">Usa esto si hablaste con el negocio por WhatsApp y quieres corregir o completar datos antes de aprobar.</p>
+            </div>
+            <span>{canManualEdit ? "Editable" : "Bloqueado"}</span>
+          </div>
+          <div className="admin-web-form-grid intake-edit">
+            <label>
+              <span>Codigo invitacion</span>
+              <input disabled={!canManualEdit} value={draft.referral_code} onChange={(event) => updateDraft({ referral_code: event.target.value })} placeholder="Codigo referido" />
+            </label>
+            <label>
+              <span>WhatsApp solicitante</span>
+              <input disabled={!canManualEdit} value={draft.contact_phone} onChange={(event) => updateDraft({ contact_phone: event.target.value })} placeholder="+58..." />
+            </label>
+            <label>
+              <span>Nombre negocio</span>
+              <input disabled={!canManualEdit} value={draft.business_name} onChange={(event) => updateDraft({ business_name: event.target.value })} placeholder="Casa Cambio Centro" />
+            </label>
+            <label>
+              <span>Responsable</span>
+              <input disabled={!canManualEdit} value={draft.responsible_name} onChange={(event) => updateDraft({ responsible_name: event.target.value })} placeholder="Nombre y apellido" />
+            </label>
+            <label>
+              <span>Ciudad</span>
+              <input disabled={!canManualEdit} value={draft.city} onChange={(event) => updateDraft({ city: event.target.value })} placeholder="Caracas" />
+            </label>
+            <label>
+              <span>Telefono negocio</span>
+              <input disabled={!canManualEdit} value={draft.business_phone} onChange={(event) => updateDraft({ business_phone: event.target.value })} placeholder="+58..." />
+            </label>
+            <label>
+              <span>Operacion</span>
+              <select disabled={!canManualEdit} value={draft.operation} onChange={(event) => updateDraft({ operation: event.target.value })}>
+                <option value="">Seleccionar</option>
+                <option value="buy_usd">Compra USD</option>
+                <option value="sell_usd">Vende USD</option>
+                <option value="both">Compra y vende</option>
+              </select>
+            </label>
+            <label>
+              <span>Metodos</span>
+              <input disabled={!canManualEdit} value={draft.methods} onChange={(event) => updateDraft({ methods: event.target.value })} placeholder="Zelle, USDT TRC20" />
+            </label>
+            <label>
+              <span>Bancos</span>
+              <input disabled={!canManualEdit} value={draft.banks} onChange={(event) => updateDraft({ banks: event.target.value })} placeholder="Banesco, Mercantil" />
+            </label>
+            <label>
+              <span>Min USD</span>
+              <input disabled={!canManualEdit} inputMode="decimal" value={draft.min_amount_usd} onChange={(event) => updateDraft({ min_amount_usd: event.target.value })} placeholder="20" />
+            </label>
+            <label>
+              <span>Max USD</span>
+              <input disabled={!canManualEdit} inputMode="decimal" value={draft.max_amount_usd} onChange={(event) => updateDraft({ max_amount_usd: event.target.value })} placeholder="100" />
+            </label>
+            <label>
+              <span>Horario</span>
+              <input disabled={!canManualEdit} value={draft.schedule} onChange={(event) => updateDraft({ schedule: event.target.value })} placeholder="Lun a sab, 9am a 6pm" />
+            </label>
+            <label className="span-3">
+              <span>Referencias</span>
+              <textarea disabled={!canManualEdit} value={draft.references} onChange={(event) => updateDraft({ references: event.target.value })} placeholder="Nombre, telefono o nota. Separa varias referencias con coma." />
+            </label>
+          </div>
+          <div className="admin-web-actions">
+            <button disabled={!canManualEdit} type="button" onClick={() => model.saveBusinessIntakeManual(false)}>
+              Guardar ficha
+            </button>
+            <button disabled={!canManualEdit} type="button" onClick={() => model.saveBusinessIntakeManual(true)}>
+              Guardar y poner en revision
+            </button>
+          </div>
         </div>
 
         <h3>Checklist para aprobar</h3>
@@ -134,7 +221,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
 
       <aside className="admin-web-panel admin-web-action-panel">
         <h3>Documentos</h3>
-        <p className="admin-web-muted">Abre cada archivo en una URL temporal. La accion queda auditada y necesitas escribir un motivo.</p>
+        <p className="admin-web-muted">Abre cada archivo en una URL temporal. La accion queda auditada automaticamente.</p>
         {detail.documents.length === 0 ? <Empty text="Sin documentos adjuntos." /> : null}
         <div className="admin-web-document-list">
           {detail.documents.map((file) => (
@@ -167,7 +254,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
             placeholder="Ej. Casa Cambio Centro"
           />
         </label>
-        <ReasonBox model={model} label="Motivo de revision" />
+        <ReasonBox model={model} label="Motivo para aprobar o rechazar" />
         <div className="admin-web-actions vertical">
           <button disabled={!canReview || Boolean(intake.created_business_id)} type="button" onClick={() => model.createBusinessFromIntake()}>
             Crear negocio pendiente
@@ -176,7 +263,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
             Crear, aprobar y avisar
           </button>
           <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.deleteBusinessIntake()}>
-            Borrar registro
+            Borrar y reiniciar onboarding
           </button>
         </div>
       </aside>

@@ -372,7 +372,8 @@
 .admin-web-field textarea,
 .admin-web-field select,
 .admin-web-form-grid input,
-.admin-web-form-grid select {
+.admin-web-form-grid select,
+.admin-web-form-grid textarea {
   min-height: 38px;
   border: 1px solid var(--admin-line);
   border-radius: 8px;
@@ -387,12 +388,14 @@
 .admin-web-field textarea:focus,
 .admin-web-field select:focus,
 .admin-web-form-grid input:focus,
-.admin-web-form-grid select:focus {
+.admin-web-form-grid select:focus,
+.admin-web-form-grid textarea:focus {
   outline: 2px solid rgb(32 200 255 / 24%);
   border-color: rgb(32 200 255 / 56%);
 }
 
-.admin-web-field textarea {
+.admin-web-field textarea,
+.admin-web-form-grid textarea {
   min-height: 90px;
   resize: vertical;
 }
@@ -544,6 +547,7 @@
 }
 
 .admin-web-intake-hero > div,
+.admin-web-intake-edit,
 .admin-web-review-box {
   display: grid;
   gap: 6px;
@@ -565,6 +569,36 @@
 .admin-web-intake-hero strong {
   font-size: 20px;
   letter-spacing: 0;
+}
+
+.admin-web-section-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-web-section-title h3,
+.admin-web-section-title p {
+  margin: 0;
+}
+
+.admin-web-section-title span {
+  padding: 5px 8px;
+  border: 1px solid rgb(47 155 255 / 38%);
+  border-radius: 999px;
+  color: #d9f2ff;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.admin-web-form-grid.intake-edit {
+  margin-top: 8px;
+}
+
+.admin-web-form-grid .span-3 {
+  grid-column: 1 / -1;
 }
 
 .admin-web-checklist,

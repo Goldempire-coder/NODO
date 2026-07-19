@@ -31,6 +31,9 @@ def public_intake_payload(intake: BusinessIntakeRequestRecord, *, admin: bool = 
     }
     if admin:
         payload |= {
+            "referral_code": intake.referral_code,
+            "contact_phone": intake.contact_phone,
+            "business_phone": intake.business_phone,
             "banks": intake.banks_json,
             "methods": intake.methods_json,
             "min_amount_usd": intake.min_amount_usd,

@@ -9,6 +9,7 @@ from app.modules.business_intake.schemas import (
     AdminBusinessIntakeDocumentViewRequest,
     AdminBusinessIntakeDeleteRequest,
     AdminBusinessIntakeReviewRequest,
+    AdminBusinessIntakeUpdateRequest,
     BusinessIntakeContactRequest,
     BusinessIntakeStartRequest,
     BusinessIntakeSubmitRequest,
@@ -116,6 +117,19 @@ def admin_list_intake(
 @router.get("/admin/business-intake/{intake_id}")
 def admin_intake_detail(intake_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
     return {"data": _service(request).admin_detail(user=user, intake_id=intake_id, request_id=_request_id(request)), "request_id": _request_id(request)}
+
+
+@router.patch("/admin/business-intake/{intake_id}")
+def admin_update_intake(
+    intake_id: str,
+    payload: AdminBusinessIntakeUpdateRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    return {
+        "data": _service(request).admin_update(user=user, intake_id=intake_id, payload=payload, request_id=_request_id(request)),
+        "request_id": _request_id(request),
+    }
 
 
 @router.post("/admin/business-intake/{intake_id}/documents/{file_id}/view-url")
