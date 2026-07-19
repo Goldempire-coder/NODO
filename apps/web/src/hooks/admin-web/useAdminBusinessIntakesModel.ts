@@ -199,9 +199,17 @@ export function useAdminBusinessIntakesModel({
       return;
     }
     queueCriticalAction("Borrar solicitud de negocio", "El registro se elimina del panel; audit logs quedan intactos.", async () => {
-      await deleteAdminBusinessIntake(request, selectedBusinessIntake.intake.id, idempotencyKey("business_intake_delete"));
+      const data = await deleteAdminBusinessIntake<{ reset_notification_sent?: boolean }>(
+        request,
+        selectedBusinessIntake.intake.id,
+        idempotencyKey("business_intake_delete")
+      );
       setSelectedBusinessIntake(null);
-      setNotice("Solicitud borrada del panel. Audit log preservado.");
+      setNotice(
+        data.reset_notification_sent
+          ? "Solicitud borrada. El bot aviso al negocio que puede comenzar de nuevo."
+          : "Solicitud borrada. No se pudo confirmar el aviso por Telegram; revisa audit logs."
+      );
       await loadBusinessIntakes(intakeFilter);
     }, { requiresReason: false });
   }, [adminMutable, intakeFilter, loadBusinessIntakes, queueCriticalAction, request, selectedBusinessIntake, setNotice]);
