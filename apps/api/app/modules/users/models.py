@@ -12,7 +12,7 @@ def utc_now() -> datetime:
 @dataclass
 class UserRecord:
     id: str
-    telegram_id: int
+    telegram_id: int | None
     username: str | None
     first_name: str | None
     last_name: str | None
@@ -48,4 +48,24 @@ def new_user_id() -> str:
 
 
 def new_session_id() -> str:
+    return str(uuid4())
+
+
+@dataclass
+class AdminCredentialRecord:
+    id: str
+    user_id: str
+    username: str
+    username_normalized: str
+    password_hash: str
+    status: str
+    failed_attempts: int = 0
+    locked_until: datetime | None = None
+    last_login_at: datetime | None = None
+    password_changed_at: datetime | None = None
+    created_at: datetime = field(default_factory=utc_now)
+    updated_at: datetime = field(default_factory=utc_now)
+
+
+def new_admin_credential_id() -> str:
     return str(uuid4())

@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { authenticateAdminCredentials } from "../../api/auth";
 import { apiRequest, ApiClientError } from "../../api/client";
-import { clearAuthSession, LEGACY_ADMIN_TOKEN_STORAGE_KEY, readAuthSession, writeAuthSession } from "../../api/session";
+import { clearAuthSession, readAuthSession, writeAuthSession } from "../../api/session";
 import { canReadAdmin } from "../../hooks/admin-web/adminWebAccess";
 import type { PublicUser } from "../../types/auth";
 import { AdminWebWorkspace } from "../admin-web/AdminWebWorkspace";
@@ -17,29 +18,11 @@ function readStoredAdminSession(): SubmittedAdminSession | null {
   return stored ? { accessToken: stored.accessToken, refreshToken: stored.refreshToken } : null;
 }
 
-function parseSubmittedAdminSession(value: string): SubmittedAdminSession | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  if (!trimmed.startsWith("{")) {
-    return { accessToken: trimmed, refreshToken: null };
-  }
-  try {
-    const parsed = JSON.parse(trimmed);
-    const data = parsed.data || parsed;
-    const accessToken = data.access_token || data.accessToken;
-    const refreshToken = data.refresh_token || data.refreshToken || null;
-    return accessToken ? { accessToken, refreshToken } : null;
-  } catch {
-    return null;
-  }
-}
-
 export function AdminWebEntryPage() {
-  const [tokenInput, setTokenInput] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [session, setSession] = useState<{ token: string; user: PublicUser } | null>(null);
-  const [message, setMessage] = useState("Ingresa una sesion admin emitida por backend.");
+  const [message, setMessage] = useState("Entra con tu usuario admin.");
   const [busy, setBusy] = useState(false);
 
   const validateToken = useCallback(async (submittedSession: SubmittedAdminSession) => {
@@ -70,16 +53,12 @@ export function AdminWebEntryPage() {
         refreshToken: submittedSession.refreshToken,
         expiresAt: null
       };
-      if (validatedSession.refreshToken) {
-        writeAuthSession("admin", {
-          accessToken: validatedSession.accessToken,
-          refreshToken: validatedSession.refreshToken,
-          expiresAt: validatedSession.expiresAt,
-          user
-        });
-      } else {
-        window.sessionStorage.setItem(LEGACY_ADMIN_TOKEN_STORAGE_KEY, validatedSession.accessToken);
-      }
+      writeAuthSession("admin", {
+        accessToken: validatedSession.accessToken,
+        refreshToken: validatedSession.refreshToken,
+        expiresAt: validatedSession.expiresAt,
+        user
+      });
       setSession({ token: validatedSession.accessToken, user });
       setMessage("Sesion admin validada.");
     } catch (error) {
@@ -100,12 +79,39 @@ export function AdminWebEntryPage() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const submittedSession = parseSubmittedAdminSession(tokenInput);
-    if (!submittedSession) {
-      setMessage("La sesion admin es requerida.");
+    const cleanUsername = username.trim();
+    if (!cleanUsername || !password) {
+      setMessage("Usuario y clave son requeridos.");
       return;
     }
-    void validateToken(submittedSession);
+    setBusy(true);
+    setMessage("Validando usuario admin...");
+    void authenticateAdminCredentials(cleanUsername, password)
+      .then((payload) => {
+        if (!payload.data?.access_token || !payload.data.refresh_token || !payload.data.user) {
+          setMessage(payload.error?.message || "No pudimos iniciar sesion admin.");
+          return;
+        }
+        if (!canReadAdmin(payload.data.user)) {
+          clearAuthSession("admin");
+          setMessage("Este usuario no tiene acceso al Admin Web.");
+          return;
+        }
+        writeAuthSession("admin", {
+          accessToken: payload.data.access_token,
+          refreshToken: payload.data.refresh_token,
+          expiresAt: Date.now() + payload.data.expires_in * 1000,
+          user: payload.data.user
+        });
+        setPassword("");
+        setSession({ token: payload.data.access_token, user: payload.data.user });
+        setMessage("Sesion admin iniciada.");
+      })
+      .catch(() => {
+        clearAuthSession("admin");
+        setMessage("No pudimos iniciar sesion admin.");
+      })
+      .finally(() => setBusy(false));
   };
 
   if (session) {
@@ -122,17 +128,26 @@ export function AdminWebEntryPage() {
         <div>
           <p className="admin-web-auth__eyebrow">Acceso operativo</p>
           <h1>Panel Admin Web</h1>
-          <p>Esta superficie no inicia Telegram ni usa Mini App shell. El backend valida la sesion y RBAC.</p>
+          <p>Esta superficie usa usuario y clave. El backend valida la sesion y permisos.</p>
         </div>
         <form className="admin-web-auth__form" onSubmit={handleSubmit}>
-          <label htmlFor="admin-session-token">Sesion admin</label>
-          <textarea
-            id="admin-session-token"
-            value={tokenInput}
-            onChange={(event) => setTokenInput(event.target.value)}
-            placeholder="Pega un JWT admin o un payload de sesion emitido por backend"
-            rows={4}
-            spellCheck={false}
+          <label htmlFor="admin-username">Usuario</label>
+          <input
+            id="admin-username"
+            autoComplete="username"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            placeholder="admin@nodo.local"
+            type="text"
+          />
+          <label htmlFor="admin-password">Clave</label>
+          <input
+            id="admin-password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Tu clave admin"
+            type="password"
           />
           <button type="submit" disabled={busy}>
             {busy ? "Validando..." : "Entrar al Admin Web"}

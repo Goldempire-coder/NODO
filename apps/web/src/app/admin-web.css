@@ -43,6 +43,7 @@
   color: var(--nodo-muted);
 }
 
+.admin-web-auth__form input,
 .admin-web-auth__form textarea {
   width: 100%;
   resize: vertical;

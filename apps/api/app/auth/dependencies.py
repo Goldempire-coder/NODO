@@ -59,7 +59,7 @@ def _user_to_cache(user: UserRecord) -> dict[str, Any]:
 def _user_from_cache(payload: dict[str, Any]) -> UserRecord:
     return UserRecord(
         id=payload["id"],
-        telegram_id=int(payload["telegram_id"]),
+        telegram_id=int(payload["telegram_id"]) if payload.get("telegram_id") is not None else None,
         username=payload.get("username"),
         first_name=payload.get("first_name"),
         last_name=payload.get("last_name"),

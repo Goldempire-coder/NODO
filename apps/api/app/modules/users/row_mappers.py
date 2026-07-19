@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from app.modules.users.models import SessionRecord, UserRecord
+from app.modules.users.models import AdminCredentialRecord, SessionRecord, UserRecord
 
 
 def user_from_row(row) -> UserRecord:  # type: ignore[no-untyped-def]
     return UserRecord(
         id=str(row["id"]),
-        telegram_id=int(row["telegram_id"]),
+        telegram_id=int(row["telegram_id"]) if row["telegram_id"] is not None else None,
         username=row["username"],
         first_name=row["first_name"],
         last_name=row["last_name"],
@@ -19,6 +19,23 @@ def user_from_row(row) -> UserRecord:  # type: ignore[no-untyped-def]
         last_seen_at=row["last_seen_at"],
         terms_accepted_at=row["terms_accepted_at"],
         terms_version=row["terms_version"],
+    )
+
+
+def admin_credential_from_row(row) -> AdminCredentialRecord:  # type: ignore[no-untyped-def]
+    return AdminCredentialRecord(
+        id=str(row["id"]),
+        user_id=str(row["user_id"]),
+        username=row["username"],
+        username_normalized=row["username_normalized"],
+        password_hash=row["password_hash"],
+        status=row["status"],
+        failed_attempts=int(row["failed_attempts"]),
+        locked_until=row["locked_until"],
+        last_login_at=row["last_login_at"],
+        password_changed_at=row["password_changed_at"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
     )
 
 
