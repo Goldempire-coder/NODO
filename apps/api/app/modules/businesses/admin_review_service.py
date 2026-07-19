@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import ApiError
+from app.modules.businesses.access_link_rules import admin_reason_or_default
 from app.modules.businesses.models import TRUST_LEVELS
 from app.modules.businesses.policy import require_admin_mutation, require_admin_view
 from app.modules.businesses.presenters import business_payload, file_payload, mask_phone, mask_rif
@@ -416,7 +417,4 @@ class BusinessAdminReviewServiceMixin:
         }
 
     def _admin_reason_or_error(self, reason: str) -> str:
-        reason = reason.strip()
-        if not reason:
-            raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
-        return reason
+        return admin_reason_or_default(reason)

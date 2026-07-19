@@ -13,7 +13,7 @@ export function useAdminCriticalAction({
 
   const queueCriticalAction = useCallback((title: string, detail: string, run: () => Promise<void>, options?: { requiresReason?: boolean }) => {
     if ((options?.requiresReason ?? true) && !reason.trim()) {
-      setNotice("Motivo obligatorio antes de ejecutar accion admin.");
+      setNotice("Esta accion sensible requiere nota interna.");
       return;
     }
     setPendingAction({ title, detail, run });

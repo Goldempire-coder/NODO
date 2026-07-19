@@ -4,10 +4,10 @@ from typing import Any
 
 from app.core.errors import ApiError
 from app.modules.businesses.access_link_rules import (
+    admin_reason_or_default,
     event_type_for_access_link_status,
     require_business_can_receive_access_link,
     require_idempotency_key,
-    required_admin_reason,
 )
 from app.modules.businesses.models import BusinessAccessLinkRecord, BusinessRecord
 from app.modules.businesses.policy import require_admin_mutation
@@ -43,7 +43,7 @@ class BusinessAccessLinkServiceMixin:
         require_admin_mutation(user)
         self._rate_limit("access_link_create", user)  # type: ignore[attr-defined]
         require_idempotency_key(idempotency_key)
-        return required_admin_reason(payload.reason)
+        return admin_reason_or_default(payload.reason)
 
     def _approved_business_for_access_link(self, business_id: str) -> BusinessRecord:
         business = self._business_or_404(business_id)  # type: ignore[attr-defined]
@@ -114,7 +114,7 @@ class BusinessAccessLinkServiceMixin:
         require_admin_mutation(user)
         self._rate_limit(f"access_link_{status}", user)  # type: ignore[attr-defined]
         require_idempotency_key(idempotency_key)
-        return required_admin_reason(reason)
+        return admin_reason_or_default(reason)
 
     def _access_link_for_business(self, *, link_id: str, business: BusinessRecord) -> BusinessAccessLinkRecord:
         link = self._repository.get_access_link(link_id)  # type: ignore[attr-defined]

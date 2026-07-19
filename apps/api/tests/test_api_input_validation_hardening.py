@@ -193,7 +193,7 @@ def test_support_and_staff_payloads_reject_extra_fields() -> None:
     _assert_safe_validation_error(staff_response)
 
 
-def test_admin_reason_whitespace_only_is_rejected_before_mutation() -> None:
+def test_admin_user_status_whitespace_reason_uses_default_note() -> None:
     client = _client()
     admin = _login(client, 22006, "strict_admin")
     target = _login(client, 22007, "strict_target")
@@ -205,9 +205,9 @@ def test_admin_reason_whitespace_only_is_rejected_before_mutation() -> None:
         json={"reason": "   "},
     )
 
-    assert response.status_code == 400, response.text
-    assert response.json()["error"]["code"] == "ADMIN_REASON_REQUIRED"
-    assert client.app.state.user_repository.get_user_by_id(target["user"]["id"]).status == "active"
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["user"]["status"] == "restricted"
+    assert client.app.state.user_repository.get_user_by_id(target["user"]["id"]).status == "restricted"
 
 
 def test_telegram_webhooks_reject_malformed_or_non_object_json_safely() -> None:

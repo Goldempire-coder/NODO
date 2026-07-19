@@ -53,6 +53,9 @@ def test_frontend_telegram_auth_persists_refresh_session_for_lifecycle() -> None
 def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload() -> None:
     admin_entry = _read("apps/web/src/screens/auth/AdminWebEntryPage.tsx")
     admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
+    admin_users_model = _read("apps/web/src/hooks/admin-web/useAdminUsersModel.ts")
+    admin_users_screen = _read("apps/web/src/screens/admin-web/AdminUserScreens.tsx")
+    admin_businesses_model = _read("apps/web/src/hooks/admin-web/useAdminBusinessesModel.ts")
 
     assert "telegramTheme" not in admin_entry
     assert "@telegram-apps" not in admin_entry
@@ -61,6 +64,13 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
     assert "const validatedSession = readAuthSession(\"admin\")" in admin_entry
     assert "setSession({ token: validatedSession.accessToken, user })" in admin_entry
     assert '"X-NODO-Surface": "admin_web"' in admin_model
+    assert '{ view: "businesses" as const, label: "Negocios", action: () => businessIntake.loadBusinesses("") }' in admin_model
+    assert '{ view: "users" as const, label: "Clientes", action: () => users.loadUsers() }' in admin_model
+    assert 'const [businessFilter, setBusinessFilter] = useState("")' in admin_businesses_model
+    assert 'role: "remitter"' in admin_users_model
+    assert "A-10 Clientes" in admin_users_screen
+    assert "Los negocios se gestionan en Negocios." in admin_users_screen
+    assert "business_owner" not in admin_users_screen
 
 
 def test_admin_business_intake_defaults_to_active_submissions_for_real_flow_review() -> None:

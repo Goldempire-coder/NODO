@@ -37,7 +37,7 @@ export function useAdminBusinessesModel({
   const [businesses, setBusinesses] = useState<BusinessSummaryForAdmin[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<AdminBusinessDetail | null>(null);
   const [businessAccessLinks, setBusinessAccessLinks] = useState<AdminBusinessAccessLink[]>([]);
-  const [businessFilter, setBusinessFilter] = useState("pending");
+  const [businessFilter, setBusinessFilter] = useState("");
   const [businessCapacityDraft, setBusinessCapacityDraft] = useState({
     trust_level: "new",
     min_order_amount_usd: "20.00",
@@ -110,15 +110,16 @@ export function useAdminBusinessesModel({
     }
     queueCriticalAction(
       action === "approve" ? "Aprobar negocio" : "Rechazar negocio",
-      "Esta accion requiere reason, idempotencia, backend RBAC y audit log.",
+      "Esta accion queda auditada. La nota interna es opcional.",
       async () => {
         await reviewAdminBusiness(request, selectedBusiness.business.id, action, reason, idempotencyKey(`business_${action}`));
         setReason("");
         setNotice(action === "approve" ? "Negocio aprobado." : "Negocio rechazado.");
-        await loadPendingBusinesses();
-      }
+        await loadBusinesses("");
+      },
+      { requiresReason: false }
     );
-  }, [adminMutable, loadPendingBusinesses, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
+  }, [adminMutable, loadBusinesses, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
   const changeBusinessStatus = useCallback((action: "suspend" | "reactivate" | "block") => {
     if (!selectedBusiness || !adminMutable) {
@@ -132,13 +133,14 @@ export function useAdminBusinessesModel({
     };
     queueCriticalAction(
       labels[action],
-      "Cambia el estado del negocio completo. Backend valida estado, reason, idempotencia, audit y acceso a Mini App Negocio.",
+      "Cambia el estado del negocio completo. Backend valida estado, permisos, idempotencia, audit y acceso a Mini App Negocio.",
       async () => {
         await reviewAdminBusiness(request, selectedBusiness.business.id, action, reason, idempotencyKey(`business_status_${action}`));
         setReason("");
         setNotice("Estado del negocio actualizado.");
         await openBusiness(selectedBusiness.business.id);
-      }
+      },
+      { requiresReason: false }
     );
   }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
@@ -149,7 +151,7 @@ export function useAdminBusinessesModel({
     }
     queueCriticalAction(
       "Actualizar capacidad",
-      "Ajusta minimo, maximo, limite diario y ordenes activas. Backend valida rango, reason, idempotencia y audit log.",
+      "Ajusta minimo, maximo, limite diario y ordenes activas. Backend valida rango, permisos, idempotencia y audit log.",
       async () => {
         await updateAdminBusinessCapacity(
           request,
@@ -160,7 +162,8 @@ export function useAdminBusinessesModel({
         setReason("");
         setNotice("Capacidad del negocio actualizada.");
         await openBusiness(selectedBusiness.business.id);
-      }
+      },
+      { requiresReason: false }
     );
   }, [adminMutable, businessCapacityDraft, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
@@ -174,7 +177,7 @@ export function useAdminBusinessesModel({
       window.open(data.url, "_blank", "noopener,noreferrer");
       setReason("");
       setNotice(`URL privada generada por ${data.expires_in}s.`);
-    });
+    }, { requiresReason: false });
   }, [adminMutable, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
   const createBusinessOwnerAccessLink = useCallback(() => {
@@ -187,7 +190,7 @@ export function useAdminBusinessesModel({
       setNotice("Este negocio no tiene owner_user_id para crear link.");
       return;
     }
-    queueCriticalAction("Crear acceso negocio", "Vincula el owner del negocio a la Mini App Negocio. Backend valida RBAC, reason e idempotencia.", async () => {
+    queueCriticalAction("Crear acceso negocio", "Vincula el owner del negocio a la Mini App Negocio. Backend valida permisos e idempotencia.", async () => {
       await createAdminBusinessAccessLink(
         request,
         selectedBusiness.business.id,
@@ -197,7 +200,7 @@ export function useAdminBusinessesModel({
       setReason("");
       setNotice("Acceso de negocio creado.");
       await openBusiness(selectedBusiness.business.id);
-    });
+    }, { requiresReason: false });
   }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
   const changeBusinessAccessLink = useCallback((linkId: string, action: "suspend" | "reactivate" | "revoke" | "block") => {
@@ -207,7 +210,7 @@ export function useAdminBusinessesModel({
     }
     queueCriticalAction(
       `${action} acceso negocio`,
-      "Cambia el acceso del negocio sin borrar historial. Backend valida estado, reason, idempotencia y audit.",
+      "Cambia el acceso del negocio sin borrar historial. Backend valida estado, permisos, idempotencia y audit.",
       async () => {
         await updateAdminBusinessAccessLink(
           request,
@@ -220,7 +223,8 @@ export function useAdminBusinessesModel({
         setReason("");
         setNotice("Acceso de negocio actualizado.");
         await openBusiness(selectedBusiness.business.id);
-      }
+      },
+      { requiresReason: false }
     );
   }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 

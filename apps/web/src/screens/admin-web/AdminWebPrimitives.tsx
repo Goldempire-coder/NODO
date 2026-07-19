@@ -16,11 +16,11 @@ export function Empty({ text }: { text: string }) {
   return <div className="admin-web-empty">{text}</div>;
 }
 
-export function ReasonBox({ model, label = "Reason admin" }: { model: AdminWebModel; label?: string }) {
+export function ReasonBox({ model, label = "Nota admin opcional" }: { model: AdminWebModel; label?: string }) {
   return (
     <label className="admin-web-field">
       <span>{label}</span>
-      <textarea value={model.reason} onChange={(event) => model.setReason(event.target.value)} placeholder="Explica el motivo operativo de la accion" />
+      <textarea value={model.reason} onChange={(event) => model.setReason(event.target.value)} placeholder="Opcional: agrega contexto interno para auditoria" />
     </label>
   );
 }

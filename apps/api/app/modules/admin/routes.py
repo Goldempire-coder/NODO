@@ -12,7 +12,7 @@ router = APIRouter(prefix="/admin", tags=["admin-console"])
 
 
 class AdminReasonRequest(StrictRequestModel):
-    reason: str = Field(max_length=500)
+    reason: str = Field(default="", max_length=500)
 
 
 class AdminEmergencyModeRequest(AdminReasonRequest):

@@ -6,7 +6,17 @@ export function Businesses({ model }: { model: AdminWebModel }) {
     <section className="admin-web-panel">
       <Header title="A-02 Negocios" action={<button onClick={() => void model.loadBusinesses(model.businessFilter)} type="button">Aplicar filtro</button>} />
       <div className="admin-web-toolbar">
-        <label><span>Status</span><input value={model.businessFilter} onChange={(event) => model.setBusinessFilter(event.target.value)} placeholder="pending, approved..." /></label>
+        <label>
+          <span>Estado del negocio</span>
+          <select value={model.businessFilter} onChange={(event) => model.setBusinessFilter(event.target.value)}>
+            <option value="">Todos</option>
+            <option value="pending">Pendientes</option>
+            <option value="approved">Aprobados</option>
+            <option value="suspended">Suspendidos</option>
+            <option value="blocked">Bloqueados</option>
+            <option value="rejected">Rechazados</option>
+          </select>
+        </label>
         <button type="button" onClick={() => void model.loadPendingBusinesses()}>Pendientes</button>
       </div>
       <Table headers={["Negocio", "Estado", "Riesgo", "Creado", ""]}>
@@ -122,7 +132,7 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
       </div>
       <div className="admin-web-panel">
         <Header title="Acceso Mini App Negocio" action={<button disabled={!model.adminMutable} type="button" onClick={() => model.createBusinessOwnerAccessLink()}>Crear link owner</button>} />
-        <p>El acceso se gobierna por backend con business_access_links. El bot no aprueba ni da acceso.</p>
+        <p>El acceso se gobierna por backend. El bot solo abre la Mini App cuando el negocio ya esta aprobado y vinculado.</p>
         <Table headers={["Usuario", "Telegram", "Rol", "Estado", "Actualizado", "Acciones"]}>
           {model.businessAccessLinks.map((link) => (
             <tr key={link.id}>

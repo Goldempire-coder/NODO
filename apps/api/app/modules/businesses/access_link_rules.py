@@ -11,12 +11,19 @@ ACCESS_LINK_STATUS_EVENTS = {
     "blocked": "business_access_blocked",
 }
 
+DEFAULT_ADMIN_REASON = "Sin nota del admin."
+
 
 def required_admin_reason(reason: str) -> str:
     reason = reason.strip()
     if not reason:
         raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
     return reason
+
+
+def admin_reason_or_default(reason: str | None) -> str:
+    reason = (reason or "").strip()
+    return reason or DEFAULT_ADMIN_REASON
 
 
 def require_idempotency_key(idempotency_key: str | None) -> None:

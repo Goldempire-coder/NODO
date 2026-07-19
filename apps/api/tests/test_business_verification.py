@@ -362,21 +362,13 @@ def test_admin_pending_pagination_support_readonly_and_approve_reject_permission
     assert support_approve.status_code == 403
     assert support_approve.json()["error"]["code"] == "FORBIDDEN"
 
-    missing_reason = client.post(
+    approved_without_note = client.post(
         f"/api/v1/admin/businesses/{business['id']}/approve",
         headers={**_headers(admin_login, "admin_approve_missing"), "Content-Type": "application/json"},
         json={"reason": ""},
     )
-    assert missing_reason.status_code == 400
-    assert missing_reason.json()["error"]["code"] == "ADMIN_REASON_REQUIRED"
-
-    approved = client.post(
-        f"/api/v1/admin/businesses/{business['id']}/approve",
-        headers={**_headers(admin_login, "admin_approve"), "Content-Type": "application/json"},
-        json={"reason": "Datos validados manualmente"},
-    )
-    assert approved.status_code == 200
-    assert approved.json()["data"]["business"]["verification_status"] == "approved"
+    assert approved_without_note.status_code == 200
+    assert approved_without_note.json()["data"]["business"]["verification_status"] == "approved"
     assert "business_approved" in _event_types(client)
 
     reject_after_approve = client.post(

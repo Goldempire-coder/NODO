@@ -72,7 +72,7 @@ class BusinessVerificationSubmitRequest(StrictRequestModel):
 
 
 class AdminReasonRequest(StrictRequestModel):
-    reason: str = Field(max_length=500)
+    reason: str = Field(default="", max_length=500)
 
 
 class AdminBusinessCapacityUpdateRequest(StrictRequestModel):
@@ -81,13 +81,13 @@ class AdminBusinessCapacityUpdateRequest(StrictRequestModel):
     max_order_amount_usd: Decimal = Field(le=Decimal("2000.00"))
     daily_limit_usd: Decimal = Field(le=Decimal("10000.00"))
     active_order_limit: int = Field(ge=1, le=50)
-    reason: str = Field(min_length=1, max_length=500)
+    reason: str = Field(default="", max_length=500)
 
 
 class AdminBusinessAccessLinkCreateRequest(StrictRequestModel):
     user_id: ResourceId
     role_in_business: str = Field(default="owner", max_length=32)
-    reason: str = Field(min_length=1, max_length=500)
+    reason: str = Field(default="", max_length=500)
 
 
 class PendingBusinessesQuery(StrictRequestModel):

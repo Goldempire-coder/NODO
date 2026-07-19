@@ -16,7 +16,8 @@ function userContact(user: { phone?: string | null; phone_masked?: string | null
 export function Users({ model }: { model: AdminWebModel }) {
   return (
     <section className="admin-web-panel">
-      <Header title="A-10 Usuarios" action={<button onClick={() => void model.loadUsers()} type="button">Buscar</button>} />
+      <Header title="A-10 Clientes" action={<button onClick={() => void model.loadUsers()} type="button">Buscar</button>} />
+      <p className="admin-web-muted">Aqui viven los clientes que compran bolivares. Los negocios se gestionan en Negocios.</p>
       <div className="admin-web-toolbar">
         <label>
           <span>Telefono</span>
@@ -31,15 +32,11 @@ export function Users({ model }: { model: AdminWebModel }) {
           <input value={model.userFilters.username} onChange={(event) => model.setUserFilters({ ...model.userFilters, username: event.target.value })} placeholder="@usuario" />
         </label>
         <label>
-          <span>Rol</span>
-          <input value={model.userFilters.role} onChange={(event) => model.setUserFilters({ ...model.userFilters, role: event.target.value })} placeholder="remitter, business_owner..." />
-        </label>
-        <label>
           <span>Estado</span>
           <input value={model.userFilters.status} onChange={(event) => model.setUserFilters({ ...model.userFilters, status: event.target.value })} placeholder="active, restricted..." />
         </label>
       </div>
-      <Table headers={["Usuario", "Telefono", "Telegram", "Rol", "Estado", "Ultima vez", ""]}>
+      <Table headers={["Cliente", "Telefono", "Telegram", "Estado", "Ultima vez", ""]}>
         {model.users.map((item) => {
           const contact = userContact(item);
           return (
@@ -47,7 +44,6 @@ export function Users({ model }: { model: AdminWebModel }) {
               <td>{userName(item)}</td>
               <td>{contact.phone}</td>
               <td>{contact.telegram}</td>
-              <td>{item.role}</td>
               <td>{item.status}</td>
               <td>{dateText(item.last_seen_at || item.updated_at || item.created_at)}</td>
               <td><button type="button" onClick={() => void model.openUser(item.id)}>Abrir</button></td>
@@ -55,7 +51,7 @@ export function Users({ model }: { model: AdminWebModel }) {
           );
         })}
       </Table>
-      {model.users.length === 0 ? <Empty text="Busca usuarios por telefono, Telegram ID, username, rol o estado." /> : null}
+      {model.users.length === 0 ? <Empty text="Busca clientes por telefono, Telegram ID, username o estado." /> : null}
     </section>
   );
 }
@@ -69,7 +65,7 @@ export function UserDetail({ model }: { model: AdminWebModel }) {
   return (
     <section className="admin-web-split">
       <div className="admin-web-panel">
-        <h2>Detalle usuario</h2>
+        <h2>Detalle cliente</h2>
         <dl className="admin-web-dl">
           <dt>Nombre</dt><dd>{userName(detail.user)}</dd>
           <dt>Telefono</dt><dd>{contact.phone}</dd>

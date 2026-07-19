@@ -18,7 +18,7 @@ const EMPTY_FILTERS: AdminUserFilters = {
   phone: "",
   telegram_id: "",
   username: "",
-  role: "",
+  role: "remitter",
   status: ""
 };
 
@@ -88,7 +88,8 @@ export function useAdminUsersModel({
         setReason("");
         setNotice("Estado de usuario actualizado.");
         await openUser(userId);
-      }
+      },
+      { requiresReason: false }
     );
   }, [adminMutable, openUser, queueCriticalAction, reason, request, setNotice, setReason]);
 

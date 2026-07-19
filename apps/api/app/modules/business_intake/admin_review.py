@@ -11,6 +11,7 @@ from app.modules.users.models import UserRecord
 
 
 DEFAULT_ACCEPT_REASON = "admin_accepted_business_intake"
+DEFAULT_REJECT_REASON = "admin_rejected_business_intake"
 
 
 def _review_reason(*, status: str, payload: AdminBusinessIntakeReviewRequest) -> str:
@@ -19,7 +20,7 @@ def _review_reason(*, status: str, payload: AdminBusinessIntakeReviewRequest) ->
         return reason
     if status == "accepted":
         return DEFAULT_ACCEPT_REASON
-    raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
+    return DEFAULT_REJECT_REASON
 
 
 class BusinessIntakeAdminReviewMixin:

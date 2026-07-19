@@ -843,7 +843,7 @@ def test_admin_reject_requires_idempotency_and_does_not_create_business() -> Non
     rejected = client.post(
         f"/api/v1/admin/business-intake/{started['id']}/reject",
         headers={**_admin_headers(admin, "reject_once"), "Content-Type": "application/json"},
-        json={"reason": "insufficient evidence"},
+        json={},
     )
     assert rejected.status_code == 200, rejected.text
     assert rejected.json()["data"]["intake"]["status"] == "rejected"

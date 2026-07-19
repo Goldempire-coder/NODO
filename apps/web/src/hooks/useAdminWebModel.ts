@@ -136,8 +136,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { view: "dashboard" as const, label: "Dashboard", action: overview.loadDashboard },
       { view: "incidents" as const, label: "Incidentes", action: overview.loadIncidentConsole },
       { view: "ux-friction" as const, label: "UX", action: overview.loadUXFriction },
-      { view: "businesses" as const, label: "Negocios", action: businessIntake.loadPendingBusinesses },
-      { view: "users" as const, label: "Usuarios", action: () => users.loadUsers() },
+      { view: "businesses" as const, label: "Negocios", action: () => businessIntake.loadBusinesses("") },
+      { view: "users" as const, label: "Clientes", action: () => users.loadUsers() },
       { view: "orders" as const, label: "Ordenes", action: () => ordersDisputes.loadOrders("") },
       { view: "disputes" as const, label: "Disputas", action: () => ordersDisputes.loadDisputes("open") },
       { view: "credit-purchases" as const, label: "Creditos", action: () => credits.loadCreditPurchases("pending_manual_review") },
@@ -153,7 +153,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { view: "support" as const, label: "Soporte", action: () => support.loadSupportTickets("") },
       { view: "staff" as const, label: "Staff", action: () => staff.loadStaff("") }
     ],
-    [audit.loadAuditLogs, businessIntake.loadBusinessIntakes, businessIntake.loadPendingBusinesses, credits.loadCreditPurchases, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
+    [audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
   );
 
   return {
