@@ -55,7 +55,9 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
     admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
     admin_users_model = _read("apps/web/src/hooks/admin-web/useAdminUsersModel.ts")
     admin_users_screen = _read("apps/web/src/screens/admin-web/AdminUserScreens.tsx")
+    admin_api = _read("apps/web/src/api/admin.ts")
     admin_businesses_model = _read("apps/web/src/hooks/admin-web/useAdminBusinessesModel.ts")
+    admin_businesses_screen = _read("apps/web/src/screens/admin-web/AdminBusinessScreens.tsx")
 
     assert "telegramTheme" not in admin_entry
     assert "@telegram-apps" not in admin_entry
@@ -71,6 +73,16 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
     assert "A-10 Clientes" in admin_users_screen
     assert "Los negocios se gestionan en Negocios." in admin_users_screen
     assert "business_owner" not in admin_users_screen
+    assert "reviewAdminBusiness" not in admin_api
+    assert "reviewAdminBusiness" not in admin_businesses_model
+    assert "reviewBusiness:" not in admin_model
+    assert "changeBusinessStatus:" not in admin_model
+    assert "changeBusinessAccessLink" in admin_businesses_screen
+    assert "changeBusinessStatus" not in admin_businesses_screen
+    assert "reviewBusiness(" not in admin_businesses_screen
+    assert "Suspender negocio" not in admin_businesses_screen
+    assert "Reactivar negocio" not in admin_businesses_screen
+    assert "Bloquear negocio" not in admin_businesses_screen
 
 
 def test_admin_business_intake_defaults_to_active_submissions_for_real_flow_review() -> None:

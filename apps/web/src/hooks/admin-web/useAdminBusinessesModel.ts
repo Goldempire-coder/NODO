@@ -6,7 +6,6 @@ import {
   listAdminBusinessAccessLinks,
   listAdminBusinesses,
   listPendingAdminBusinesses,
-  reviewAdminBusiness,
   updateAdminBusinessCapacity,
   updateAdminBusinessAccessLink
 } from "../../api/admin";
@@ -103,47 +102,6 @@ export function useAdminBusinessesModel({
     }
   }, [request, setBusy, setNotice, setView]);
 
-  const reviewBusiness = useCallback((action: "approve" | "reject") => {
-    if (!selectedBusiness || !adminMutable) {
-      setNotice("Accion no permitida para este rol.");
-      return;
-    }
-    queueCriticalAction(
-      action === "approve" ? "Aprobar negocio" : "Rechazar negocio",
-      "Esta accion queda auditada. La nota interna es opcional.",
-      async () => {
-        await reviewAdminBusiness(request, selectedBusiness.business.id, action, reason, idempotencyKey(`business_${action}`));
-        setReason("");
-        setNotice(action === "approve" ? "Negocio aprobado." : "Negocio rechazado.");
-        await loadBusinesses("");
-      },
-      { requiresReason: false }
-    );
-  }, [adminMutable, loadBusinesses, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
-
-  const changeBusinessStatus = useCallback((action: "suspend" | "reactivate" | "block") => {
-    if (!selectedBusiness || !adminMutable) {
-      setNotice("Accion no permitida para este rol.");
-      return;
-    }
-    const labels = {
-      suspend: "Suspender negocio",
-      reactivate: "Reactivar negocio",
-      block: "Bloquear negocio"
-    };
-    queueCriticalAction(
-      labels[action],
-      "Cambia el estado del negocio completo. Backend valida estado, permisos, idempotencia, audit y acceso a Mini App Negocio.",
-      async () => {
-        await reviewAdminBusiness(request, selectedBusiness.business.id, action, reason, idempotencyKey(`business_status_${action}`));
-        setReason("");
-        setNotice("Estado del negocio actualizado.");
-        await openBusiness(selectedBusiness.business.id);
-      },
-      { requiresReason: false }
-    );
-  }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
-
   const submitBusinessCapacity = useCallback(() => {
     if (!selectedBusiness || !adminMutable) {
       setNotice("Accion no permitida para este rol.");
@@ -234,13 +192,11 @@ export function useAdminBusinessesModel({
     businesses,
     businessFilter,
     changeBusinessAccessLink,
-    changeBusinessStatus,
     createBusinessOwnerAccessLink,
     loadBusinesses,
     loadPendingBusinesses,
     openBusiness,
     openDocument,
-    reviewBusiness,
     selectedBusiness,
     setBusinessCapacityDraft,
     setBusinessFilter,

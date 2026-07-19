@@ -1,5 +1,5 @@
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
-import { businessName, dateText, Empty, Header, ReasonBox, Table } from "./AdminWebPrimitives";
+import { businessName, dateText, Empty, Header, Table } from "./AdminWebPrimitives";
 
 export function Businesses({ model }: { model: AdminWebModel }) {
   return (
@@ -54,14 +54,6 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
           <dt>Ordenes activas</dt><dd>{detail.business.active_order_limit || 1}</dd>
           <dt>Telefono</dt><dd>{detail.business.phone || "-"}</dd>
         </dl>
-        <ReasonBox model={model} />
-        <div className="admin-web-actions">
-          <button disabled={!model.adminMutable} type="button" onClick={() => model.reviewBusiness("approve")}>Aprobar</button>
-          <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.reviewBusiness("reject")}>Rechazar</button>
-          <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("suspend")}>Suspender negocio</button>
-          <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("reactivate")}>Reactivar negocio</button>
-          <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("block")}>Bloquear negocio</button>
-        </div>
       </div>
       <div className="admin-web-panel">
         <h3>Capacidad del negocio</h3>

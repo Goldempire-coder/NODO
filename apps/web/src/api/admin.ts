@@ -88,17 +88,6 @@ export function updateAdminBusinessAccessLink<T>(request: AuthenticatedRequest, 
   });
 }
 
-export function reviewAdminBusiness<T>(request: AuthenticatedRequest, businessId: string, action: "approve" | "reject" | "suspend" | "reactivate" | "block", reason: string, idempotencyKey: string) {
-  return request<T>(`/api/v1/admin/businesses/${businessId}/${action}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey
-    },
-    body: JSON.stringify({ reason })
-  });
-}
-
 export function updateAdminBusinessCapacity<T>(
   request: AuthenticatedRequest,
   businessId: string,
