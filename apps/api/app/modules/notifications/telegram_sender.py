@@ -10,7 +10,7 @@ import httpx
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.modules.jobs.models import NotificationJobRecord, mask_metadata
-from app.modules.notifications.order_notifications import ORDER_NOTIFICATION_TYPES
+from app.modules.notifications.notification_types import TELEGRAM_NOTIFICATION_TYPES
 
 logger = get_logger(__name__)
 
@@ -72,7 +72,7 @@ class NotificationSenderWorker:
         notifications = self._jobs.list_due_telegram_notifications(
             now=current_time,
             limit=batch_size,
-            notification_types=ORDER_NOTIFICATION_TYPES,
+            notification_types=TELEGRAM_NOTIFICATION_TYPES,
         )
         counters = {"processed": 0, "sent": 0, "retryable_failed": 0, "failed_permanent": 0, "skipped": 0}
         for notification in notifications:
@@ -119,6 +119,7 @@ class NotificationSenderWorker:
                 "notification_job_id": notification.id,
                 "notification_type": notification.notification_type,
                 "order_id": notification.order_id,
+                "business_id": notification.business_id,
                 "attempts": notification.attempts + 1,
                 "request_id": request_id,
             },
@@ -139,11 +140,12 @@ class NotificationSenderWorker:
         bot_token = self._bot_token_for_surface(target_surface)
         if not bot_token:
             raise TelegramNotificationError("TELEGRAM_BOT_NOT_CONFIGURED", retryable=True)
-        text = str(metadata.get("message_text") or "Tienes una actualizacion de orden en NODO.")
+        text = str(metadata.get("message_text") or "Tienes una actualizacion en NODO.")
         action_url = str(metadata.get("action_url") or "")
         reply_markup = None
         if action_url:
-            reply_markup = {"inline_keyboard": [[{"text": "Abrir orden", "web_app": {"url": action_url}}]]}
+            action_text = str(metadata.get("action_text") or "Abrir NODO")
+            reply_markup = {"inline_keyboard": [[{"text": action_text, "web_app": {"url": action_url}}]]}
         return bot_token, int(user.telegram_id), text, reply_markup
 
     def _bot_token_for_surface(self, target_surface: str) -> str | None:
@@ -190,6 +192,7 @@ class NotificationSenderWorker:
                 "notification_job_id": notification.id,
                 "notification_type": notification.notification_type,
                 "order_id": notification.order_id,
+                "business_id": notification.business_id,
                 "attempts": notification.attempts + 1,
                 "error_code": error_code,
                 "request_id": request_id,

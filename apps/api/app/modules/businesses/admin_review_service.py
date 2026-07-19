@@ -399,6 +399,11 @@ class BusinessAdminReviewServiceMixin:
             "reactivate": "business_reactivated",
             "block": "business_blocked",
         }[action]
+        notification_type = {
+            "suspend": "business_suspended_owner",
+            "reactivate": "business_reactivated_owner",
+            "block": "business_blocked_owner",
+        }[action]
         self._audit.write(  # type: ignore[attr-defined]
             event_type=event_type,
             actor_user_id=user.id,
@@ -407,6 +412,12 @@ class BusinessAdminReviewServiceMixin:
             resource_id=business.id,
             request_id=request_id,
             metadata_json={"reason": reason, "from_status": previous_status, "to_status": next_status},
+        )
+        self._business_status_notifications.business_status_changed(  # type: ignore[attr-defined]
+            business=updated,
+            notification_type=notification_type,
+            previous_status=previous_status,
+            request_id=request_id,
         )
         return {
             "business": {

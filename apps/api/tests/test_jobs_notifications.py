@@ -262,7 +262,7 @@ class _FakeTelegramAdapter:
     def send_message(self, *, bot_token: str, chat_id: int, text: str, reply_markup: dict | None = None) -> None:
         if self.failures:
             raise self.failures.pop(0)
-        self.sent.append({"chat_id": chat_id, "text": text, "reply_markup": reply_markup})
+        self.sent.append({"bot_token": bot_token, "chat_id": chat_id, "text": text, "reply_markup": reply_markup})
 
 
 def test_slice_36_immediate_order_notifications_are_enqueued_deduped_and_private() -> None:
@@ -400,7 +400,7 @@ def test_slice_36_sender_success_retryable_and_permanent_failures_are_stateful()
     assert permanent_notification.metadata_json["delivery_state"] == "failed_permanent"
 
 
-def test_slice_36a_sender_scope_guard_only_claims_immediate_order_telegram_jobs() -> None:
+def test_slice_36a_sender_scope_guard_only_claims_supported_immediate_telegram_jobs() -> None:
     client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
     owner, business, _, remitter, order = _seed_order(client, owner_id=1126, remitter_id=1127)
     valid_notification = _notifications_by_type(client, "order_created_business")[0]
@@ -420,6 +420,23 @@ def test_slice_36a_sender_scope_guard_only_claims_immediate_order_telegram_jobs(
         )
         return notification
 
+    business_status_notification, _ = client.app.state.job_repository.enqueue_notification(
+        notification_type="business_suspended_owner",
+        recipient_user_id=owner["user"]["id"],
+        recipient_role=None,
+        order_id=None,
+        business_id=business["id"],
+        dispute_id=None,
+        scheduled_for=now - timedelta(seconds=1),
+        dedupe_key=f"slice36a:business_suspended_owner:{business['id']}",
+        metadata_json={
+            "channel": "telegram",
+            "target_surface": "business_mini_app",
+            "message_text": "Tu negocio fue suspendido temporalmente.",
+            "action_text": "Abrir NODO Negocio",
+            "action_url": "https://app.example.test/business/",
+        },
+    )
     non_processable = [
         enqueue_non_processable(
             "order_business_response_warning",
@@ -475,10 +492,15 @@ def test_slice_36a_sender_scope_guard_only_claims_immediate_order_telegram_jobs(
     )
     result = worker.run(now=now, request_id="req_slice36a_sender_scope_guard")
 
-    assert result["counters"]["processed"] == 1
-    assert result["counters"]["sent"] == 1
+    assert result["counters"]["processed"] == 2
+    assert result["counters"]["sent"] == 2
     assert valid_notification.status == "sent"
-    assert len(adapter.sent) == 1
+    assert business_status_notification.status == "sent"
+    assert len(adapter.sent) == 2
+    assert {item["reply_markup"]["inline_keyboard"][0][0]["text"] for item in adapter.sent} == {
+        "Abrir orden",
+        "Abrir NODO Negocio",
+    }
     for notification in non_processable:
         assert _notification_snapshot(notification) == before[notification.id]
 
@@ -516,6 +538,48 @@ def test_slice_36b_order_notification_sender_runs_from_lifespan_with_safe_defaul
     assert "order_notification_sender_finished" in main_source
     assert "order_notification_sender_failed" in main_source
     assert "bot_token" not in main_source.split("async def _order_notification_sender_loop", 1)[1]
+
+
+def test_slice_37_business_status_notification_sender_uses_business_bot_and_safe_button() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner = _login(client, 1128, "owner_1128")
+    business, _ = _approved_business_with_method(client, owner, credits=0)
+    now = utc_now()
+    notification, _ = client.app.state.job_repository.enqueue_notification(
+        notification_type="business_reactivated_owner",
+        recipient_user_id=owner["user"]["id"],
+        recipient_role=None,
+        order_id=None,
+        business_id=business["id"],
+        dispute_id=None,
+        scheduled_for=now - timedelta(seconds=1),
+        dedupe_key=f"slice37:business_reactivated_owner:{business['id']}",
+        metadata_json={
+            "channel": "telegram",
+            "target_surface": "business_mini_app",
+            "message_text": "Tu negocio fue reactivado. Ya puedes operar en NODO.",
+            "action_text": "Abrir NODO Negocio",
+            "action_url": "https://app.example.test/business/",
+        },
+    )
+
+    adapter = _FakeTelegramAdapter()
+    worker = NotificationSenderWorker(
+        settings=client.app.state.settings,
+        job_repository=client.app.state.job_repository,
+        user_repository=client.app.state.user_repository,
+        adapter=adapter,
+    )
+    result = worker.run(now=now, request_id="req_slice37_business_status_sender")
+
+    assert result["counters"]["sent"] == 1
+    assert notification.status == "sent"
+    assert adapter.sent[0]["bot_token"] == "456:test-business-token"
+    assert adapter.sent[0]["text"] == "Tu negocio fue reactivado. Ya puedes operar en NODO."
+    assert adapter.sent[0]["reply_markup"]["inline_keyboard"][0][0] == {
+        "text": "Abrir NODO Negocio",
+        "web_app": {"url": "https://app.example.test/business/"},
+    }
 
 
 def test_slice_36_business_offline_blocks_order_and_notification() -> None:
@@ -849,6 +913,30 @@ def test_slice_36_migration_adds_order_notification_types_reversibly() -> None:
     ]:
         assert notification_type in up
         assert notification_type not in down
+
+
+def test_slice_37_migration_adds_business_status_notification_types_reversibly() -> None:
+    root = Path(__file__).resolve().parents[3]
+    up = (root / "database" / "migrations" / "0029_business_status_notifications.up.sql").read_text(encoding="utf-8")
+    down = (root / "database" / "migrations" / "0029_business_status_notifications.down.sql").read_text(encoding="utf-8")
+
+    for notification_type in [
+        "business_suspended_owner",
+        "business_reactivated_owner",
+        "business_blocked_owner",
+    ]:
+        assert notification_type in up
+        assert notification_type not in down
+    for notification_type in [
+        "order_created_business",
+        "payment_reported_business",
+        "payment_confirmed_client",
+        "payment_rejected_client",
+        "order_delivered_client",
+        "order_disputed_parties_admin",
+    ]:
+        assert notification_type in up
+        assert notification_type in down
     assert "drop constraint if exists notification_jobs_type_check" in up
     assert "drop constraint if exists notification_jobs_type_check" in down
     assert "event_type" not in up

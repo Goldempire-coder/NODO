@@ -130,6 +130,14 @@ def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
 
 
+def _notifications_by_type(client: TestClient, notification_type: str) -> list:
+    return [
+        notification
+        for notification in client.app.state.job_repository.notification_jobs.values()
+        if notification.notification_type == notification_type
+    ]
+
+
 def test_admin_user_search_support_masking_and_access_links_are_separated() -> None:
     client = _client()
     admin = _make_admin(client, 20101, "admin")
@@ -208,12 +216,13 @@ def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
 
 
 def test_admin_business_status_lifecycle_controls_business_surface_access() -> None:
-    client = _client()
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
     admin = _make_admin(client, 20231, "admin")
     support = _make_admin(client, 20232, "support")
     owner = _login(client, 20233, "owner_business_status")
     business = _approved_business(client, owner)
     _link_business(client, admin, business, owner)
+    business_owner_id = client.app.state.business_repository.get_business(business["id"]).owner_user_id
 
     allowed = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_business_surface_allowed"))
     support_attempt = client.post(
@@ -262,6 +271,30 @@ def test_admin_business_status_lifecycle_controls_business_surface_access() -> N
     assert blocked_to_active.status_code == 409
     assert blocked_to_active.json()["error"]["code"] == "BUSINESS_STATUS_INVALID"
     assert {"business_suspended", "business_reactivated", "business_blocked"}.issubset(set(_event_types(client)))
+
+    suspended_notifications = _notifications_by_type(client, "business_suspended_owner")
+    reactivated_notifications = _notifications_by_type(client, "business_reactivated_owner")
+    blocked_notifications = _notifications_by_type(client, "business_blocked_owner")
+    assert len(suspended_notifications) == 1
+    assert len(reactivated_notifications) == 1
+    assert len(blocked_notifications) == 1
+
+    for notification, expected_text in [
+        (suspended_notifications[0], "suspendido"),
+        (reactivated_notifications[0], "reactivado"),
+        (blocked_notifications[0], "bloqueado"),
+    ]:
+        assert notification.recipient_user_id == business_owner_id
+        assert notification.business_id == business["id"]
+        assert notification.order_id is None
+        assert notification.status == "pending"
+        assert notification.metadata_json["channel"] == "telegram"
+        assert notification.metadata_json["target_surface"] == "business_mini_app"
+        assert notification.metadata_json["action_text"] == "Abrir NODO Negocio"
+        assert notification.metadata_json["action_url"].endswith("/business/")
+        assert expected_text in notification.metadata_json["message_text"]
+        assert "temporary business review" not in notification.metadata_json["message_text"]
+        assert "confirmed business abuse" not in notification.metadata_json["message_text"]
 
 
 def test_admin_user_status_change_invalidates_auth_user_cache() -> None:

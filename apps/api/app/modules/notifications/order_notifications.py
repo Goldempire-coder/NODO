@@ -7,18 +7,10 @@ from typing import Any
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.modules.jobs.models import mask_metadata
+from app.modules.notifications.notification_types import ORDER_NOTIFICATION_TYPES
 from app.modules.orders.models import OrderRecord
 
 logger = get_logger(__name__)
-
-ORDER_NOTIFICATION_TYPES = {
-    "order_created_business",
-    "payment_reported_business",
-    "payment_confirmed_client",
-    "payment_rejected_client",
-    "order_delivered_client",
-    "order_disputed_parties_admin",
-}
 
 
 def _now() -> datetime:
