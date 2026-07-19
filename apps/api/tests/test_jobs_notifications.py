@@ -582,6 +582,49 @@ def test_slice_37_business_status_notification_sender_uses_business_bot_and_safe
     }
 
 
+def test_slice_38_user_status_notification_sender_reaches_suspended_business_owner() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner = _login(client, 1129, "owner_1129")
+    business, _ = _approved_business_with_method(client, owner, credits=0)
+    client.app.state.user_repository.set_user_status(owner["user"]["id"], "restricted")
+    now = utc_now()
+    notification, _ = client.app.state.job_repository.enqueue_notification(
+        notification_type="user_suspended_account",
+        recipient_user_id=owner["user"]["id"],
+        recipient_role=None,
+        order_id=None,
+        business_id=business["id"],
+        dispute_id=None,
+        scheduled_for=now - timedelta(seconds=1),
+        dedupe_key=f"slice38:user_suspended_account:{owner['user']['id']}",
+        metadata_json={
+            "channel": "telegram",
+            "target_surface": "business_mini_app",
+            "message_text": "Tu cuenta fue suspendida temporalmente. No podras operar en NODO mientras revisamos el caso.",
+            "action_text": "Abrir NODO Negocio",
+            "action_url": "https://app.example.test/business/",
+        },
+    )
+
+    adapter = _FakeTelegramAdapter()
+    worker = NotificationSenderWorker(
+        settings=client.app.state.settings,
+        job_repository=client.app.state.job_repository,
+        user_repository=client.app.state.user_repository,
+        adapter=adapter,
+    )
+    result = worker.run(now=now, request_id="req_slice38_user_status_sender")
+
+    assert result["counters"]["sent"] == 1
+    assert notification.status == "sent"
+    assert adapter.sent[0]["bot_token"] == "456:test-business-token"
+    assert adapter.sent[0]["chat_id"] == 1129
+    assert adapter.sent[0]["reply_markup"]["inline_keyboard"][0][0] == {
+        "text": "Abrir NODO Negocio",
+        "web_app": {"url": "https://app.example.test/business/"},
+    }
+
+
 def test_slice_36_business_offline_blocks_order_and_notification() -> None:
     client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
     owner = _login(client, 1130, "owner_1130")
@@ -941,3 +984,26 @@ def test_slice_37_migration_adds_business_status_notification_types_reversibly()
     assert "drop constraint if exists notification_jobs_type_check" in down
     assert "event_type" not in up
     assert "telegram_chat_id" not in up
+
+
+def test_slice_38_migration_adds_admin_user_status_notification_types_reversibly() -> None:
+    root = Path(__file__).resolve().parents[3]
+    up = (root / "database" / "migrations" / "0030_admin_user_status_notifications.up.sql").read_text(encoding="utf-8")
+    down = (root / "database" / "migrations" / "0030_admin_user_status_notifications.down.sql").read_text(encoding="utf-8")
+
+    for notification_type in [
+        "user_suspended_account",
+        "user_reactivated_account",
+        "user_blocked_account",
+    ]:
+        assert notification_type in up
+        assert notification_type not in down
+    for notification_type in [
+        "business_suspended_owner",
+        "business_reactivated_owner",
+        "business_blocked_owner",
+    ]:
+        assert notification_type in up
+        assert notification_type in down
+    assert "drop constraint if exists notification_jobs_type_check" in up
+    assert "drop constraint if exists notification_jobs_type_check" in down

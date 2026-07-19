@@ -10,7 +10,7 @@ import httpx
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.modules.jobs.models import NotificationJobRecord, mask_metadata
-from app.modules.notifications.notification_types import TELEGRAM_NOTIFICATION_TYPES
+from app.modules.notifications.notification_types import TELEGRAM_NOTIFICATION_TYPES, USER_STATUS_NOTIFICATION_TYPES
 
 logger = get_logger(__name__)
 
@@ -133,7 +133,7 @@ class NotificationSenderWorker:
         user = self._users.get_user_by_id(notification.recipient_user_id)
         if user is None:
             raise TelegramNotificationError("RECIPIENT_NOT_FOUND", retryable=False)
-        if user.status != "active":
+        if user.status != "active" and notification.notification_type not in USER_STATUS_NOTIFICATION_TYPES:
             raise TelegramNotificationError("RECIPIENT_NOT_ACTIVE", retryable=False)
 
         target_surface = str(metadata.get("target_surface") or "")

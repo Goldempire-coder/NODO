@@ -171,7 +171,7 @@ def test_admin_user_search_support_masking_and_access_links_are_separated() -> N
 
 
 def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
-    client = _client()
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
     admin = _make_admin(client, 20201, "admin")
     owner = _login(client, 20202, "owner_status")
     business = _approved_business(client, owner)
@@ -213,6 +213,30 @@ def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
     assert blocked_to_active.status_code == 409
     assert blocked_to_active.json()["error"]["code"] == "USER_STATUS_TRANSITION_INVALID"
     assert {"user_suspended", "user_reactivated", "user_blocked"}.issubset(set(_event_types(client)))
+
+    suspended_notifications = _notifications_by_type(client, "user_suspended_account")
+    reactivated_notifications = _notifications_by_type(client, "user_reactivated_account")
+    blocked_notifications = _notifications_by_type(client, "user_blocked_account")
+    assert len(suspended_notifications) == 1
+    assert len(reactivated_notifications) == 1
+    assert len(blocked_notifications) == 1
+
+    for notification, expected_text in [
+        (suspended_notifications[0], "suspendida"),
+        (reactivated_notifications[0], "reactivada"),
+        (blocked_notifications[0], "bloqueada"),
+    ]:
+        assert notification.recipient_user_id == owner["user"]["id"]
+        assert notification.business_id == business["id"]
+        assert notification.order_id is None
+        assert notification.status == "pending"
+        assert notification.metadata_json["channel"] == "telegram"
+        assert notification.metadata_json["target_surface"] == "business_mini_app"
+        assert notification.metadata_json["action_text"] == "Abrir NODO Negocio"
+        assert notification.metadata_json["action_url"].endswith("/business/")
+        assert expected_text in notification.metadata_json["message_text"]
+        assert "temporary abuse review" not in notification.metadata_json["message_text"]
+        assert "confirmed account abuse" not in notification.metadata_json["message_text"]
 
 
 def test_admin_business_status_lifecycle_controls_business_surface_access() -> None:

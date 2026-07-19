@@ -7,6 +7,7 @@ from app.core.config import Settings
 from app.core.errors import ApiError
 from app.modules.jobs.serializers import job_run_summary
 from app.modules.admin.policy import require_admin_mutation, require_admin_read
+from app.modules.notifications.user_status_notifications import NoopUserStatusNotificationService, UserStatusNotificationService
 from app.modules.users.models import UserRecord
 from app.services.health_service import HealthService
 
@@ -36,6 +37,7 @@ class AdminService:
         emergency_mode_repository=None,
         job_repository=None,
         observability_repository=None,
+        user_status_notifications=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
@@ -47,6 +49,11 @@ class AdminService:
         self._emergency_mode = emergency_mode_repository
         self._job_repository = job_repository
         self._observability_repository = observability_repository
+        self._user_status_notifications = user_status_notifications or (
+            UserStatusNotificationService(settings=settings, job_repository=job_repository)
+            if job_repository is not None
+            else NoopUserStatusNotificationService()
+        )
 
     def _rate_limit(self, action: str, user: UserRecord) -> None:
         key = f"admin:{action}:{user.id}"
@@ -450,10 +457,34 @@ class AdminService:
             request_id=request_id,
             metadata_json={"reason": reason, "from_status": previous_status, "to_status": next_status},
         )
+        updated_payload = self._repository.get_user_admin(updated.id, full_sensitive=self._can_view_sensitive_user_fields(user))
+        notification_type = {
+            "suspend": "user_suspended_account",
+            "reactivate": "user_reactivated_account",
+            "block": "user_blocked_account",
+        }[action]
+        self._user_status_notifications.user_status_changed(
+            target=updated,
+            notification_type=notification_type,
+            previous_status=previous_status,
+            business_id=self._primary_business_id_from_user_payload(updated_payload),
+            request_id=request_id,
+        )
         return {
-            "user": self._repository.get_user_admin(updated.id, full_sensitive=self._can_view_sensitive_user_fields(user)),
+            "user": updated_payload,
             "disclaimer": ADMIN_DISCLAIMER,
         }
+
+    def _primary_business_id_from_user_payload(self, payload: dict[str, Any] | None) -> str | None:
+        if not payload:
+            return None
+        businesses = payload.get("businesses") or []
+        if not businesses:
+            return None
+        for business in businesses:
+            if business.get("verification_status") in {"approved", "suspended", "blocked"}:
+                return str(business.get("id"))
+        return str(businesses[0].get("id"))
 
     def _ensure_user_mutation_allowed(self, *, actor: UserRecord, target: UserRecord, action: str) -> None:
         if actor.role == "admin" and target.role in {"admin", "super_admin"}:
