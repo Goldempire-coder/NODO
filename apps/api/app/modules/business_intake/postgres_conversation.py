@@ -44,7 +44,9 @@ class PostgresBusinessIntakeConversationMixin:
             "referral_code",
             "contact_phone",
             "business_name",
+            "business_tax_id",
             "responsible_name",
+            "responsible_id_number",
             "city",
             "business_phone",
             "operation",
@@ -52,6 +54,7 @@ class PostgresBusinessIntakeConversationMixin:
             "methods_json",
             "min_amount_usd",
             "max_amount_usd",
+            "daily_limit_usd",
             "schedule_text",
             "references_json",
             "status",
@@ -69,7 +72,7 @@ class PostgresBusinessIntakeConversationMixin:
         if key in {"banks_json", "methods_json", "references_json"}:
             assignments.append(f"{key} = %s")
             params.append(jsonb(value))
-        elif key in {"min_amount_usd", "max_amount_usd"}:
+        elif key in {"min_amount_usd", "max_amount_usd", "daily_limit_usd"}:
             assignments.append(f"{key} = %s")
             params.append(decimal_text(value))
         elif key == "submitted_at":

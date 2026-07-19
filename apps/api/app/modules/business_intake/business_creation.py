@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from app.core.errors import ApiError
@@ -23,7 +24,14 @@ class BusinessIntakeBusinessCreationMixin:
             "id": business.id,
             "business_name": business.business_name,
             "verification_status": business.verification_status,
+            "rif": business.rif,
+            "min_order_amount_usd": str(business.min_order_amount_usd),
+            "max_order_amount_usd": str(business.max_order_amount_usd),
+            "daily_limit_usd": str(business.daily_limit_usd),
         }
+
+    def _intake_decimal_or_default(self, value: str | None, fallback: str) -> Decimal:
+        return Decimal(value or fallback)
 
     def _maybe_create_business_from_intake(
         self,
@@ -72,10 +80,18 @@ class BusinessIntakeBusinessCreationMixin:
         business = self._businesses.create_business(  # type: ignore[attr-defined]
             owner_user_id=applicant.id,
             business_name=public_business_name,
-            rif=None,
+            rif=reviewed.business_tax_id,
             address=None,
             phone=reviewed.business_phone or reviewed.contact_phone,
             country="VE",
+        )
+        business = self._businesses.update_business_capacity(  # type: ignore[attr-defined]
+            business=business,
+            trust_level=business.trust_level or "new",
+            min_order_amount_usd=self._intake_decimal_or_default(reviewed.min_amount_usd, "20.00"),
+            max_order_amount_usd=self._intake_decimal_or_default(reviewed.max_amount_usd, "100.00"),
+            daily_limit_usd=self._intake_decimal_or_default(reviewed.daily_limit_usd, "1000.00"),
+            active_order_limit=business.active_order_limit,
         )
         updated = self._repository.attach_created_business(  # type: ignore[attr-defined]
             intake=reviewed,

@@ -16,7 +16,9 @@ export type AdminBusinessIntakeSummary = {
   last_step: string;
   referral_code?: string | null;
   business_name?: string | null;
+  business_tax_id?: string | null;
   responsible_name?: string | null;
+  responsible_id_number?: string | null;
   city?: string | null;
   operation?: string | null;
   contact_phone?: string | null;
@@ -30,6 +32,7 @@ export type AdminBusinessIntakeSummary = {
   methods?: string[];
   min_amount_usd?: string | null;
   max_amount_usd?: string | null;
+  daily_limit_usd?: string | null;
   schedule?: string | null;
   references?: string[];
   reviewed_at?: string | null;
@@ -42,7 +45,9 @@ export type AdminBusinessIntakeEditDraft = {
   referral_code: string;
   contact_phone: string;
   business_name: string;
+  business_tax_id: string;
   responsible_name: string;
+  responsible_id_number: string;
   city: string;
   business_phone: string;
   operation: string;
@@ -50,6 +55,7 @@ export type AdminBusinessIntakeEditDraft = {
   methods: string;
   min_amount_usd: string;
   max_amount_usd: string;
+  daily_limit_usd: string;
   schedule: string;
   references: string;
 };

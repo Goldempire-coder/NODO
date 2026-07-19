@@ -25,7 +25,9 @@ INTAKE_STEPS = {
     "awaiting_whatsapp_phone",
     "awaiting_contact",
     "awaiting_business_name",
+    "awaiting_business_tax_id",
     "awaiting_responsible_name",
+    "awaiting_responsible_id_number",
     "awaiting_city",
     "awaiting_business_phone",
     "awaiting_operation",
@@ -52,13 +54,16 @@ class BusinessIntakeRequestRecord:
     business_phone: str | None = None
     referral_code: str | None = None
     business_name: str | None = None
+    business_tax_id: str | None = None
     responsible_name: str | None = None
+    responsible_id_number: str | None = None
     city: str | None = None
     operation: str | None = None
     banks_json: list[str] = field(default_factory=list)
     methods_json: list[str] = field(default_factory=list)
     min_amount_usd: str | None = None
     max_amount_usd: str | None = None
+    daily_limit_usd: str | None = None
     schedule_text: str | None = None
     references_json: list[str] = field(default_factory=list)
     submitted_at: datetime | None = None

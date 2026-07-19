@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.core.errors import ApiError
 from app.modules.business_intake.conversation import INTAKE_CONFIRMATION
-from app.modules.business_intake.conversation_validation import validated_amount_range
+from app.modules.business_intake.conversation_validation import validated_amount_range, validated_positive_amount
 from app.modules.business_intake.intake_requirements import ensure_intake_ready_for_review
 from app.modules.business_intake.models import INTAKE_OPERATIONS
 from app.modules.business_intake.public_documents import BusinessIntakePublicDocumentsMixin
@@ -52,6 +52,7 @@ class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
         if any(method not in {"zelle", "usdt_trc20"} for method in payload.methods):
             raise ApiError("VALIDATION_ERROR", status_code=422)
         min_amount_usd, max_amount_usd = validated_amount_range(payload.min_amount_usd, payload.max_amount_usd)
+        daily_limit_usd = validated_positive_amount(payload.daily_limit_usd)
         intake = self._get_intake(intake_id)  # type: ignore[attr-defined]
         self._validate_intake_context(intake=intake, telegram_user_id=payload.telegram_user_id, telegram_chat_id=payload.telegram_chat_id)  # type: ignore[attr-defined]
         if intake.last_update_id == payload.telegram_update_id and intake.status == "submitted":
@@ -67,7 +68,9 @@ class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
             intake=intake,
             update_id=payload.telegram_update_id,
             business_name=payload.business_name,
+            business_tax_id=payload.business_tax_id,
             responsible_name=payload.responsible_name,
+            responsible_id_number=payload.responsible_id_number,
             city=payload.city,
             business_phone=payload.business_phone,
             operation=payload.operation,
@@ -75,6 +78,7 @@ class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
             methods=payload.methods,
             min_amount_usd=min_amount_usd,
             max_amount_usd=max_amount_usd,
+            daily_limit_usd=daily_limit_usd,
             schedule=payload.schedule,
             references=payload.references,
         )

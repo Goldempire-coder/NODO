@@ -178,10 +178,10 @@
 }
 
 .admin-web-nav button.is-active,
-.admin-web-nav button:hover,
-.admin-web-actions button:hover,
-.admin-web-toolbar button:hover,
-.admin-web-panel button:hover {
+.admin-web-nav button:not(:disabled):hover,
+.admin-web-actions button:not(:disabled):hover,
+.admin-web-toolbar button:not(:disabled):hover,
+.admin-web-panel button:not(:disabled):hover {
   border-color: rgb(47 155 255 / 52%);
   background: rgb(47 155 255 / 14%);
 }
@@ -348,8 +348,11 @@
 .admin-web-toolbar button:disabled,
 .admin-web-panel button:disabled,
 .admin-web-confirm button:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
+  border-color: rgb(255 255 255 / 7%);
+  background: rgb(13 15 27 / 72%);
+  color: rgb(166 173 189 / 54%);
+  box-shadow: none;
+  opacity: 1;
 }
 
 .admin-web-toolbar {
@@ -539,6 +542,16 @@
   align-items: start;
 }
 
+.admin-web-intake-column {
+  max-height: calc(100vh - 128px);
+}
+
+.admin-web-intake-scroll {
+  max-height: calc(100vh - 194px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
 .admin-web-intake-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
@@ -608,6 +621,12 @@
   margin-bottom: 12px;
 }
 
+.admin-web-document-list {
+  max-height: 380px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
 .admin-web-checklist {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -659,8 +678,15 @@
 
 .admin-web-document-button {
   align-self: center;
-  min-width: 136px;
+  min-width: 112px;
   white-space: nowrap;
+}
+
+.admin-web-document-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .admin-web-document-card strong,
@@ -739,6 +765,16 @@
   .admin-web-document-card {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .admin-web-intake-column,
+  .admin-web-intake-scroll {
+    max-height: none;
+  }
+
+  .admin-web-document-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .admin-web-document-button {

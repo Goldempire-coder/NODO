@@ -30,7 +30,9 @@ class BusinessIntakeSubmitRequest(StrictRequestModel):
     telegram_user_id: int
     telegram_chat_id: int
     business_name: str = Field(min_length=2, max_length=160)
+    business_tax_id: str | None = Field(default=None, min_length=3, max_length=64)
     responsible_name: str = Field(min_length=2, max_length=160)
+    responsible_id_number: str | None = Field(default=None, min_length=3, max_length=64)
     city: str = Field(min_length=2, max_length=120)
     business_phone: str = Field(min_length=6, max_length=32)
     operation: str = Field(min_length=1, max_length=32)
@@ -38,6 +40,7 @@ class BusinessIntakeSubmitRequest(StrictRequestModel):
     methods: list[IntakeListItem] = Field(default_factory=list, max_length=10)
     min_amount_usd: str = Field(min_length=1, max_length=32)
     max_amount_usd: str = Field(min_length=1, max_length=32)
+    daily_limit_usd: str = Field(default="1000.00", min_length=1, max_length=32)
     schedule: str = Field(min_length=2, max_length=240)
     references: list[IntakeListItem] = Field(default_factory=list, max_length=10)
 
@@ -57,7 +60,9 @@ class AdminBusinessIntakeUpdateRequest(StrictRequestModel):
     referral_code: str | None = Field(default=None, min_length=1, max_length=80)
     contact_phone: str | None = Field(default=None, min_length=6, max_length=32)
     business_name: str | None = Field(default=None, min_length=2, max_length=160)
+    business_tax_id: str | None = Field(default=None, min_length=3, max_length=64)
     responsible_name: str | None = Field(default=None, min_length=2, max_length=160)
+    responsible_id_number: str | None = Field(default=None, min_length=3, max_length=64)
     city: str | None = Field(default=None, min_length=2, max_length=120)
     business_phone: str | None = Field(default=None, min_length=6, max_length=32)
     operation: str | None = Field(default=None, min_length=1, max_length=32)
@@ -65,6 +70,7 @@ class AdminBusinessIntakeUpdateRequest(StrictRequestModel):
     methods: list[IntakeListItem] | None = Field(default=None, max_length=10)
     min_amount_usd: str | None = Field(default=None, min_length=1, max_length=32)
     max_amount_usd: str | None = Field(default=None, min_length=1, max_length=32)
+    daily_limit_usd: str | None = Field(default=None, min_length=1, max_length=32)
     schedule: str | None = Field(default=None, min_length=2, max_length=240)
     references: list[IntakeListItem] | None = Field(default=None, max_length=10)
     submit_for_review: bool = False

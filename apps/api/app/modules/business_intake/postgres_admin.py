@@ -54,7 +54,9 @@ class PostgresBusinessIntakeAdminMixin:
             "referral_code",
             "contact_phone",
             "business_name",
+            "business_tax_id",
             "responsible_name",
+            "responsible_id_number",
             "city",
             "business_phone",
             "operation",
@@ -62,6 +64,7 @@ class PostgresBusinessIntakeAdminMixin:
             "methods_json",
             "min_amount_usd",
             "max_amount_usd",
+            "daily_limit_usd",
             "schedule_text",
             "references_json",
         }

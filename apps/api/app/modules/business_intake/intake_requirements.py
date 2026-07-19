@@ -11,16 +11,13 @@ REQUIRED_INTAKE_FIELDS: tuple[tuple[str, str], ...] = (
     ("referral_code", "codigo de referencia"),
     ("contact_phone", "WhatsApp"),
     ("business_name", "nombre del negocio"),
+    ("business_tax_id", "RIF del negocio"),
     ("responsible_name", "responsable"),
-    ("city", "ciudad"),
+    ("responsible_id_number", "cedula del responsable"),
     ("business_phone", "telefono del negocio"),
-    ("operation", "operacion"),
-    ("banks_json", "bancos"),
-    ("methods_json", "metodos"),
     ("min_amount_usd", "monto minimo"),
     ("max_amount_usd", "monto maximo"),
-    ("schedule_text", "horario"),
-    ("references_json", "referencias"),
+    ("daily_limit_usd", "limite diario"),
 )
 
 

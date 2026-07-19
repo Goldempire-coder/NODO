@@ -34,14 +34,17 @@ function editDraftFromIntake(intake: AdminBusinessIntakeSummary): AdminBusinessI
     referral_code: intake.referral_code || "",
     contact_phone: intake.contact_phone || "",
     business_name: intake.business_name || "",
+    business_tax_id: intake.business_tax_id || "",
     responsible_name: intake.responsible_name || "",
+    responsible_id_number: intake.responsible_id_number || "",
     city: intake.city || "",
     business_phone: intake.business_phone || "",
     operation: intake.operation || "",
     banks: listToInput(intake.banks),
     methods: listToInput(intake.methods),
-    min_amount_usd: intake.min_amount_usd || "",
-    max_amount_usd: intake.max_amount_usd || "",
+    min_amount_usd: intake.min_amount_usd || "20.00",
+    max_amount_usd: intake.max_amount_usd || "100.00",
+    daily_limit_usd: intake.daily_limit_usd || "1000.00",
     schedule: intake.schedule || "",
     references: listToInput(intake.references)
   };
@@ -66,12 +69,15 @@ function editPayload(draft: AdminBusinessIntakeEditDraft, submitForReview: boole
   assignIfFilled(payload, "referral_code", draft.referral_code);
   assignIfFilled(payload, "contact_phone", draft.contact_phone);
   assignIfFilled(payload, "business_name", draft.business_name);
+  assignIfFilled(payload, "business_tax_id", draft.business_tax_id);
   assignIfFilled(payload, "responsible_name", draft.responsible_name);
+  assignIfFilled(payload, "responsible_id_number", draft.responsible_id_number);
   assignIfFilled(payload, "city", draft.city);
   assignIfFilled(payload, "business_phone", draft.business_phone);
   assignIfFilled(payload, "operation", draft.operation);
   assignIfFilled(payload, "min_amount_usd", draft.min_amount_usd);
   assignIfFilled(payload, "max_amount_usd", draft.max_amount_usd);
+  assignIfFilled(payload, "daily_limit_usd", draft.daily_limit_usd);
   assignIfFilled(payload, "schedule", draft.schedule);
   assignListIfFilled(payload, "banks", draft.banks);
   assignListIfFilled(payload, "methods", draft.methods);
@@ -137,20 +143,30 @@ export function useAdminBusinessIntakesModel({
     }
   }, [request, setBusy, setNotice, setView]);
 
-  const openBusinessIntakeDocument = useCallback((fileId: string) => {
+  const openBusinessIntakeDocument = useCallback((fileId: string, mode: "view" | "download" = "view") => {
     if (!selectedBusinessIntake || !adminMutable) {
       setNotice("Solo admin/super_admin puede solicitar URL privada.");
       return;
     }
-    queueCriticalAction("Ver documento de solicitud", "La URL temporal no se guarda y la apertura queda auditada.", async () => {
-      const data = await getAdminBusinessIntakeDocumentViewUrl<{ url: string; expires_in: number }>(
+    queueCriticalAction(mode === "download" ? "Descargar documento de solicitud" : "Ver documento de solicitud", "La URL temporal no se guarda y la apertura queda auditada.", async () => {
+      const data = await getAdminBusinessIntakeDocumentViewUrl<{ url: string; expires_in: number; download_filename: string }>(
         request,
         selectedBusinessIntake.intake.id,
         fileId,
         reason
       );
+      if (mode === "download") {
+        const anchor = window.document.createElement("a");
+        anchor.href = data.url;
+        anchor.download = data.download_filename;
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        anchor.click();
+        setNotice(`Descarga solicitada: ${data.download_filename}.`);
+        return;
+      }
       window.open(data.url, "_blank", "noopener,noreferrer");
-      setNotice(`Documento disponible por ${data.expires_in}s.`);
+      setNotice(`Documento disponible por ${data.expires_in}s: ${data.download_filename}.`);
     }, { requiresReason: false });
   }, [adminMutable, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice]);
 

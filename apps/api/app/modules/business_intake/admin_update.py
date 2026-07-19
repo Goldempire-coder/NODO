@@ -9,6 +9,7 @@ from app.modules.business_intake.conversation_validation import (
     normalize_operation,
     split_clean_list,
     validated_amount_range,
+    validated_positive_amount,
 )
 from app.modules.business_intake.policy import require_admin_mutation
 from app.modules.business_intake.schemas import AdminBusinessIntakeUpdateRequest
@@ -62,7 +63,9 @@ class BusinessIntakeAdminUpdateMixin:
             "referral_code": ("referral_code", 1, 80),
             "contact_phone": ("contact_phone", 6, 32),
             "business_name": ("business_name", 2, 160),
+            "business_tax_id": ("business_tax_id", 3, 64),
             "responsible_name": ("responsible_name", 2, 160),
+            "responsible_id_number": ("responsible_id_number", 3, 64),
             "city": ("city", 2, 120),
             "business_phone": ("business_phone", 6, 32),
             "schedule": ("schedule_text", 2, 240),
@@ -87,4 +90,6 @@ class BusinessIntakeAdminUpdateMixin:
             min_amount, max_amount = validated_amount_range(str(min_candidate), str(max_candidate))
             updates["min_amount_usd"] = min_amount
             updates["max_amount_usd"] = max_amount
+        if "daily_limit_usd" in provided and provided["daily_limit_usd"] is not None:
+            updates["daily_limit_usd"] = validated_positive_amount(str(provided["daily_limit_usd"]))
         return updates

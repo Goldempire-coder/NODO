@@ -145,7 +145,9 @@ def _submit(client: TestClient, intake_id: str, *, update_id: int = 102, telegra
             "telegram_user_id": telegram_id,
             "telegram_chat_id": chat_id,
             "business_name": "Casa Intake",
+            "business_tax_id": "J-12345678-9",
             "responsible_name": "Persona Responsable",
+            "responsible_id_number": "V-12345678",
             "city": "Caracas",
             "business_phone": "+582121234567",
             "operation": "both",
@@ -153,6 +155,7 @@ def _submit(client: TestClient, intake_id: str, *, update_id: int = 102, telegra
             "methods": ["zelle", "usdt_trc20"],
             "min_amount_usd": "20.00",
             "max_amount_usd": "500.00",
+            "daily_limit_usd": "1000.00",
             "schedule": "Lunes a viernes",
             "references": ["@casaintake"],
         },
@@ -222,7 +225,9 @@ def _drive_conversation_to_documents(
         "REF-CARLOS-01",
         "+584121234567",
         "Casa Cambio Centro",
+        "J-12345678-9",
         "Carlo Responsable",
+        "V-12345678",
         "Caracas",
         "+582121234567",
         "both",
@@ -552,6 +557,44 @@ def test_admin_accept_blocks_incomplete_intake_even_if_status_is_submitted() -> 
     assert client.app.state.business_repository.access_links == {}
 
 
+def test_admin_accept_requires_legal_identity_and_daily_limit_before_approval() -> None:
+    client = _client()
+    started = _start(client, update_id=545, telegram_id=7045, chat_id=8045)
+    _contact(client, started["id"], update_id=546, telegram_id=7045, chat_id=8045)
+    _upload_intake_doc(client, started["id"], update_id=547, request_id="legal_missing_doc")
+    intake = client.app.state.business_intake_repository.get(started["id"])
+    assert intake is not None
+    intake.status = "submitted"
+    intake.last_step = "submitted"
+    intake.submitted_at = utc_now()
+    intake.referral_code = "REF-LEGAL"
+    intake.business_name = "Cambio Legal"
+    intake.responsible_name = "Carlo Responsable"
+    intake.contact_phone = "+584121112233"
+    intake.business_phone = "+584129998877"
+    intake.min_amount_usd = "20.00"
+    intake.max_amount_usd = "100.00"
+
+    admin = _login(client, 9045, "admin_legal_missing")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    response = client.post(
+        f"/api/v1/admin/business-intake/{started['id']}/accept",
+        headers={**_admin_headers(admin, "accept_legal_missing"), "Content-Type": "application/json"},
+        json={
+            "reason": "datos incompletos",
+            "create_business": True,
+            "public_business_name": "Cambio Legal",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "BUSINESS_INTAKE_INCOMPLETE"
+    assert "cedula" in response.text
+    assert "RIF" in response.text
+    assert "limite diario" in response.text
+    assert client.app.state.business_repository.businesses == {}
+
+
 def test_admin_accept_can_create_pending_business_with_public_name() -> None:
     client = _client()
     started = _start(client, update_id=570, telegram_id=7042, chat_id=8042)
@@ -582,6 +625,10 @@ def test_admin_accept_can_create_pending_business_with_public_name() -> None:
     applicant = client.app.state.user_repository.get_user_by_telegram_id(7042)
     assert business.business_name == "Casa Publica NODO"
     assert business.owner_user_id == applicant.id
+    assert business.rif == "J-12345678-9"
+    assert str(business.min_order_amount_usd) == "20.00"
+    assert str(business.max_order_amount_usd) == "500.00"
+    assert str(business.daily_limit_usd) == "1000.00"
     assert business.verification_status == "pending"
     assert applicant.role == "remitter"
     assert client.app.state.business_repository.access_links == {}
@@ -890,7 +937,9 @@ def test_admin_can_complete_intake_manually_and_submit_for_review() -> None:
             "referral_code": "REF-MANUAL",
             "contact_phone": "+584121112233",
             "business_name": "Cambio Manual",
+            "business_tax_id": "J-98765432-1",
             "responsible_name": "Carlo Responsable",
+            "responsible_id_number": "V-87654321",
             "city": "Caracas",
             "business_phone": "+584129998877",
             "operation": "ambas",
@@ -898,6 +947,7 @@ def test_admin_can_complete_intake_manually_and_submit_for_review() -> None:
             "methods": ["Zelle", "USDT TRC20"],
             "min_amount_usd": "20",
             "max_amount_usd": "100",
+            "daily_limit_usd": "1000",
             "schedule": "Lunes a viernes 9am a 6pm",
             "references": ["@referencia"],
             "submit_for_review": True,
@@ -912,6 +962,9 @@ def test_admin_can_complete_intake_manually_and_submit_for_review() -> None:
     assert intake["contact_phone"] == "+584121112233"
     assert intake["business_phone"] == "+584129998877"
     assert intake["business_name"] == "Cambio Manual"
+    assert intake["business_tax_id"] == "J-98765432-1"
+    assert intake["responsible_id_number"] == "V-87654321"
+    assert intake["daily_limit_usd"] == "1000"
     assert intake["operation"] == "both"
     assert intake["methods"] == ["zelle", "usdt_trc20"]
     assert "business_intake_admin_updated" in _event_types(client)
@@ -924,6 +977,29 @@ def test_admin_can_complete_intake_manually_and_submit_for_review() -> None:
 
     assert approved.status_code == 200, approved.text
     assert approved.json()["data"]["intake"]["status"] == "accepted"
+
+
+def test_admin_can_save_partial_intake_without_submitting_or_approving() -> None:
+    client = _client()
+    started = _start(client, update_id=663, telegram_id=7063, chat_id=8063)
+    admin = _login(client, 9023, "admin_partial_intake_update")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    updated = client.patch(
+        f"/api/v1/admin/business-intake/{started['id']}",
+        headers={**_admin_headers(admin, "partial_update_intake"), "Content-Type": "application/json"},
+        json={
+            "business_name": "Cambio Parcial",
+            "business_tax_id": "J-10000000-1",
+        },
+    )
+
+    assert updated.status_code == 200, updated.text
+    intake = updated.json()["data"]["intake"]
+    assert intake["business_name"] == "Cambio Parcial"
+    assert intake["business_tax_id"] == "J-10000000-1"
+    assert intake["status"] == "draft"
+    assert intake["last_step"] == "awaiting_referral_code"
 
 
 def test_admin_can_view_intake_document_without_manual_reason() -> None:
@@ -943,6 +1019,7 @@ def test_admin_can_view_intake_document_without_manual_reason() -> None:
     )
 
     assert viewed.status_code == 200, viewed.text
+    assert viewed.json()["data"]["download_filename"].startswith("nodo-intake-")
     document_events = [event for event in client.app.state.audit_writer.events if event.event_type == "business_intake_document_viewed"]
     assert document_events[-1].metadata_json["reason"] == "admin_document_review"
 
@@ -982,7 +1059,7 @@ def test_business_intake_conversation_persists_each_step_and_submits(monkeypatch
     upload = _business_webhook(
         client,
         _telegram_message(
-            1114,
+            1116,
             telegram_id=7311,
             chat_id=8311,
             extra={
@@ -998,7 +1075,7 @@ def test_business_intake_conversation_persists_each_step_and_submits(monkeypatch
     )
     assert upload.status_code == 200, upload.text
 
-    submitted = _business_webhook(client, _telegram_message(1115, telegram_id=7311, chat_id=8311, text="finalizar"))
+    submitted = _business_webhook(client, _telegram_message(1117, telegram_id=7311, chat_id=8311, text="finalizar"))
     assert submitted.status_code == 200, submitted.text
     assert submitted.json()["data"]["status"] == "submitted"
     assert submitted.json()["data"]["last_step"] == "submitted"
@@ -1055,7 +1132,7 @@ def test_business_intake_webhook_message_after_submitted_does_not_create_new_dra
     upload = _business_webhook(
         client,
         _telegram_message(
-            1614,
+            1616,
             telegram_id=7361,
             chat_id=8361,
             extra={
@@ -1070,12 +1147,12 @@ def test_business_intake_webhook_message_after_submitted_does_not_create_new_dra
         ),
     )
     assert upload.status_code == 200, upload.text
-    submitted = _business_webhook(client, _telegram_message(1615, telegram_id=7361, chat_id=8361, text="finalizar"))
+    submitted = _business_webhook(client, _telegram_message(1617, telegram_id=7361, chat_id=8361, text="finalizar"))
     assert submitted.status_code == 200, submitted.text
     assert submitted.json()["data"]["status"] == "submitted"
     intake_count = len(client.app.state.business_intake_repository.intakes)
 
-    extra_message = _business_webhook(client, _telegram_message(1616, telegram_id=7361, chat_id=8361, text="otro mensaje"))
+    extra_message = _business_webhook(client, _telegram_message(1618, telegram_id=7361, chat_id=8361, text="otro mensaje"))
     assert extra_message.status_code == 200, extra_message.text
     assert extra_message.json()["data"]["intake_id"] == intake_id
     assert extra_message.json()["data"]["status"] == "submitted"
@@ -1147,7 +1224,7 @@ def test_business_intake_telegram_document_downloads_private_storage_and_dedupes
     monkeypatch.setattr(intake_service, "telegram_download_file", fake_download)
 
     document_update = _telegram_message(
-        1314,
+        1316,
         telegram_id=7331,
         chat_id=8331,
         extra={
@@ -1190,7 +1267,7 @@ def test_business_intake_photo_album_does_not_repeat_document_prompt(monkeypatch
 
     for index in range(5):
         photo_update = _telegram_message(
-            1714 + index,
+            1716 + index,
             telegram_id=7371,
             chat_id=8371,
             extra={
@@ -1211,7 +1288,7 @@ def test_business_intake_photo_album_does_not_repeat_document_prompt(monkeypatch
     assert len(documents) == 5
     assert len(sent_messages) == prompt_count_before_album
 
-    submitted = _business_webhook(client, _telegram_message(1720, telegram_id=7371, chat_id=8371, text="Finalizar"))
+    submitted = _business_webhook(client, _telegram_message(1722, telegram_id=7371, chat_id=8371, text="Finalizar"))
     assert submitted.status_code == 200, submitted.text
     assert submitted.json()["data"]["status"] == "submitted"
     assert sent_messages[-1]["text"] == "Solicitud recibida. Revisaremos tu informacion y te avisaremos el siguiente paso."
@@ -1229,7 +1306,7 @@ def test_business_intake_telegram_rejects_video_invalid_mime_and_large_file(monk
 
     video = _business_webhook(
         client,
-        _telegram_message(1414, telegram_id=7341, chat_id=8341, extra={"video": {"file_id": "video-1", "file_size": 12}}),
+        _telegram_message(1416, telegram_id=7341, chat_id=8341, extra={"video": {"file_id": "video-1", "file_size": 12}}),
     )
     assert video.status_code == 200
     assert video.json()["data"]["recoverable_error"] == "BOT_UPLOAD_INVALID"
@@ -1238,7 +1315,7 @@ def test_business_intake_telegram_rejects_video_invalid_mime_and_large_file(monk
     invalid_mime = _business_webhook(
         client,
         _telegram_message(
-            1415,
+            1417,
             telegram_id=7341,
             chat_id=8341,
             extra={
@@ -1258,7 +1335,7 @@ def test_business_intake_telegram_rejects_video_invalid_mime_and_large_file(monk
     too_large = _business_webhook(
         client,
         _telegram_message(
-            1416,
+            1418,
             telegram_id=7341,
             chat_id=8341,
             extra={

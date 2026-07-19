@@ -29,7 +29,9 @@ class InMemoryBusinessIntakeRepository(InMemoryBusinessIntakeConversationMixin, 
         intake: BusinessIntakeRequestRecord,
         update_id: int,
         business_name: str,
+        business_tax_id: str | None,
         responsible_name: str,
+        responsible_id_number: str | None,
         city: str,
         business_phone: str,
         operation: str,
@@ -37,6 +39,7 @@ class InMemoryBusinessIntakeRepository(InMemoryBusinessIntakeConversationMixin, 
         methods: list[str],
         min_amount_usd: str,
         max_amount_usd: str,
+        daily_limit_usd: str,
         schedule: str,
         references: list[str],
     ) -> BusinessIntakeRequestRecord:
@@ -46,7 +49,9 @@ class InMemoryBusinessIntakeRepository(InMemoryBusinessIntakeConversationMixin, 
             intake.last_update_id = update_id
             intake.last_step = "submitted"
             intake.business_name = business_name
+            intake.business_tax_id = business_tax_id
             intake.responsible_name = responsible_name
+            intake.responsible_id_number = responsible_id_number
             intake.city = city
             intake.business_phone = business_phone
             intake.operation = operation
@@ -54,6 +59,7 @@ class InMemoryBusinessIntakeRepository(InMemoryBusinessIntakeConversationMixin, 
             intake.methods_json = methods
             intake.min_amount_usd = decimal_text(min_amount_usd)
             intake.max_amount_usd = decimal_text(max_amount_usd)
+            intake.daily_limit_usd = decimal_text(daily_limit_usd)
             intake.schedule_text = schedule
             intake.references_json = references
             intake.submitted_at = intake.submitted_at or now

@@ -79,12 +79,19 @@ def test_admin_business_intake_defaults_to_all_records_for_real_flow_review() ->
     assert "En revision" in intake_screen
     assert "Borradores" in intake_screen
     assert "Checklist para aprobar" in intake_screen
-    assert "Ver / descargar" in intake_screen
+    assert 'openBusinessIntakeDocument(file.id, "view")' in intake_screen
+    assert "Descargar" in intake_screen
     assert "Motivo para aprobar o rechazar" in intake_screen
     assert "Completar ficha manualmente" in intake_screen
     assert "Codigo invitacion" in intake_screen
+    assert "Cedula responsable" in intake_screen
+    assert "RIF negocio" in intake_screen
+    assert "Limite diario" in intake_screen
+    assert "Montos autorizados" in intake_screen
+    assert "Rango declarado" not in intake_screen
     assert "Borrar y reiniciar onboarding" in intake_screen
     assert "Guardar y poner en revision" in intake_screen
+    assert "Crear ficha del negocio" in intake_screen
     assert "Lista para revision admin" in intake_screen
     assert "Esta pantalla sirve para decidir" in intake_screen
     assert "documentKindLabel" in intake_screen
@@ -92,8 +99,12 @@ def test_admin_business_intake_defaults_to_all_records_for_real_flow_review() ->
     assert "saveBusinessIntakeManual" in admin_model
     assert "updateAdminBusinessIntake" in admin_api
     assert "requiresReason: false" in intake_model
+    assert "download_filename" in intake_model
     assert "Escribe un motivo de revision antes de ver o descargar documentos." not in intake_model
     assert "si un negocio empezo el registro".lower() in intake_screen.lower()
+    admin_css = _read("apps/web/src/app/admin-web.css")
+    assert "cursor: not-allowed" not in admin_css
+    assert "button:not(:disabled):hover" in admin_css
 
 
 def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() -> None:

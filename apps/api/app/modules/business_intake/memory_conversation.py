@@ -92,7 +92,7 @@ class InMemoryBusinessIntakeConversationMixin:
                     raise ApiError("BOT_INPUT_INVALID", status_code=400)
                 if key == "submitted_at" and value is True:
                     setattr(intake, key, utc_now())
-                elif key in {"min_amount_usd", "max_amount_usd"}:
+                elif key in {"min_amount_usd", "max_amount_usd", "daily_limit_usd"}:
                     setattr(intake, key, decimal_text(value))
                 else:
                     setattr(intake, key, value)

@@ -88,6 +88,18 @@ class BusinessIntakeAdminActions(
             metadata_json=metadata or {},
         )
 
+    def _document_download_filename(self, *, intake: BusinessIntakeRequestRecord, document: Any) -> str:
+        extension_by_mime = {
+            "application/pdf": "pdf",
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp",
+        }
+        extension = extension_by_mime.get(document.mime_type, "bin")
+        business_slug = "".join(ch.lower() if ch.isalnum() else "-" for ch in (intake.business_name or "solicitud"))
+        business_slug = "-".join(part for part in business_slug.split("-") if part)[:48] or "solicitud"
+        return f"nodo-intake-{business_slug}-{document.document_kind}.{extension}"
+
     def list(self, *, user: UserRecord, status: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         require_admin_read(user)
         self._rate_limit("admin_list", user.id)
@@ -131,4 +143,8 @@ class BusinessIntakeAdminActions(
                 "reason": clean_reason,
             },
         )
-        return {"url": url, "expires_in": expires_in}
+        return {
+            "url": url,
+            "expires_in": expires_in,
+            "download_filename": self._document_download_filename(intake=intake, document=document),
+        }

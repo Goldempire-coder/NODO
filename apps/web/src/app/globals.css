@@ -402,7 +402,6 @@ div.ad-row {
 }
 
 .mini-action-button:disabled {
-  cursor: not-allowed;
   opacity: 0.48;
 }
 

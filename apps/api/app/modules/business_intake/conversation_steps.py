@@ -30,9 +30,15 @@ def conversation_fields_for_step(
         next_step = "awaiting_business_name"
     elif current_step == "awaiting_business_name":
         fields = {"business_name": cleaned}
+        next_step = "awaiting_business_tax_id"
+    elif current_step == "awaiting_business_tax_id":
+        fields = {"business_tax_id": clean_text(raw_text, min_length=3, max_length=64)}
         next_step = "awaiting_responsible_name"
     elif current_step == "awaiting_responsible_name":
         fields = {"responsible_name": cleaned}
+        next_step = "awaiting_responsible_id_number"
+    elif current_step == "awaiting_responsible_id_number":
+        fields = {"responsible_id_number": clean_text(raw_text, min_length=3, max_length=64)}
         next_step = "awaiting_city"
     elif current_step == "awaiting_city":
         fields = {"city": cleaned}
@@ -57,7 +63,7 @@ def conversation_fields_for_step(
         if intake.min_amount_usd is None:
             raise ApiError("BOT_INPUT_INVALID", status_code=400)
         min_amount, max_amount = validated_amount_range(intake.min_amount_usd, cleaned)
-        fields = {"min_amount_usd": min_amount, "max_amount_usd": max_amount}
+        fields = {"min_amount_usd": min_amount, "max_amount_usd": max_amount, "daily_limit_usd": "1000.00"}
         next_step = "awaiting_schedule"
     elif current_step == "awaiting_schedule":
         fields = {"schedule_text": cleaned}

@@ -19,6 +19,16 @@ def validated_amount_range(min_amount_usd: str, max_amount_usd: str) -> tuple[st
     return str(min_amount), str(max_amount)
 
 
+def validated_positive_amount(amount_usd: str) -> str:
+    try:
+        amount = Decimal(amount_usd)
+    except (InvalidOperation, ValueError) as exc:
+        raise ApiError("VALIDATION_ERROR", status_code=422) from exc
+    if amount <= 0:
+        raise ApiError("VALIDATION_ERROR", status_code=422)
+    return str(amount)
+
+
 def clean_text(value: Any, *, min_length: int = 1, max_length: int = MAX_BOT_TEXT_LENGTH) -> str:
     if not isinstance(value, str):
         raise ApiError("BOT_INPUT_INVALID", status_code=400)

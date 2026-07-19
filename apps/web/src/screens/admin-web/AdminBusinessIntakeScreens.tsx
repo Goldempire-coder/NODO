@@ -38,12 +38,13 @@ function reviewChecklist(detail: AdminBusinessIntakeDetail) {
   const intake = detail.intake;
   return [
     { label: "WhatsApp recibido", ok: Boolean(intake.contact_phone || intake.contact_phone_masked) },
-    { label: "Nombre y responsable", ok: Boolean(intake.business_name && intake.responsible_name) },
-    { label: "Ciudad y telefono del negocio", ok: Boolean(intake.city && (intake.business_phone || intake.business_phone_masked)) },
-    { label: "Operacion y metodos", ok: Boolean(intake.operation && intake.methods?.length) },
-    { label: "Bancos declarados", ok: Boolean(intake.banks?.length) },
-    { label: "Rango autorizado", ok: Boolean(intake.min_amount_usd && intake.max_amount_usd) },
-    { label: "Horario y referencias", ok: Boolean(intake.schedule && intake.references?.length) },
+    { label: "Nombre del negocio", ok: Boolean(intake.business_name) },
+    { label: "Responsable", ok: Boolean(intake.responsible_name) },
+    { label: "Cedula responsable", ok: Boolean(intake.responsible_id_number) },
+    { label: "RIF negocio", ok: Boolean(intake.business_tax_id) },
+    { label: "Telefono negocio", ok: Boolean(intake.business_phone || intake.business_phone_masked) },
+    { label: "Minimo y maximo", ok: Boolean(intake.min_amount_usd && intake.max_amount_usd) },
+    { label: "Limite diario", ok: Boolean(intake.daily_limit_usd) },
     { label: "Documentos adjuntos", ok: detail.documents.length > 0 }
   ];
 }
@@ -99,8 +100,9 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
     : `No apruebes todavia. Faltan: ${missing.join(", ")}.`;
   return (
     <section className="admin-web-split admin-web-intake-layout">
-      <div className="admin-web-panel">
+      <div className="admin-web-panel admin-web-intake-column">
         <Header title="Solicitud de negocio" action={<button type="button" onClick={() => void model.loadBusinessIntakes(model.intakeFilter)}>Volver a solicitudes</button>} />
+        <div className="admin-web-intake-scroll">
         <div className="admin-web-intake-hero">
           <div>
             <span>{intake.status}</span>
@@ -108,9 +110,9 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
             <small>{intake.city || "Ciudad pendiente"} - {contactPhone}</small>
           </div>
           <div>
-            <span>Rango declarado</span>
+            <span>Montos autorizados</span>
             <strong>{intake.min_amount_usd || "-"} - {intake.max_amount_usd || "-"} USD</strong>
-            <small>{listText(intake.methods)}</small>
+            <small>Limite diario: {intake.daily_limit_usd || "1000.00"} USD</small>
           </div>
         </div>
 
@@ -118,11 +120,12 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
           <div className="admin-web-row"><span>Codigo invitacion</span><strong>{intake.referral_code || "-"}</strong></div>
           <div className="admin-web-row"><span>WhatsApp solicitante</span><strong>{contactPhone}</strong></div>
           <div className="admin-web-row"><span>Responsable</span><strong>{intake.responsible_name || "-"}</strong></div>
+          <div className="admin-web-row"><span>Cedula responsable</span><strong>{intake.responsible_id_number || "-"}</strong></div>
+          <div className="admin-web-row"><span>RIF negocio</span><strong>{intake.business_tax_id || "-"}</strong></div>
           <div className="admin-web-row"><span>Telefono negocio</span><strong>{businessPhone}</strong></div>
-          <div className="admin-web-row"><span>Operacion</span><strong>{intake.operation || "-"}</strong></div>
-          <div className="admin-web-row"><span>Horario</span><strong>{intake.schedule || "-"}</strong></div>
-          <div className="admin-web-row"><span>Bancos</span><strong>{listText(intake.banks)}</strong></div>
-          <div className="admin-web-row"><span>Referencias</span><strong>{listText(intake.references)}</strong></div>
+          <div className="admin-web-row"><span>Operacion declarada</span><strong>{intake.operation || "-"}</strong></div>
+          <div className="admin-web-row"><span>Metodos declarados</span><strong>{listText(intake.methods)}</strong></div>
+          <div className="admin-web-row"><span>Notas / referencias</span><strong>{listText(intake.references)}</strong></div>
           <div className="admin-web-row"><span>Paso bot</span><strong>{intake.last_step}</strong></div>
           <div className="admin-web-row"><span>Negocio creado</span><strong>{intake.created_business_id || "-"}</strong></div>
         </div>
@@ -149,8 +152,16 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
               <input disabled={!canManualEdit} value={draft.business_name} onChange={(event) => updateDraft({ business_name: event.target.value })} placeholder="Casa Cambio Centro" />
             </label>
             <label>
+              <span>RIF negocio</span>
+              <input disabled={!canManualEdit} value={draft.business_tax_id} onChange={(event) => updateDraft({ business_tax_id: event.target.value })} placeholder="J-12345678-9" />
+            </label>
+            <label>
               <span>Responsable</span>
               <input disabled={!canManualEdit} value={draft.responsible_name} onChange={(event) => updateDraft({ responsible_name: event.target.value })} placeholder="Nombre y apellido" />
+            </label>
+            <label>
+              <span>Cedula responsable</span>
+              <input disabled={!canManualEdit} value={draft.responsible_id_number} onChange={(event) => updateDraft({ responsible_id_number: event.target.value })} placeholder="V-12345678" />
             </label>
             <label>
               <span>Ciudad</span>
@@ -186,11 +197,11 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
               <input disabled={!canManualEdit} inputMode="decimal" value={draft.max_amount_usd} onChange={(event) => updateDraft({ max_amount_usd: event.target.value })} placeholder="100" />
             </label>
             <label>
-              <span>Horario</span>
-              <input disabled={!canManualEdit} value={draft.schedule} onChange={(event) => updateDraft({ schedule: event.target.value })} placeholder="Lun a sab, 9am a 6pm" />
+              <span>Limite diario USD</span>
+              <input disabled={!canManualEdit} inputMode="decimal" value={draft.daily_limit_usd} onChange={(event) => updateDraft({ daily_limit_usd: event.target.value })} placeholder="1000" />
             </label>
             <label className="span-3">
-              <span>Referencias</span>
+              <span>Notas / referencias</span>
               <textarea disabled={!canManualEdit} value={draft.references} onChange={(event) => updateDraft({ references: event.target.value })} placeholder="Nombre, telefono o nota. Separa varias referencias con coma." />
             </label>
           </div>
@@ -217,6 +228,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
         {intake.status === "draft" ? (
           <p className="admin-web-warning">Este registro todavia no fue finalizado desde Telegram. No deberia aprobarse hasta completarlo.</p>
         ) : null}
+        </div>
       </div>
 
       <aside className="admin-web-panel admin-web-action-panel">
@@ -230,9 +242,14 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
                 <strong>{documentKindLabel(file.document_kind || file.file_type)}</strong>
                 <small>{file.mime_type} - {fileSizeText(file.size_bytes)} - {dateText(file.created_at)}</small>
               </div>
-              <button className="admin-web-document-button" disabled={!model.adminMutable} type="button" onClick={() => model.openBusinessIntakeDocument(file.id)}>
-                Ver / descargar
-              </button>
+              <div className="admin-web-document-actions">
+                <button className="admin-web-document-button" disabled={!model.adminMutable} type="button" onClick={() => model.openBusinessIntakeDocument(file.id, "view")}>
+                  Ver
+                </button>
+                <button className="admin-web-document-button" disabled={!model.adminMutable} type="button" onClick={() => model.openBusinessIntakeDocument(file.id, "download")}>
+                  Descargar
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -257,7 +274,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
         <ReasonBox model={model} label="Motivo para aprobar o rechazar" />
         <div className="admin-web-actions vertical">
           <button disabled={!canReview || Boolean(intake.created_business_id)} type="button" onClick={() => model.createBusinessFromIntake()}>
-            Crear negocio pendiente
+            Crear ficha del negocio
           </button>
           <button disabled={!canReview} type="button" onClick={() => model.approveBusinessFromIntake()}>
             Crear, aprobar y avisar
@@ -266,6 +283,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
             Borrar y reiniciar onboarding
           </button>
         </div>
+        <p className="admin-web-muted">Crear ficha del negocio solo crea el registro interno en pendiente. Aprobar y avisar es la accion que da acceso por Telegram.</p>
       </aside>
     </section>
   );
