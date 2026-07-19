@@ -27,7 +27,7 @@ def conversation_fields_for_step(
         next_step = "awaiting_whatsapp_phone"
     elif current_step == "awaiting_whatsapp_phone":
         fields = {"contact_phone": clean_text(raw_text, min_length=6, max_length=32)}
-        next_step = "awaiting_documents"
+        next_step = "awaiting_business_name"
     elif current_step == "awaiting_business_name":
         fields = {"business_name": cleaned}
         next_step = "awaiting_responsible_name"

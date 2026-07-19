@@ -531,6 +531,135 @@
   margin: 0;
 }
 
+.admin-web-intake-layout {
+  align-items: start;
+}
+
+.admin-web-intake-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admin-web-intake-hero > div,
+.admin-web-review-box {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgb(47 155 255 / 11%), transparent 60%),
+    rgb(7 9 17 / 66%);
+}
+
+.admin-web-intake-hero span,
+.admin-web-review-box p,
+.admin-web-document-card small,
+.admin-web-checklist span {
+  color: var(--admin-muted);
+}
+
+.admin-web-intake-hero strong {
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.admin-web-checklist,
+.admin-web-document-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.admin-web-checklist {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-web-checklist > div,
+.admin-web-document-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: rgb(7 9 17 / 58%);
+}
+
+.admin-web-document-card {
+  align-items: stretch;
+}
+
+.admin-web-checklist > div {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.admin-web-checklist .is-ok {
+  border-color: rgb(41 224 142 / 38%);
+}
+
+.admin-web-checklist .is-missing {
+  border-color: rgb(255 184 80 / 46%);
+}
+
+.admin-web-checklist .is-ok span {
+  color: var(--admin-green);
+}
+
+.admin-web-checklist .is-missing span,
+.admin-web-warning {
+  color: #ffd38c;
+}
+
+.admin-web-document-card > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-web-document-button {
+  align-self: center;
+  min-width: 136px;
+  white-space: nowrap;
+}
+
+.admin-web-document-card strong,
+.admin-web-document-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-web-action-status {
+  padding: 10px 11px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.admin-web-action-status.is-ok {
+  border-color: rgb(41 224 142 / 38%);
+  color: #bfffe2;
+  background: rgb(36 209 143 / 10%);
+}
+
+.admin-web-action-status.is-warning {
+  border-color: rgb(255 184 80 / 46%);
+  color: #ffdc9c;
+  background: rgb(255 176 46 / 10%);
+}
+
+.admin-web-action-panel {
+  position: sticky;
+  top: 14px;
+}
+
 .admin-web-empty {
   padding: 16px;
   color: var(--admin-muted);
@@ -560,6 +689,8 @@
   .admin-web-nav,
   .admin-web-grid,
   .admin-web-detail-grid,
+  .admin-web-intake-hero,
+  .admin-web-checklist,
   .admin-web-split,
   .admin-web-metrics,
   .admin-web-form-grid {
@@ -568,5 +699,14 @@
 
   .admin-web-panel.span-2 {
     grid-column: auto;
+  }
+
+  .admin-web-document-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-web-document-button {
+    width: 100%;
   }
 }

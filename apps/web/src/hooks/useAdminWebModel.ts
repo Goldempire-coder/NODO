@@ -250,6 +250,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     dryRunJobs: overview.dryRunJobs,
     loadBusinessIntakes: businessIntake.loadBusinessIntakes,
     openBusinessIntake: businessIntake.openBusinessIntake,
+    openBusinessIntakeDocument: businessIntake.openBusinessIntakeDocument,
     approveBusinessFromIntake: businessIntake.approveBusinessFromIntake,
     createBusinessFromIntake: businessIntake.createBusinessFromIntake,
     deleteBusinessIntake: businessIntake.deleteBusinessIntake,

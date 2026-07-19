@@ -85,3 +85,18 @@ class PostgresBusinessIntakeDocumentsMixin:
                 (intake_id,),
             ).fetchall()
         return [document_from_row(row) for row in rows]
+
+    def get_document(self, intake_id: str, file_id: str) -> BusinessIntakeDocumentRecord | None:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            row = conn.execute(
+                """
+                select * from file_assets
+                where id = %s
+                  and resource_type = 'business_intake'
+                  and resource_id = %s
+                  and deleted_at is null
+                limit 1
+                """,
+                (file_id, intake_id),
+            ).fetchone()
+        return document_from_row(row) if row else None

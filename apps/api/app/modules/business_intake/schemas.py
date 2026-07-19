@@ -51,3 +51,7 @@ class AdminBusinessIntakeReviewRequest(StrictRequestModel):
 
 class AdminBusinessIntakeDeleteRequest(StrictRequestModel):
     reason: str = Field(min_length=1, max_length=500)
+
+
+class AdminBusinessIntakeDocumentViewRequest(StrictRequestModel):
+    reason: str = Field(min_length=1, max_length=500)

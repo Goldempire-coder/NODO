@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.core.errors import ApiError
 from app.modules.business_intake.conversation import INTAKE_CONFIRMATION
 from app.modules.business_intake.conversation_validation import validated_amount_range
+from app.modules.business_intake.intake_requirements import ensure_intake_ready_for_review
 from app.modules.business_intake.models import INTAKE_OPERATIONS
 from app.modules.business_intake.public_documents import BusinessIntakePublicDocumentsMixin
 from app.modules.business_intake.schemas import (
@@ -59,6 +60,9 @@ class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
             raise ApiError("BUSINESS_INTAKE_STATUS_INVALID", status_code=409)
         if not intake.contact_phone:
             raise ApiError("BOT_CONTACT_REQUIRED", status_code=400)
+        documents = self._repository.list_documents(intake.id)  # type: ignore[attr-defined]
+        if not documents or not payload.methods or not payload.references:
+            raise ApiError("BUSINESS_INTAKE_INCOMPLETE", status_code=409)
         updated = self._repository.submit(  # type: ignore[attr-defined]
             intake=intake,
             update_id=payload.telegram_update_id,
@@ -73,6 +77,10 @@ class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
             max_amount_usd=max_amount_usd,
             schedule=payload.schedule,
             references=payload.references,
+        )
+        ensure_intake_ready_for_review(
+            updated,
+            documents=documents,
         )
         self._write_audit(event_type="business_intake_submitted", intake=updated, request_id=request_id)  # type: ignore[attr-defined]
         return {"id": updated.id, "status": updated.status, "message": INTAKE_CONFIRMATION}

@@ -6,6 +6,7 @@ from app.auth.dependencies import require_current_user
 from app.modules.business_intake.models import INTAKE_MAX_FILE_SIZE_BYTES
 from app.modules.business_intake.route_helpers import request_id, require_business_intake_bot, service
 from app.modules.business_intake.schemas import (
+    AdminBusinessIntakeDocumentViewRequest,
     AdminBusinessIntakeDeleteRequest,
     AdminBusinessIntakeReviewRequest,
     BusinessIntakeContactRequest,
@@ -115,6 +116,26 @@ def admin_list_intake(
 @router.get("/admin/business-intake/{intake_id}")
 def admin_intake_detail(intake_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
     return {"data": _service(request).admin_detail(user=user, intake_id=intake_id, request_id=_request_id(request)), "request_id": _request_id(request)}
+
+
+@router.post("/admin/business-intake/{intake_id}/documents/{file_id}/view-url")
+def admin_intake_document_view_url(
+    intake_id: str,
+    file_id: str,
+    payload: AdminBusinessIntakeDocumentViewRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    return {
+        "data": _service(request).admin_document_view_url(
+            user=user,
+            intake_id=intake_id,
+            file_id=file_id,
+            payload=payload,
+            request_id=_request_id(request),
+        ),
+        "request_id": _request_id(request),
+    }
 
 
 @router.post("/admin/business-intake/{intake_id}/accept")

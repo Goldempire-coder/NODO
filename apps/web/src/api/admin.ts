@@ -234,6 +234,14 @@ export function getAdminBusinessIntake<T>(request: AuthenticatedRequest, intakeI
   return request<T>(`/api/v1/admin/business-intake/${intakeId}`);
 }
 
+export function getAdminBusinessIntakeDocumentViewUrl<T>(request: AuthenticatedRequest, intakeId: string, fileId: string, reason: string) {
+  return request<T>(`/api/v1/admin/business-intake/${intakeId}/documents/${fileId}/view-url`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason })
+  });
+}
+
 export function deleteAdminBusinessIntake<T>(request: AuthenticatedRequest, intakeId: string, reason: string, idempotencyKey: string) {
   return request<T>(`/api/v1/admin/business-intake/${intakeId}/delete`, {
     method: "POST",

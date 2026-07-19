@@ -61,3 +61,11 @@ class InMemoryBusinessIntakeDocumentsMixin:
             for doc in self.documents.values()  # type: ignore[attr-defined]
             if doc.resource_type == "business_intake" and doc.resource_id == intake_id and doc.deleted_at is None
         ]
+
+    def get_document(self, intake_id: str, file_id: str) -> BusinessIntakeDocumentRecord | None:
+        doc = self.documents.get(file_id)  # type: ignore[attr-defined]
+        if doc is None:
+            return None
+        if doc.resource_type != "business_intake" or doc.resource_id != intake_id or doc.deleted_at is not None:
+            return None
+        return doc

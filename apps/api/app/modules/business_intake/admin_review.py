@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import ApiError
+from app.modules.business_intake.intake_requirements import ensure_intake_ready_for_review
 from app.modules.business_intake.models import BusinessIntakeRequestRecord
 from app.modules.business_intake.policy import require_admin_mutation
 from app.modules.business_intake.schemas import AdminBusinessIntakeReviewRequest
@@ -114,6 +115,11 @@ class BusinessIntakeAdminReviewMixin:
         request_id: str,
     ) -> dict[str, Any]:
         current = self._reviewable_intake(intake_id=intake_id, status=status)
+        if status == "accepted":
+            ensure_intake_ready_for_review(
+                current,
+                documents=self._repository.list_documents(current.id),  # type: ignore[attr-defined]
+            )
         reviewed = self._apply_review_if_needed(
             current=current,
             status=status,

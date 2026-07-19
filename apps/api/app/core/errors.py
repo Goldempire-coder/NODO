@@ -56,6 +56,7 @@ ERROR_MESSAGES = {
     "BUSINESS_INTAKE_NOT_FOUND": "No encontramos esta solicitud.",
     "BUSINESS_INTAKE_STATUS_INVALID": "El estado de la solicitud no permite esta accion.",
     "BUSINESS_INTAKE_ALREADY_ACCEPTED": "Esta solicitud ya fue aceptada.",
+    "BUSINESS_INTAKE_INCOMPLETE": "La solicitud no tiene informacion suficiente para aprobar el negocio.",
     "BUSINESS_TELEGRAM_LINK_REQUIRED": "Debes asociar un Telegram ID valido.",
     "BOT_CONTACT_REQUIRED": "Debes compartir tu contacto de Telegram para continuar.",
     "BOT_INPUT_INVALID": "Revisa la respuesta enviada para continuar.",

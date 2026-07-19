@@ -7,7 +7,7 @@ from app.modules.business_intake.admin_delete import BusinessIntakeAdminDeleteMi
 from app.modules.business_intake.admin_review import BusinessIntakeAdminReviewMixin
 from app.modules.business_intake.business_creation import BusinessIntakeBusinessCreationMixin
 from app.modules.business_intake.models import BusinessIntakeRequestRecord
-from app.modules.business_intake.policy import require_admin_read
+from app.modules.business_intake.policy import require_admin_mutation, require_admin_read
 from app.modules.users.models import UserRecord
 
 
@@ -26,6 +26,7 @@ class BusinessIntakeAdminActions(
         audit_writer,
         rate_limiter,
         idempotency_store,
+        storage,
         public_intake: Callable[[BusinessIntakeRequestRecord], dict[str, Any]],
         public_document: Callable[[Any], dict[str, Any]],
     ) -> None:  # type: ignore[no-untyped-def]
@@ -36,6 +37,7 @@ class BusinessIntakeAdminActions(
         self._audit = audit_writer
         self._rate_limiter = rate_limiter
         self._idempotency = idempotency_store
+        self._storage = storage
         self._public_intake = public_intake
         self._public_document = public_document
 
@@ -97,3 +99,36 @@ class BusinessIntakeAdminActions(
         documents = self._repository.list_documents(intake.id)
         self._write_admin_audit(event_type="business_intake_viewed_by_admin", user=user, intake=intake, request_id=request_id)
         return {"intake": self._public_intake(intake), "documents": [self._public_document(doc) for doc in documents]}
+
+    def document_view_url(
+        self,
+        *,
+        user: UserRecord,
+        intake_id: str,
+        file_id: str,
+        reason: str,
+        request_id: str,
+    ) -> dict[str, Any]:
+        require_admin_mutation(user)
+        self._rate_limit("admin_document_view_url", user.id)
+        clean_reason = reason.strip()
+        if not clean_reason:
+            raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
+        intake = self._get_intake(intake_id)
+        document = self._repository.get_document(intake.id, file_id)
+        if document is None:
+            raise ApiError("BUSINESS_INTAKE_DOCUMENT_NOT_FOUND", status_code=404)
+        expires_in = min(self._settings.storage_signed_url_ttl_seconds, 300)
+        url = self._storage.signed_view_url(storage_path=document.storage_path, expires_in=expires_in)
+        self._write_admin_audit(
+            event_type="business_intake_document_viewed",
+            user=user,
+            intake=intake,
+            request_id=request_id,
+            metadata={
+                "file_id": document.id,
+                "document_kind": document.document_kind,
+                "reason": clean_reason,
+            },
+        )
+        return {"url": url, "expires_in": expires_in}

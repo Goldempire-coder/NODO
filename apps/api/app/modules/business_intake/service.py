@@ -18,6 +18,7 @@ from app.modules.business_intake.models import (
 from app.modules.business_intake.presenters import public_business_intake_document, public_intake_payload
 from app.modules.business_intake.public_actions import BusinessIntakePublicActionsMixin
 from app.modules.business_intake.schemas import (
+    AdminBusinessIntakeDocumentViewRequest,
     AdminBusinessIntakeDeleteRequest,
     AdminBusinessIntakeReviewRequest,
 )
@@ -58,6 +59,7 @@ class BusinessIntakeService(BusinessIntakePublicActionsMixin):
             audit_writer=audit_writer,
             rate_limiter=rate_limiter,
             idempotency_store=idempotency_store,
+            storage=storage,
             public_intake=lambda intake: self._public_intake(intake, admin=True),
             public_document=self._public_document,
         )
@@ -130,3 +132,20 @@ class BusinessIntakeService(BusinessIntakePublicActionsMixin):
 
     def admin_delete(self, *, user: UserRecord, intake_id: str, payload: AdminBusinessIntakeDeleteRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         return self._admin_actions.delete(user=user, intake_id=intake_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
+
+    def admin_document_view_url(
+        self,
+        *,
+        user: UserRecord,
+        intake_id: str,
+        file_id: str,
+        payload: AdminBusinessIntakeDocumentViewRequest,
+        request_id: str,
+    ) -> dict[str, Any]:
+        return self._admin_actions.document_view_url(
+            user=user,
+            intake_id=intake_id,
+            file_id=file_id,
+            reason=payload.reason,
+            request_id=request_id,
+        )

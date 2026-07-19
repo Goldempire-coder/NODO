@@ -3,6 +3,7 @@ import {
   acceptAdminBusinessIntake,
   deleteAdminBusinessIntake,
   getAdminBusinessIntake,
+  getAdminBusinessIntakeDocumentViewUrl,
   listAdminBusinessIntakes
 } from "../../api/admin";
 import type { AuthenticatedRequest } from "../../api/client";
@@ -70,6 +71,28 @@ export function useAdminBusinessIntakesModel({
       setBusy(false);
     }
   }, [request, setBusy, setNotice, setView]);
+
+  const openBusinessIntakeDocument = useCallback((fileId: string) => {
+    if (!selectedBusinessIntake || !adminMutable) {
+      setNotice("Solo admin/super_admin puede solicitar URL privada.");
+      return;
+    }
+    if (!reason.trim()) {
+      setNotice("Escribe un motivo de revision antes de ver o descargar documentos.");
+      return;
+    }
+    queueCriticalAction("Ver documento de solicitud", "La URL temporal no se guarda y la apertura queda auditada.", async () => {
+      const data = await getAdminBusinessIntakeDocumentViewUrl<{ url: string; expires_in: number }>(
+        request,
+        selectedBusinessIntake.intake.id,
+        fileId,
+        reason
+      );
+      window.open(data.url, "_blank", "noopener,noreferrer");
+      setReason("");
+      setNotice(`Documento disponible por ${data.expires_in}s.`);
+    });
+  }, [adminMutable, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice, setReason]);
 
   const deleteBusinessIntake = useCallback(() => {
     if (!selectedBusinessIntake || !adminMutable) {
@@ -183,6 +206,7 @@ export function useAdminBusinessIntakesModel({
     intakePublicBusinessName,
     loadBusinessIntakes,
     openBusinessIntake,
+    openBusinessIntakeDocument,
     selectedBusinessIntake,
     setIntakeFilter,
     setIntakePublicBusinessName

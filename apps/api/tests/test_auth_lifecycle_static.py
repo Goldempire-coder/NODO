@@ -72,10 +72,20 @@ def test_admin_business_intake_defaults_to_all_records_for_real_flow_review() ->
     assert 'const [intakeFilter, setIntakeFilter] = useState("all")' in intake_model
     assert "const normalizedStatus = status.trim().toLowerCase() || \"all\"" in intake_model
     assert 'businessIntake.loadBusinessIntakes("all")' in admin_model
+    assert "openBusinessIntakeDocument: businessIntake.openBusinessIntakeDocument" in admin_model
     assert 'normalizedStatus !== "all" ? normalizedStatus : undefined' in admin_api
+    assert "getAdminBusinessIntakeDocumentViewUrl" in admin_api
     assert "Todas" in intake_screen
     assert "En revision" in intake_screen
     assert "Borradores" in intake_screen
+    assert "Checklist para aprobar" in intake_screen
+    assert "Ver / descargar" in intake_screen
+    assert "Motivo de revision" in intake_screen
+    assert "Lista para revision admin" in intake_screen
+    assert "Esta pantalla sirve para decidir" in intake_screen
+    assert "documentKindLabel" in intake_screen
+    assert "Faltan datos para aprobar" in intake_screen
+    assert "Escribe un motivo de revision antes de ver o descargar documentos." in intake_model
     assert "si un negocio empezo el registro".lower() in intake_screen.lower()
 
 

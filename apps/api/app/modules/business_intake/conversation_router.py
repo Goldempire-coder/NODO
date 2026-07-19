@@ -36,6 +36,8 @@ async def route_active_intake_message(
         raise ApiError("BOT_UPLOAD_INVALID", status_code=400)
 
     if message_has_allowed_file(message):
+        if intake.last_step != "awaiting_documents":
+            raise ApiError("BOT_INPUT_INVALID", status_code=400)
         return await handle_telegram_document(
             intake=intake,
             update_id=update_id,
