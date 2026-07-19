@@ -777,6 +777,74 @@ def test_admin_accept_can_approve_business_link_owner_and_send_business_bot_butt
     }.issubset(set(_event_types(client)))
 
 
+def test_admin_accept_keeps_intake_documents_visible_on_created_business_detail(monkeypatch: Any) -> None:
+    client = _client(TELEGRAM_WEB_APP_URL="https://nodo.example.test")
+    telegram_id = 7048
+    chat_id = 8048
+
+    monkeypatch.setattr(intake_business_creation, "telegram_send_message_sync", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(intake_business_creation, "telegram_set_chat_menu_button_sync", lambda *_args, **_kwargs: None)
+
+    started = _start(client, update_id=585, telegram_id=telegram_id, chat_id=chat_id)
+    _contact(client, started["id"], update_id=586, telegram_id=telegram_id, chat_id=chat_id)
+    _upload_intake_doc(client, started["id"], update_id=587, request_id="intake_doc_for_business_detail")
+    _submit(client, started["id"], update_id=588, telegram_id=telegram_id, chat_id=chat_id)
+    admin = _login(client, 9048, "admin_intake_docs_business_detail")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    accepted = client.post(
+        f"/api/v1/admin/business-intake/{started['id']}/accept",
+        headers={**_admin_headers(admin, "accept_approve_business_with_docs"), "Content-Type": "application/json"},
+        json={
+            "reason": "documents reviewed and business approved",
+            "create_business": True,
+            "approve_business": True,
+            "public_business_name": "Casa Documentada NODO",
+        },
+    )
+
+    assert accepted.status_code == 200, accepted.text
+    business_id = accepted.json()["data"]["business"]["id"]
+    detail = client.get(
+        f"/api/v1/admin/businesses/{business_id}",
+        headers=_bearer(admin, "req_business_detail_after_intake_docs"),
+    )
+
+    assert detail.status_code == 200, detail.text
+    documents = detail.json()["data"]["documents"]
+    assert len(documents) == 1
+    assert documents[0]["file_type"] == "intake_document"
+    assert documents[0]["mime_type"] == "application/pdf"
+    assert "storage_path" not in documents[0]
+
+    view_url = client.post(
+        f"/api/v1/admin/businesses/{business_id}/verification-documents/{documents[0]['id']}/view-url",
+        headers=_bearer(admin, "req_business_detail_intake_doc_view_url"),
+        json={"reason": "reviewing linked intake document"},
+    )
+
+    assert view_url.status_code == 200, view_url.text
+    assert view_url.json()["data"]["expires_in"] <= 300
+    assert "storage_path" not in view_url.text
+
+    repeated = client.post(
+        f"/api/v1/admin/business-intake/{started['id']}/accept",
+        headers={**_admin_headers(admin, "accept_approve_business_with_docs_again"), "Content-Type": "application/json"},
+        json={
+            "reason": "documents rechecked",
+            "create_business": False,
+            "approve_business": True,
+        },
+    )
+
+    assert repeated.status_code == 200, repeated.text
+    repeated_detail = client.get(
+        f"/api/v1/admin/businesses/{business_id}",
+        headers=_bearer(admin, "req_business_detail_after_intake_docs_recheck"),
+    )
+    assert len(repeated_detail.json()["data"]["documents"]) == 1
+
+
 def test_admin_accept_can_approve_existing_intake_created_business(monkeypatch: Any) -> None:
     client = _client()
     sent_messages: list[dict[str, Any]] = []

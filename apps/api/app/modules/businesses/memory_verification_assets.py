@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.modules.business_intake.models import BusinessIntakeDocumentRecord
 from app.core.errors import ApiError
 from app.modules.businesses.models import BusinessVerificationSubmissionRecord, FileAssetRecord, new_id, utc_now
 
@@ -42,6 +43,30 @@ class InMemoryBusinessVerificationAssetsMixin:
         if file and file.resource_type == "business" and file.resource_id == business_id and file.deleted_at is None:
             return file
         return None
+
+    def link_intake_document_to_business(self, *, business_id: str, document: BusinessIntakeDocumentRecord) -> bool:
+        with self._lock:  # type: ignore[attr-defined]
+            for file in self.files.values():  # type: ignore[attr-defined]
+                if (
+                    file.resource_type == "business"
+                    and file.resource_id == business_id
+                    and file.storage_path == document.storage_path
+                    and file.deleted_at is None
+                ):
+                    return False
+            file_asset = FileAssetRecord(
+                id=new_id(),
+                owner_user_id=document.owner_user_id,
+                resource_type="business",
+                resource_id=business_id,
+                file_type=document.file_type,
+                storage_path=document.storage_path,
+                mime_type=document.mime_type,
+                size_bytes=document.size_bytes,
+                created_at=document.created_at,
+            )
+            self.files[file_asset.id] = file_asset  # type: ignore[attr-defined]
+            return True
 
     def get_latest_submission(self, business_id: str) -> BusinessVerificationSubmissionRecord | None:
         submissions = [submission for submission in self.submissions.values() if submission.business_id == business_id]  # type: ignore[attr-defined]

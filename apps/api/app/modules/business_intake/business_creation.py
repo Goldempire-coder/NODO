@@ -48,6 +48,7 @@ class BusinessIntakeBusinessCreationMixin:
             business = self._businesses.get_business(reviewed.created_business_id)  # type: ignore[attr-defined]
             if business is None:
                 return reviewed, False, None, False, False
+            self._link_intake_documents_to_business(user=user, reviewed=reviewed, business=business, request_id=request_id)
             access_link_created, notification_sent = self._approve_business_intake_access_if_requested(
                 user=user,
                 reviewed=reviewed,
@@ -63,6 +64,7 @@ class BusinessIntakeBusinessCreationMixin:
             business = self._businesses.get_business(reviewed.created_business_id)  # type: ignore[attr-defined]
             if business is None:
                 return reviewed, False, None, False, False
+            self._link_intake_documents_to_business(user=user, reviewed=reviewed, business=business, request_id=request_id)
             access_link_created, notification_sent = self._approve_business_intake_access_if_requested(
                 user=user,
                 reviewed=reviewed,
@@ -105,6 +107,7 @@ class BusinessIntakeBusinessCreationMixin:
             request_id=request_id,
             metadata={"business_id": business.id, "public_business_name": public_business_name},
         )
+        self._link_intake_documents_to_business(user=user, reviewed=updated, business=business, request_id=request_id)
         access_link_created, notification_sent = self._approve_business_intake_access_if_requested(
             user=user,
             reviewed=updated,
@@ -115,6 +118,29 @@ class BusinessIntakeBusinessCreationMixin:
         if payload.approve_business:
             business = self._businesses.get_business(business.id) or business  # type: ignore[attr-defined]
         return updated, True, self._business_payload(business), access_link_created, notification_sent
+
+    def _link_intake_documents_to_business(
+        self,
+        *,
+        user: UserRecord,
+        reviewed: BusinessIntakeRequestRecord,
+        business: Any,
+        request_id: str,
+    ) -> int:
+        linked_count = 0
+        for document in self._repository.list_documents(reviewed.id):  # type: ignore[attr-defined]
+            linked = self._businesses.link_intake_document_to_business(business_id=business.id, document=document)  # type: ignore[attr-defined]
+            if linked:
+                linked_count += 1
+        if linked_count:
+            self._write_admin_audit(  # type: ignore[attr-defined]
+                event_type="business_intake_documents_linked_to_business",
+                user=user,
+                intake=reviewed,
+                request_id=request_id,
+                metadata={"business_id": business.id, "documents_count": linked_count},
+            )
+        return linked_count
 
     def _approve_business_intake_access_if_requested(
         self,
