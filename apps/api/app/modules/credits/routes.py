@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Request, UploadFile
 
-from app.auth.dependencies import require_current_user
+from app.auth.dependencies import require_current_user, require_current_user_with_terms
 from app.modules.businesses.route_dependencies import business_service as business_access_service
 from app.modules.credits.models import MAX_PROOF_SIZE_BYTES
 from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest, BaseUsdcPaymentRequest, BaseUsdcTxHashRequest, ReferralApplyRequest, StripeCheckoutRequest
@@ -46,7 +46,7 @@ def business_credit_ledger(
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
     type: str | None = Query(default=None),  # noqa: A002 - API contract uses "type".
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
 ) -> dict:
     return {"data": _service(request).ledger(user=user, cursor=cursor, limit=limit, ledger_type=type), "request_id": _request_id(request)}
 
@@ -55,7 +55,7 @@ def business_credit_ledger(
 def create_stripe_checkout(
     payload: StripeCheckoutRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     require_platform_operational(request.app.state.emergency_mode_repository, operation="credit_stripe_checkout_create")
@@ -75,7 +75,7 @@ async def create_manual_credit_payment(
     manual_tx_hash: str | None = Form(default=None),
     manual_network: str | None = Form(default=None),
     file: UploadFile = File(...),
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     require_platform_operational(request.app.state.emergency_mode_repository, operation="credit_manual_payment_create")
@@ -107,7 +107,7 @@ async def create_manual_credit_payment(
 def create_base_usdc_credit_payment(
     payload: BaseUsdcPaymentRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     require_platform_operational(request.app.state.emergency_mode_repository, operation="credit_base_payment_create")
@@ -122,7 +122,7 @@ def create_base_usdc_credit_payment(
 def business_credit_purchase_detail(
     purchase_id: str,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
 ) -> dict:
     return {"data": _service(request).purchase_detail(user=user, purchase_id=purchase_id), "request_id": _request_id(request)}
 
@@ -132,7 +132,7 @@ def submit_base_usdc_tx_hash(
     purchase_id: str,
     payload: BaseUsdcTxHashRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     _require_business_pin(request, user)
@@ -157,7 +157,7 @@ def business_referrals(request: Request, user: UserRecord = Depends(require_curr
 def apply_referral(
     payload: ReferralApplyRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     _require_business_pin(request, user)

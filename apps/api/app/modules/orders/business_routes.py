@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 
-from app.auth.dependencies import require_current_user
+from app.auth.dependencies import require_current_user, require_current_user_with_terms
 from app.modules.businesses.route_dependencies import business_service as business_access_service
 from app.modules.orders.routes_support import order_service, request_id
 from app.modules.orders.schemas import OrderActionRequest
@@ -21,7 +21,7 @@ def business_orders(
     status: str | None = Query(default=None),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
 ) -> dict:
     return {"data": order_service(request).business_orders(user=user, status=status, cursor=cursor, limit=limit, request_id=request_id(request)), "request_id": request_id(request)}
 
@@ -36,7 +36,7 @@ def confirm_business_payment(
     order_id: str,
     request: Request,
     payload: OrderActionRequest | None = None,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     _require_business_pin(request, user)
@@ -51,7 +51,7 @@ def reject_business_payment_report(
     order_id: str,
     request: Request,
     payload: OrderActionRequest | None = None,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     _require_business_pin(request, user)
@@ -66,7 +66,7 @@ def mark_business_delivered(
     order_id: str,
     request: Request,
     payload: OrderActionRequest | None = None,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     _require_business_pin(request, user)

@@ -128,7 +128,7 @@ export function MyAdsScreen({ model }: { model: BusinessMiniAppModel }) {
       <div className="business-shell__tabs">
         <Button mode="filled" size="s" onClick={() => setView("create-ad")}>Crear</Button>
         <Button mode="outline" size="s" onClick={() => void loadArchivedAds()}>Archivados</Button>
-        <Button mode="outline" size="s" onClick={() => setView("payment-methods")}>Metodos</Button>
+        <Button mode="outline" size="s" onClick={() => setView("payment-methods")}>Zelle / USDT</Button>
       </div>
       <div className="business-list business-list--scrollable">
         {selectedAd ? (
@@ -223,9 +223,9 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
   const isSavingPaymentMethod = Boolean(savingPaymentMethodId);
   return (
     <div className="business-card">
-      <Text className="business-card__label">Metodos</Text>
-      <Title level="3" className="business-shell__title">Metodos de cobro</Title>
-      <Text className="auth-entry__session-meta">Guarda Zelle o USDT TRC20 y elige uno al publicar cada anuncio.</Text>
+      <Text className="business-card__label">Zelle / USDT</Text>
+      <Title level="3" className="business-shell__title">Zelle y wallets USDT</Title>
+      <Text className="auth-entry__session-meta">Organiza tus Zelle y wallets USDT TRC20 antes de comprar creditos o publicar anuncios.</Text>
       <div className="business-shell__tabs business-shell__tabs--two">
         <Button mode={!editingPaymentMethodId && paymentMethodForm.method_type === "zelle" ? "filled" : "outline"} size="s" disabled={isSavingPaymentMethod} onClick={() => startPaymentMethodCreate("zelle")}>
           Zelle
@@ -264,7 +264,7 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
         </label>
       </div>
       {editingMethod ? (
-        <Text className="auth-entry__session-meta">Estas editando este metodo. Para guardar uno nuevo, elige Zelle o USDT TRC20 arriba.</Text>
+        <Text className="auth-entry__session-meta">Si dejas Zelle o wallet vacio, se conserva el actual. Escribe uno nuevo para reemplazarlo.</Text>
       ) : null}
       <Button mode="filled" stretched disabled={isSavingPaymentMethod || !canSave} onClick={() => void createPaymentMethod()}>
         {isSavingPaymentMethod ? "Guardando..." : editingPaymentMethodId ? "Guardar cambios" : `Agregar ${formMethodName}`}
@@ -274,9 +274,9 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
           Cancelar
         </Button>
       ) : null}
-      <Text className="business-card__label">Tus metodos</Text>
+      <Text className="business-card__label">Tus Zelle / USDT</Text>
       <div className="business-list business-list--scrollable">
-        {paymentMethods.length === 0 ? <Text>Aun no tienes metodos guardados.</Text> : null}
+        {paymentMethods.length === 0 ? <Text>Aun no tienes Zelle ni wallets USDT guardadas.</Text> : null}
         {paymentMethods.map((method) => (
           <div className="business-row zelle-row" key={method.id}>
             <div>

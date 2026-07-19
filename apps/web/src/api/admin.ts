@@ -268,7 +268,7 @@ export function deleteAdminBusinessIntake<T>(request: AuthenticatedRequest, inta
 export function acceptAdminBusinessIntake<T>(
   request: AuthenticatedRequest,
   intakeId: string,
-  payload: { reason: string; create_business: boolean; public_business_name?: string; approve_business?: boolean },
+  payload: { reason?: string; create_business: boolean; public_business_name?: string; approve_business?: boolean },
   idempotencyKey: string
 ) {
   return request<T>(`/api/v1/admin/business-intake/${intakeId}/accept`, {

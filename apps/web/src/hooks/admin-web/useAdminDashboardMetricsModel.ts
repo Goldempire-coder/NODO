@@ -43,6 +43,18 @@ export function useAdminDashboardMetricsModel({
     }
   }, [adminReadable, request, setBusy, setNotice, setView]);
 
+  const refreshDashboardSnapshot = useCallback(async () => {
+    if (!adminReadable) {
+      return;
+    }
+    try {
+      const data = await getAdminDashboard<AdminDashboard>(request);
+      setDashboard(data);
+    } catch {
+      // Keep the last good snapshot; foreground actions still surface errors.
+    }
+  }, [adminReadable, request]);
+
   const loadMetrics = useCallback(async () => {
     setBusy(true);
     try {
@@ -62,6 +74,7 @@ export function useAdminDashboardMetricsModel({
     loadDashboard,
     loadMetrics,
     metrics,
+    refreshDashboardSnapshot,
     setEmergencyMode
   };
 }

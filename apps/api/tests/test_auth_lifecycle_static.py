@@ -63,25 +63,30 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
     assert '"X-NODO-Surface": "admin_web"' in admin_model
 
 
-def test_admin_business_intake_defaults_to_all_records_for_real_flow_review() -> None:
+def test_admin_business_intake_defaults_to_active_submissions_for_real_flow_review() -> None:
     admin_api = _read("apps/web/src/api/admin.ts")
     admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
     intake_model = _read("apps/web/src/hooks/admin-web/useAdminBusinessIntakesModel.ts")
     intake_screen = _read("apps/web/src/screens/admin-web/AdminBusinessIntakeScreens.tsx")
 
-    assert 'const [intakeFilter, setIntakeFilter] = useState("all")' in intake_model
-    assert "const normalizedStatus = status.trim().toLowerCase() || \"all\"" in intake_model
-    assert 'businessIntake.loadBusinessIntakes("all")' in admin_model
+    assert 'const [intakeFilter, setIntakeFilter] = useState("submitted")' in intake_model
+    assert "const normalizedStatus = status.trim().toLowerCase() || \"submitted\"" in intake_model
+    assert 'businessIntake.loadBusinessIntakes("submitted")' in admin_model
+    assert "pending_business_intakes" in admin_model
+    assert "overview.refreshDashboardSnapshot()" in admin_model
+    assert "window.setInterval" in admin_model
     assert "openBusinessIntakeDocument: businessIntake.openBusinessIntakeDocument" in admin_model
     assert 'normalizedStatus !== "all" ? normalizedStatus : undefined' in admin_api
     assert "getAdminBusinessIntakeDocumentViewUrl" in admin_api
-    assert "Todas" in intake_screen
+    assert "Todas" not in intake_screen
+    assert "Aceptadas" not in intake_screen
     assert "En revision" in intake_screen
     assert "Borradores" in intake_screen
     assert "Checklist para aprobar" in intake_screen
     assert 'openBusinessIntakeDocument(file.id, "view")' in intake_screen
     assert "Descargar" in intake_screen
-    assert "Motivo para aprobar o rechazar" in intake_screen
+    assert "Nota interna opcional" in intake_screen
+    assert "Motivo para aprobar o rechazar" not in intake_screen
     assert "Completar ficha manualmente" in intake_screen
     assert "Codigo invitacion" in intake_screen
     assert "Cedula responsable" in intake_screen
@@ -91,7 +96,7 @@ def test_admin_business_intake_defaults_to_all_records_for_real_flow_review() ->
     assert "Rango declarado" not in intake_screen
     assert "Borrar y reiniciar onboarding" in intake_screen
     assert "Guardar y poner en revision" in intake_screen
-    assert "Crear ficha del negocio" in intake_screen
+    assert "Crear negocio pendiente" in intake_screen
     assert "Lista para revision admin" in intake_screen
     assert "Esta pantalla sirve para decidir" in intake_screen
     assert "documentKindLabel" in intake_screen
@@ -100,8 +105,10 @@ def test_admin_business_intake_defaults_to_all_records_for_real_flow_review() ->
     assert "updateAdminBusinessIntake" in admin_api
     assert "requiresReason: false" in intake_model
     assert "download_filename" in intake_model
+    assert "queueCriticalAction" not in intake_model.split("const openBusinessIntakeDocument", 1)[1].split("const saveBusinessIntakeManual", 1)[0]
     assert "Escribe un motivo de revision antes de ver o descargar documentos." not in intake_model
-    assert "si un negocio empezo el registro".lower() in intake_screen.lower()
+    assert "No hay solicitudes activas en este filtro." in intake_screen
+    assert "Intake muestra negocios que estan intentando entrar" in intake_screen
     admin_css = _read("apps/web/src/app/admin-web.css")
     assert "cursor: not-allowed" not in admin_css
     assert "button:not(:disabled):hover" in admin_css
@@ -129,6 +136,13 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     surface_api = _read("apps/web/src/api/surface.ts")
 
     assert "useBusinessAccessModel" in business_model
+    assert "acceptBusinessTerms" in business_model
+    assert "TERMS_ACCEPTANCE_REQUIRED" in business_model
+    assert "hasAcceptedCurrentClientTerms" in business_model
+    assert '"business-terms"' in business_views
+    assert "BusinessTermsScreen" in business_screens
+    assert "termsRequired" in business_shell
+    assert "canUseBusinessNav" in business_shell
     assert "useBusinessHomeSummaryModel" in business_model
     assert '"X-NODO-Surface", "business_mini_app"' in business_model
     assert "useBusinessAccessModel({ request, setBusy, setNotice, setView })" in business_model
@@ -161,6 +175,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "isRefreshing" in business_dashboard
     assert "blocked_credits" in business_dashboard
     assert "consumed_credits" in business_dashboard
+    assert "Zelle / USDT" in business_dashboard
     assert 'cache: "no-store"' in credits_api
     assert "getBusinessSurfaceSession" in access_model
     assert "const openHome = () =>" in business_shell
@@ -365,8 +380,11 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert "selectAdPaymentType" in payment_methods_model
     assert "Agrega una wallet USDT TRC20 para publicar USDT -> Bs." in ads_screen
     assert "Recibiras {previewAmount} USD y entregaras aprox. Bs." in ads_screen
-    assert "Metodos de cobro" in ads_screen
-    assert "Estas editando este metodo" in ads_screen
+    assert "Zelle y wallets USDT" in ads_screen
+    assert "Si dejas Zelle o wallet vacio" in ads_screen
+    assert "Metodos de cobro" not in ads_screen
+    assert "Estas editando este metodo" not in ads_screen
+    assert "Zelle / USDT" in ads_screen
     assert "mini-action-button--danger" in ads_screen
     assert "Borrando..." in ads_screen
     assert "startPaymentMethodCreate" in payment_methods_model

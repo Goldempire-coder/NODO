@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiRequest } from "../api/client";
+import { acceptTerms as acceptUserTerms } from "../api/users";
+import { ApiClientError, apiRequest } from "../api/client";
 import { isBusinessMiniAppView, type BusinessMiniAppView } from "../constants/businessViews";
+import { CURRENT_CLIENT_TERMS_VERSION, hasAcceptedCurrentClientTerms } from "../constants/legal";
 import type { PublicUser } from "../types/auth";
 import { configureTelemetryContext } from "../observability/clientTelemetry";
 import { fallbackForBusinessMiniAppView, ROOT_BUSINESS_VIEWS } from "./business-mini-app/helpers";
@@ -17,6 +19,7 @@ import { useSurfaceSupportModel } from "./useSurfaceSupportModel";
 
 export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; token: string }) {
   const [view, setCurrentView] = useState<BusinessMiniAppView>("business-dashboard");
+  const [currentUser, setCurrentUser] = useState(user);
   const viewHistoryRef = useRef<BusinessMiniAppView[]>([]);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,7 +28,15 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     async (path: string, options: RequestInit = {}) => {
       const headers = new Headers(options.headers || {});
       headers.set("X-NODO-Surface", "business_mini_app");
-      return apiRequest<any>(path, token, { ...options, headers });
+      try {
+        return await apiRequest<any>(path, token, { ...options, headers });
+      } catch (error) {
+        if (error instanceof ApiClientError && error.code === "TERMS_ACCEPTANCE_REQUIRED") {
+          setNotice("Acepta los terminos de NODO Negocio para continuar.");
+          setCurrentView("business-terms");
+        }
+        throw error;
+      }
     },
     [token]
   );
@@ -50,6 +61,20 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   }, []);
 
   const canGoBack = useMemo(() => !ROOT_BUSINESS_VIEWS.has(view), [view]);
+
+  const acceptBusinessTerms = useCallback(async () => {
+    setBusy(true);
+    try {
+      const acceptedUser = await acceptUserTerms<PublicUser>(request, CURRENT_CLIENT_TERMS_VERSION);
+      setCurrentUser(acceptedUser);
+      setNotice("Terminos aceptados. Ya puedes preparar tu negocio.");
+      setView("business-dashboard");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudieron aceptar los terminos.");
+    } finally {
+      setBusy(false);
+    }
+  }, [request, setView]);
 
   const access = useBusinessAccessModel({ request, setBusy, setNotice, setView });
   const credits = useBusinessCreditsModel({ business: access.business, request, setBusy, setNotice, setView });
@@ -101,12 +126,16 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     if (access.accessState !== "ready") {
       return;
     }
+    if (!hasAcceptedCurrentClientTerms(currentUser)) {
+      setCurrentView("business-terms");
+      return;
+    }
     void orders.pollBusinessOrderUpdates();
     const interval = window.setInterval(() => {
       void orders.pollBusinessOrderUpdates();
     }, 10000);
     return () => window.clearInterval(interval);
-  }, [access.accessState, orders.pollBusinessOrderUpdates]);
+  }, [access.accessState, currentUser, orders.pollBusinessOrderUpdates]);
 
   useBusinessTelegramControls({
     adForm: access.adForm,
@@ -118,7 +147,8 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   });
 
   return {
-    user,
+    user: currentUser,
+    acceptBusinessTerms,
     view,
     setView,
     loadHomeSummary: homeSummary.loadHomeSummary,

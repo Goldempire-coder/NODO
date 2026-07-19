@@ -19,8 +19,9 @@ const TITLE_BY_VIEW: Partial<Record<BusinessMiniAppView, string>> = {
   "business-chat": "Chat de orden",
   "business-support": "Soporte",
   referrals: "Referidos",
-  "payment-methods": "Metodos",
+  "payment-methods": "Zelle / USDT",
   "business-settings": "Perfil negocio",
+  "business-terms": "Terminos",
   "business-pin": "PIN de seguridad",
   "business-rules": "Reglas"
 };
@@ -75,7 +76,8 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
   const [activeNav, setActiveNav] = useState<"home" | "ads" | "orders" | "credits" | "profile">("home");
   const previousViewRef = useRef<BusinessMiniAppView | null>(null);
   const viewStartedAtRef = useRef<number | null>(null);
-  const canUseBusinessNav = accessState === "ready";
+  const termsRequired = view === "business-terms";
+  const canUseBusinessNav = accessState === "ready" && !termsRequired;
 
   const openHome = () => {
     void loadHomeSummary();
@@ -132,7 +134,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
       setActiveNav("orders");
       return;
     }
-    if (view === "business-settings" || view === "business-pin" || view === "business-rules") {
+    if (view === "business-settings" || view === "business-pin" || view === "business-rules" || view === "business-terms") {
       setActiveNav("profile");
       return;
     }

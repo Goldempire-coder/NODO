@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, Request
 
-from app.auth.dependencies import require_current_user
+from app.auth.dependencies import require_current_user, require_current_user_with_terms
 from app.modules.businesses.route_dependencies import business_service, request_id
 from app.modules.businesses.schemas import BusinessAvailabilityUpdateRequest, BusinessOwnPaymentMethodCreateRequest, BusinessOwnPaymentMethodUpdateRequest, BusinessPinSetupRequest, BusinessPinVerifyRequest
 from app.modules.users.models import UserRecord
@@ -29,7 +29,7 @@ def business_pin_status(request: Request, user: UserRecord = Depends(require_cur
 def update_own_availability(
     payload: BusinessAvailabilityUpdateRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     return {
@@ -84,7 +84,7 @@ def lock_business_pin(request: Request, user: UserRecord = Depends(require_curre
 def create_own_payment_method(
     payload: BusinessOwnPaymentMethodCreateRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     return {
@@ -103,7 +103,7 @@ def update_own_payment_method(
     payment_method_id: str,
     payload: BusinessOwnPaymentMethodUpdateRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     return {
@@ -122,7 +122,7 @@ def update_own_payment_method(
 def delete_own_payment_method(
     payment_method_id: str,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     return {

@@ -25,6 +25,7 @@ export function Dashboard({ model }: { model: AdminWebModel }) {
         <h2>A-01 Dashboard</h2>
         <p>Colas operativas calculadas desde backend. No hay metricas falsas.</p>
         <div className="admin-web-metrics">
+          <Metric label="Solicitudes intake" value={data?.queues.pending_business_intakes} />
           <Metric label="Negocios pendientes" value={data?.queues.pending_businesses} />
           <Metric label="Pagos credito" value={data?.queues.pending_credit_purchases} />
           <Metric label="Disputas abiertas" value={data?.queues.open_disputes} />
@@ -36,6 +37,7 @@ export function Dashboard({ model }: { model: AdminWebModel }) {
       <div className="admin-web-panel">
         <h3>Accesos rapidos</h3>
         <div className="admin-web-actions vertical">
+          <button type="button" onClick={() => void model.loadBusinessIntakes("submitted")}>Revisar intake</button>
           <button type="button" onClick={() => void model.loadPendingBusinesses()}>Revisar negocios</button>
           <button type="button" onClick={() => void model.loadCreditPurchases("pending_manual_review")}>Pagos manuales</button>
           <button type="button" onClick={() => void model.loadDisputes("open")}>Disputas abiertas</button>

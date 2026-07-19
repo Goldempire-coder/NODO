@@ -18,6 +18,7 @@ class PostgresAdminDashboardMixin:
                 """
             ).fetchall()
             pending_businesses = conn.execute("select count(*) as c from businesses where verification_status = 'pending'").fetchone()["c"]
+            pending_business_intakes = conn.execute("select count(*) as c from business_intake_requests where status = 'submitted'").fetchone()["c"]
             pending_credit_purchases = conn.execute("select count(*) as c from credit_purchases where status = 'pending_manual_review'").fetchone()["c"]
             open_disputes = conn.execute("select count(*) as c from disputes where status in ('open', 'in_review')").fetchone()["c"]
             active_orders = conn.execute("select count(*) as c from orders where status not in ('completed', 'cancelled')").fetchone()["c"]
@@ -25,7 +26,12 @@ class PostgresAdminDashboardMixin:
             delivered_orders = conn.execute("select count(*) as c from orders where status = 'delivered'").fetchone()["c"]
             under_review = conn.execute("select count(*) as c from businesses where risk_level = 'under_review'").fetchone()["c"]
         return {
-            "queues": {"pending_businesses": pending_businesses, "pending_credit_purchases": pending_credit_purchases, "open_disputes": open_disputes},
+            "queues": {
+                "pending_businesses": pending_businesses,
+                "pending_business_intakes": pending_business_intakes,
+                "pending_credit_purchases": pending_credit_purchases,
+                "open_disputes": open_disputes,
+            },
             "orders": {"active_count": active_orders, "disputed_count": disputed_orders, "delivered_waiting_close_count": delivered_orders},
             "credits": {"manual_review_count": pending_credit_purchases},
             "risk": {"businesses_under_review": under_review},

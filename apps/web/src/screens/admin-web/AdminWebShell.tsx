@@ -19,7 +19,8 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
               type="button"
               onClick={() => void item.action()}
             >
-              {item.label}
+              <span>{item.label}</span>
+              {item.badge ? <strong className="admin-web-nav-badge">{item.badge}</strong> : null}
             </button>
           ))}
         </nav>

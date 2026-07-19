@@ -106,12 +106,12 @@ export function useAdminBusinessIntakesModel({
 }) {
   const [businessIntakes, setBusinessIntakes] = useState<AdminBusinessIntakeSummary[]>([]);
   const [selectedBusinessIntake, setSelectedBusinessIntake] = useState<AdminBusinessIntakeDetail | null>(null);
-  const [intakeFilter, setIntakeFilter] = useState("all");
+  const [intakeFilter, setIntakeFilter] = useState("submitted");
   const [intakePublicBusinessName, setIntakePublicBusinessName] = useState("");
   const [intakeEditDraft, setIntakeEditDraft] = useState<AdminBusinessIntakeEditDraft>(() => editDraftFromIntake({ id: "", status: "", last_step: "", created_at: "", updated_at: "" }));
 
   const loadBusinessIntakes = useCallback(async (status = intakeFilter) => {
-    const normalizedStatus = status.trim().toLowerCase() || "all";
+    const normalizedStatus = status.trim().toLowerCase() || "submitted";
     setBusy(true);
     try {
       const data = await listAdminBusinessIntakes<ListResponse<AdminBusinessIntakeSummary>>(request, normalizedStatus);
@@ -143,12 +143,13 @@ export function useAdminBusinessIntakesModel({
     }
   }, [request, setBusy, setNotice, setView]);
 
-  const openBusinessIntakeDocument = useCallback((fileId: string, mode: "view" | "download" = "view") => {
+  const openBusinessIntakeDocument = useCallback(async (fileId: string, mode: "view" | "download" = "view") => {
     if (!selectedBusinessIntake || !adminMutable) {
       setNotice("Solo admin/super_admin puede solicitar URL privada.");
       return;
     }
-    queueCriticalAction(mode === "download" ? "Descargar documento de solicitud" : "Ver documento de solicitud", "La URL temporal no se guarda y la apertura queda auditada.", async () => {
+    setBusy(true);
+    try {
       const data = await getAdminBusinessIntakeDocumentViewUrl<{ url: string; expires_in: number; download_filename: string }>(
         request,
         selectedBusinessIntake.intake.id,
@@ -167,8 +168,12 @@ export function useAdminBusinessIntakesModel({
       }
       window.open(data.url, "_blank", "noopener,noreferrer");
       setNotice(`Documento disponible por ${data.expires_in}s: ${data.download_filename}.`);
-    }, { requiresReason: false });
-  }, [adminMutable, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice]);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudo abrir el documento.");
+    } finally {
+      setBusy(false);
+    }
+  }, [adminMutable, reason, request, selectedBusinessIntake, setBusy, setNotice]);
 
   const saveBusinessIntakeManual = useCallback((submitForReview = false) => {
     if (!selectedBusinessIntake || !adminMutable) {
@@ -241,7 +246,7 @@ export function useAdminBusinessIntakesModel({
           request,
           selectedBusinessIntake.intake.id,
           {
-            reason,
+            ...(reason.trim() ? { reason } : {}),
             create_business: true,
             public_business_name: publicName
           },
@@ -250,10 +255,11 @@ export function useAdminBusinessIntakesModel({
         setSelectedBusinessIntake({ ...selectedBusinessIntake, intake: data.intake });
         setReason("");
         setNotice(data.business ? `Negocio creado: ${data.business.business_name}. Queda pendiente de aprobacion/acceso.` : "Solicitud aceptada.");
-        await loadBusinessIntakes(intakeFilter);
-      }
+        await loadBusinessIntakes("submitted");
+      },
+      { requiresReason: false }
     );
-  }, [adminMutable, intakeFilter, intakePublicBusinessName, loadBusinessIntakes, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice, setReason]);
+  }, [adminMutable, intakePublicBusinessName, loadBusinessIntakes, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice, setReason]);
 
   const approveBusinessFromIntake = useCallback(() => {
     if (!selectedBusinessIntake || !adminMutable) {
@@ -282,7 +288,7 @@ export function useAdminBusinessIntakesModel({
           request,
           selectedBusinessIntake.intake.id,
           {
-            reason,
+            ...(reason.trim() ? { reason } : {}),
             create_business: !alreadyCreated,
             approve_business: true,
             ...(alreadyCreated ? {} : { public_business_name: publicName })
@@ -298,10 +304,11 @@ export function useAdminBusinessIntakesModel({
         } else {
           setNotice(data.business ? `Negocio revisado: ${data.business.business_name}.` : "Solicitud aceptada.");
         }
-        await loadBusinessIntakes(intakeFilter);
-      }
+        await loadBusinessIntakes("submitted");
+      },
+      { requiresReason: false }
     );
-  }, [adminMutable, intakeFilter, intakePublicBusinessName, loadBusinessIntakes, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice, setReason]);
+  }, [adminMutable, intakePublicBusinessName, loadBusinessIntakes, queueCriticalAction, reason, request, selectedBusinessIntake, setNotice, setReason]);
 
   return {
     approveBusinessFromIntake,

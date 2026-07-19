@@ -509,12 +509,13 @@ def test_admin_list_detail_and_review_require_rbac_reason_idempotency() -> None:
     )
     assert support_accept.status_code == 403
 
-    no_reason = client.post(
+    accepted_without_reason = client.post(
         f"/api/v1/admin/business-intake/{started['id']}/accept",
         headers={**_admin_headers(admin, "no_reason"), "Content-Type": "application/json"},
         json={"reason": ""},
     )
-    assert no_reason.status_code == 422
+    assert accepted_without_reason.status_code == 200, accepted_without_reason.text
+    assert accepted_without_reason.json()["data"]["intake"]["status"] == "accepted"
 
     accepted_1 = client.post(
         f"/api/v1/admin/business-intake/{started['id']}/accept",

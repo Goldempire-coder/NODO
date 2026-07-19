@@ -46,7 +46,7 @@ class BusinessIntakeSubmitRequest(StrictRequestModel):
 
 
 class AdminBusinessIntakeReviewRequest(StrictRequestModel):
-    reason: str = Field(min_length=1, max_length=500)
+    reason: str | None = Field(default=None, max_length=500)
     create_business: bool = False
     approve_business: bool = False
     public_business_name: str | None = Field(default=None, min_length=2, max_length=160)

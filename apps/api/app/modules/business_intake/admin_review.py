@@ -10,6 +10,18 @@ from app.modules.business_intake.schemas import AdminBusinessIntakeReviewRequest
 from app.modules.users.models import UserRecord
 
 
+DEFAULT_ACCEPT_REASON = "admin_accepted_business_intake"
+
+
+def _review_reason(*, status: str, payload: AdminBusinessIntakeReviewRequest) -> str:
+    reason = (payload.reason or "").strip()
+    if reason:
+        return reason
+    if status == "accepted":
+        return DEFAULT_ACCEPT_REASON
+    raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
+
+
 class BusinessIntakeAdminReviewMixin:
     def accept(
         self,
@@ -93,8 +105,7 @@ class BusinessIntakeAdminReviewMixin:
         require_admin_mutation(user)
         if not idempotency_key:
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
-        if not payload.reason.strip():
-            raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
+        _review_reason(status=status, payload=payload)
         if status != "accepted" and payload.create_business:
             raise ApiError("BUSINESS_INTAKE_STATUS_INVALID", status_code=409)
         if status != "accepted" and payload.approve_business:
@@ -176,7 +187,7 @@ class BusinessIntakeAdminReviewMixin:
             intake=current,
             status=status,
             admin_user_id=user.id,
-            reason=payload.reason.strip(),
+            reason=_review_reason(status=status, payload=payload),
         )
         self._write_admin_audit(  # type: ignore[attr-defined]
             event_type=f"business_intake_{status}",

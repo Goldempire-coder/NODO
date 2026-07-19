@@ -9,6 +9,14 @@ function listText(items?: string[] | null) {
   return items && items.length > 0 ? items.join(", ") : "-";
 }
 
+function referenceHref(reference: string) {
+  const value = reference.trim();
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+  return null;
+}
+
 function fileSizeText(bytes: number) {
   if (bytes < 1024) {
     return `${bytes} B`;
@@ -55,13 +63,11 @@ export function BusinessIntake({ model }: { model: AdminWebModel }) {
     <section className="admin-web-panel">
       <Header title="Intake de negocios" action={<button onClick={() => void model.loadBusinessIntakes(model.intakeFilter)} type="button">Aplicar filtro</button>} />
       <div className="admin-web-toolbar">
-        <label><span>Filtro</span><input value={model.intakeFilter} onChange={(event) => model.setIntakeFilter(event.target.value)} placeholder="all, submitted, draft..." /></label>
-        <button type="button" onClick={() => void model.loadBusinessIntakes("all")}>Todas</button>
+        <label><span>Filtro</span><input value={model.intakeFilter} onChange={(event) => model.setIntakeFilter(event.target.value)} placeholder="submitted o draft" /></label>
         <button type="button" onClick={() => void model.loadBusinessIntakes("submitted")}>En revision</button>
         <button type="button" onClick={() => void model.loadBusinessIntakes("draft")}>Borradores</button>
-        <button type="button" onClick={() => void model.loadBusinessIntakes("accepted")}>Aceptadas</button>
       </div>
-      <p className="admin-web-muted">Si un negocio empezo el registro pero no lo finalizo, aparece como borrador.</p>
+      <p className="admin-web-muted">Intake muestra negocios que estan intentando entrar. Los aprobados pasan a Negocios.</p>
       <Table headers={["Solicitud", "Status", "Codigo", "WhatsApp", "Ciudad", "Fecha", ""]}>
         {model.businessIntakes.map((item) => (
           <tr key={item.id}>
@@ -75,7 +81,7 @@ export function BusinessIntake({ model }: { model: AdminWebModel }) {
           </tr>
         ))}
       </Table>
-      {model.businessIntakes.length === 0 ? <Empty text="No hay solicitudes para el filtro actual. Prueba con Todas para ver registros incompletos." /> : null}
+      {model.businessIntakes.length === 0 ? <Empty text="No hay solicitudes activas en este filtro." /> : null}
     </section>
   );
 }
@@ -99,13 +105,11 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
     model.setIntakeEditDraft({ ...draft, ...patch });
   };
   const publicName = model.intakePublicBusinessName.trim();
-  const hasReason = model.reason.trim().length > 0;
   const reviewStatusReady = ["submitted", "accepted"].includes(intake.status);
   const baseReviewBlockers = [
     !model.adminMutable ? "Tu rol no puede aprobar negocios." : "",
     !reviewStatusReady ? "La solicitud todavia no esta en revision." : "",
     missing.length > 0 ? `Faltan datos: ${missing.join(", ")}.` : "",
-    !hasReason ? "Falta escribir el motivo de aprobacion." : "",
   ].filter(Boolean);
   const createBusinessBlockers = [
     ...baseReviewBlockers,
@@ -119,7 +123,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
   const canCreateBusiness = createBusinessBlockers.length === 0;
   const canApproveBusiness = approveBusinessBlockers.length === 0;
   const decisionText = missing.length === 0
-    ? "Lista para revision admin. Revisa documentos y motivo antes de aprobar."
+    ? "Lista para revision admin. Revisa documentos y referencias antes de aprobar."
     : `No apruebes todavia. Faltan: ${missing.join(", ")}.`;
   return (
     <section className="admin-web-split admin-web-intake-layout">
@@ -148,7 +152,21 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
           <div className="admin-web-row"><span>Telefono negocio</span><strong>{businessPhone}</strong></div>
           <div className="admin-web-row"><span>Operacion declarada</span><strong>{intake.operation || "-"}</strong></div>
           <div className="admin-web-row"><span>Metodos declarados</span><strong>{listText(intake.methods)}</strong></div>
-          <div className="admin-web-row"><span>Redes sociales</span><strong>{listText(intake.references)}</strong></div>
+          <div className="admin-web-row">
+            <span>Redes sociales</span>
+            {intake.references && intake.references.length > 0 ? (
+              <div className="admin-web-reference-list">
+                {intake.references.map((reference) => {
+                  const href = referenceHref(reference);
+                  return href ? (
+                    <a href={href} key={reference} target="_blank" rel="noreferrer">{reference}</a>
+                  ) : (
+                    <strong key={reference}>{reference}</strong>
+                  );
+                })}
+              </div>
+            ) : <strong>-</strong>}
+          </div>
           <div className="admin-web-row"><span>Paso bot</span><strong>{intake.last_step}</strong></div>
           <div className="admin-web-row"><span>Negocio creado</span><strong>{intake.created_business_id || "-"}</strong></div>
         </div>
@@ -294,7 +312,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
             placeholder="Ej. Casa Cambio Centro"
           />
         </label>
-        <ReasonBox model={model} label="Motivo para aprobar o rechazar" />
+        <ReasonBox model={model} label="Nota interna opcional" />
         <div className={approveBusinessBlockers.length === 0 ? "admin-web-action-status is-ok" : "admin-web-action-status is-warning"}>
           <strong>Estado de aprobacion</strong>
           {approveBusinessBlockers.length === 0 ? (
@@ -306,8 +324,8 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
           )}
         </div>
         <div className="admin-web-actions vertical">
-          <button disabled={!canCreateBusiness} title={createBusinessBlockers[0] || "Crear ficha interna pendiente"} type="button" onClick={() => model.createBusinessFromIntake()}>
-            Crear ficha del negocio
+          <button disabled={!canCreateBusiness} title={createBusinessBlockers[0] || "Crear negocio pendiente"} type="button" onClick={() => model.createBusinessFromIntake()}>
+            Crear negocio pendiente
           </button>
           <button disabled={!canApproveBusiness} title={approveBusinessBlockers[0] || "Crear/aprobar y avisar por Telegram"} type="button" onClick={() => model.approveBusinessFromIntake()}>
             Crear, aprobar y avisar
@@ -316,7 +334,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
             Borrar y reiniciar onboarding
           </button>
         </div>
-        <p className="admin-web-muted">Crear ficha del negocio solo crea el registro interno en pendiente. Aprobar y avisar es la accion que da acceso por Telegram.</p>
+        <p className="admin-web-muted">Crear negocio pendiente lo mueve a Negocios sin dar acceso. Aprobar y avisar confirma acceso y envia el boton por Telegram.</p>
       </aside>
     </section>
   );

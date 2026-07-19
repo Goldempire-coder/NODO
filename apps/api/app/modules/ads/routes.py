@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 
-from app.auth.dependencies import require_current_user, require_marketplace_read_user
+from app.auth.dependencies import require_current_user_with_terms, require_marketplace_read_user
 from app.modules.businesses.route_dependencies import business_service as business_access_service
 from app.modules.ads.schemas import AdActionRequest, AdCreateRequest, AdUpdateRequest
 from app.modules.ads.service import AdService
@@ -86,7 +86,7 @@ def ad_detail(ad_id: str, request: Request, user: UserRecord = Depends(require_m
 def create_ad(
     payload: AdCreateRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     require_platform_operational(request.app.state.emergency_mode_repository, operation="ad_create")
@@ -102,7 +102,7 @@ def my_ads(
     request: Request,
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
 ) -> dict:
     return {"data": _service(request).my_ads(user=user, archived=False, cursor=cursor, limit=limit, request_id=_request_id(request)), "request_id": _request_id(request)}
 
@@ -112,7 +112,7 @@ def my_archived_ads(
     request: Request,
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
 ) -> dict:
     return {"data": _service(request).my_ads(user=user, archived=True, cursor=cursor, limit=limit, request_id=_request_id(request)), "request_id": _request_id(request)}
 
@@ -122,7 +122,7 @@ def update_ad(
     ad_id: str,
     payload: AdUpdateRequest,
     request: Request,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     _require_business_pin(request, user)
@@ -137,7 +137,7 @@ def pause_ad(
     ad_id: str,
     request: Request,
     payload: AdActionRequest | None = None,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     _require_business_pin(request, user)
@@ -152,7 +152,7 @@ def archive_ad(
     ad_id: str,
     request: Request,
     payload: AdActionRequest | None = None,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     _require_business_pin(request, user)
@@ -167,7 +167,7 @@ def reactivate_ad(
     ad_id: str,
     request: Request,
     payload: AdActionRequest | None = None,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     require_platform_operational(request.app.state.emergency_mode_repository, operation="ad_reactivate")
@@ -183,7 +183,7 @@ def republish_ad(
     ad_id: str,
     request: Request,
     payload: AdActionRequest | None = None,
-    user: UserRecord = Depends(require_current_user),
+    user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     require_platform_operational(request.app.state.emergency_mode_repository, operation="ad_republish")

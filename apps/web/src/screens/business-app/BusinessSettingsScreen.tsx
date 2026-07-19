@@ -4,7 +4,7 @@ import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 
 export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel }) {
   const { business, lockBusinessPinSession, loadReferrals, paymentMethods, setBusinessAvailability, setView, updatingAvailability } = model;
-  const canOperate = business?.verification_status === "approved" && paymentMethods.length > 0;
+  const canOperate = business?.verification_status === "approved";
   const isAcceptingOrders = business?.is_accepting_orders !== false;
   const pinConfigured = Boolean(business?.access_link?.pin_configured);
   const pinUnlocked = Boolean(business?.access_link?.pin_unlocked);
@@ -26,7 +26,7 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
         <Text>Pais: {business?.country || "VE"}</Text>
         <Text>Metodos guardados: {paymentMethods.length}</Text>
       </div>
-      <Text className="auth-entry__session-meta">Puedes guardar Zelle y USDT TRC20, y elegir cual usar en cada anuncio.</Text>
+      <Text className="auth-entry__session-meta">Puedes guardar Zelle y USDT TRC20 antes de comprar creditos.</Text>
       <Button
         mode={isAcceptingOrders ? "outline" : "filled"}
         size="s"
@@ -36,7 +36,7 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
         {updatingAvailability ? "Guardando..." : isAcceptingOrders ? "Poner offline" : "Poner online"}
       </Button>
       <div className="business-shell__tabs">
-        <Button mode="outline" size="s" onClick={() => setView("payment-methods")}>Metodos</Button>
+        <Button mode="outline" size="s" onClick={() => setView("payment-methods")}>Zelle / USDT</Button>
         <Button mode="outline" size="s" onClick={() => void loadReferrals()}>Referidos</Button>
         <Button mode="outline" size="s" onClick={() => setView("business-rules")}>Reglas</Button>
       </div>
@@ -97,6 +97,45 @@ export function BusinessRulesScreen() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+const BUSINESS_TERMS = [
+  {
+    title: "Pagos directos",
+    body: "NODO no custodia el dinero del cambio. Cliente y negocio pagan directamente entre ellos."
+  },
+  {
+    title: "Verificacion obligatoria",
+    body: "Antes de entregar bolivares o cripto, confirma que el dinero llego a tu banco o billetera."
+  },
+  {
+    title: "Datos correctos",
+    body: "Manten tus Zelle y wallets actualizados. Si usas datos viejos, pausa o corrige tus anuncios."
+  },
+  {
+    title: "Uso responsable",
+    body: "NODO puede pausar, revisar o bloquear operaciones si detecta abuso, riesgo o informacion falsa."
+  }
+];
+
+export function BusinessTermsScreen({ model }: { model: BusinessMiniAppModel }) {
+  return (
+    <div className="business-card">
+      <Text className="business-card__label">NODO Negocio</Text>
+      <Title level="3" className="business-shell__title">Terminos y condiciones</Title>
+      <div className="business-list">
+        {BUSINESS_TERMS.map((rule) => (
+          <div className="business-rule-item" key={rule.title}>
+            <strong>{rule.title}</strong>
+            <Text>{rule.body}</Text>
+          </div>
+        ))}
+      </div>
+      <Button mode="filled" stretched disabled={model.busy} onClick={() => void model.acceptBusinessTerms()}>
+        {model.busy ? "Guardando..." : "Aceptar terminos"}
+      </Button>
     </div>
   );
 }

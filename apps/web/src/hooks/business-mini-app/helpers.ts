@@ -37,6 +37,9 @@ export function fallbackForBusinessMiniAppView(view: BusinessMiniAppView): Busin
   if (view === "business-rules") {
     return "business-settings";
   }
+  if (view === "business-terms") {
+    return "business-dashboard";
+  }
   return "business-dashboard";
 }
 

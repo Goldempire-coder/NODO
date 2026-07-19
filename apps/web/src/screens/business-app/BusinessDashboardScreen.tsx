@@ -90,11 +90,9 @@ export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel
         <Button mode="outline" size="s" onClick={() => setView("business-support")}>
           Soporte NODO
         </Button>
-        {!hasPaymentMethods ? (
-          <Button mode="outline" size="s" onClick={() => setView("payment-methods")}>
-            Metodos
-          </Button>
-        ) : null}
+        <Button mode="outline" size="s" onClick={() => setView("payment-methods")}>
+          Zelle / USDT
+        </Button>
       </div>
     </div>
   );

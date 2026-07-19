@@ -157,7 +157,7 @@ class BusinessIntakeBusinessCreationMixin:
             telegram_id_snapshot=reviewed.telegram_user_id,
             role_in_business="owner",
             linked_by_admin_id=user.id,
-            reason=payload.reason.strip(),
+            reason=(payload.reason or "").strip() or "admin_accepted_business_intake",
         )
         access_link_created = existing_link is None
         if access_link_created:

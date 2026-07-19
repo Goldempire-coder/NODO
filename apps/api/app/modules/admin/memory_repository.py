@@ -6,9 +6,10 @@ from app.modules.admin.presenters import iso, mask_sensitive
 from app.modules.admin.user_presenters import admin_business_link_payload, admin_user_payload
 
 class InMemoryAdminRepository:
-    def __init__(self, *, users, businesses, orders, disputes, credits, audit_writer) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, users, businesses, orders, disputes, credits, audit_writer, business_intake=None) -> None:  # type: ignore[no-untyped-def]
         self._users = users
         self._businesses = businesses
+        self._business_intake = business_intake
         self._orders = orders
         self._disputes = disputes
         self._credits = credits
@@ -23,9 +24,11 @@ class InMemoryAdminRepository:
         orders = list(getattr(self._orders, "orders", {}).values())
         disputes = list(getattr(self._disputes, "disputes", {}).values())
         purchases = list(getattr(self._credits, "purchases", {}).values())
+        intakes = list(getattr(getattr(self, "_business_intake", None), "intakes", {}).values())
         return {
             "queues": {
                 "pending_businesses": sum(1 for item in businesses if item.verification_status == "pending"),
+                "pending_business_intakes": sum(1 for item in intakes if item.status == "submitted"),
                 "pending_credit_purchases": sum(1 for item in purchases if item.status == "pending_manual_review"),
                 "open_disputes": sum(1 for item in disputes if item.status in {"open", "in_review"}),
             },

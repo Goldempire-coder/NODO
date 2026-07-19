@@ -65,14 +65,26 @@ def _signed_init_data(telegram_id: int, username: str) -> str:
     return urlencode(payload)
 
 
-def _login(client: TestClient, telegram_id: int, username: str) -> dict:
+def _accept_terms(client: TestClient, login: dict, telegram_id: int) -> dict:
+    terms = client.post(
+        "/api/v1/users/me/terms-acceptance",
+        headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": f"req_terms_{telegram_id}"},
+        json={"terms_version": "2026-07-06"},
+    )
+    assert terms.status_code == 200, terms.text
+    login["user"] = terms.json()["data"]
+    return login
+
+
+def _login(client: TestClient, telegram_id: int, username: str, *, accept_terms: bool = True) -> dict:
     response = client.post(
         "/api/v1/auth/telegram",
         headers={"X-Request-Id": f"req_login_{telegram_id}"},
         json={"init_data": _signed_init_data(telegram_id, username)},
     )
     assert response.status_code == 200, response.text
-    return response.json()["data"]
+    login = response.json()["data"]
+    return _accept_terms(client, login, telegram_id) if accept_terms else login
 
 
 def _headers(login: dict, key: str = "idem") -> dict[str, str]:
@@ -265,6 +277,31 @@ def test_business_payment_methods_require_idempotency_key() -> None:
     for response in (create_without_key, update_without_key, delete_without_key):
         assert response.status_code == 400
         assert response.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
+
+
+def test_business_owner_must_accept_terms_before_sensitive_preparation_actions() -> None:
+    client = _client()
+    owner = _login(client, 14127, "owner_terms_gate", accept_terms=False)
+    business = _create_approved_business(client, owner)
+    admin = _admin_login(client, 14128)
+    _link_business(client, admin, business, owner, key="link_terms_gate")
+
+    blocked = client.post(
+        "/api/v1/business/payment-methods",
+        headers={**_headers(owner, "terms_gate_zelle"), "Content-Type": "application/json"},
+        json={"zelle_account": "owner-terms@example.com", "holder_name": "Owner Terms"},
+    )
+    assert blocked.status_code == 403
+    assert blocked.json()["error"]["code"] == "TERMS_ACCEPTANCE_REQUIRED"
+
+    _accept_terms(client, owner, 14127)
+    allowed = client.post(
+        "/api/v1/business/payment-methods",
+        headers={**_headers(owner, "terms_gate_zelle_after_accept"), "Content-Type": "application/json"},
+        json={"zelle_account": "owner-terms@example.com", "holder_name": "Owner Terms"},
+    )
+    assert allowed.status_code == 201, allowed.text
+    assert allowed.json()["data"]["payment_method"]["holder_name"] == "Owner Terms"
 
 
 def test_business_can_self_manage_usdt_trc20_method_and_publish_ad() -> None:

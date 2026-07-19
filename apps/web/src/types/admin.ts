@@ -106,6 +106,7 @@ export type AdminDashboard = {
   emergency_mode?: AdminEmergencyMode;
   queues: {
     pending_businesses: number;
+    pending_business_intakes?: number;
     pending_credit_purchases: number;
     open_disputes: number;
   };

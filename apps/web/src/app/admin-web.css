@@ -161,11 +161,31 @@
 
 .admin-web-nav button {
   position: relative;
+  display: flex;
+  align-items: center;
   width: 100%;
+  gap: 10px;
   justify-content: flex-start;
   padding: 0 12px 0 14px;
   text-align: left;
   color: rgb(247 248 255 / 82%);
+}
+
+.admin-web-nav button > span {
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-web-nav-badge {
+  display: inline-grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--admin-amber), var(--admin-rose));
+  color: #15070a;
+  font-size: 12px;
+  font-weight: 950;
 }
 
 .admin-web-nav button::before {
@@ -519,6 +539,25 @@
 .admin-web-detail-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 12px;
+}
+
+.admin-web-reference-list {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-web-reference-list a,
+.admin-web-reference-list strong {
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid rgb(47 155 255 / 36%);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #d9f2ff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-web-feed {

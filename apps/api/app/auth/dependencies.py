@@ -143,7 +143,7 @@ def require_current_user(request: Request, authorization: str | None = Header(de
 
 def require_current_user_with_terms(request: Request, authorization: str | None = Header(default=None)) -> UserRecord:
     user = require_current_user(request, authorization)
-    if user.role == "remitter":
+    if user.role in {"remitter", "business_owner"}:
         require_current_terms(user)
     return user
 
