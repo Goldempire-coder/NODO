@@ -94,7 +94,26 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
   const updateDraft = (patch: Partial<typeof draft>) => {
     model.setIntakeEditDraft({ ...draft, ...patch });
   };
-  const canReview = model.adminMutable && missing.length === 0 && ["submitted", "accepted"].includes(intake.status);
+  const publicName = model.intakePublicBusinessName.trim();
+  const hasReason = model.reason.trim().length > 0;
+  const reviewStatusReady = ["submitted", "accepted"].includes(intake.status);
+  const baseReviewBlockers = [
+    !model.adminMutable ? "Tu rol no puede aprobar negocios." : "",
+    !reviewStatusReady ? "La solicitud todavia no esta en revision." : "",
+    missing.length > 0 ? `Faltan datos: ${missing.join(", ")}.` : "",
+    !hasReason ? "Falta escribir el motivo de aprobacion." : "",
+  ].filter(Boolean);
+  const createBusinessBlockers = [
+    ...baseReviewBlockers,
+    intake.created_business_id ? "Esta solicitud ya tiene ficha creada." : "",
+    publicName.length < 2 ? "Falta el nombre publico del negocio." : "",
+  ].filter(Boolean);
+  const approveBusinessBlockers = [
+    ...baseReviewBlockers,
+    !intake.created_business_id && publicName.length < 2 ? "Falta el nombre publico del negocio." : "",
+  ].filter(Boolean);
+  const canCreateBusiness = createBusinessBlockers.length === 0;
+  const canApproveBusiness = approveBusinessBlockers.length === 0;
   const decisionText = missing.length === 0
     ? "Lista para revision admin. Revisa documentos y motivo antes de aprobar."
     : `No apruebes todavia. Faltan: ${missing.join(", ")}.`;
@@ -272,11 +291,21 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
           />
         </label>
         <ReasonBox model={model} label="Motivo para aprobar o rechazar" />
+        <div className={approveBusinessBlockers.length === 0 ? "admin-web-action-status is-ok" : "admin-web-action-status is-warning"}>
+          <strong>Estado de aprobacion</strong>
+          {approveBusinessBlockers.length === 0 ? (
+            <p>Lista para confirmar. Al aprobar, el bot avisa al negocio.</p>
+          ) : (
+            <ul>
+              {approveBusinessBlockers.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          )}
+        </div>
         <div className="admin-web-actions vertical">
-          <button disabled={!canReview || Boolean(intake.created_business_id)} type="button" onClick={() => model.createBusinessFromIntake()}>
+          <button disabled={!canCreateBusiness} title={createBusinessBlockers[0] || "Crear ficha interna pendiente"} type="button" onClick={() => model.createBusinessFromIntake()}>
             Crear ficha del negocio
           </button>
-          <button disabled={!canReview} type="button" onClick={() => model.approveBusinessFromIntake()}>
+          <button disabled={!canApproveBusiness} title={approveBusinessBlockers[0] || "Crear/aprobar y avisar por Telegram"} type="button" onClick={() => model.approveBusinessFromIntake()}>
             Crear, aprobar y avisar
           </button>
           <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.deleteBusinessIntake()}>

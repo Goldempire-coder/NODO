@@ -45,6 +45,7 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.business_intake import admin_delete as intake_admin_delete  # noqa: E402
 from app.modules.business_intake import business_creation as intake_business_creation  # noqa: E402
 from app.modules.business_intake import conversation as intake_conversation  # noqa: E402
 from app.modules.business_intake import routes as intake_routes  # noqa: E402
@@ -847,7 +848,7 @@ def test_admin_reject_requires_idempotency_and_does_not_create_business() -> Non
     assert "business_intake_rejected" in _event_types(client)
 
 
-def test_admin_can_delete_bad_intake_with_reason_and_idempotency() -> None:
+def test_admin_can_delete_bad_intake_with_reason_and_idempotency(monkeypatch: Any) -> None:
     client = _client()
     started = _start(client, update_id=650, telegram_id=7061, chat_id=8061)
     _contact(client, started["id"], update_id=651, telegram_id=7061, chat_id=8061)
@@ -864,6 +865,12 @@ def test_admin_can_delete_bad_intake_with_reason_and_idempotency() -> None:
     client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
     support = _login(client, 9022, "support_delete")
     client.app.state.user_repository.set_user_role(support["user"]["id"], "support")
+    sent_messages: list[dict[str, Any]] = []
+
+    def fake_send(bot_token: str, sent_chat_id: int, text: str, reply_markup: dict[str, Any] | None = None) -> None:
+        sent_messages.append({"bot_token": bot_token, "chat_id": sent_chat_id, "text": text, "reply_markup": reply_markup})
+
+    monkeypatch.setattr(intake_admin_delete, "telegram_send_message_sync", fake_send)
 
     support_delete = client.post(
         f"/api/v1/admin/business-intake/{started['id']}/delete",
@@ -895,10 +902,19 @@ def test_admin_can_delete_bad_intake_with_reason_and_idempotency() -> None:
     assert deleted_1.json()["data"]["deleted"] is True
     assert deleted_1.json()["data"]["intakes_deleted"] == 1
     assert deleted_1.json()["data"]["documents_deleted"] == 1
+    assert deleted_1.json()["data"]["reset_notification_sent"] is True
     assert deleted_2.json()["data"] == deleted_1.json()["data"]
     assert client.app.state.business_intake_repository.get(started["id"]) is None
     assert client.app.state.business_intake_repository.list_documents(started["id"]) == []
     assert _event_types(client).count("business_intake_deleted") == 1
+    assert _event_types(client).count("business_intake_reset_notification_sent") == 1
+    assert len(sent_messages) == 1
+    assert sent_messages[0] == {
+        "bot_token": BUSINESS_INTAKE_BOT_TOKEN,
+        "chat_id": 8061,
+        "text": intake_admin_delete.BUSINESS_INTAKE_RESET_MESSAGE,
+        "reply_markup": None,
+    }
 
 
 def test_admin_can_reset_intake_without_typing_reason() -> None:
