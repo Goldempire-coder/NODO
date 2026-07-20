@@ -270,6 +270,10 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "creatingSupportTicket" in support_screen
     assert "sendingSupportReply" in support_screen
     assert "uploadingSupportAttachment" in support_screen
+    assert "business-support-thread" in support_screen
+    assert "business-support-message--mine" in support_screen
+    assert "Conversacion con soporte" in support_screen
+    assert "Nueva conversacion" in support_screen
     assert 'setView("business-orders");\n    setBusy(true);' in orders_model
     assert "/api/v1/surface/session" in surface_api
     assert "/api/v1/businesses/me" not in business_model

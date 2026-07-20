@@ -181,6 +181,67 @@ textarea {
   scrollbar-width: thin;
 }
 
+.business-support-thread {
+  gap: 12px;
+}
+
+.business-support-thread__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.business-support-thread__header > div {
+  min-width: 0;
+}
+
+.business-support-messages {
+  display: grid;
+  gap: 10px;
+  max-height: min(42vh, 360px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  scrollbar-width: thin;
+}
+
+.business-support-message {
+  width: min(88%, 420px);
+  display: grid;
+  gap: 4px;
+  justify-self: start;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--nodo-muted), transparent 70%);
+  border-radius: 8px;
+  background: rgb(3 12 24 / 66%);
+  color: var(--nodo-text);
+}
+
+.business-support-message--mine {
+  justify-self: end;
+  border-color: color-mix(in srgb, var(--nodo-button), transparent 46%);
+  background: color-mix(in srgb, var(--nodo-button), transparent 82%);
+}
+
+.business-support-message span {
+  color: var(--nodo-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.business-support-message p {
+  margin: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.business-support-message small {
+  color: var(--nodo-muted);
+  font-size: 11px;
+}
+
 .payment-instruction {
   display: grid;
   gap: 8px;
