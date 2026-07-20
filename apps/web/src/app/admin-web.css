@@ -754,12 +754,14 @@
 
 .admin-web-support-list-panel,
 .admin-web-support-thread-panel {
-  max-height: calc(100vh - 148px);
+  height: clamp(520px, calc(100vh - 228px), 820px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .admin-web-support-list {
   display: grid;
-  max-height: calc(100vh - 258px);
+  max-height: none;
   gap: 8px;
   overflow: auto;
   padding-right: 4px;
@@ -822,7 +824,8 @@
 
 .admin-web-support-thread {
   display: grid;
-  min-height: min(680px, calc(100vh - 176px));
+  height: 100%;
+  min-height: 0;
   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   gap: 12px;
 }
@@ -860,8 +863,8 @@
 .admin-web-support-chat {
   display: grid;
   align-content: start;
-  max-height: min(52vh, 520px);
-  min-height: 240px;
+  min-height: 0;
+  max-height: none;
   gap: 10px;
   overflow: auto;
   padding: 4px;
@@ -912,6 +915,7 @@
 .admin-web-support-composer {
   display: grid;
   gap: 10px;
+  min-height: 0;
 }
 
 .admin-web-support-composer textarea {
@@ -1160,17 +1164,17 @@
   }
 
   .admin-web-support-list-panel,
-  .admin-web-support-thread-panel,
+  .admin-web-support-thread-panel {
+    height: min(680px, calc(100vh - 168px));
+    max-height: none;
+  }
+
   .admin-web-support-list {
     max-height: none;
   }
 
-  .admin-web-support-thread {
-    min-height: auto;
-  }
-
   .admin-web-support-chat {
-    max-height: 360px;
+    max-height: none;
   }
 
   .admin-web-support-message {

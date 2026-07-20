@@ -171,7 +171,10 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "admin_support_closed" in support_screen
     assert "admin-web-support-thread" in admin_css
     assert "admin-web-support-chat" in admin_css
-    assert "max-height: min(52vh, 520px)" in admin_css
+    assert "height: clamp(520px, calc(100vh - 228px), 820px)" in admin_css
+    assert "grid-template-rows: auto auto auto minmax(0, 1fr) auto" in admin_css
+    assert ".admin-web-support-chat {\n  display: grid;\n  align-content: start;\n  min-height: 0;\n  max-height: none;" in admin_css
+    assert ".admin-web-support-composer {\n  display: grid;\n  gap: 10px;\n  min-height: 0;" in admin_css
 
 
 def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() -> None:
