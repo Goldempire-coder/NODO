@@ -144,10 +144,14 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     }
     const interval = window.setInterval(() => {
       void overview.refreshDashboardSnapshot();
-      void notifications.loadNotifications("unread");
+      if (notifications.panelOpen) {
+        void notifications.loadNotifications("unread");
+      } else {
+        void notifications.loadUnreadCount();
+      }
     }, ADMIN_BACKGROUND_REFRESH_MS);
     return () => window.clearInterval(interval);
-  }, [adminReadable, notifications.loadNotifications, overview.refreshDashboardSnapshot]);
+  }, [adminReadable, notifications.loadNotifications, notifications.loadUnreadCount, notifications.panelOpen, overview.refreshDashboardSnapshot]);
 
   useEffect(() => {
     if (!adminReadable || view !== "support") {
@@ -163,8 +167,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     if (!adminReadable) {
       return;
     }
-    void notifications.loadNotifications("unread");
-  }, [adminReadable, notifications.loadNotifications]);
+    void notifications.loadUnreadCount();
+  }, [adminReadable, notifications.loadUnreadCount]);
 
   const navigation = useMemo(
     () => [

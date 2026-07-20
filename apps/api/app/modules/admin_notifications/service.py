@@ -106,7 +106,10 @@ class AdminNotificationService:
 
     def unread_count(self, *, user: UserRecord, request_id: str) -> dict[str, Any]:
         require_admin_read(user)
-        return {"unread_count": self._repository.unread_count()}
+        return {
+            "unread_count": self._repository.unread_count(),
+            "support_unread_count": self._repository.unread_count_by_resource_type("support_ticket"),
+        }
 
     def mark_read(self, *, user: UserRecord, notification_id: str, request_id: str) -> dict[str, Any]:
         require_admin_mutation(user)

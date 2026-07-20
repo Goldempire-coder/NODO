@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   dismissAdminNotification,
   getAdminNotificationsUnreadCount,
@@ -49,20 +49,17 @@ export function useAdminNotificationsModel({
 }) {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [supportUnreadCount, setSupportUnreadCount] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
   const [notificationBusyId, setNotificationBusyId] = useState<string | null>(null);
   const unreadCountInitialized = useRef(false);
   const lastUnreadCount = useRef(0);
 
-  const supportUnreadCount = useMemo(
-    () => notifications.filter((notification) => notification.status === "unread" && notification.resource_type === "support_ticket").length,
-    [notifications]
-  );
-
-  const applyUnreadCount = useCallback((nextCount: number) => {
+  const applyUnreadCount = useCallback((nextCount: number, nextSupportCount: number) => {
     const previousCount = lastUnreadCount.current;
     lastUnreadCount.current = nextCount;
     setUnreadCount(nextCount);
+    setSupportUnreadCount(nextSupportCount);
     if (!unreadCountInitialized.current) {
       unreadCountInitialized.current = true;
       return;
@@ -75,10 +72,10 @@ export function useAdminNotificationsModel({
 
   const loadUnreadCount = useCallback(async () => {
     try {
-      const payload = await getAdminNotificationsUnreadCount<{ unread_count: number }>(request);
-      applyUnreadCount(payload.unread_count);
+      const payload = await getAdminNotificationsUnreadCount<{ unread_count: number; support_unread_count?: number }>(request);
+      applyUnreadCount(payload.unread_count, payload.support_unread_count ?? 0);
     } catch {
-      applyUnreadCount(0);
+      applyUnreadCount(0, 0);
     }
   }, [applyUnreadCount, request]);
 

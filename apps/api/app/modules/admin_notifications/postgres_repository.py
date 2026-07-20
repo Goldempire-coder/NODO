@@ -132,6 +132,14 @@ class PostgresAdminNotificationRepository:
             row = conn.execute("select count(*) as c from admin_notifications where status = 'unread'").fetchone()
         return int(row["c"])
 
+    def unread_count_by_resource_type(self, resource_type: str) -> int:
+        with self._connect() as conn:
+            row = conn.execute(
+                "select count(*) as c from admin_notifications where status = 'unread' and resource_type = %s",
+                (resource_type,),
+            ).fetchone()
+        return int(row["c"])
+
     def update_notification(self, notification: AdminNotificationRecord, **fields: Any) -> AdminNotificationRecord:
         assignments: list[str] = []
         params: list[Any] = []

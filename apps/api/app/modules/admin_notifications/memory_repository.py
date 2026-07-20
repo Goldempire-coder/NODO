@@ -51,6 +51,13 @@ class InMemoryAdminNotificationRepository:
     def unread_count(self) -> int:
         return sum(1 for item in self.notifications.values() if item.status == "unread")
 
+    def unread_count_by_resource_type(self, resource_type: str) -> int:
+        return sum(
+            1
+            for item in self.notifications.values()
+            if item.status == "unread" and item.resource_type == resource_type
+        )
+
     def update_notification(self, notification: AdminNotificationRecord, **fields: Any) -> AdminNotificationRecord:
         with self._lock:
             for key, value in fields.items():

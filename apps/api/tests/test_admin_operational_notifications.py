@@ -289,6 +289,18 @@ def test_admin_notifications_api_rbac_states_and_redaction() -> None:
         },
         request_id="req_admin_notification_test",
     )
+    service.enqueue(
+        notification_type="business_intake_submitted",
+        priority="info",
+        source_surface="business_intake_bot",
+        resource_type="business_intake",
+        resource_id=str(uuid4()),
+        title="Solicitud enviada",
+        summary="Solicitud de negocio pendiente.",
+        dedupe_key="test:admin-notification:non-support",
+        metadata={"status": "submitted"},
+        request_id="req_admin_notification_test_non_support",
+    )
 
     forbidden = client.get("/api/v1/admin/notifications", headers=_bearer(remitter, "req_forbidden_notifications"))
     listed = client.get("/api/v1/admin/notifications", headers=_bearer(admin, "req_list_notifications"))
@@ -300,9 +312,10 @@ def test_admin_notifications_api_rbac_states_and_redaction() -> None:
 
     assert forbidden.status_code == 403
     assert listed.status_code == 200
-    payload = listed.json()["data"]["items"][0]
+    payload = next(item for item in listed.json()["data"]["items"] if item["id"] == notification.id)
     assert payload["metadata"] == {"scope": "business_credit", "safe_code": "VISIBLE"}
-    assert count.json()["data"]["unread_count"] == 1
+    assert count.json()["data"]["unread_count"] == 2
+    assert count.json()["data"]["support_unread_count"] == 1
     assert support_read.status_code == 403
     assert admin_read.status_code == 200
     assert admin_read.json()["data"]["notification"]["status"] == "read"
