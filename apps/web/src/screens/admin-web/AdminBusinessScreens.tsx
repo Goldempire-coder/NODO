@@ -1,5 +1,23 @@
+import { useState } from "react";
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
 import { businessName, dateText, Empty, Header, Table } from "./AdminWebPrimitives";
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
 
 export function Businesses({ model }: { model: AdminWebModel }) {
   return (
@@ -37,13 +55,28 @@ export function Businesses({ model }: { model: AdminWebModel }) {
 
 export function BusinessDetail({ model }: { model: AdminWebModel }) {
   const detail = model.selectedBusiness;
+  const [copiedBusinessId, setCopiedBusinessId] = useState(false);
   if (!detail) {
     return <Empty text="Selecciona un negocio." />;
   }
+  const copyBusinessId = async () => {
+    await copyText(detail.business.id);
+    setCopiedBusinessId(true);
+    window.setTimeout(() => setCopiedBusinessId(false), 1800);
+  };
   return (
     <section className="admin-web-split">
       <div className="admin-web-panel">
         <h2>A-03 Detalle negocio</h2>
+        <div className="admin-web-copy-box">
+          <div>
+            <span>Business ID</span>
+            <code>{detail.business.id}</code>
+          </div>
+          <button type="button" onClick={() => void copyBusinessId()}>
+            {copiedBusinessId ? "Copiado" : "Copiar ID"}
+          </button>
+        </div>
         <dl className="admin-web-dl">
           <dt>Nombre</dt><dd>{detail.business.business_name}</dd>
           <dt>Status</dt><dd>{detail.business.verification_status}</dd>
