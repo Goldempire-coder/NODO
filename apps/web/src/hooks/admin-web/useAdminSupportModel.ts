@@ -145,8 +145,7 @@ export function useAdminSupportModel({
         setNotice("Mensaje enviado. No pudimos refrescar el hilo automaticamente.");
       }
     } catch (error) {
-      setSupportReply(body);
-      setNotice(error instanceof Error ? error.message : "No pudimos responder.");
+      setNotice(error instanceof Error ? `${error.message}. Actualiza el hilo antes de reenviar.` : "No pudimos confirmar el envio. Actualiza el hilo antes de reenviar.");
     } finally {
       supportReplyInFlight.current = false;
       setSendingSupportReply(false);

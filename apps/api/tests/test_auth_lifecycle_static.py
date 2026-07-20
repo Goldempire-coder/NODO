@@ -153,6 +153,8 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "setSelectedSupportTicket(null)" in support_model
     assert "Ticket cerrado y enviado a archivados." in support_model
     assert "Mensaje enviado. No pudimos refrescar el hilo automaticamente." in support_model
+    assert "No pudimos confirmar el envio. Actualiza el hilo antes de reenviar." in support_model
+    assert "setSupportReply(body)" not in support_model
     assert "admin-web-support-layout" in support_screen
     assert "admin-web-support-list" in support_screen
     assert "admin-web-support-chat" in support_screen
@@ -176,7 +178,7 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "admin-web-support-thread" in admin_css
     assert "admin-web-support-chat" in admin_css
     assert "height: clamp(680px, calc(100vh - 196px), 900px)" in admin_css
-    assert "grid-template-rows: auto auto minmax(0, 1fr) auto" in admin_css
+    assert "grid-template-rows: auto auto auto minmax(0, 1fr) auto" in admin_css
     assert ".admin-web-support-chat {\n  display: grid;\n  align-content: start;\n  min-height: 0;\n  max-height: none;" in admin_css
     assert ".admin-web-support-composer {\n  display: grid;\n  gap: 10px;\n  min-height: 0;" in admin_css
 
