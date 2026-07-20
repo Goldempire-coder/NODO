@@ -249,6 +249,8 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "uploadingChatAttachment" in _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
     assert "creatingSupportTicket" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "sendingSupportReply" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert 'initialScope: "business_general"' in business_model
+    assert 'initialScope = "client_general"' in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "business_availability_" in availability_model
     assert "pendingAvailabilityTarget" in availability_model
     assert "Idempotency-Key" in _read("apps/web/src/api/businesses.ts")
@@ -341,6 +343,7 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "submittingPaymentReport: state.submittingPaymentReport" in client_model
     assert "sendingChatMessage: state.sendingChatMessage" in client_model
     assert "creatingSupportTicket: support.creatingSupportTicket" in client_model
+    assert 'initialScope: "client_general"' in client_model
     assert 'recordActionStarted("client_marketplace_search"' in marketplace_model
     assert 'recordActionStarted("client_order_create"' in orders_model
     assert 'recordActionStarted("client_order_cancel"' in orders_model

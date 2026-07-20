@@ -77,7 +77,7 @@ export function useClientWorkspaceModel({
   const remitterOrders = useRemitterOrdersModel(context);
   const paymentReport = usePaymentReportModel({ ...context, loadMyOrders: remitterOrders.loadMyOrders });
   const chatDisputes = useClientChatDisputesModel(context);
-  const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice });
+  const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice, initialScope: "client_general" });
   const didWarmClientDataRef = useRef(false);
   const handledOrderDeepLinkRef = useRef(false);
   const mainActionBusy = state.busy || state.creatingOrder || state.submittingPaymentReport;

@@ -89,7 +89,7 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   });
   const orders = useBusinessOrdersModel({ request, setBusy, setNotice, setView });
   const chat = useBusinessChatModel({ request, setBusy, setNotice, setView });
-  const support = useSurfaceSupportModel({ request, setBusy, setNotice });
+  const support = useSurfaceSupportModel({ request, setBusy, setNotice, initialScope: "business_general" });
   const homeSummary = useBusinessHomeSummaryModel({
     accessState: access.accessState,
     refreshBusinessOrders: orders.refreshBusinessOrders,

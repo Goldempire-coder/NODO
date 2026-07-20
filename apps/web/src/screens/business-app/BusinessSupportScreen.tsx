@@ -66,7 +66,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
         </Button>
       </div>
       <div className="business-list">
-        {supportTickets.length === 0 ? <Text>No hay tickets de soporte para este negocio.</Text> : null}
+        {supportTickets.length === 0 && !loadingSupportTickets ? <Text>Aun no tienes tickets. Completa el formulario y toca Crear ticket.</Text> : null}
         {supportTickets.map((ticket) => (
           <button className="business-row ad-row" disabled={openingSupportTicketId === ticket.id} key={ticket.id} type="button" onClick={() => void openSupportTicket(ticket.id)}>
             <span>{ticket.status}</span>

@@ -10,10 +10,12 @@ import { useStableIdempotencyKeys } from "./useStableIdempotencyKeys";
 const DEFAULT_CATEGORY: SupportTicketCategory = "technical_issue";
 
 export function useSurfaceSupportModel({
+  initialScope = "client_general",
   request,
   setBusy,
   setNotice
 }: {
+  initialScope?: SupportTicketScope;
   request: AuthenticatedRequest;
   setBusy: (busy: boolean) => void;
   setNotice: (notice: string) => void;
@@ -23,7 +25,7 @@ export function useSurfaceSupportModel({
   const [selectedSupportTicket, setSelectedSupportTicket] = useState<SupportTicket | null>(null);
   const [supportReply, setSupportReply] = useState("");
   const [supportForm, setSupportForm] = useState<SupportTicketCreateInput>({
-    scope: "client_general",
+    scope: initialScope,
     category: DEFAULT_CATEGORY,
     subject: "",
     message: ""
