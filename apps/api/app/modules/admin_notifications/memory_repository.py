@@ -16,15 +16,8 @@ class InMemoryAdminNotificationRepository:
             for notification in self.notifications.values():
                 if notification.dedupe_key == fields["dedupe_key"]:
                     for key, value in fields.items():
-                        if key != "dedupe_key":
+                        if key not in {"dedupe_key", "status"}:
                             setattr(notification, key, value)
-                    notification.status = fields.get("status", "unread")
-                    notification.read_at = None
-                    notification.read_by_user_id = None
-                    notification.dismissed_at = None
-                    notification.dismissed_by_user_id = None
-                    notification.resolved_at = None
-                    notification.resolved_by_user_id = None
                     notification.last_seen_at = utc_now()
                     notification.updated_at = notification.last_seen_at
                     return notification, False

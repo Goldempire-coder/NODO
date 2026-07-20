@@ -311,7 +311,7 @@ def test_admin_notifications_api_rbac_states_and_redaction() -> None:
     assert admin_resolve.json()["data"]["notification"]["status"] == "resolved"
 
 
-def test_duplicate_admin_notification_reopens_unread_after_read() -> None:
+def test_duplicate_admin_notification_preserves_operator_state() -> None:
     client = _client()
     admin = _make_admin(client, 31011, "admin")
     service = client.app.state.admin_notification_service
@@ -333,7 +333,7 @@ def test_duplicate_admin_notification_reopens_unread_after_read() -> None:
     assert read.status_code == 200, read.text
     assert read.json()["data"]["notification"]["status"] == "read"
 
-    reopened, created_again = service.enqueue(
+    repeated_after_read, created_after_read = service.enqueue(
         notification_type="base_usdc_credit_purchase_stuck",
         priority="high",
         source_surface="base_usdc_watcher",
@@ -345,16 +345,43 @@ def test_duplicate_admin_notification_reopens_unread_after_read() -> None:
         metadata={"status": "pending_payment"},
         request_id="req_reopen_second",
     )
-    count = client.get("/api/v1/admin/notifications/unread-count", headers=_bearer(admin, "req_count_after_reopen"))
-    listed = client.get("/api/v1/admin/notifications?status=unread", headers=_bearer(admin, "req_list_after_reopen"))
+    count_after_read = client.get("/api/v1/admin/notifications/unread-count", headers=_bearer(admin, "req_count_after_read_repeat"))
+    unread_after_read = client.get("/api/v1/admin/notifications?status=unread", headers=_bearer(admin, "req_list_after_read_repeat"))
 
-    assert created_again is False
-    assert reopened.id == notification.id
-    assert reopened.status == "unread"
-    assert reopened.read_at is None
-    assert reopened.read_by_user_id is None
-    assert count.json()["data"]["unread_count"] == 1
-    assert any(item["id"] == notification.id for item in listed.json()["data"]["items"])
+    assert created_after_read is False
+    assert repeated_after_read.id == notification.id
+    assert repeated_after_read.status == "read"
+    assert repeated_after_read.read_at is not None
+    assert repeated_after_read.read_by_user_id == admin["user"]["id"]
+    assert count_after_read.json()["data"]["unread_count"] == 0
+    assert all(item["id"] != notification.id for item in unread_after_read.json()["data"]["items"])
+
+    resolved = client.post(f"/api/v1/admin/notifications/{notification.id}/resolve", headers=_bearer(admin, "req_resolve_before_repeat"))
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["data"]["notification"]["status"] == "resolved"
+
+    repeated_after_resolve, created_after_resolve = service.enqueue(
+        notification_type="base_usdc_credit_purchase_stuck",
+        priority="high",
+        source_surface="base_usdc_watcher",
+        resource_type="credit_purchase",
+        resource_id=notification.resource_id,
+        title="Compra USDC requiere revision",
+        summary="Compra starter sigue vencida.",
+        dedupe_key="test:admin-notification:reopen",
+        metadata={"status": "pending_payment"},
+        request_id="req_reopen_third",
+    )
+    count_after_resolve = client.get("/api/v1/admin/notifications/unread-count", headers=_bearer(admin, "req_count_after_resolve_repeat"))
+    unread_after_resolve = client.get("/api/v1/admin/notifications?status=unread", headers=_bearer(admin, "req_list_after_resolve_repeat"))
+
+    assert created_after_resolve is False
+    assert repeated_after_resolve.id == notification.id
+    assert repeated_after_resolve.status == "resolved"
+    assert repeated_after_resolve.resolved_at is not None
+    assert repeated_after_resolve.resolved_by_user_id == admin["user"]["id"]
+    assert count_after_resolve.json()["data"]["unread_count"] == 0
+    assert all(item["id"] != notification.id for item in unread_after_resolve.json()["data"]["items"])
 
 
 def test_business_intake_document_and_submit_create_admin_notifications() -> None:

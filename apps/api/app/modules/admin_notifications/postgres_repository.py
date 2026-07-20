@@ -64,7 +64,6 @@ class PostgresAdminNotificationRepository:
                 values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now(), now(), now())
                 on conflict (dedupe_key) do update
                 set priority = excluded.priority,
-                    status = excluded.status,
                     source_surface = excluded.source_surface,
                     resource_type = excluded.resource_type,
                     resource_id = excluded.resource_id,
@@ -74,12 +73,6 @@ class PostgresAdminNotificationRepository:
                     summary = excluded.summary,
                     action_route = excluded.action_route,
                     metadata_json = excluded.metadata_json,
-                    read_at = null,
-                    read_by_user_id = null,
-                    dismissed_at = null,
-                    dismissed_by_user_id = null,
-                    resolved_at = null,
-                    resolved_by_user_id = null,
                     last_seen_at = now(),
                     updated_at = now()
                 returning *, (xmax = 0) as created
