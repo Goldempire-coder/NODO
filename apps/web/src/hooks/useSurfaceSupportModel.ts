@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { createSupportTicket, getSupportTicket, listSupportTickets, sendSupportMessage, uploadSupportAttachment } from "../api/support";
-import type { SupportTicket, SupportTicketCategory, SupportTicketCreateInput, SupportTicketScope } from "../types/support";
+import type { SupportMessage, SupportTicket, SupportTicketCategory, SupportTicketCreateInput, SupportTicketScope } from "../types/support";
 import type { AuthenticatedRequest } from "../api/client";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "./actionTelemetry";
 import { useStableIdempotencyKeys } from "./useStableIdempotencyKeys";
@@ -38,6 +38,52 @@ function filterSupportTickets(items: SupportTicket[], filter: SupportTicketListF
 
 function ticketBelongsToFilter(ticket: SupportTicket, filter: SupportTicketListFilter): boolean {
   return filterSupportTickets([ticket], filter).length === 1;
+}
+
+function optimisticSenderRole(scope: SupportTicketScope): string {
+  return scope.startsWith("business_") ? "business_owner" : "remitter";
+}
+
+function buildOptimisticSupportMessage(ticket: SupportTicket, body: string, senderRole: string): SupportMessage {
+  const createdAt = new Date().toISOString();
+  return {
+    id: `optimistic_${ticket.id}_${createdAt}`,
+    ticket_id: ticket.id,
+    sender_role: senderRole,
+    body,
+    visibility: "participants",
+    attachments: [],
+    created_at: createdAt
+  };
+}
+
+function appendSupportMessage(ticket: SupportTicket, message: SupportMessage): SupportTicket {
+  return {
+    ...ticket,
+    messages: [...(ticket.messages || []), message],
+    last_message_at: message.created_at,
+    updated_at: message.created_at
+  };
+}
+
+function removeSupportMessage(ticket: SupportTicket, messageId: string): SupportTicket {
+  return {
+    ...ticket,
+    messages: (ticket.messages || []).filter((message) => message.id !== messageId)
+  };
+}
+
+function applySupportMessageResult(ticket: SupportTicket, optimisticMessageId: string, message: SupportMessage, summary: SupportTicket): SupportTicket {
+  const mergedMessages = (ticket.messages || []).map((item) => (item.id === optimisticMessageId ? message : item));
+  const hasMessage = mergedMessages.some((item) => item.id === message.id);
+  return {
+    ...ticket,
+    ...summary,
+    attachments: ticket.attachments,
+    events: ticket.events,
+    messages: hasMessage ? mergedMessages : [...mergedMessages, message],
+    disclaimer: ticket.disclaimer
+  };
 }
 
 export function useSurfaceSupportModel({
@@ -158,32 +204,30 @@ export function useSurfaceSupportModel({
     setSendingSupportReply(true);
     const idempotencyScope = `support_msg_${selectedSupportTicket.id}`;
     const body = supportReply.trim();
+    const optimisticMessage = buildOptimisticSupportMessage(selectedSupportTicket, body, optimisticSenderRole(initialScope));
     try {
-      await sendSupportMessage(request, selectedSupportTicket.id, body, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body }));
-      clearIdempotencyKey(idempotencyScope);
       setSupportReply("");
-      try {
-        const ticket = await getSupportTicket(request, selectedSupportTicket.id);
-        setSelectedSupportTicket(ticket);
-        setSupportTickets((current) => {
-          if (!ticketBelongsToFilter(ticket, supportFilter)) {
-            return current.filter((item) => item.id !== ticket.id);
-          }
-          const rest = current.filter((item) => item.id !== ticket.id);
-          return [ticket, ...rest];
-        });
-        setNotice("");
-      } catch {
-        setNotice("Mensaje enviado. No pudimos refrescar la conversacion automaticamente.");
-      }
+      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? appendSupportMessage(current, optimisticMessage) : current));
+      const payload = await sendSupportMessage(request, selectedSupportTicket.id, body, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body }));
+      clearIdempotencyKey(idempotencyScope);
+      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? applySupportMessageResult(current, optimisticMessage.id, payload.message, payload.ticket) : current));
+      setSupportTickets((current) => {
+        if (!ticketBelongsToFilter(payload.ticket, supportFilter)) {
+          return current.filter((item) => item.id !== payload.ticket.id);
+        }
+        const rest = current.filter((item) => item.id !== payload.ticket.id);
+        return [payload.ticket, ...rest];
+      });
+      setNotice("");
       recordActionCompleted("support_reply_send", "support", startedAt);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos enviar el mensaje.");
+      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? removeSupportMessage(current, optimisticMessage.id) : current));
+      setNotice(error instanceof Error ? `${error.message}. Actualiza la conversacion antes de reenviar.` : "No pudimos confirmar el envio. Actualiza la conversacion antes de reenviar.");
       recordActionFailed("support_reply_send", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setSendingSupportReply(false);
     }
-  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setNotice, supportReply]);
+  }, [clearIdempotencyKey, getIdempotencyKey, initialScope, request, selectedSupportTicket, setNotice, supportFilter, supportReply]);
 
   const uploadTicketAttachment = useCallback(async (file: File | null) => {
     if (!selectedSupportTicket || !file) {

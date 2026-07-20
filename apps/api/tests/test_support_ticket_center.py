@@ -311,6 +311,12 @@ def test_admin_support_queue_actions_do_not_mutate_domain_state() -> None:
     listed = client.get("/api/v1/admin/support/tickets", headers=_bearer(support, "support_admin_list"))
     assert listed.status_code == 200, listed.text
     assert any(item["id"] == ticket["id"] for item in listed.json()["data"]["items"])
+    listed_ticket = next(item for item in listed.json()["data"]["items"] if item["id"] == ticket["id"])
+    assert listed_ticket["business_name"] == business["business_name"]
+
+    detail = client.get(f"/api/v1/admin/support/tickets/{ticket['id']}", headers=_bearer(support, "support_admin_detail"))
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["data"]["business_name"] == business["business_name"]
 
     assigned = client.post(
         f"/api/v1/admin/support/tickets/{ticket['id']}/assign",
@@ -325,6 +331,7 @@ def test_admin_support_queue_actions_do_not_mutate_domain_state() -> None:
         json={"body": "Te ayudamos por aqui.", "visibility": "participants"},
     )
     assert response.status_code == 201, response.text
+    assert response.json()["data"]["ticket"]["business_name"] == business["business_name"]
 
     escalated = client.post(
         f"/api/v1/admin/support/tickets/{ticket['id']}/escalate",

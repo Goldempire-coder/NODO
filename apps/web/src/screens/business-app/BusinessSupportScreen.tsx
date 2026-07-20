@@ -3,6 +3,8 @@ import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 import { humanizeSenderRole } from "../../hooks/business-mini-app/helpers";
 
+const BUSINESS_SUPPORT_REFRESH_MS = 5000;
+
 function supportStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     open: "Abierto",
@@ -13,6 +15,20 @@ function supportStatusLabel(status: string): string {
     closed: "Cerrado"
   };
   return labels[status] || status;
+}
+
+function supportSenderLabel(senderRole: string): string {
+  if (senderRole === "business_owner") {
+    return "Tu";
+  }
+  if (senderRole === "admin" || senderRole === "support" || senderRole === "super_admin") {
+    return "Soporte NODO";
+  }
+  return humanizeSenderRole(senderRole);
+}
+
+function isOptimisticMessage(messageId: string): boolean {
+  return messageId.startsWith("optimistic_");
 }
 
 export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }) {
@@ -45,7 +61,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
     void loadSupportTickets(supportFilter);
     const interval = window.setInterval(() => {
       void refreshSupportWorkspace();
-    }, 12000);
+    }, BUSINESS_SUPPORT_REFRESH_MS);
     return () => window.clearInterval(interval);
   }, [loadSupportTickets, refreshSupportWorkspace, supportFilter]);
 
@@ -113,9 +129,10 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
             {ticketMessages.length === 0 ? <Text>Aun no hay mensajes en esta conversacion.</Text> : null}
             {ticketMessages.map((message) => {
               const isMine = message.sender_role === "business_owner";
+              const isPending = isOptimisticMessage(message.id);
               return (
                 <div className={isMine ? "business-support-message business-support-message--mine" : "business-support-message"} key={message.id}>
-                  <span>{humanizeSenderRole(message.sender_role)}</span>
+                  <span>{supportSenderLabel(message.sender_role)}{isPending ? " - Enviando..." : ""}</span>
                   <p>{message.body}</p>
                   {message.attachments?.length ? <small>{message.attachments.length} adjunto(s)</small> : null}
                   <small>{new Date(message.created_at).toLocaleString()}</small>

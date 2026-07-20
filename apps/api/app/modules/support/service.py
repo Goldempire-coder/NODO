@@ -128,6 +128,32 @@ class SupportService:
             return order is not None and order.remitter_user_id == user.id
         return False
 
+    def _support_business_names(self, tickets: list[SupportTicketRecord]) -> dict[str, str]:
+        business_ids = {ticket.business_id for ticket in tickets if ticket.business_id}
+        if not business_ids:
+            return {}
+        return {
+            business_id: business.business_name
+            for business_id, business in self._businesses.get_businesses_by_ids(business_ids).items()
+        }
+
+    def _ticket_summary_payload(
+        self,
+        ticket: SupportTicketRecord,
+        *,
+        business_names: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        payload = ticket_summary(ticket)
+        if ticket.business_id is None:
+            payload["business_name"] = None
+            return payload
+        if business_names is not None:
+            payload["business_name"] = business_names.get(ticket.business_id)
+            return payload
+        business = self._businesses.get_business(ticket.business_id)
+        payload["business_name"] = business.business_name if business else None
+        return payload
+
     def _validate_ticket_payload(self, *, user: UserRecord, payload: SupportTicketCreateRequest, surface: str | None) -> dict[str, str | None]:
         if payload.scope not in SUPPORT_SCOPES or payload.scope == "admin_internal":
             raise ApiError("SUPPORT_SCOPE_INVALID", status_code=400)
@@ -190,7 +216,7 @@ class SupportService:
             if admin or message.visibility == "participants" or message.sender_user_id == user.id
         ]
         return {
-            **ticket_summary(ticket),
+            **self._ticket_summary_payload(ticket),
             "attachments": [_attachment_payload(file) for file in attachments.get(("support_ticket", ticket.id), [])],
             "messages": [
                 message_public(message, attachments.get(("support_message", message.id), []))
@@ -271,7 +297,8 @@ class SupportService:
             limit=limit,
         )
         visible = [ticket for ticket in items if self._ticket_visible_to_user(ticket=ticket, user=user)]
-        return {"items": [ticket_summary(ticket) for ticket in visible], "next_cursor": next_cursor}
+        business_names = self._support_business_names(visible)
+        return {"items": [self._ticket_summary_payload(ticket, business_names=business_names) for ticket in visible], "next_cursor": next_cursor}
 
     def user_ticket_detail(self, *, user: UserRecord, ticket_id: str, request_id: str) -> dict[str, Any]:
         ticket = self._require_ticket(ticket_id)
@@ -304,7 +331,8 @@ class SupportService:
             cursor=cursor,
             limit=limit,
         )
-        return {"items": [ticket_summary(ticket) for ticket in items], "next_cursor": next_cursor}
+        business_names = self._support_business_names(items)
+        return {"items": [self._ticket_summary_payload(ticket, business_names=business_names) for ticket in items], "next_cursor": next_cursor}
 
     def admin_ticket_detail(self, *, user: UserRecord, ticket_id: str, request_id: str) -> dict[str, Any]:
         ticket = self._require_ticket(ticket_id)
@@ -421,7 +449,7 @@ class SupportService:
             self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_message_created", metadata_json={"visibility": visibility})
             self._audit.write(event_type="support_message_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"visibility": visibility})
             current_ticket = self._repository.get_ticket(ticket.id) or ticket
-            return {"message": message_public(message), "ticket": ticket_summary(current_ticket), "disclaimer": SUPPORT_DISCLAIMER}
+            return {"message": message_public(message), "ticket": self._ticket_summary_payload(current_ticket), "disclaimer": SUPPORT_DISCLAIMER}
 
         return self._idempotency.replay_or_store(f"support:message:{user.id}:{ticket.id}:{idempotency_key}", payload={"body": body, "visibility": visibility}, compute=compute)
 

@@ -23,9 +23,17 @@ function isOptimisticMessage(message: { id: string }): boolean {
   return message.id.startsWith("optimistic_");
 }
 
+function businessDisplayName(ticket: SupportTicket): string {
+  const businessName = ticket.business_name?.trim();
+  if (businessName) {
+    return `Negocio ${businessName}`;
+  }
+  return ticket.business_id ? `Negocio ${ticket.business_id}` : "";
+}
+
 function contextLine(ticket: SupportTicket): string {
   const refs = [
-    ticket.business_id ? `Negocio ${ticket.business_id}` : "",
+    businessDisplayName(ticket),
     ticket.order_id ? `Orden ${ticket.order_id}` : "",
     ticket.credit_purchase_id ? `Credito ${ticket.credit_purchase_id}` : ""
   ].filter(Boolean);

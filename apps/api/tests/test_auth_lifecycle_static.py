@@ -145,6 +145,7 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     admin_css = _read("apps/web/src/app/admin-web.css")
 
     assert 'action: () => support.loadSupportTickets("active")' in admin_model
+    assert "ADMIN_SUPPORT_REFRESH_MS = 5000" in admin_model
     assert "support.refreshSupportWorkspace()" in admin_model
     assert "notifications.panelOpen" in admin_model
     assert 'notifications.loadNotifications("unread")' in admin_model
@@ -165,6 +166,8 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "Promise<SupportMessageResponse>" in support_api
     assert "message: SupportMessage" in support_api
     assert "admin-web-support-layout" in support_screen
+    assert "businessDisplayName" in support_screen
+    assert "ticket.business_name" in support_screen
     assert "admin-web-support-list" in support_screen
     assert "admin-web-support-chat" in support_screen
     assert "admin-web-support-message--admin" in support_screen
@@ -308,12 +311,15 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "uploadingChatAttachment" in _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
     assert "creatingSupportTicket" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "sendingSupportReply" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert "buildOptimisticSupportMessage" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert "applySupportMessageResult" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert "No pudimos confirmar el envio. Actualiza la conversacion antes de reenviar." in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert 'initialScope: "business_general"' in business_model
     assert 'initialScope = "client_general"' in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert 'const [supportFilter, setSupportFilter] = useState<SupportTicketListFilter>("active")' in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "filterSupportTickets(payload.items, normalizedFilter)" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "refreshSupportWorkspace" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
-    assert "Mensaje enviado. No pudimos refrescar la conversacion automaticamente." in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert "Mensaje enviado. No pudimos refrescar la conversacion automaticamente." not in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "business_availability_" in availability_model
     assert "pendingAvailabilityTarget" in availability_model
     assert "Idempotency-Key" in _read("apps/web/src/api/businesses.ts")
@@ -335,6 +341,8 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "uploadingSupportAttachment" in support_screen
     assert "business-support-thread" in support_screen
     assert "business-support-message--mine" in support_screen
+    assert "supportSenderLabel" in support_screen
+    assert '"Soporte NODO"' in support_screen
     assert "Conversacion con soporte" in support_screen
     assert "Nueva conversacion" in support_screen
     assert "Archivadas" in support_screen

@@ -16,6 +16,9 @@ import { useAdminStaffModel } from "./admin-web/useAdminStaffModel";
 import { useAdminNotificationsModel } from "./admin-web/useAdminNotificationsModel";
 import type { PublicUser } from "../types/auth";
 
+const ADMIN_BACKGROUND_REFRESH_MS = 15000;
+const ADMIN_SUPPORT_REFRESH_MS = 5000;
+
 export function useAdminWebModel({ token, user }: { user: PublicUser; token: string }) {
   const [view, setView] = useState<AdminWebView>("dashboard");
   const [busy, setBusy] = useState(false);
@@ -146,12 +149,19 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       } else {
         void notifications.loadUnreadCount();
       }
-      if (view === "support") {
-        void support.refreshSupportWorkspace();
-      }
-    }, 15000);
+    }, ADMIN_BACKGROUND_REFRESH_MS);
     return () => window.clearInterval(interval);
-  }, [adminReadable, notifications.loadNotifications, notifications.loadUnreadCount, notifications.panelOpen, overview.refreshDashboardSnapshot, support.refreshSupportWorkspace, view]);
+  }, [adminReadable, notifications.loadNotifications, notifications.loadUnreadCount, notifications.panelOpen, overview.refreshDashboardSnapshot]);
+
+  useEffect(() => {
+    if (!adminReadable || view !== "support") {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      void support.refreshSupportWorkspace();
+    }, ADMIN_SUPPORT_REFRESH_MS);
+    return () => window.clearInterval(interval);
+  }, [adminReadable, support.refreshSupportWorkspace, view]);
 
   useEffect(() => {
     if (!adminReadable) {

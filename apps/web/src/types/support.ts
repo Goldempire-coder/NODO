@@ -56,6 +56,7 @@ export type SupportTicket = {
   requester_role: string;
   requester_surface: string;
   business_id: string | null;
+  business_name?: string | null;
   order_id: string | null;
   ad_id: string | null;
   credit_purchase_id: string | null;
