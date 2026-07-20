@@ -12,6 +12,8 @@ from fastapi.exceptions import RequestValidationError
 from app.core.config import load_settings
 from app.core.errors import ApiError, api_error_response
 from app.core.logging import configure_logging, get_logger
+from app.modules.admin_notifications import AdminNotificationService, InMemoryAdminNotificationRepository, PostgresAdminNotificationRepository
+from app.modules.admin_notifications.routes import router as admin_notifications_router
 from app.modules.admin.repository import InMemoryAdminRepository, PostgresAdminRepository
 from app.modules.admin.routes import router as admin_router
 from app.modules.ads.repository import InMemoryAdRepository, PostgresAdRepository
@@ -208,6 +210,8 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.credit_repository = InMemoryCreditRepository(app.state.ad_repository, app.state.business_repository)
     app.state.dispute_repository = InMemoryDisputeRepository()
     app.state.job_repository = InMemoryJobRepository()
+    app.state.admin_notification_repository = InMemoryAdminNotificationRepository()
+    app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)
     app.state.audit_writer = InMemoryAuditWriter()
     app.state.staff_repository = InMemoryStaffRepository(users=app.state.user_repository, audit_writer=app.state.audit_writer)
     app.state.admin_repository = InMemoryAdminRepository(
@@ -243,6 +247,8 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.credit_repository = PostgresCreditRepository(settings.database_url)
     app.state.dispute_repository = PostgresDisputeRepository(settings.database_url)
     app.state.job_repository = PostgresJobRepository(settings.database_url)
+    app.state.admin_notification_repository = PostgresAdminNotificationRepository(settings.database_url)
+    app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)
     app.state.audit_writer = PostgresAuditWriter(settings.database_url)
     app.state.staff_repository = PostgresStaffRepository(settings.database_url)
     app.state.admin_repository = PostgresAdminRepository(settings.database_url)
@@ -288,11 +294,13 @@ def _configure_workers(app: FastAPI) -> None:
         credit_repository=app.state.credit_repository,
         audit_writer=app.state.audit_writer,
         onchain_verifier=app.state.onchain_credit_verifier,
+        admin_notifications=app.state.admin_notification_service,
     )
     app.state.notification_sender_worker = NotificationSenderWorker(
         settings=app.state.settings,
         job_repository=app.state.job_repository,
         user_repository=app.state.user_repository,
+        admin_notifications=app.state.admin_notification_service,
     )
 
 
@@ -345,6 +353,7 @@ def _include_routes(app: FastAPI) -> None:
     app.include_router(credits_router, prefix="/api/v1")
     app.include_router(disputes_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(admin_notifications_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(observability_router, prefix="/api/v1")
     app.include_router(telegram_bot_router, prefix="/api/v1")

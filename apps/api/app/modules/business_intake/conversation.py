@@ -35,7 +35,7 @@ class BusinessIntakeConversation(
     BusinessIntakeContactStepMixin,
     BusinessIntakeTextStepsMixin,
 ):
-    def __init__(self, *, settings, repository, business_repository, user_repository, audit_writer, rate_limiter, storage) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, settings, repository, business_repository, user_repository, audit_writer, rate_limiter, storage, admin_notifications=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
         self._businesses = business_repository
@@ -43,6 +43,7 @@ class BusinessIntakeConversation(
         self._audit = audit_writer
         self._rate_limiter = rate_limiter
         self._storage = storage
+        self._admin_notifications = admin_notifications
 
     async def process_telegram_update(self, *, update: dict[str, Any], bot_token: str | None, request_id: str) -> dict[str, Any]:
         if not bot_token:
@@ -121,6 +122,7 @@ class BusinessIntakeConversation(
             user_repository=self._users,
             audit_writer=self._audit,
             storage=self._storage,
+            admin_notifications=self._admin_notifications,
             telegram_download_file=telegram_download_file,
             handle_contact_step=self._handle_contact_step,
             handle_text_step=self._handle_text_step,

@@ -34,7 +34,7 @@ def _require_uuid(value: str, code: str = "BUSINESS_INTAKE_NOT_FOUND") -> str:
 
 
 class BusinessIntakeService(BusinessIntakePublicActionsMixin):
-    def __init__(self, *, settings, repository, business_repository, user_repository, audit_writer, rate_limiter, idempotency_store, storage) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, settings, repository, business_repository, user_repository, audit_writer, rate_limiter, idempotency_store, storage, admin_notifications=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
         self._businesses = business_repository
@@ -43,6 +43,7 @@ class BusinessIntakeService(BusinessIntakePublicActionsMixin):
         self._rate_limiter = rate_limiter
         self._idempotency = idempotency_store
         self._storage = storage
+        self._admin_notifications = admin_notifications
         self._conversation = BusinessIntakeConversation(
             settings=settings,
             repository=repository,
@@ -51,6 +52,7 @@ class BusinessIntakeService(BusinessIntakePublicActionsMixin):
             audit_writer=audit_writer,
             rate_limiter=rate_limiter,
             storage=storage,
+            admin_notifications=admin_notifications,
         )
         self._admin_actions = BusinessIntakeAdminActions(
             settings=settings,

@@ -20,6 +20,7 @@ def service(request: Request) -> BusinessIntakeService:
         rate_limiter=request.app.state.rate_limiter,
         idempotency_store=request.app.state.idempotency_store,
         storage=request.app.state.private_storage,
+        admin_notifications=getattr(request.app.state, "admin_notification_service", None),
     )
 
 

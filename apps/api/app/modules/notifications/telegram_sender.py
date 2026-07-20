@@ -60,11 +60,13 @@ class NotificationSenderWorker:
         job_repository,
         user_repository,
         adapter: TelegramNotificationAdapter | None = None,
+        admin_notifications=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._jobs = job_repository
         self._users = user_repository
         self._adapter = adapter or TelegramNotificationAdapter()
+        self._admin_notifications = admin_notifications
 
     def run(self, *, now: datetime | None = None, batch_size: int = 100, request_id: str = "notification_sender") -> dict[str, Any]:
         started = time.perf_counter()
@@ -176,6 +178,8 @@ class NotificationSenderWorker:
             last_error_code=error_code,
             metadata_json=metadata,
         )
+        if self._admin_notifications is not None:
+            self._admin_notifications.telegram_failed_permanent(notification=notification, error_code=error_code, request_id=request_id)
         self._log_failure(notification, "notification_job_failed_permanent", error_code, request_id)
 
     def _metadata_with_delivery_state(self, notification: NotificationJobRecord, delivery_state: str, *, request_id: str) -> dict:

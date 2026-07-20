@@ -70,6 +70,7 @@ class SupportService:
         rate_limiter,
         idempotency_store,
         storage,
+        admin_notifications=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
@@ -84,6 +85,7 @@ class SupportService:
         self._rate = rate_limiter
         self._idempotency = idempotency_store
         self._storage = storage
+        self._admin_notifications = admin_notifications
 
     def _rate_limit(self, action: str, user: UserRecord, ticket_id: str | None = None) -> None:
         key = f"support:{action}:{user.id}:{ticket_id or 'global'}"
@@ -239,6 +241,8 @@ class SupportService:
             self._repository.create_message(ticket_id=ticket.id, sender_user_id=user.id, sender_role=user.role, body=message_body, visibility="participants")
             self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_ticket_created", to_status="open", metadata_json={"scope": payload.scope, "category": payload.category})
             self._audit.write(event_type="support_ticket_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"scope": payload.scope, "category": payload.category})
+            if self._admin_notifications is not None and fields["requester_surface"] == "business_mini_app":
+                self._admin_notifications.business_support_ticket_created(ticket=ticket, request_id=request_id)
             return self._detail_payload(ticket=ticket, user=user)
 
         return self._idempotency.replay_or_store(f"support:ticket:{user.id}:{idempotency_key}", payload=request_payload, compute=compute)

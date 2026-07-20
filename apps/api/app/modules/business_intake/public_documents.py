@@ -68,4 +68,6 @@ class BusinessIntakePublicDocumentsMixin:
                 "size_bytes": stored.size_bytes,
             },
         )
+        if getattr(self, "_admin_notifications", None) is not None:
+            self._admin_notifications.business_document_uploaded(intake=updated, document=document, request_id=request_id)  # type: ignore[attr-defined]
         return {"file": self._public_document(document), "pending": True}  # type: ignore[attr-defined]

@@ -28,6 +28,7 @@ def _service(request: Request) -> CreditService:
         idempotency_store=request.app.state.idempotency_store,
         storage=request.app.state.private_storage,
         onchain_verifier=request.app.state.onchain_credit_verifier,
+        admin_notifications=getattr(request.app.state, "admin_notification_service", None),
     )
 
 

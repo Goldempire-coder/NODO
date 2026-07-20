@@ -71,5 +71,7 @@ class BusinessIntakeTextStepsMixin:
             fields={"status": "submitted", "submitted_at": True},
         )
         self._write_audit(event_type="business_intake_submitted", intake=updated, request_id=request_id)  # type: ignore[attr-defined]
+        if getattr(self, "_admin_notifications", None) is not None:
+            self._admin_notifications.business_intake_submitted(intake=updated, request_id=request_id)  # type: ignore[attr-defined]
         await self._send_final_confirmation(bot_token=bot_token, chat_id=chat_id)
         return self._telegram_response(updated)

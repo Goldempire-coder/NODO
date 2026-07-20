@@ -26,6 +26,7 @@ class CreditService:
         idempotency_store,
         storage,
         onchain_verifier,
+        admin_notifications=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
@@ -35,6 +36,7 @@ class CreditService:
         self._idempotency = idempotency_store
         self._storage = storage
         self._onchain_verifier = onchain_verifier
+        self._admin_notifications = admin_notifications
         self._business_purchases = CreditBusinessPurchases(
             settings=self._settings,
             repository=self._repository,
@@ -44,6 +46,7 @@ class CreditService:
             onchain_verifier=self._onchain_verifier,
             rate_limit=self._rate_limit,
             require_idempotency_key=self._require_idempotency_key,
+            admin_notifications=self._admin_notifications,
         )
         self._business_referrals = CreditBusinessReferrals(
             repository=self._repository,

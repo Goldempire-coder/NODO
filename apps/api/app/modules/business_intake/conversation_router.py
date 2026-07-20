@@ -28,6 +28,7 @@ async def route_active_intake_message(
     user_repository,
     audit_writer,
     storage,
+    admin_notifications,
     telegram_download_file: TelegramDownload,
     handle_contact_step: ContactHandler,
     handle_text_step: TextHandler,
@@ -48,6 +49,7 @@ async def route_active_intake_message(
             user_repository=user_repository,
             audit_writer=audit_writer,
             storage=storage,
+            admin_notifications=admin_notifications,
             telegram_download_file=telegram_download_file,
         )
 

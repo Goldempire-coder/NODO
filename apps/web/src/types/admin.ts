@@ -303,3 +303,34 @@ export type AdminWebJobRun = {
   error_code?: string | null;
   error_message_safe?: string | null;
 };
+
+export type AdminNotificationPriority = "info" | "attention" | "high" | "critical";
+export type AdminNotificationStatus = "unread" | "read" | "dismissed" | "resolved";
+
+export type AdminNotification = {
+  id: string;
+  notification_type: string;
+  priority: AdminNotificationPriority;
+  status: AdminNotificationStatus;
+  source_surface?: string | null;
+  resource_type: string;
+  resource_id?: string | null;
+  business_id?: string | null;
+  actor_user_id?: string | null;
+  title: string;
+  summary: string;
+  action_route?: string | null;
+  metadata: Record<string, string | number | boolean | null>;
+  first_seen_at: string;
+  last_seen_at: string;
+  read_at?: string | null;
+  dismissed_at?: string | null;
+  resolved_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminNotificationsList = {
+  items: AdminNotification[];
+  next_cursor?: string | null;
+};

@@ -13,6 +13,7 @@ import { useAdminOrdersDisputesModel } from "./admin-web/useAdminOrdersDisputesM
 import { useAdminUsersModel } from "./admin-web/useAdminUsersModel";
 import { useAdminSupportModel } from "./admin-web/useAdminSupportModel";
 import { useAdminStaffModel } from "./admin-web/useAdminStaffModel";
+import { useAdminNotificationsModel } from "./admin-web/useAdminNotificationsModel";
 import type { PublicUser } from "../types/auth";
 
 export function useAdminWebModel({ token, user }: { user: PublicUser; token: string }) {
@@ -117,6 +118,19 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setReason: criticalAction.setReason
   });
 
+  const notifications = useAdminNotificationsModel({
+    adminMutable,
+    request,
+    setNotice,
+    handlers: {
+      openBusinessIntake: businessIntake.openBusinessIntake,
+      openSupportTicket: support.openSupportTicket,
+      loadCreditPurchases: credits.loadCreditPurchases,
+      loadJobs: overview.loadJobs,
+      setView
+    }
+  });
+
   useEffect(() => {
     void overview.loadDashboard();
   }, [overview.loadDashboard]);
@@ -127,9 +141,17 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     }
     const interval = window.setInterval(() => {
       void overview.refreshDashboardSnapshot();
+      void notifications.loadUnreadCount();
     }, 15000);
     return () => window.clearInterval(interval);
-  }, [adminReadable, overview.refreshDashboardSnapshot]);
+  }, [adminReadable, notifications.loadUnreadCount, overview.refreshDashboardSnapshot]);
+
+  useEffect(() => {
+    if (!adminReadable) {
+      return;
+    }
+    void notifications.loadUnreadCount();
+  }, [adminReadable, notifications.loadUnreadCount]);
 
   const navigation = useMemo(
     () => [
@@ -204,6 +226,10 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setStaffFilters: staff.setStaffFilters,
     staffInvite: staff.staffInvite,
     setStaffInvite: staff.setStaffInvite,
+    adminNotifications: notifications.notifications,
+    adminNotificationsUnreadCount: notifications.unreadCount,
+    adminNotificationsPanelOpen: notifications.panelOpen,
+    adminNotificationBusyId: notifications.notificationBusyId,
     businessFilter: businessIntake.businessFilter,
     setBusinessFilter: businessIntake.setBusinessFilter,
     setBusinessCapacityDraft: businessIntake.setBusinessCapacityDraft,
@@ -281,6 +307,12 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     submitStaffInvite: staff.submitStaffInvite,
     changeStaffStatus: staff.changeStaffStatus,
     replaceStaffPermissions: staff.replaceStaffPermissions,
+    toggleAdminNotifications: notifications.togglePanel,
+    loadAdminNotifications: notifications.loadNotifications,
+    openAdminNotification: notifications.openNotification,
+    markAdminNotificationRead: notifications.markRead,
+    dismissAdminNotification: notifications.dismiss,
+    resolveAdminNotification: notifications.resolve,
     confirmPendingAction: criticalAction.confirmPendingAction
   };
 }

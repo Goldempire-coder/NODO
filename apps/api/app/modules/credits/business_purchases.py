@@ -29,6 +29,7 @@ class CreditBusinessPurchases:
         onchain_verifier,
         rate_limit: Callable[[str, str], None],
         require_idempotency_key: Callable[[str | None], str],
+        admin_notifications=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
@@ -38,6 +39,7 @@ class CreditBusinessPurchases:
         self._onchain_verifier = onchain_verifier
         self._rate_limit = rate_limit
         self._require_idempotency_key = require_idempotency_key
+        self._admin_notifications = admin_notifications
 
     def create_stripe_checkout(self, *, user: UserRecord, business: BusinessRecord, payload: StripeCheckoutRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         self._rate_limit("stripe_checkout", business.id)
@@ -145,6 +147,8 @@ class CreditBusinessPurchases:
             updated, ledger = self._repository.apply_onchain_verification(purchase=purchase, verification=verification, actor_user_id=user.id)
             event_type = "onchain_credit_purchase_credited" if ledger else f"onchain_credit_purchase_{updated.status}"
             self._audit.write(event_type=event_type, actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"tx_hash_masked": _mask_tx_hash(tx_hash), "status": updated.status})
+            if updated.status in {"under_review", "verification_failed", "failed", "expired"} and self._admin_notifications is not None:
+                self._admin_notifications.credit_purchase_attention(purchase=updated, reason=updated.status, request_id=request_id)
             if ledger:
                 self._audit.write(event_type="credits_added", actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"ledger_id": ledger.id, "amount": updated.credits_amount})
             return {"purchase": purchase_public(updated), "credited": ledger is not None}

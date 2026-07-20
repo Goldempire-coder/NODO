@@ -22,6 +22,7 @@ def store_intake_document(
     user_repository,
     audit_writer,
     storage,
+    admin_notifications=None,
 ) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if intake.status != "draft" or intake.last_step != "awaiting_documents":
         raise ApiError("BOT_INPUT_INVALID", status_code=400)
@@ -50,6 +51,8 @@ def store_intake_document(
         size_bytes=stored_size,
         request_id=request_id,
     )
+    if admin_notifications is not None:
+        admin_notifications.business_document_uploaded(intake=intake, document=document, request_id=request_id)
     return {"file": public_business_intake_document(document)}
 
 

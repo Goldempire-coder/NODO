@@ -88,4 +88,6 @@ class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
             documents=documents,
         )
         self._write_audit(event_type="business_intake_submitted", intake=updated, request_id=request_id)  # type: ignore[attr-defined]
+        if getattr(self, "_admin_notifications", None) is not None:
+            self._admin_notifications.business_intake_submitted(intake=updated, request_id=request_id)  # type: ignore[attr-defined]
         return {"id": updated.id, "status": updated.status, "message": INTAKE_CONFIRMATION}

@@ -3,6 +3,16 @@
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
 import { AdminWebScreens } from "./AdminWebScreens";
 
+function priorityLabel(priority: string) {
+  const labels: Record<string, string> = {
+    info: "Info",
+    attention: "Atencion",
+    high: "Alta",
+    critical: "Critica"
+  };
+  return labels[priority] || priority;
+}
+
 export function AdminWebShell({ model }: { model: AdminWebModel }) {
   return (
     <main className="admin-web-shell">
@@ -32,9 +42,69 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
             <p>Panel operativo</p>
             <h1>Admin Web</h1>
           </div>
-          <div className="admin-web-session">
-            <span>{model.user.first_name || model.user.username || "Admin"}</span>
-            <strong>{model.user.role}</strong>
+          <div className="admin-web-topbar-actions">
+            <div className="admin-web-notifications">
+              <button
+                aria-expanded={model.adminNotificationsPanelOpen}
+                aria-label="Notificaciones operativas"
+                className="admin-web-notification-button"
+                type="button"
+                onClick={() => void model.toggleAdminNotifications()}
+              >
+                <span>Notificaciones</span>
+                {model.adminNotificationsUnreadCount > 0 ? <strong>{model.adminNotificationsUnreadCount}</strong> : null}
+              </button>
+              {model.adminNotificationsPanelOpen ? (
+                <section className="admin-web-notification-panel" aria-label="Bandeja de notificaciones operativas">
+                  <div className="admin-web-notification-panel__header">
+                    <strong>Operacion</strong>
+                    <button type="button" onClick={() => void model.loadAdminNotifications("unread")}>
+                      Actualizar
+                    </button>
+                  </div>
+                  {model.adminNotifications.length ? (
+                    <div className="admin-web-notification-list">
+                      {model.adminNotifications.map((notification) => {
+                        const busy = model.adminNotificationBusyId === notification.id;
+                        return (
+                          <article className={`admin-web-notification-card priority-${notification.priority}`} key={notification.id}>
+                            <div>
+                              <span>{priorityLabel(notification.priority)}</span>
+                              <time dateTime={notification.last_seen_at}>{new Date(notification.last_seen_at).toLocaleString()}</time>
+                            </div>
+                            <button type="button" onClick={() => void model.openAdminNotification(notification)} disabled={busy}>
+                              <strong>{notification.title}</strong>
+                              <small>{notification.summary}</small>
+                            </button>
+                            <div className="admin-web-notification-card__actions">
+                              {model.adminMutable ? (
+                                <>
+                                  <button type="button" onClick={() => void model.markAdminNotificationRead(notification.id)} disabled={busy}>
+                                    Leida
+                                  </button>
+                                  <button type="button" onClick={() => void model.dismissAdminNotification(notification.id)} disabled={busy}>
+                                    Descartar
+                                  </button>
+                                  <button type="button" onClick={() => void model.resolveAdminNotification(notification.id)} disabled={busy}>
+                                    Resolver
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="admin-web-notification-empty">Sin notificaciones pendientes.</p>
+                  )}
+                </section>
+              ) : null}
+            </div>
+            <div className="admin-web-session">
+              <span>{model.user.first_name || model.user.username || "Admin"}</span>
+              <strong>{model.user.role}</strong>
+            </div>
           </div>
         </header>
 

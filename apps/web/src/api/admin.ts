@@ -345,3 +345,27 @@ export function updateAdminStaffPermissions<T>(
 export function listAdminStaffActivity<T>(request: AuthenticatedRequest, staffId: string) {
   return request<T>(`/api/v1/admin/staff/${staffId}/activity?limit=20`);
 }
+
+export function listAdminNotifications<T>(request: AuthenticatedRequest, status = "unread") {
+  const params = new URLSearchParams({ limit: "20" });
+  if (status) {
+    params.set("status", status);
+  }
+  return request<T>(`/api/v1/admin/notifications?${params.toString()}`);
+}
+
+export function getAdminNotificationsUnreadCount<T>(request: AuthenticatedRequest) {
+  return request<T>("/api/v1/admin/notifications/unread-count");
+}
+
+export function markAdminNotificationRead<T>(request: AuthenticatedRequest, notificationId: string) {
+  return request<T>(`/api/v1/admin/notifications/${notificationId}/read`, { method: "POST" });
+}
+
+export function dismissAdminNotification<T>(request: AuthenticatedRequest, notificationId: string) {
+  return request<T>(`/api/v1/admin/notifications/${notificationId}/dismiss`, { method: "POST" });
+}
+
+export function resolveAdminNotification<T>(request: AuthenticatedRequest, notificationId: string) {
+  return request<T>(`/api/v1/admin/notifications/${notificationId}/resolve`, { method: "POST" });
+}

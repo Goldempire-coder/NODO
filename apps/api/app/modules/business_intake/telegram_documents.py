@@ -36,6 +36,7 @@ async def handle_telegram_document(
     user_repository,
     audit_writer,
     storage,
+    admin_notifications=None,
     telegram_download_file: TelegramDownload,
 ) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     file_info = extract_telegram_file_info(message)
@@ -68,5 +69,6 @@ async def handle_telegram_document(
         user_repository=user_repository,
         audit_writer=audit_writer,
         storage=storage,
+        admin_notifications=admin_notifications,
     )
     return {"ok": True, "intake_id": intake.id, "status": intake.status, "last_step": "awaiting_documents", "duplicate_update": False, "file_id": stored["file"]["id"]}
