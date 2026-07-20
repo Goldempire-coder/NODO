@@ -141,10 +141,17 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     }
     const interval = window.setInterval(() => {
       void overview.refreshDashboardSnapshot();
-      void notifications.loadUnreadCount();
+      if (notifications.panelOpen) {
+        void notifications.loadNotifications("unread");
+      } else {
+        void notifications.loadUnreadCount();
+      }
+      if (view === "support") {
+        void support.refreshSupportWorkspace();
+      }
     }, 15000);
     return () => window.clearInterval(interval);
-  }, [adminReadable, notifications.loadUnreadCount, overview.refreshDashboardSnapshot]);
+  }, [adminReadable, notifications.loadNotifications, notifications.loadUnreadCount, notifications.panelOpen, overview.refreshDashboardSnapshot, support.refreshSupportWorkspace, view]);
 
   useEffect(() => {
     if (!adminReadable) {
@@ -172,7 +179,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
         badge: overview.dashboard?.queues.pending_business_intakes || 0,
         action: () => businessIntake.loadBusinessIntakes("submitted")
       },
-      { view: "support" as const, label: "Soporte", action: () => support.loadSupportTickets("") },
+      { view: "support" as const, label: "Soporte", action: () => support.loadSupportTickets("active") },
       { view: "staff" as const, label: "Staff", action: () => staff.loadStaff("") }
     ],
     [audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
@@ -298,6 +305,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     deleteBusinessIntake: businessIntake.deleteBusinessIntake,
     loadSupportTickets: support.loadSupportTickets,
     openSupportTicket: support.openSupportTicket,
+    refreshSupportWorkspace: support.refreshSupportWorkspace,
+    refreshSelectedSupportTicket: support.refreshSelectedSupportTicket,
     replySupportTicket: support.replySupportTicket,
     assignSupportTicket: support.assignSupportTicket,
     changeSupportStatus: support.changeSupportStatus,

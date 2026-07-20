@@ -136,6 +136,34 @@ def test_admin_business_intake_defaults_to_active_submissions_for_real_flow_revi
     assert "button:not(:disabled):hover" in admin_css
 
 
+def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
+    admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
+    support_model = _read("apps/web/src/hooks/admin-web/useAdminSupportModel.ts")
+    support_screen = _read("apps/web/src/screens/admin-web/AdminSupportScreens.tsx")
+    admin_css = _read("apps/web/src/app/admin-web.css")
+
+    assert 'action: () => support.loadSupportTickets("active")' in admin_model
+    assert "support.refreshSupportWorkspace()" in admin_model
+    assert "notifications.panelOpen" in admin_model
+    assert 'notifications.loadNotifications("unread")' in admin_model
+    assert "refreshSupportWorkspace" in support_model
+    assert 'const [supportFilter, setSupportFilter] = useState("active")' in support_model
+    assert "filterSupportTickets(payload.items, normalizedFilter)" in support_model
+    assert "setSelectedSupportTicket(null)" in support_model
+    assert "Ticket cerrado y enviado a archivados." in support_model
+    assert "admin-web-support-layout" in support_screen
+    assert "admin-web-support-list" in support_screen
+    assert "admin-web-support-chat" in support_screen
+    assert "admin-web-support-message--admin" in support_screen
+    assert "Archivados" in support_screen
+    assert "<Table" not in support_screen
+    assert "Nota interna opcional" in support_screen
+    assert "admin_support_closed" in support_screen
+    assert "admin-web-support-thread" in admin_css
+    assert "admin-web-support-chat" in admin_css
+    assert "max-height: min(52vh, 520px)" in admin_css
+
+
 def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() -> None:
     business_model = _read("apps/web/src/hooks/useBusinessMiniAppModel.ts")
     access_model = _read("apps/web/src/hooks/business-mini-app/useBusinessAccessModel.ts")

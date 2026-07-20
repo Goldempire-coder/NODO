@@ -747,6 +747,168 @@
   margin: 0;
 }
 
+.admin-web-support-layout {
+  align-items: start;
+  grid-template-columns: minmax(300px, 0.82fr) minmax(420px, 1.18fr);
+}
+
+.admin-web-support-list-panel,
+.admin-web-support-thread-panel {
+  max-height: calc(100vh - 148px);
+}
+
+.admin-web-support-list {
+  display: grid;
+  max-height: calc(100vh - 258px);
+  gap: 8px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.admin-web-support-ticket {
+  width: 100%;
+  min-height: auto;
+  display: grid;
+  gap: 6px;
+  padding: 11px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 5%), transparent),
+    rgb(7 9 17 / 72%);
+  color: var(--admin-text);
+  text-align: left;
+}
+
+.admin-web-support-ticket.is-selected {
+  border-color: rgb(47 155 255 / 72%);
+  background: rgb(47 155 255 / 13%);
+  box-shadow: inset 3px 0 0 var(--admin-blue);
+}
+
+.admin-web-support-ticket__top,
+.admin-web-support-ticket__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 8px;
+}
+
+.admin-web-support-ticket__top strong,
+.admin-web-support-ticket small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-web-support-ticket__top span,
+.admin-web-support-ticket__meta span {
+  flex: 0 0 auto;
+  border: 1px solid rgb(45 224 143 / 30%);
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: rgb(45 224 143 / 9%);
+  color: #a8ffd0;
+  font-size: 11px;
+}
+
+.admin-web-support-ticket small,
+.admin-web-support-ticket__meta time {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-web-support-thread {
+  display: grid;
+  min-height: min(680px, calc(100vh - 176px));
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.admin-web-support-thread__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-web-support-thread__summary span {
+  border: 1px solid rgb(47 155 255 / 30%);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #d9f2ff;
+  font-size: 12px;
+}
+
+.admin-web-support-chat {
+  display: grid;
+  align-content: start;
+  max-height: min(52vh, 520px);
+  min-height: 240px;
+  gap: 10px;
+  overflow: auto;
+  padding: 4px;
+}
+
+.admin-web-support-message {
+  display: grid;
+  justify-self: start;
+  width: min(82%, 640px);
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: rgb(7 9 17 / 76%);
+}
+
+.admin-web-support-message--admin {
+  justify-self: end;
+  border-color: rgb(47 155 255 / 42%);
+  background: rgb(47 155 255 / 11%);
+}
+
+.admin-web-support-message span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-web-support-message strong {
+  color: var(--admin-text);
+}
+
+.admin-web-support-message p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.admin-web-support-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-web-support-composer {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-web-support-composer textarea {
+  min-height: 72px;
+}
+
+.admin-web-support-admin-actions {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--admin-line);
+}
+
 .admin-web-intake-layout {
   align-items: start;
 }
@@ -979,6 +1141,24 @@
   .admin-web-intake-column,
   .admin-web-intake-scroll {
     max-height: none;
+  }
+
+  .admin-web-support-list-panel,
+  .admin-web-support-thread-panel,
+  .admin-web-support-list {
+    max-height: none;
+  }
+
+  .admin-web-support-thread {
+    min-height: auto;
+  }
+
+  .admin-web-support-chat {
+    max-height: 360px;
+  }
+
+  .admin-web-support-message {
+    width: 100%;
   }
 
   .admin-web-document-actions {
