@@ -158,7 +158,7 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "admin-web-support-chat" in support_screen
     assert "admin-web-support-message--admin" in support_screen
     assert "Archivados" in support_screen
-    assert "Resolver y archivar" in support_screen
+    assert "Finalizar ticket" in support_screen
     assert "Cerrar definitivo" in support_screen
     assert "Este ticket ya esta archivado." in support_screen
     assert "sendingSupportReply" in support_model
@@ -167,12 +167,16 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "admin-web-support-quick-actions" in support_screen
     assert "Enviando..." in support_screen
     assert "<Table" not in support_screen
-    assert "Nota interna opcional" in support_screen
+    assert "Nota interna opcional" not in support_screen
+    assert "Asignar a user id support" not in support_screen
+    assert "supportAssigneeId" not in admin_model
+    assert "admin-web-support-composer-bar" in support_screen
+    assert "admin-web-support-thread__headline" in support_screen
     assert "admin_support_closed" in support_screen
     assert "admin-web-support-thread" in admin_css
     assert "admin-web-support-chat" in admin_css
-    assert "height: clamp(520px, calc(100vh - 228px), 820px)" in admin_css
-    assert "grid-template-rows: auto auto auto minmax(0, 1fr) auto" in admin_css
+    assert "height: clamp(680px, calc(100vh - 196px), 900px)" in admin_css
+    assert "grid-template-rows: auto auto minmax(0, 1fr) auto" in admin_css
     assert ".admin-web-support-chat {\n  display: grid;\n  align-content: start;\n  min-height: 0;\n  max-height: none;" in admin_css
     assert ".admin-web-support-composer {\n  display: grid;\n  gap: 10px;\n  min-height: 0;" in admin_css
 

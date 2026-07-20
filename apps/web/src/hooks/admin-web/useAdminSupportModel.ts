@@ -2,7 +2,6 @@
 
 import { useCallback, useRef, useState } from "react";
 import {
-  adminAssignSupportTicket,
   adminCloseSupportTicket,
   adminEscalateSupportTicket,
   adminGetSupportTicket,
@@ -62,7 +61,6 @@ export function useAdminSupportModel({
   const [selectedSupportTicket, setSelectedSupportTicket] = useState<SupportTicket | null>(null);
   const [supportFilter, setSupportFilter] = useState("active");
   const [supportReply, setSupportReply] = useState("");
-  const [supportAssigneeId, setSupportAssigneeId] = useState("");
   const [supportAttachmentUrl, setSupportAttachmentUrl] = useState("");
   const [sendingSupportReply, setSendingSupportReply] = useState(false);
   const supportReplyInFlight = useRef(false);
@@ -156,25 +154,6 @@ export function useAdminSupportModel({
     }
   }, [clearIdempotencyKey, getIdempotencyKey, refreshSelectedSupportTicket, request, selectedSupportTicket, setBusy, setNotice, supportReply]);
 
-  const assignSupportTicket = useCallback(async (reason: string) => {
-    if (!selectedSupportTicket || !supportAssigneeId.trim()) {
-      return;
-    }
-    setBusy(true);
-    const idempotencyScope = `support_assign_${selectedSupportTicket.id}`;
-    try {
-      const ticket = await adminAssignSupportTicket(request, selectedSupportTicket.id, supportAssigneeId, reason, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, supportAssigneeId, reason }));
-      clearIdempotencyKey(idempotencyScope);
-      setSelectedSupportTicket(ticket);
-      setSupportTickets((items) => items.map((item) => (item.id === ticket.id ? ticket : item)));
-      setNotice("Ticket asignado.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos asignar.");
-    } finally {
-      setBusy(false);
-    }
-  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setBusy, setNotice, supportAssigneeId]);
-
   const changeSupportStatus = useCallback(async (action: "escalate" | "resolve" | "close", reason: string) => {
     if (!selectedSupportTicket) {
       return;
@@ -229,15 +208,12 @@ export function useAdminSupportModel({
     supportReply,
     setSupportReply,
     sendingSupportReply,
-    supportAssigneeId,
-    setSupportAssigneeId,
     supportAttachmentUrl,
     loadSupportTickets,
     refreshSupportWorkspace,
     openSupportTicket,
     refreshSelectedSupportTicket,
     replySupportTicket,
-    assignSupportTicket,
     changeSupportStatus,
     openSupportAttachment
   };

@@ -91,20 +91,22 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
           <Empty text="Selecciona un ticket para responder sin abrir una pantalla gigante." />
         ) : (
           <div className="admin-web-support-thread">
-            <Header
-              title={selected.subject}
-              action={
-                <button className="admin-web-button" type="button" onClick={() => void model.refreshSelectedSupportTicket()}>
-                  Actualizar hilo
-                </button>
-              }
-            />
+            <div className="admin-web-support-thread__headline">
+              <div>
+                <span>Ticket de soporte</span>
+                <h2>{selected.subject}</h2>
+                <p>{contextLine(selected)}</p>
+              </div>
+              <strong>{statusLabel(selected.status)}</strong>
+            </div>
 
             <div className="admin-web-support-thread__summary">
-              <span>{statusLabel(selected.status)}</span>
               <span>{selected.priority}</span>
-              <span>{contextLine(selected)}</span>
               <span>{selected.requester_role}</span>
+              <span>{dateText(selected.updated_at)}</span>
+              <button className="admin-web-button" type="button" onClick={() => void model.refreshSelectedSupportTicket()}>
+                Actualizar hilo
+              </button>
             </div>
 
             <div className="admin-web-support-quick-actions">
@@ -123,7 +125,7 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
                     Escalar
                   </button>
                   <button className="admin-web-button" type="button" onClick={() => void model.changeSupportStatus("resolve", model.reason || "admin_support_resolved")}>
-                    Resolver y archivar
+                    Finalizar ticket
                   </button>
                 </>
               )}
@@ -164,7 +166,7 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
                   <p className="admin-web-muted">No recibe mas respuestas.</p>
                 </div>
               ) : (
-                <>
+                <div className="admin-web-support-composer-bar">
                   <label className="admin-web-field">
                     <span>Respuesta</span>
                     <textarea disabled={model.sendingSupportReply} value={model.supportReply} onChange={(event) => model.setSupportReply(event.target.value)} />
@@ -172,23 +174,7 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
                   <button className="admin-web-button" type="button" disabled={model.sendingSupportReply || !model.supportReply.trim()} onClick={() => void model.replySupportTicket()}>
                     {model.sendingSupportReply ? "Enviando..." : "Responder"}
                   </button>
-
-                  <div className="admin-web-support-admin-actions">
-                    <label className="admin-web-field">
-                      <span>Nota interna opcional</span>
-                      <textarea value={model.reason} onChange={(event) => model.setReason(event.target.value)} />
-                    </label>
-                    <label className="admin-web-field">
-                      <span>Asignar a user id support</span>
-                      <input value={model.supportAssigneeId} onChange={(event) => model.setSupportAssigneeId(event.target.value)} />
-                    </label>
-                    <div className="admin-web-actions">
-                      <button className="admin-web-button" type="button" onClick={() => void model.assignSupportTicket(model.reason || "admin_support_assignment")}>
-                        Asignar
-                      </button>
-                    </div>
-                  </div>
-                </>
+                </div>
               )}
             </div>
           </div>
