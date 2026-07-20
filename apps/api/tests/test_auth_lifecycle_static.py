@@ -142,12 +142,13 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     support_api = _read("apps/web/src/api/support.ts")
     support_screen = _read("apps/web/src/screens/admin-web/AdminSupportScreens.tsx")
     admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
-    admin_css = _read("apps/web/src/app/admin-web.css")
 
     assert 'action: () => support.loadSupportTickets("active")' in admin_model
     assert "ADMIN_SUPPORT_REFRESH_MS = 5000" in admin_model
     assert "support.refreshSupportWorkspace()" in admin_model
-    assert "notifications.panelOpen" in admin_model
+    assert 'notifications.loadNotifications("unread")' in admin_model
+    assert "badge: notifications.supportUnreadCount" in admin_model
+    assert "adminSupportUnreadCount: notifications.supportUnreadCount" in admin_model
     assert 'notifications.loadNotifications("unread")' in admin_model
     assert "refreshSupportWorkspace" in support_model
     assert 'const [supportFilter, setSupportFilter] = useState("active")' in support_model
@@ -188,6 +189,21 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "supportAssigneeId" not in admin_model
     assert "admin-web-support-composer-bar" in support_screen
     assert "admin-web-support-thread__headline" in support_screen
+
+
+def test_admin_operational_notifications_surface_support_badge_and_new_notice() -> None:
+    admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
+    notifications_model = _read("apps/web/src/hooks/admin-web/useAdminNotificationsModel.ts")
+    support_screen = _read("apps/web/src/screens/admin-web/AdminSupportScreens.tsx")
+    admin_css = _read("apps/web/src/app/admin-web.css")
+
+    assert "ADMIN_BACKGROUND_REFRESH_MS = 15000" in admin_model
+    assert "void notifications.loadNotifications(\"unread\")" in admin_model
+    assert "supportUnreadCount" in notifications_model
+    assert 'notification.resource_type === "support_ticket"' in notifications_model
+    assert "Nueva notificacion operativa. Revisa la campana." in notifications_model
+    assert "notificaciones operativas nuevas. Revisa la campana." in notifications_model
+    assert "unreadCountInitialized" in notifications_model
     assert "admin_support_closed" in support_screen
     assert "admin-web-support-thread" in admin_css
     assert "admin-web-support-chat" in admin_css

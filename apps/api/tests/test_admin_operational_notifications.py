@@ -422,6 +422,46 @@ def test_business_support_ticket_created_from_business_creates_admin_notificatio
     assert "Mensaje privado" not in json.dumps(support_notification)
 
 
+def test_business_support_message_created_from_business_creates_admin_notification() -> None:
+    client = _client()
+    admin = _make_admin(client, 31211, "admin")
+    owner = _login(client, 31212, "business_support_message_owner")
+    business = _create_business(client, owner, "support_msg_notify")
+
+    ticket_response = client.post(
+        "/api/v1/support/tickets",
+        headers={**_headers(owner, "business_support_message_ticket"), "Content-Type": "application/json", "X-NODO-Surface": "business_mini_app"},
+        json={"scope": "business_general", "category": "technical_issue", "subject": "Boton no responde", "message": "Mensaje inicial privado."},
+    )
+    assert ticket_response.status_code == 201, ticket_response.text
+    ticket = ticket_response.json()["data"]
+
+    message_response = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(owner, "business_support_message_reply"), "Content-Type": "application/json", "X-NODO-Surface": "business_mini_app"},
+        json={"body": "Hola soporte, mi wallet privada no debe salir en la campana 0x3333333333333333333333333333333333333333."},
+    )
+    assert message_response.status_code == 201, message_response.text
+    message = message_response.json()["data"]["message"]
+
+    notifications = _admin_notifications(client, admin)
+    message_notification = next(item for item in notifications if item["notification_type"] == "business_support_message_created")
+    assert message_notification["resource_type"] == "support_ticket"
+    assert message_notification["resource_id"] == ticket["id"]
+    assert message_notification["business_id"] == business["id"]
+    assert message_notification["actor_user_id"] == owner["user"]["id"]
+    assert message_notification["action_route"] == f"admin://support-ticket/{ticket['id']}"
+    assert message_notification["metadata"] == {
+        "category": "technical_issue",
+        "message_id": message["id"],
+        "scope": "business_general",
+        "status": "waiting_support",
+    }
+    serialized = json.dumps(message_notification)
+    assert "wallet privada" not in serialized
+    assert "0x3333333333333333333333333333333333333333" not in serialized
+
+
 def test_base_usdc_under_review_and_telegram_failed_permanent_notify_admin() -> None:
     client = _client()
     admin = _make_admin(client, 31301, "admin")

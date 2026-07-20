@@ -197,6 +197,29 @@ class AdminNotificationService:
             request_id=request_id,
         )
 
+    def business_support_message_created(self, *, ticket, message, request_id: str) -> None:  # type: ignore[no-untyped-def]
+        priority = {
+            "low": "info",
+            "normal": "attention",
+            "high": "high",
+            "urgent": "critical",
+        }.get(ticket.priority, "attention")
+        self.enqueue(
+            notification_type="business_support_message_created",
+            priority=priority,
+            source_surface=ticket.requester_surface,
+            resource_type="support_ticket",
+            resource_id=ticket.id,
+            business_id=ticket.business_id,
+            actor_user_id=message.sender_user_id,
+            title="Nuevo mensaje de soporte",
+            summary="Un negocio respondio una conversacion de soporte.",
+            action_route=f"admin://support-ticket/{ticket.id}",
+            dedupe_key=f"support_ticket:{ticket.id}:message:{message.id}:business",
+            metadata={"scope": ticket.scope, "category": ticket.category, "status": ticket.status, "message_id": message.id},
+            request_id=request_id,
+        )
+
     def credit_purchase_attention(self, *, purchase, reason: str, request_id: str, error_code: str | None = None) -> None:  # type: ignore[no-untyped-def]
         priority = "high" if purchase.status in {"failed", "verification_failed", "expired"} else "attention"
         self.enqueue(

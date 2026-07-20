@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   dismissAdminNotification,
   getAdminNotificationsUnreadCount,
@@ -51,15 +51,36 @@ export function useAdminNotificationsModel({
   const [unreadCount, setUnreadCount] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
   const [notificationBusyId, setNotificationBusyId] = useState<string | null>(null);
+  const unreadCountInitialized = useRef(false);
+  const lastUnreadCount = useRef(0);
+
+  const supportUnreadCount = useMemo(
+    () => notifications.filter((notification) => notification.status === "unread" && notification.resource_type === "support_ticket").length,
+    [notifications]
+  );
+
+  const applyUnreadCount = useCallback((nextCount: number) => {
+    const previousCount = lastUnreadCount.current;
+    lastUnreadCount.current = nextCount;
+    setUnreadCount(nextCount);
+    if (!unreadCountInitialized.current) {
+      unreadCountInitialized.current = true;
+      return;
+    }
+    if (nextCount > previousCount) {
+      const delta = nextCount - previousCount;
+      setNotice(delta === 1 ? "Nueva notificacion operativa. Revisa la campana." : `${delta} notificaciones operativas nuevas. Revisa la campana.`);
+    }
+  }, [setNotice]);
 
   const loadUnreadCount = useCallback(async () => {
     try {
       const payload = await getAdminNotificationsUnreadCount<{ unread_count: number }>(request);
-      setUnreadCount(payload.unread_count);
+      applyUnreadCount(payload.unread_count);
     } catch {
-      setUnreadCount(0);
+      applyUnreadCount(0);
     }
-  }, [request]);
+  }, [applyUnreadCount, request]);
 
   const loadNotifications = useCallback(async (status = "unread") => {
     try {
@@ -155,6 +176,7 @@ export function useAdminNotificationsModel({
     unreadCount,
     panelOpen,
     notificationBusyId,
+    supportUnreadCount,
     loadNotifications,
     loadUnreadCount,
     togglePanel,

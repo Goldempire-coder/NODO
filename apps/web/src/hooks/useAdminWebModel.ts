@@ -144,14 +144,10 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     }
     const interval = window.setInterval(() => {
       void overview.refreshDashboardSnapshot();
-      if (notifications.panelOpen) {
-        void notifications.loadNotifications("unread");
-      } else {
-        void notifications.loadUnreadCount();
-      }
+      void notifications.loadNotifications("unread");
     }, ADMIN_BACKGROUND_REFRESH_MS);
     return () => window.clearInterval(interval);
-  }, [adminReadable, notifications.loadNotifications, notifications.loadUnreadCount, notifications.panelOpen, overview.refreshDashboardSnapshot]);
+  }, [adminReadable, notifications.loadNotifications, overview.refreshDashboardSnapshot]);
 
   useEffect(() => {
     if (!adminReadable || view !== "support") {
@@ -167,8 +163,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     if (!adminReadable) {
       return;
     }
-    void notifications.loadUnreadCount();
-  }, [adminReadable, notifications.loadUnreadCount]);
+    void notifications.loadNotifications("unread");
+  }, [adminReadable, notifications.loadNotifications]);
 
   const navigation = useMemo(
     () => [
@@ -189,10 +185,10 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
         badge: overview.dashboard?.queues.pending_business_intakes || 0,
         action: () => businessIntake.loadBusinessIntakes("submitted")
       },
-      { view: "support" as const, label: "Soporte", action: () => support.loadSupportTickets("active") },
+      { view: "support" as const, label: "Soporte", badge: notifications.supportUnreadCount, action: () => support.loadSupportTickets("active") },
       { view: "staff" as const, label: "Staff", action: () => staff.loadStaff("") }
     ],
-    [audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
+    [audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, notifications.supportUnreadCount, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
   );
 
   return {
@@ -246,6 +242,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     adminNotificationsUnreadCount: notifications.unreadCount,
     adminNotificationsPanelOpen: notifications.panelOpen,
     adminNotificationBusyId: notifications.notificationBusyId,
+    adminSupportUnreadCount: notifications.supportUnreadCount,
     businessFilter: businessIntake.businessFilter,
     setBusinessFilter: businessIntake.setBusinessFilter,
     setBusinessCapacityDraft: businessIntake.setBusinessCapacityDraft,

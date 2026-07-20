@@ -449,6 +449,8 @@ class SupportService:
             self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_message_created", metadata_json={"visibility": visibility})
             self._audit.write(event_type="support_message_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"visibility": visibility})
             current_ticket = self._repository.get_ticket(ticket.id) or ticket
+            if self._admin_notifications is not None and not admin and visibility == "participants" and current_ticket.business_id:
+                self._admin_notifications.business_support_message_created(ticket=current_ticket, message=message, request_id=request_id)
             return {"message": message_public(message), "ticket": self._ticket_summary_payload(current_ticket), "disclaimer": SUPPORT_DISCLAIMER}
 
         return self._idempotency.replay_or_store(f"support:message:{user.id}:{ticket.id}:{idempotency_key}", payload={"body": body, "visibility": visibility}, compute=compute)
