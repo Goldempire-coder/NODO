@@ -1,6 +1,19 @@
+import { useEffect } from "react";
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 import { humanizeSenderRole } from "../../hooks/business-mini-app/helpers";
+
+function supportStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    open: "Abierto",
+    waiting_support: "Soporte revisa",
+    waiting_user: "Tu respuesta pendiente",
+    escalated: "Escalado",
+    resolved: "Archivado",
+    closed: "Cerrado"
+  };
+  return labels[status] || status;
+}
 
 export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
@@ -9,11 +22,13 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
     loadSupportTickets,
     openSupportTicket,
     openingSupportTicketId,
+    refreshSupportWorkspace,
     selectedSupportTicket,
     sendingSupportReply,
     setSelectedSupportTicket,
     setSupportForm,
     supportForm,
+    supportFilter,
     supportReply,
     supportTickets,
     setSupportReply,
@@ -23,6 +38,16 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
     uploadTicketAttachment
   } = model;
   const ticketMessages = selectedSupportTicket?.messages || [];
+  const selectedArchived = selectedSupportTicket?.status === "resolved" || selectedSupportTicket?.status === "closed";
+  const emptyCopy = supportFilter === "archived" ? "No tienes conversaciones archivadas." : "No tienes conversaciones activas.";
+
+  useEffect(() => {
+    void loadSupportTickets(supportFilter);
+    const interval = window.setInterval(() => {
+      void refreshSupportWorkspace();
+    }, 12000);
+    return () => window.clearInterval(interval);
+  }, [loadSupportTickets, refreshSupportWorkspace, supportFilter]);
 
   return (
     <div className="business-card">
@@ -67,7 +92,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
             <Button mode="filled" size="s" disabled={creatingSupportTicket || supportForm.subject.trim().length < 3 || supportForm.message.trim().length < 3} onClick={() => void submitSupportTicket()}>
               {creatingSupportTicket ? "Creando..." : "Crear conversacion"}
             </Button>
-            <Button mode="outline" size="s" disabled={loadingSupportTickets} onClick={() => void loadSupportTickets()}>
+            <Button mode="outline" size="s" disabled={loadingSupportTickets} onClick={() => void loadSupportTickets("active")}>
               {loadingSupportTickets ? "Cargando..." : "Ver conversaciones"}
             </Button>
           </div>
@@ -80,7 +105,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
             <div>
               <Text className="business-card__label">Conversacion con soporte</Text>
               <Title level="3" className="business-shell__title">{selectedSupportTicket.subject}</Title>
-              <Text className="auth-entry__session-meta">Estado: {selectedSupportTicket.status}</Text>
+              <Text className="auth-entry__session-meta">Estado: {supportStatusLabel(selectedSupportTicket.status)}</Text>
             </div>
             <Button mode="outline" size="s" onClick={() => setSelectedSupportTicket(null)}>Nueva conversacion</Button>
           </div>
@@ -98,26 +123,41 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
               );
             })}
           </div>
-          <label className="business-field">
-            <span>Responder en esta conversacion</span>
-            <textarea value={supportReply} onChange={(event) => setSupportReply(event.target.value)} />
-          </label>
-          <label className="business-upload">
-            <span>Adjunto privado</span>
-            <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingSupportAttachment} type="file" onChange={(event) => void uploadTicketAttachment(event.target.files?.[0] || null)} />
-            {uploadingSupportAttachment ? <small>Subiendo...</small> : null}
-          </label>
-          <Button mode="filled" size="s" disabled={sendingSupportReply || !supportReply.trim()} onClick={() => void submitSupportReply()}>
-            {sendingSupportReply ? "Enviando..." : "Enviar mensaje"}
-          </Button>
+          {selectedArchived ? (
+            <Text className="auth-entry__session-meta">Esta conversacion esta archivada. Puedes verla cuando la necesites, pero ya no recibe respuestas.</Text>
+          ) : (
+            <>
+              <label className="business-field">
+                <span>Responder en esta conversacion</span>
+                <textarea value={supportReply} onChange={(event) => setSupportReply(event.target.value)} />
+              </label>
+              <label className="business-upload">
+                <span>Adjunto privado</span>
+                <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingSupportAttachment} type="file" onChange={(event) => void uploadTicketAttachment(event.target.files?.[0] || null)} />
+                {uploadingSupportAttachment ? <small>Subiendo...</small> : null}
+              </label>
+              <Button mode="filled" size="s" disabled={sendingSupportReply || !supportReply.trim()} onClick={() => void submitSupportReply()}>
+                {sendingSupportReply ? "Enviando..." : "Enviar mensaje"}
+              </Button>
+            </>
+          )}
         </div>
       ) : null}
 
-      <div className="business-list">
-        {supportTickets.length === 0 && !loadingSupportTickets ? <Text>Aun no tienes conversaciones de soporte.</Text> : null}
+      <div className="business-shell__tabs business-shell__tabs--two">
+        <Button mode={supportFilter === "active" ? "filled" : "outline"} size="s" disabled={loadingSupportTickets} onClick={() => void loadSupportTickets("active")}>
+          Activas
+        </Button>
+        <Button mode={supportFilter === "archived" ? "filled" : "outline"} size="s" disabled={loadingSupportTickets} onClick={() => void loadSupportTickets("archived")}>
+          Archivadas
+        </Button>
+      </div>
+
+      <div className="business-list business-list--scrollable">
+        {supportTickets.length === 0 && !loadingSupportTickets ? <Text>{emptyCopy}</Text> : null}
         {supportTickets.map((ticket) => (
           <button className="business-row ad-row" disabled={openingSupportTicketId === ticket.id} key={ticket.id} type="button" onClick={() => void openSupportTicket(ticket.id)}>
-            <span>{ticket.status}</span>
+            <span>{supportStatusLabel(ticket.status)}</span>
             <span>{ticket.subject}</span>
             <span>{openingSupportTicketId === ticket.id ? "Abriendo..." : ticket.scope}</span>
           </button>

@@ -151,11 +151,15 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "filterSupportTickets(payload.items, normalizedFilter)" in support_model
     assert "setSelectedSupportTicket(null)" in support_model
     assert "Ticket cerrado y enviado a archivados." in support_model
+    assert "Mensaje enviado. No pudimos refrescar el hilo automaticamente." in support_model
     assert "admin-web-support-layout" in support_screen
     assert "admin-web-support-list" in support_screen
     assert "admin-web-support-chat" in support_screen
     assert "admin-web-support-message--admin" in support_screen
     assert "Archivados" in support_screen
+    assert "Resolver y archivar" in support_screen
+    assert "Cerrar definitivo" in support_screen
+    assert "Este ticket ya esta archivado." in support_screen
     assert "<Table" not in support_screen
     assert "Nota interna opcional" in support_screen
     assert "admin_support_closed" in support_screen
@@ -279,6 +283,10 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "sendingSupportReply" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert 'initialScope: "business_general"' in business_model
     assert 'initialScope = "client_general"' in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert 'const [supportFilter, setSupportFilter] = useState<SupportTicketListFilter>("active")' in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert "filterSupportTickets(payload.items, normalizedFilter)" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert "refreshSupportWorkspace" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert "Mensaje enviado. No pudimos refrescar la conversacion automaticamente." in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "business_availability_" in availability_model
     assert "pendingAvailabilityTarget" in availability_model
     assert "Idempotency-Key" in _read("apps/web/src/api/businesses.ts")
@@ -302,6 +310,9 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "business-support-message--mine" in support_screen
     assert "Conversacion con soporte" in support_screen
     assert "Nueva conversacion" in support_screen
+    assert "Archivadas" in support_screen
+    assert "No tienes conversaciones archivadas." in support_screen
+    assert "Esta conversacion esta archivada." in support_screen
     assert 'setView("business-orders");\n    setBusy(true);' in orders_model
     assert "/api/v1/surface/session" in surface_api
     assert "/api/v1/businesses/me" not in business_model
@@ -375,6 +386,8 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "submittingPaymentReport: state.submittingPaymentReport" in client_model
     assert "sendingChatMessage: state.sendingChatMessage" in client_model
     assert "creatingSupportTicket: support.creatingSupportTicket" in client_model
+    assert "supportFilter: support.supportFilter" in client_model
+    assert "refreshSupportWorkspace: support.refreshSupportWorkspace" in client_model
     assert 'initialScope: "client_general"' in client_model
     assert 'recordActionStarted("client_marketplace_search"' in marketplace_model
     assert 'recordActionStarted("client_order_create"' in orders_model
@@ -400,6 +413,9 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "Enviando..." in chat_screen
     assert "Abriendo..." in chat_screen
     assert "Creando..." in support_screen
+    assert "Archivados" in support_screen
+    assert "No tienes tickets archivados." in support_screen
+    assert "Este ticket esta archivado." in support_screen
     assert "openingChatOrderId: string | null" in remitter_types
     assert "recordBusinessActionStarted = recordActionStarted" in telemetry_helper
     assert "recordSlowSensitiveAction" in telemetry_helper

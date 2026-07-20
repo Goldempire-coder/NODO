@@ -31,6 +31,8 @@ function contextLine(ticket: SupportTicket): string {
 export function SupportTickets({ model }: { model: AdminWebModel }) {
   const selected = model.selectedSupportTicket;
   const selectedMessages = selected?.messages || [];
+  const selectedArchived = selected?.status === "resolved" || selected?.status === "closed";
+  const selectedCanClose = selected?.status === "resolved";
 
   return (
     <section className="admin-web-split admin-web-support-layout">
@@ -135,38 +137,48 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
                 <p className="admin-web-muted">URL temporal generada. No se guarda como dato permanente.</p>
               ) : null}
 
-              <label className="admin-web-field">
-                <span>Respuesta</span>
-                <textarea value={model.supportReply} onChange={(event) => model.setSupportReply(event.target.value)} />
-              </label>
-              <button className="admin-web-button" type="button" disabled={!model.supportReply.trim()} onClick={() => void model.replySupportTicket()}>
-                Responder
-              </button>
-
-              <div className="admin-web-support-admin-actions">
-                <label className="admin-web-field">
-                  <span>Nota interna opcional</span>
-                  <textarea value={model.reason} onChange={(event) => model.setReason(event.target.value)} />
-                </label>
-                <label className="admin-web-field">
-                  <span>Asignar a user id support</span>
-                  <input value={model.supportAssigneeId} onChange={(event) => model.setSupportAssigneeId(event.target.value)} />
-                </label>
-                <div className="admin-web-actions">
-                  <button className="admin-web-button" type="button" onClick={() => void model.assignSupportTicket(model.reason || "admin_support_assignment")}>
-                    Asignar
-                  </button>
-                  <button className="admin-web-button" type="button" onClick={() => void model.changeSupportStatus("escalate", model.reason || "admin_support_escalation")}>
-                    Escalar
-                  </button>
-                  <button className="admin-web-button" type="button" onClick={() => void model.changeSupportStatus("resolve", model.reason || "admin_support_resolved")}>
-                    Resolver
-                  </button>
-                  <button className="admin-web-button danger" type="button" onClick={() => void model.changeSupportStatus("close", model.reason || "admin_support_closed")}>
-                    Cerrar
-                  </button>
+              {selectedArchived ? (
+                <div className="admin-web-support-admin-actions">
+                  <p className="admin-web-muted">Este ticket ya esta archivado. Puedes consultarlo desde la vista Archivados.</p>
+                  {selectedCanClose ? (
+                    <button className="admin-web-button danger" type="button" onClick={() => void model.changeSupportStatus("close", model.reason || "admin_support_closed")}>
+                      Cerrar definitivo
+                    </button>
+                  ) : null}
                 </div>
-              </div>
+              ) : (
+                <>
+                  <label className="admin-web-field">
+                    <span>Respuesta</span>
+                    <textarea value={model.supportReply} onChange={(event) => model.setSupportReply(event.target.value)} />
+                  </label>
+                  <button className="admin-web-button" type="button" disabled={!model.supportReply.trim()} onClick={() => void model.replySupportTicket()}>
+                    Responder
+                  </button>
+
+                  <div className="admin-web-support-admin-actions">
+                    <label className="admin-web-field">
+                      <span>Nota interna opcional</span>
+                      <textarea value={model.reason} onChange={(event) => model.setReason(event.target.value)} />
+                    </label>
+                    <label className="admin-web-field">
+                      <span>Asignar a user id support</span>
+                      <input value={model.supportAssigneeId} onChange={(event) => model.setSupportAssigneeId(event.target.value)} />
+                    </label>
+                    <div className="admin-web-actions">
+                      <button className="admin-web-button" type="button" onClick={() => void model.assignSupportTicket(model.reason || "admin_support_assignment")}>
+                        Asignar
+                      </button>
+                      <button className="admin-web-button" type="button" onClick={() => void model.changeSupportStatus("escalate", model.reason || "admin_support_escalation")}>
+                        Escalar
+                      </button>
+                      <button className="admin-web-button" type="button" onClick={() => void model.changeSupportStatus("resolve", model.reason || "admin_support_resolved")}>
+                        Resolver y archivar
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

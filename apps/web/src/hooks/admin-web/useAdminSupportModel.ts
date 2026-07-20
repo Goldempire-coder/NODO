@@ -135,8 +135,12 @@ export function useAdminSupportModel({
       await adminSendSupportMessage(request, selectedSupportTicket.id, supportReply, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body: supportReply }));
       clearIdempotencyKey(idempotencyScope);
       setSupportReply("");
-      await refreshSelectedSupportTicket();
-      setNotice("");
+      try {
+        await refreshSelectedSupportTicket();
+        setNotice("");
+      } catch {
+        setNotice("Mensaje enviado. No pudimos refrescar el hilo automaticamente.");
+      }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos responder.");
     } finally {
