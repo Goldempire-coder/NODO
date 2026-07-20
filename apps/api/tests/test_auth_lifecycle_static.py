@@ -139,6 +139,7 @@ def test_admin_business_intake_defaults_to_active_submissions_for_real_flow_revi
 def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
     support_model = _read("apps/web/src/hooks/admin-web/useAdminSupportModel.ts")
+    support_api = _read("apps/web/src/api/support.ts")
     support_screen = _read("apps/web/src/screens/admin-web/AdminSupportScreens.tsx")
     admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
     admin_css = _read("apps/web/src/app/admin-web.css")
@@ -152,13 +153,23 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "filterSupportTickets(payload.items, normalizedFilter)" in support_model
     assert "setSelectedSupportTicket(null)" in support_model
     assert "Ticket cerrado y enviado a archivados." in support_model
-    assert "Mensaje enviado. No pudimos refrescar el hilo automaticamente." in support_model
     assert "No pudimos confirmar el envio. Actualiza el hilo antes de reenviar." in support_model
     assert "setSupportReply(body)" not in support_model
+    assert "buildOptimisticSupportMessage" in support_model
+    assert "appendSupportMessage" in support_model
+    assert "removeSupportMessage" in support_model
+    assert "applySupportMessageResult" in support_model
+    assert "const payload = await adminSendSupportMessage" in support_model
+    assert "setSelectedSupportTicket((current) =>" in support_model
+    assert "adminSendSupportMessage(request, selectedSupportTicket.id, body" in support_model
+    assert "Promise<SupportMessageResponse>" in support_api
+    assert "message: SupportMessage" in support_api
     assert "admin-web-support-layout" in support_screen
     assert "admin-web-support-list" in support_screen
     assert "admin-web-support-chat" in support_screen
     assert "admin-web-support-message--admin" in support_screen
+    assert "admin-web-support-message--pending" in support_screen
+    assert "message.id.startsWith(\"optimistic_\")" in support_screen
     assert "Archivados" in support_screen
     assert "Finalizar ticket" in support_screen
     assert "Cerrar definitivo" in support_screen
@@ -179,6 +190,7 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "admin-web-support-chat" in admin_css
     assert "height: clamp(680px, calc(100vh - 196px), 900px)" in admin_css
     assert "grid-template-rows: auto auto auto minmax(0, 1fr) auto" in admin_css
+    assert ".admin-web-support-message--pending" in admin_css
     assert ".admin-web-support-chat {\n  display: grid;\n  align-content: start;\n  min-height: 0;\n  max-height: none;" in admin_css
     assert ".admin-web-support-composer {\n  display: grid;\n  gap: 10px;\n  min-height: 0;" in admin_css
 

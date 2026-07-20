@@ -10,7 +10,7 @@ import {
   adminSendSupportMessage,
   adminSupportAttachmentViewUrl
 } from "../../api/support";
-import type { SupportTicket } from "../../types/support";
+import type { SupportMessage, SupportTicket } from "../../types/support";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
 
@@ -44,6 +44,48 @@ function archivedTicketNotice(status: SupportTicket["status"]): string {
     return "Ticket resuelto y enviado a archivados.";
   }
   return "Ticket actualizado.";
+}
+
+function buildOptimisticSupportMessage(ticket: SupportTicket, body: string): SupportMessage {
+  const createdAt = new Date().toISOString();
+  return {
+    id: `optimistic_${ticket.id}_${createdAt}`,
+    ticket_id: ticket.id,
+    sender_role: "support",
+    body,
+    visibility: "participants",
+    attachments: [],
+    created_at: createdAt
+  };
+}
+
+function appendSupportMessage(ticket: SupportTicket, message: SupportMessage): SupportTicket {
+  return {
+    ...ticket,
+    messages: [...(ticket.messages || []), message],
+    last_message_at: message.created_at,
+    updated_at: message.created_at
+  };
+}
+
+function removeSupportMessage(ticket: SupportTicket, messageId: string): SupportTicket {
+  return {
+    ...ticket,
+    messages: (ticket.messages || []).filter((message) => message.id !== messageId)
+  };
+}
+
+function applySupportMessageResult(ticket: SupportTicket, optimisticMessageId: string, message: SupportMessage, summary: SupportTicket): SupportTicket {
+  const mergedMessages = (ticket.messages || []).map((item) => (item.id === optimisticMessageId ? message : item));
+  const hasMessage = mergedMessages.some((item) => item.id === message.id);
+  return {
+    ...ticket,
+    ...summary,
+    attachments: ticket.attachments,
+    events: ticket.events,
+    messages: hasMessage ? mergedMessages : [...mergedMessages, message],
+    disclaimer: ticket.disclaimer
+  };
 }
 
 export function useAdminSupportModel({
@@ -130,28 +172,28 @@ export function useAdminSupportModel({
       return;
     }
     const body = supportReply.trim();
+    const optimisticMessage = buildOptimisticSupportMessage(selectedSupportTicket, body);
     supportReplyInFlight.current = true;
     setSendingSupportReply(true);
     setBusy(true);
     const idempotencyScope = `admin_support_msg_${selectedSupportTicket.id}`;
     try {
       setSupportReply("");
-      await adminSendSupportMessage(request, selectedSupportTicket.id, body, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body }));
+      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? appendSupportMessage(current, optimisticMessage) : current));
+      const payload = await adminSendSupportMessage(request, selectedSupportTicket.id, body, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body }));
       clearIdempotencyKey(idempotencyScope);
-      try {
-        await refreshSelectedSupportTicket();
-        setNotice("");
-      } catch {
-        setNotice("Mensaje enviado. No pudimos refrescar el hilo automaticamente.");
-      }
+      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? applySupportMessageResult(current, optimisticMessage.id, payload.message, payload.ticket) : current));
+      setSupportTickets((items) => items.map((item) => (item.id === payload.ticket.id ? payload.ticket : item)));
+      setNotice("");
     } catch (error) {
+      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? removeSupportMessage(current, optimisticMessage.id) : current));
       setNotice(error instanceof Error ? `${error.message}. Actualiza el hilo antes de reenviar.` : "No pudimos confirmar el envio. Actualiza el hilo antes de reenviar.");
     } finally {
       supportReplyInFlight.current = false;
       setSendingSupportReply(false);
       setBusy(false);
     }
-  }, [clearIdempotencyKey, getIdempotencyKey, refreshSelectedSupportTicket, request, selectedSupportTicket, setBusy, setNotice, supportReply]);
+  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setBusy, setNotice, supportReply]);
 
   const changeSupportStatus = useCallback(async (action: "escalate" | "resolve" | "close", reason: string) => {
     if (!selectedSupportTicket) {

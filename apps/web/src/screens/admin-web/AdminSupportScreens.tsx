@@ -19,6 +19,10 @@ function isAdminMessage(senderRole: string): boolean {
   return senderRole === "admin" || senderRole === "support" || senderRole === "super_admin";
 }
 
+function isOptimisticMessage(message: { id: string }): boolean {
+  return message.id.startsWith("optimistic_");
+}
+
 function contextLine(ticket: SupportTicket): string {
   const refs = [
     ticket.business_id ? `Negocio ${ticket.business_id}` : "",
@@ -135,24 +139,27 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
               {selectedMessages.length === 0 ? (
                 <Empty text="Este ticket aun no tiene mensajes." />
               ) : (
-                selectedMessages.map((message) => (
-                  <article className={`admin-web-support-message${isAdminMessage(message.sender_role) ? " admin-web-support-message--admin" : ""}`} key={message.id}>
-                    <span>
-                      <strong>{isAdminMessage(message.sender_role) ? "Soporte NODO" : message.sender_role}</strong>
-                      <time>{dateText(message.created_at)}</time>
-                    </span>
-                    <p>{message.body}</p>
-                    {(message.attachments || []).length > 0 ? (
-                      <div className="admin-web-support-attachments">
-                        {(message.attachments || []).map((file) => (
-                          <button className="admin-web-link" key={file.id} type="button" onClick={() => void model.openSupportAttachment(file.id, model.reason || "admin_support_review")}>
-                            Ver adjunto
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </article>
-                ))
+                selectedMessages.map((message) => {
+                  const pending = isOptimisticMessage(message);
+                  return (
+                    <article className={`admin-web-support-message${isAdminMessage(message.sender_role) ? " admin-web-support-message--admin" : ""}${pending ? " admin-web-support-message--pending" : ""}`} key={message.id}>
+                      <span>
+                        <strong>{isAdminMessage(message.sender_role) ? "Soporte NODO" : message.sender_role}</strong>
+                        {pending ? <em>Enviando...</em> : <time>{dateText(message.created_at)}</time>}
+                      </span>
+                      <p>{message.body}</p>
+                      {(message.attachments || []).length > 0 ? (
+                        <div className="admin-web-support-attachments">
+                          {(message.attachments || []).map((file) => (
+                            <button className="admin-web-link" key={file.id} type="button" onClick={() => void model.openSupportAttachment(file.id, model.reason || "admin_support_review")}>
+                              Ver adjunto
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })
               )}
             </div>
 

@@ -934,6 +934,11 @@
   background: rgb(47 155 255 / 11%);
 }
 
+.admin-web-support-message--pending {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
 .admin-web-support-message span {
   display: flex;
   align-items: baseline;
@@ -945,6 +950,11 @@
 
 .admin-web-support-message strong {
   color: var(--admin-text);
+}
+
+.admin-web-support-message em {
+  color: var(--admin-amber);
+  font-style: normal;
 }
 
 .admin-web-support-message p {
