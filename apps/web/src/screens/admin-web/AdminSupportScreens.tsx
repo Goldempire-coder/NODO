@@ -107,6 +107,28 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
               <span>{selected.requester_role}</span>
             </div>
 
+            <div className="admin-web-support-quick-actions">
+              {selectedArchived ? (
+                <>
+                  <p className="admin-web-muted">Este ticket ya esta archivado. Puedes consultarlo desde la vista Archivados.</p>
+                  {selectedCanClose ? (
+                    <button className="admin-web-button danger" type="button" onClick={() => void model.changeSupportStatus("close", model.reason || "admin_support_closed")}>
+                      Cerrar definitivo
+                    </button>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <button className="admin-web-button" type="button" onClick={() => void model.changeSupportStatus("escalate", model.reason || "admin_support_escalation")}>
+                    Escalar
+                  </button>
+                  <button className="admin-web-button" type="button" onClick={() => void model.changeSupportStatus("resolve", model.reason || "admin_support_resolved")}>
+                    Resolver y archivar
+                  </button>
+                </>
+              )}
+            </div>
+
             <div className="admin-web-support-chat" aria-label="Conversacion de soporte">
               {selectedMessages.length === 0 ? (
                 <Empty text="Este ticket aun no tiene mensajes." />
@@ -139,21 +161,16 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
 
               {selectedArchived ? (
                 <div className="admin-web-support-admin-actions">
-                  <p className="admin-web-muted">Este ticket ya esta archivado. Puedes consultarlo desde la vista Archivados.</p>
-                  {selectedCanClose ? (
-                    <button className="admin-web-button danger" type="button" onClick={() => void model.changeSupportStatus("close", model.reason || "admin_support_closed")}>
-                      Cerrar definitivo
-                    </button>
-                  ) : null}
+                  <p className="admin-web-muted">No recibe mas respuestas.</p>
                 </div>
               ) : (
                 <>
                   <label className="admin-web-field">
                     <span>Respuesta</span>
-                    <textarea value={model.supportReply} onChange={(event) => model.setSupportReply(event.target.value)} />
+                    <textarea disabled={model.sendingSupportReply} value={model.supportReply} onChange={(event) => model.setSupportReply(event.target.value)} />
                   </label>
-                  <button className="admin-web-button" type="button" disabled={!model.supportReply.trim()} onClick={() => void model.replySupportTicket()}>
-                    Responder
+                  <button className="admin-web-button" type="button" disabled={model.sendingSupportReply || !model.supportReply.trim()} onClick={() => void model.replySupportTicket()}>
+                    {model.sendingSupportReply ? "Enviando..." : "Responder"}
                   </button>
 
                   <div className="admin-web-support-admin-actions">
@@ -168,12 +185,6 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
                     <div className="admin-web-actions">
                       <button className="admin-web-button" type="button" onClick={() => void model.assignSupportTicket(model.reason || "admin_support_assignment")}>
                         Asignar
-                      </button>
-                      <button className="admin-web-button" type="button" onClick={() => void model.changeSupportStatus("escalate", model.reason || "admin_support_escalation")}>
-                        Escalar
-                      </button>
-                      <button className="admin-web-button" type="button" onClick={() => void model.changeSupportStatus("resolve", model.reason || "admin_support_resolved")}>
-                        Resolver y archivar
                       </button>
                     </div>
                   </div>

@@ -823,7 +823,7 @@
 .admin-web-support-thread {
   display: grid;
   min-height: min(680px, calc(100vh - 176px));
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   gap: 12px;
 }
 
@@ -839,6 +839,22 @@
   padding: 5px 8px;
   color: #d9f2ff;
   font-size: 12px;
+}
+
+.admin-web-support-quick-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgb(47 155 255 / 22%);
+  border-radius: 8px;
+  background: rgb(7 9 17 / 68%);
+}
+
+.admin-web-support-quick-actions .admin-web-muted {
+  margin: 0;
+  flex: 1 1 240px;
 }
 
 .admin-web-support-chat {

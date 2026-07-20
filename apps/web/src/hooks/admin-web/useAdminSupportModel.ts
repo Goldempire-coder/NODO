@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   adminAssignSupportTicket,
   adminCloseSupportTicket,
@@ -64,6 +64,8 @@ export function useAdminSupportModel({
   const [supportReply, setSupportReply] = useState("");
   const [supportAssigneeId, setSupportAssigneeId] = useState("");
   const [supportAttachmentUrl, setSupportAttachmentUrl] = useState("");
+  const [sendingSupportReply, setSendingSupportReply] = useState(false);
+  const supportReplyInFlight = useRef(false);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   const loadSupportTickets = useCallback(async (filter = supportFilter) => {
@@ -126,15 +128,18 @@ export function useAdminSupportModel({
   }, [request, selectedSupportTicket]);
 
   const replySupportTicket = useCallback(async () => {
-    if (!selectedSupportTicket || !supportReply.trim()) {
+    if (!selectedSupportTicket || !supportReply.trim() || supportReplyInFlight.current) {
       return;
     }
+    const body = supportReply.trim();
+    supportReplyInFlight.current = true;
+    setSendingSupportReply(true);
     setBusy(true);
     const idempotencyScope = `admin_support_msg_${selectedSupportTicket.id}`;
     try {
-      await adminSendSupportMessage(request, selectedSupportTicket.id, supportReply, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body: supportReply }));
-      clearIdempotencyKey(idempotencyScope);
       setSupportReply("");
+      await adminSendSupportMessage(request, selectedSupportTicket.id, body, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body }));
+      clearIdempotencyKey(idempotencyScope);
       try {
         await refreshSelectedSupportTicket();
         setNotice("");
@@ -142,8 +147,11 @@ export function useAdminSupportModel({
         setNotice("Mensaje enviado. No pudimos refrescar el hilo automaticamente.");
       }
     } catch (error) {
+      setSupportReply(body);
       setNotice(error instanceof Error ? error.message : "No pudimos responder.");
     } finally {
+      supportReplyInFlight.current = false;
+      setSendingSupportReply(false);
       setBusy(false);
     }
   }, [clearIdempotencyKey, getIdempotencyKey, refreshSelectedSupportTicket, request, selectedSupportTicket, setBusy, setNotice, supportReply]);
@@ -220,6 +228,7 @@ export function useAdminSupportModel({
     setSupportFilter,
     supportReply,
     setSupportReply,
+    sendingSupportReply,
     supportAssigneeId,
     setSupportAssigneeId,
     supportAttachmentUrl,

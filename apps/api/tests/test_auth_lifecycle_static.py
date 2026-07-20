@@ -140,6 +140,7 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
     support_model = _read("apps/web/src/hooks/admin-web/useAdminSupportModel.ts")
     support_screen = _read("apps/web/src/screens/admin-web/AdminSupportScreens.tsx")
+    admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
     admin_css = _read("apps/web/src/app/admin-web.css")
 
     assert 'action: () => support.loadSupportTickets("active")' in admin_model
@@ -160,6 +161,11 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "Resolver y archivar" in support_screen
     assert "Cerrar definitivo" in support_screen
     assert "Este ticket ya esta archivado." in support_screen
+    assert "sendingSupportReply" in support_model
+    assert "sendingSupportReply: support.sendingSupportReply" in admin_model
+    assert "supportReplyInFlight" in support_model
+    assert "admin-web-support-quick-actions" in support_screen
+    assert "Enviando..." in support_screen
     assert "<Table" not in support_screen
     assert "Nota interna opcional" in support_screen
     assert "admin_support_closed" in support_screen
