@@ -40,6 +40,8 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 
 - `businesses.owner_user_id` FK users(id).
 - `businesses.verification_status` CHECK contra enum oficial.
+- `businesses.trust_level` CHECK contra enum oficial de capacidad interna.
+- `businesses.reputation_tier` CHECK IN (`new`, `active`, `reliable`, `elite`).
 - `businesses.risk_level` CHECK contra enum oficial.
 - `businesses.approved_at` solo puede existir si `verification_status` es `approved`.
 - `businesses.business_name` not null despues de enviar verificacion.
@@ -48,7 +50,21 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - `businesses.max_order_amount_usd >= businesses.min_order_amount_usd`.
 - `businesses.daily_limit_usd >= 0`.
 - `businesses.active_order_limit >= 0`.
+- Contadores de reputacion en `businesses` son no negativos.
+- `businesses.rating_avg` es null o esta entre 1.00 y 5.00.
+- `businesses.success_rate` es null o esta entre 0.00 y 100.00.
+- `businesses.average_delivery_seconds` es null o no negativo.
 - No puede existir mas de un negocio activo con el mismo owner y mismo nombre normalizado sin revision admin.
+
+## Ratings
+
+- `ratings.order_id` FK `orders(id)` y unique: maximo un rating por orden.
+- `ratings.business_id` FK `businesses(id)`.
+- `ratings.rater_user_id` FK `users(id)`.
+- `ratings.stars` CHECK entre 1 y 5.
+- No existen columnas de comentario, titulo o resena textual en MVP.
+- Ownership y estado `completed` se validan transaccionalmente en el servicio
+  futuro antes de insertar.
 
 ## Vinculo de acceso negocio
 

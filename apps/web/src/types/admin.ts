@@ -13,6 +13,7 @@ export type AdminBusinessDetail = {
     address?: string | null;
     owner_user_id?: string | null;
     trust_level?: string;
+    risk_level?: string;
     min_order_amount_usd?: string;
     max_order_amount_usd?: string;
     daily_limit_usd?: string;

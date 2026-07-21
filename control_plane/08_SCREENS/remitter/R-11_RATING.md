@@ -2,11 +2,11 @@
 
 SCREEN_ID: R-11_RATING
 actor: remitter
-slice: remitter_app
-status: DRAFT_CONTROLLED
+slice: future_business_reputation_rating_write
+status: CONTRACT_ONLY_NOT_BUILT
 
 purpose:
-Rate business after completed order.
+Rate the business with stars after an owned completed order.
 
 route:
 /orders/:id/rating
@@ -19,42 +19,38 @@ R-02_HOME_SEARCH
 
 data required:
 - authenticated user/session
-- data defined by API contract for this screen
-
-read strategy:
-- Read only data needed for this screen.
-- Use loading skeleton.
-- Use error/retry if request fails.
-- Use empty state when list is empty.
+- owned order in `completed`
+- backend rating eligibility
 
 write strategy:
-- Writes only through approved API endpoints.
-- No direct state transitions outside backend state machine.
-
-Telegram UI rules:
-- Use @telegram-apps/telegram-ui where possible.
-- Respect themeParams.
-- Use official NODO logo and tokens.
-- Use MainButton only for primary CTA.
+- Writes only through a future approved API endpoint.
+- One rating per completed order.
+- Stars integer 1..5.
+- No comment, review title or free text in MVP.
+- Frontend never calculates aggregate reputation.
 
 MainButton behavior:
-Enviar calificación
+Enviar calificacion
 
 validation:
-stars required
+- stars required
+- no textual review field
 
 permissions:
 own completed order
 
 states:
 - loading
-- empty
+- eligible
+- already_rated
 - error
-- offline
-- success where applicable
+- success
 
 audit events:
-rating_created
+rating_created (future write slice)
 
 QA checklist:
-Allows comment optional
+- no comments
+- no duplicate rating
+- ownership validated by backend
+- no rating UI is built in Slice 42A

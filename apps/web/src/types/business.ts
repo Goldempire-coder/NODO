@@ -6,7 +6,15 @@ export type BusinessSummary = {
   country?: string | null;
   verification_status: string;
   trust_level?: string;
-  risk_level: string;
+  reputation?: {
+    tier: "new" | "active" | "reliable" | "elite";
+    label: "Nuevo" | "Activo" | "Confiable" | "Elite";
+    rating_avg: string | null;
+    ratings_count: number;
+    completed_orders_count: number;
+    success_rate: string | null;
+    average_delivery_seconds: number | null;
+  };
   min_order_amount_usd?: string;
   max_order_amount_usd?: string;
   daily_limit_usd?: string;

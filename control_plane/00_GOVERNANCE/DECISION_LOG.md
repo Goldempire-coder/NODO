@@ -82,6 +82,16 @@ Este archivo registra decisiones aprobadas por el owner. Si otro documento contr
 | 2026-07-04 | En slice 07, admin/super_admin/support pueden ver disputas segun RBAC, pero no resolverlas; `resolve_dispute`, `POST /api/v1/admin/disputes/{id}/resolve` y el audit `dispute_resolved` quedan fuera de slice 07 y reservados para `slice_09_admin_console`. | aprobado |
 | 2026-07-05 | Se crea `control_plane/05_SECURITY/ADVANCED_SECURITY_BACKLOG.md` como recordatorio gobernado de controles post-staging: Zero Trust, API gateway/WAF, runtime secret injection, rotacion de secretos, credenciales cortas, HMAC/Ed25519, HSM/KMS, mTLS, RASP, canary tokens, eBPF, service mesh y firma de codigo. No bloquea retroactivamente slices ya aceptados ni declara `READY_FOR_REAL_USE`. | aprobado |
 
+## 2026-07-21 - Slice 42A business reputation foundation
+
+| Fecha | Decision | Estado |
+|---|---|---|
+| 2026-07-21 | `trust_level` queda reservado para limites/capacidad interna; la reputacion visible usa `reputation_tier`. Esta decision sustituye la interpretacion de reputacion comercial registrada el 2026-07-03, sin renombrar ni eliminar `trust_level`. | aprobado |
+| 2026-07-21 | `risk_level` es interno y nunca se expone en DTOs publicos o marketplace. Una restriccion se comunica como indisponibilidad neutral, sin revelar `under_review`. | aprobado |
+| 2026-07-21 | Rating MVP usa solo estrellas 1..5, una vez por orden completada y sin comentarios o resenas textuales. Admin no puede falsificar ratings. | aprobado |
+| 2026-07-21 | Success rate, promedios y tier se calculan exclusivamente en backend desde datos reconstruibles; frontend solo presenta los valores recibidos. | aprobado |
+| 2026-07-21 | Tiers de reputacion: `new`, `active`, `reliable`, `elite`, con minimos aprobados de ordenes, ratings, promedio y success rate. Pausado/Offline y No disponible son estados de disponibilidad, no tiers persistidos. | aprobado |
+
 ## Decisiones rechazadas o prohibidas
 
 - Admin MVP solo por whitelist sin panel funcional.

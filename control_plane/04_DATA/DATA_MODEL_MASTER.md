@@ -38,14 +38,21 @@ Rules:
 - country
 - verification_status
 - trust_level
+- reputation_tier
 - risk_level
 - min_order_amount_usd
 - max_order_amount_usd
 - daily_limit_usd
 - active_order_limit
 - rating_avg
+- ratings_count
 - completed_orders_count
+- business_failure_orders_count
+- lost_disputes_count
 - disputes_count
+- success_rate
+- average_delivery_seconds
+- reputation_calculated_at
 - evasion_reports_count
 - referral_code
 - referral_credits_earned
@@ -419,9 +426,18 @@ Legacy/non-valid:
 - business_id
 - rater_user_id
 - stars
-- comment
-- rating_type
 - created_at
+
+Rules:
+
+- Un solo rating por orden completada.
+- `stars` es entero entre 1 y 5.
+- MVP no persiste comentarios, resenas textuales, titulos ni cuerpos libres.
+- El cliente que califica debe ser `orders.remitter_user_id`; esta regla se
+  valida en servicio antes de escribir.
+- Admin no puede crear ni editar ratings.
+- Los agregados de reputacion en `businesses` son reconstruibles desde ratings,
+  ordenes, eventos y disputas.
 
 ## disputes
 
@@ -625,14 +641,23 @@ For business intake documents in `slice_14D_business_intake_bot`:
 ## business_metrics
 
 - business_id
+- reputation_tier
 - completed_orders_count
+- business_failure_orders_count
 - cancelled_orders_count
 - disputes_count
 - lost_disputes_count
 - avg_response_time
 - rating_avg
+- ratings_count
+- success_rate
+- average_delivery_seconds
 - monthly_volume_reported
 - evasion_reports_count
+
+`business_metrics` sigue siendo un read model conceptual en MVP; Slice 42A no
+crea una tabla competidora. Los agregados persistidos viven en `businesses` y
+deben poder reconstruirse.
 
 ## admin_system_metrics_read_model
 

@@ -22,6 +22,8 @@ Indices obligatorios para sostener 200 negocios, 10,000 clientes y 2,000 ordenes
 - `businesses(owner_user_id)`.
 - `businesses(verification_status, created_at desc)`.
 - `businesses(verification_status, risk_level)`.
+- `businesses(reputation_tier, completed_orders_count desc)` para lectura
+  reputacional cuando exista query que lo justifique.
 - `businesses(business_name)` o nombre normalizado cuando exista.
 - `business_access_links(business_id, status)`.
 - `business_access_links(user_id, status)`.
@@ -38,6 +40,9 @@ Indices obligatorios para sostener 200 negocios, 10,000 clientes y 2,000 ordenes
 - `business_payment_methods(business_id, verified_status, active)` recomendado para `GET /api/v1/business/payment-methods`.
 - `file_assets(resource_type, resource_id, created_at desc)`.
 - `file_assets(owner_user_id, created_at desc)`.
+- unique `ratings(order_id)`.
+- `ratings(business_id, created_at desc)`.
+- `ratings(rater_user_id, created_at desc)`.
 
 ## Anuncios y marketplace
 

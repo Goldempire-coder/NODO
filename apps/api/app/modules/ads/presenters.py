@@ -6,6 +6,7 @@ from app.modules.ads.models import AdRecord
 from app.modules.ads.state_machine import is_expired
 from app.modules.businesses.models import BusinessPaymentMethodRecord, BusinessRecord
 from app.modules.businesses.presenters import decimal_text
+from app.modules.businesses.reputation import public_reputation_payload
 
 
 def ad_payload(ad: AdRecord, *, business: BusinessRecord | None = None, payment_method: BusinessPaymentMethodRecord | None = None) -> dict[str, Any]:
@@ -31,10 +32,9 @@ def ad_payload(ad: AdRecord, *, business: BusinessRecord | None = None, payment_
             "id": business.id,
             "business_name": business.business_name,
             "verification_status": business.verification_status,
-            "trust_level": business.trust_level,
-            "risk_level": business.risk_level,
             "rating_avg": decimal_text(business.rating_avg) if business.rating_avg is not None else None,
             "completed_orders_count": business.completed_orders_count,
+            "reputation": public_reputation_payload(business),
         }
     if payment_method is not None:
         payload["payment_method_details"] = {

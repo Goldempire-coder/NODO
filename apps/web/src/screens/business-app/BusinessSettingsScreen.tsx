@@ -22,7 +22,6 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
       </div>
       <div className="business-grid">
         <Text>Estado: {business?.verification_status ? humanizePurchaseStatus(business.verification_status) : "sin negocio"}</Text>
-        <Text>Riesgo: {business?.risk_level || "n/a"}</Text>
         <Text>Pais: {business?.country || "VE"}</Text>
         <Text>Metodos guardados: {paymentMethods.length}</Text>
       </div>

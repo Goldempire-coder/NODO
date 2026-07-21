@@ -17,6 +17,7 @@ def new_id() -> str:
 VERIFICATION_STATUSES = {"pending", "approved", "rejected", "suspended", "blocked"}
 RISK_LEVELS = {"normal", "watch", "under_review", "restricted", "high_risk"}
 TRUST_LEVELS = {"new", "basic", "plus", "pro", "premium"}
+REPUTATION_TIERS = {"new", "active", "reliable", "elite"}
 BUSINESS_ACCESS_ROLES = {"owner", "operator"}
 BUSINESS_ACCESS_STATUSES = {"active", "suspended", "revoked", "blocked"}
 SUBMISSION_STATUSES = {"pending", "approved", "rejected"}
@@ -44,8 +45,15 @@ class BusinessRecord:
     active_order_limit: int = 1
     is_accepting_orders: bool = True
     rating_avg: Decimal | None = None
+    ratings_count: int = 0
     completed_orders_count: int = 0
+    business_failure_orders_count: int = 0
+    lost_disputes_count: int = 0
     disputes_count: int = 0
+    success_rate: Decimal | None = None
+    average_delivery_seconds: int | None = None
+    reputation_tier: str = "new"
+    reputation_calculated_at: datetime | None = None
     evasion_reports_count: int = 0
     referral_code: str | None = None
     referral_credits_earned: int = 0

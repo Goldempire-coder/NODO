@@ -2,7 +2,14 @@ import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import { ORDER_DISCLAIMER } from "../../constants/copy";
 import { formatExchangeRoute } from "../../constants/paymentLabels";
 import { sanitizeDecimalInput } from "../../lib/numericInput";
+import type { AdSummary } from "../../types/ads";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
+
+function businessReputationSummary(ad: AdSummary): string {
+  const rating = ad.business?.reputation?.rating_avg || ad.business?.rating_avg;
+  const completedOrders = ad.business?.reputation?.completed_orders_count ?? ad.business?.completed_orders_count ?? 0;
+  return `${rating ? `★ ${rating}` : "★ Verificado"} - ${completedOrders} órdenes`;
+}
 
 function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
   const { openAdDetail, openingMarketplaceAdId, searchResults } = model;
@@ -19,7 +26,7 @@ function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
           <span className="business-avatar">{displayBusinessName(ad).slice(0, 2).toUpperCase()}</span>
           <span className="business-main">
             <strong>{displayBusinessName(ad)}</strong>
-            <small>{ad.business?.rating_avg ? `★ ${ad.business.rating_avg}` : "★ Verificado"} - {ad.business?.completed_orders_count || 0} órdenes</small>
+            <small>{businessReputationSummary(ad)}</small>
             <small>Límites: ${ad.amount_min_usd} - ${ad.amount_max_usd}</small>
           </span>
           <span className="business-rate">
@@ -130,7 +137,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
                 <span className="business-avatar">{displayBusinessName(ad).slice(0, 2).toUpperCase()}</span>
                 <span className="business-main">
                   <strong>{displayBusinessName(ad)}</strong>
-                  <small>{ad.business?.rating_avg ? `★ ${ad.business.rating_avg}` : "★ Verificado"} - {ad.business?.completed_orders_count || 0} órdenes</small>
+                  <small>{businessReputationSummary(ad)}</small>
                   <small>Límites: ${ad.amount_min_usd} - ${ad.amount_max_usd}</small>
                 </span>
                 <span className="business-rate">

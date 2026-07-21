@@ -9,6 +9,7 @@ from app.modules.businesses.models import (
     BusinessRecord,
     FileAssetRecord,
 )
+from app.modules.businesses.reputation import admin_reputation_payload, own_reputation_payload
 
 
 def mask_rif(value: str | None) -> str | None:
@@ -63,7 +64,7 @@ def payment_method_display(method: BusinessPaymentMethodRecord, *, business: Bus
 
 
 def business_payload(business: BusinessRecord, *, admin: bool = False) -> dict[str, Any]:
-    return {
+    payload = {
         "id": business.id,
         "owner_user_id": business.owner_user_id,
         "business_name": business.business_name,
@@ -73,16 +74,19 @@ def business_payload(business: BusinessRecord, *, admin: bool = False) -> dict[s
         "country": business.country,
         "verification_status": business.verification_status,
         "trust_level": business.trust_level,
-        "risk_level": business.risk_level,
         "min_order_amount_usd": decimal_text(business.min_order_amount_usd),
         "max_order_amount_usd": decimal_text(business.max_order_amount_usd),
         "daily_limit_usd": decimal_text(business.daily_limit_usd),
         "active_order_limit": business.active_order_limit,
         "is_accepting_orders": business.is_accepting_orders,
+        "reputation": admin_reputation_payload(business) if admin else own_reputation_payload(business),
         "approved_at": business.approved_at.isoformat() if business.approved_at else None,
         "created_at": business.created_at.isoformat(),
         "updated_at": business.updated_at.isoformat(),
     }
+    if admin:
+        payload["risk_level"] = business.risk_level
+    return payload
 
 
 def file_payload(file: FileAssetRecord) -> dict[str, Any]:

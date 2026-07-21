@@ -15,12 +15,20 @@ export type AdSummary = {
   activated_at?: string | null;
   expires_at: string | null;
   business?: {
+    id: string;
     business_name: string;
     verification_status: string;
-    trust_level: string;
-    risk_level: string;
-    rating_avg: string | null;
-    completed_orders_count: number;
+    rating_avg?: string | null;
+    completed_orders_count?: number;
+    reputation?: {
+      tier: "new" | "active" | "reliable" | "elite";
+      label: "Nuevo" | "Activo" | "Confiable" | "Elite";
+      rating_avg: string | null;
+      ratings_count: number;
+      completed_orders_count: number;
+      success_rate: string | null;
+      average_delivery_seconds: number | null;
+    };
   };
   payment_method_details?: {
     id?: string;

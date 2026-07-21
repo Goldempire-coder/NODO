@@ -76,12 +76,28 @@ business.trust_level:
 - pro
 - premium
 
+Regla:
+- `trust_level` controla limites/capacidad interna y no es reputacion publica.
+
+business.reputation_tier:
+- new
+- active
+- reliable
+- elite
+
+Regla:
+- `Pausado/Offline` y `No disponible` son presentaciones de disponibilidad, no
+  valores persistidos de `reputation_tier`.
+
 business.risk_level:
 - normal
 - watch
 - under_review
 - restricted
 - high_risk
+
+Regla:
+- `risk_level` es interno y nunca se expone en contratos publicos.
 
 ad.status:
 - draft

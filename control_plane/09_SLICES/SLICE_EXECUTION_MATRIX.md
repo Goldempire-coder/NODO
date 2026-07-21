@@ -126,3 +126,9 @@ No se permite declarar un slice listo sin revisar lineas exactas.
 | Orden | Slice | Objetivo | Dependencias | Estado contractual |
 |---|---|---|---|---|
 | 37 | slice_37_client_mini_app_afos_hardening | Endurecimiento AFOS de Mini App Cliente: arquitectura limpia, estados por accion, breadcrumbs seguros, separacion cliente/negocio y repo organizado antes de probar Admin Web | 04,05,07,14A,20B,24,35,36 | READY_FOR_OWNER_REVIEW |
+
+## Slice 42A
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 42A | slice_42A_business_reputation_foundation | Contrato, modelo reconstruible, DTOs por audiencia y privacidad de reputacion; sin UI ni escritura funcional de ratings | 03,04,06,07,09 | BUILD_APPROVED_SLICE_A |

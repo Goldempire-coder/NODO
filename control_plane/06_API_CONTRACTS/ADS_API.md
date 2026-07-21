@@ -44,10 +44,17 @@ No expone datos privados completos del negocio ni instrucciones completas de pag
     "id": "uuid",
     "business_name": "Casa Cambio Centro",
     "verification_status": "approved",
-    "trust_level": "new|basic|plus|pro|premium",
-    "risk_level": "normal|watch|under_review|restricted|high_risk",
     "rating_avg": "4.80|null",
-    "completed_orders_count": 12
+    "completed_orders_count": 12,
+    "reputation": {
+      "tier": "new|active|reliable|elite",
+      "label": "Nuevo|Activo|Confiable|Elite",
+      "rating_avg": "4.80|null",
+      "ratings_count": 11,
+      "completed_orders_count": 12,
+      "success_rate": "96.50|null",
+      "average_delivery_seconds": 540
+    }
   },
   "payment_method": "zelle|usdt_trc20",
   "delivery_method": "pago_movil_ve",
@@ -63,6 +70,18 @@ No expone datos privados completos del negocio ni instrucciones completas de pag
   }
 }
 ```
+
+Reglas de privacidad del objeto publico:
+
+- Nunca incluye `risk_level`, `trust_level`, fallos atribuibles, disputas
+  perdidas ni senales antifraude.
+- `rating_avg` y `completed_orders_count` en el nivel de `business` se conservan
+  como aliases publicos de compatibilidad para consumidores v1. Nuevos
+  consumidores deben usar `business.reputation`.
+- Una restriccion o revision interna se representa como indisponibilidad segura;
+  no se devuelve `under_review` al cliente.
+- El frontend presenta las metricas recibidas y no calcula tier, success rate ni
+  promedios.
 
 ## Objeto de anuncio propio
 
@@ -140,14 +159,20 @@ Rules:
   - `business.risk_level not in ('restricted', 'high_risk')`
   - rango compatible: `amount_min_usd <= amount_usd <= amount_max_usd`
   - metodo compatible.
-- Ranking:
+- Slice 42A no cambia el algoritmo de ranking. El token v1 `sort=trust`
+  conserva temporalmente la heuristica interna existente y no expone
+  `trust_level` en el DTO.
+- El ranking reputacional objetivo debe ser implementado y medido en un slice
+  posterior antes de sustituir esa heuristica:
   1. compatibilidad exacta de monto/metodo
-  2. mayor `trust_level`
+  2. mayor `reputation_tier` calculado por backend
   3. mejor `rating_avg`
   4. mas `completed_orders_count`
-  5. menor `evasion_reports_count`/riesgo
+  5. menor riesgo aplicado solo como control backend
   6. mejor tasa
 - La mejor tasa no debe superar senales de riesgo.
+- Las senales de riesgo se aplican solo como filtro backend; nunca salen en la
+  respuesta publica.
 - Rate limit por IP, user, route y metodo/monto.
 - Audit: no obligatorio; `search_started` opcional y no debe saturar audit logs.
 
