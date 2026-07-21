@@ -59,11 +59,14 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
 
   useEffect(() => {
     void loadSupportTickets(supportFilter);
+  }, [loadSupportTickets, supportFilter]);
+
+  useEffect(() => {
     const interval = window.setInterval(() => {
       void refreshSupportWorkspace();
     }, BUSINESS_SUPPORT_REFRESH_MS);
     return () => window.clearInterval(interval);
-  }, [loadSupportTickets, refreshSupportWorkspace, supportFilter]);
+  }, [refreshSupportWorkspace]);
 
   return (
     <div className="business-card">

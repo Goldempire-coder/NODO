@@ -123,9 +123,13 @@ export function useSurfaceSupportModel({
       const normalizedFilter = normalizeSupportFilter(filter);
       const payload = await listSupportTickets(request, supportTicketsQuery(normalizedFilter));
       setSupportTickets(filterSupportTickets(payload.items, normalizedFilter));
-      if (selectedSupportTicket && normalizedFilter === "active" && ARCHIVED_SUPPORT_STATUSES.has(selectedSupportTicket.status)) {
-        setSelectedSupportTicket(null);
-      }
+      setSelectedSupportTicket((current) => {
+        if (!current || normalizedFilter !== "active") {
+          return current;
+        }
+        const latestSelected = payload.items.find((item) => item.id === current.id) || current;
+        return ARCHIVED_SUPPORT_STATUSES.has(latestSelected.status) ? null : current;
+      });
       setSupportFilter(normalizedFilter);
       setNotice("");
       recordActionCompleted("support_tickets_load", "support", startedAt);
@@ -135,7 +139,7 @@ export function useSurfaceSupportModel({
     } finally {
       setLoadingSupportTickets(false);
     }
-  }, [request, selectedSupportTicket, setNotice, supportFilter]);
+  }, [request, setNotice, supportFilter]);
 
   const refreshSupportWorkspace = useCallback(async () => {
     const normalizedFilter = normalizeSupportFilter(supportFilter);

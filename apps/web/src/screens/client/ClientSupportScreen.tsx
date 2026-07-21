@@ -40,11 +40,14 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
 
   useEffect(() => {
     void loadSupportTickets(supportFilter);
+  }, [loadSupportTickets, supportFilter]);
+
+  useEffect(() => {
     const interval = window.setInterval(() => {
       void refreshSupportWorkspace();
     }, 12000);
     return () => window.clearInterval(interval);
-  }, [loadSupportTickets, refreshSupportWorkspace, supportFilter]);
+  }, [refreshSupportWorkspace]);
 
   return (
     <div className="business-card">
