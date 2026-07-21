@@ -106,5 +106,15 @@ class PaymentReportRecord:
     updated_at: datetime = field(default_factory=utc_now)
 
 
+@dataclass(frozen=True)
+class RatingRecord:
+    id: str
+    order_id: str
+    business_id: str
+    rater_user_id: str
+    stars: int
+    created_at: datetime = field(default_factory=utc_now)
+
+
 def new_public_order_code() -> str:
     return f"NODO-{uuid4().hex[:8].upper()}"

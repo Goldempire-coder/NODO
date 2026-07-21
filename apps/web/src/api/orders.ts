@@ -51,3 +51,14 @@ export function cancelRemitterOrder<T>(request: AuthenticatedRequest, orderId: s
     body: JSON.stringify({ reason })
   });
 }
+
+export function submitOrderRating<T>(request: AuthenticatedRequest, orderId: string, stars: number, idempotencyKey: string) {
+  return request<T>(`/api/v1/orders/${orderId}/rating`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ stars })
+  });
+}

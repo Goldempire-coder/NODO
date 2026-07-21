@@ -12,6 +12,7 @@
 | Abrir orden | `openingOrderId` | Si | N/A | `client_order_detail_open` | datos receptor completos |
 | Extender orden | `extendingOrderId` | Si | Si | `client_order_extend` | motivo libre completo |
 | Cancelar orden | `cancellingOrderId` | Si | Si | `client_order_cancel` | motivo libre completo |
+| Calificar orden | `submittingRatingOrderId` | Si | Si | `client_order_rating_submit` | estrellas, payload de orden, reputacion interna |
 | Ver instrucciones | `loadingPaymentInstructions` | Si | N/A | `client_payment_instructions_open` | cuenta/wallet completa |
 | Subir comprobante | `uploadingPaymentEvidence` | Si | Si | `client_payment_evidence_upload` | `storage_path`, signed URL |
 | Reportar pago | `submittingPaymentReport` | Si | Si | `client_payment_report_submit` | referencia, tx hash, sender completo |

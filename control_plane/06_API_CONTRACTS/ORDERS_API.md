@@ -156,6 +156,31 @@ Errores:
 - AMOUNT_OUT_OF_RANGE
 - ORDER_ALREADY_EXISTS
 - RATE_LIMITED
+
+## POST /api/v1/orders/{id}/rating
+
+Crea una calificacion de 1 a 5 estrellas para una orden propia `completed`.
+El contrato completo vive en el `API_CONTRACT.md` del slice 42B.
+
+Rules:
+
+- solo el cliente propietario activo;
+- `Idempotency-Key` obligatorio;
+- una calificacion por orden;
+- una disputa debe estar cerrada;
+- sin comentarios ni campos extra;
+- insercion y recalculo de reputacion ocurren en una sola operacion segura;
+- la respuesta publica no expone controles internos.
+
+Errores:
+
+- UNAUTHENTICATED
+- FORBIDDEN
+- IDEMPOTENCY_KEY_REQUIRED
+- IDEMPOTENCY_PAYLOAD_MISMATCH
+- ORDER_NOT_FOUND
+- RATING_NOT_ALLOWED
+- RATING_ALREADY_EXISTS
 - VALIDATION_ERROR
 
 ## GET /api/v1/orders/{id}

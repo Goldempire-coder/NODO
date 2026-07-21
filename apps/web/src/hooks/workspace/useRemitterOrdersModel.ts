@@ -2,8 +2,8 @@
 
 import { useRef } from "react";
 import type { AuthenticatedRequest } from "../../api/client";
-import { cancelRemitterOrder, createRemitterOrder, extendPaymentDeadline, getOrder, listMyOrders } from "../../api/orders";
-import type { OrderSummary } from "../../types/orders";
+import { cancelRemitterOrder, createRemitterOrder, extendPaymentDeadline, getOrder, listMyOrders, submitOrderRating } from "../../api/orders";
+import type { OrderRatingResult, OrderSummary } from "../../types/orders";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
@@ -20,6 +20,9 @@ type RemitterOrdersState = Pick<
   | "setOpeningOrderId"
   | "setExtendingOrderId"
   | "setCancellingOrderId"
+  | "selectedRatingStars"
+  | "setSelectedRatingStars"
+  | "setSubmittingRatingOrderId"
   | "setView"
 >;
 
@@ -35,7 +38,10 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     setMyOrders,
     setNotice,
     setOpeningOrderId,
+    selectedRatingStars,
+    setSelectedRatingStars,
     setSelectedOrder,
+    setSubmittingRatingOrderId,
     setView
   } = state;
   const ordersCacheRef = useRef<{ items: OrderSummary[]; loadedAt: number } | null>(null);
@@ -119,6 +125,7 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     const optimisticOrder = ordersCacheRef.current?.items.find((order) => order.id === orderId);
     if (optimisticOrder) {
       setSelectedOrder(optimisticOrder);
+      setSelectedRatingStars(optimisticOrder.rating?.stars || 0);
       setView("order-summary");
       setNotice("");
     } else {
@@ -127,6 +134,7 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     try {
       const data = await getOrder<{ order: OrderSummary }>(request, orderId);
       setSelectedOrder(data.order);
+      setSelectedRatingStars(data.order.rating?.stars || 0);
       rememberOrder(data.order);
       setView("order-summary");
       setNotice("");
@@ -181,6 +189,41 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     }
   }
 
+  async function submitRating(orderId: string) {
+    if (selectedRatingStars < 1 || selectedRatingStars > 5) {
+      setNotice("Selecciona de 1 a 5 estrellas.");
+      return;
+    }
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_order_rating_submit", "order-summary");
+    setSubmittingRatingOrderId(orderId);
+    const idempotencyScope = `order_rating_${orderId}`;
+    try {
+      const data = await submitOrderRating<OrderRatingResult>(
+        request,
+        orderId,
+        selectedRatingStars,
+        getIdempotencyKey(idempotencyScope, { orderId, stars: selectedRatingStars })
+      );
+      clearIdempotencyKey(idempotencyScope);
+      const updatedRating = { can_rate: false, already_rated: true, stars: data.rating.stars };
+      setSelectedOrder((current) => {
+        if (!current || current.id !== orderId) {
+          return current;
+        }
+        return { ...current, rating: updatedRating };
+      });
+      setSelectedRatingStars(data.rating.stars);
+      setNotice("Calificacion enviada.");
+      recordActionCompleted("client_order_rating_submit", "order-summary", startedAt);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No logramos enviar la calificacion.");
+      recordActionFailed("client_order_rating_submit", "order-summary", startedAt, error instanceof Error ? error.name : undefined);
+    } finally {
+      setSubmittingRatingOrderId(null);
+    }
+  }
+
   async function prefetchMyOrders() {
     const cached = ordersCacheRef.current;
     if (cached && Date.now() - cached.loadedAt < 30_000) {
@@ -195,5 +238,5 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     }
   }
 
-  return { createOrder, loadMyOrders, openOrderDetail, extendOrder, cancelOrder, prefetchMyOrders };
+  return { createOrder, loadMyOrders, openOrderDetail, extendOrder, cancelOrder, submitRating, prefetchMyOrders };
 }

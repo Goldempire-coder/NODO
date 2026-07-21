@@ -28,6 +28,7 @@ class OrderRemitterOps:
         rate_limit: Callable[[str, UserRecord], None],
         materialize_order_expiration: Callable[..., Any],
         return_or_expire_ad: Callable[..., None],
+        rating_ops,
     ) -> None:  # type: ignore[no-untyped-def]
         self._repository = repository
         self._ads = ad_repository
@@ -36,6 +37,7 @@ class OrderRemitterOps:
         self._rate_limit = rate_limit
         self._materialize_order_expiration = materialize_order_expiration
         self._return_or_expire_ad = return_or_expire_ad
+        self._rating_ops = rating_ops
 
     def detail(self, *, user: UserRecord, order_id: str, request_id: str) -> dict[str, Any]:
         require_remitter(user)
@@ -46,7 +48,9 @@ class OrderRemitterOps:
             raise ApiError("ORDER_NOT_FOUND", status_code=404)
         require_order_owner(user, order)
         order = self._materialize_order_expiration(order, actor=user, request_id=request_id)
-        return {"order": public_order_payload(order), "disclaimer": ORDER_DISCLAIMER}
+        payload = public_order_payload(order)
+        payload["rating"] = self._rating_ops.state(order_id=order.id, user_id=user.id)
+        return {"order": payload, "disclaimer": ORDER_DISCLAIMER}
 
     def mine(self, *, user: UserRecord, status: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         require_remitter(user)

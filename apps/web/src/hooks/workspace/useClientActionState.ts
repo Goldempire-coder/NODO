@@ -20,6 +20,7 @@ export function useClientActionState() {
   const [uploadingChatAttachment, setUploadingChatAttachment] = useState(false);
   const [sendingChatMessage, setSendingChatMessage] = useState(false);
   const [openingOrderDispute, setOpeningOrderDispute] = useState(false);
+  const [submittingRatingOrderId, setSubmittingRatingOrderId] = useState<string | null>(null);
 
   return {
     busy,
@@ -55,6 +56,8 @@ export function useClientActionState() {
     sendingChatMessage,
     setSendingChatMessage,
     openingOrderDispute,
-    setOpeningOrderDispute
+    setOpeningOrderDispute,
+    submittingRatingOrderId,
+    setSubmittingRatingOrderId
   };
 }

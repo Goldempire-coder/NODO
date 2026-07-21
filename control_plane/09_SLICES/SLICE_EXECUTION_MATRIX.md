@@ -132,3 +132,9 @@ No se permite declarar un slice listo sin revisar lineas exactas.
 | Orden | Slice | Objetivo | Dependencias | Estado contractual |
 |---|---|---|---|---|
 | 42A | slice_42A_business_reputation_foundation | Contrato, modelo reconstruible, DTOs por audiencia y privacidad de reputacion; sin UI ni escritura funcional de ratings | 03,04,06,07,09 | BUILD_APPROVED_SLICE_A |
+
+## Slice 42B
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 42B | slice_42B_order_ratings | Rating post-orden 1..5 backend-authoritative, un rating por orden completada, recalculo transaccional y UI minima cliente | 42A,04,07,37 | READY_FOR_OWNER_REVIEW |

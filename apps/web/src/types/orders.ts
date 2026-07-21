@@ -26,6 +26,30 @@ export type OrderSummary = {
   expires_at: string;
   cancel_reason?: string | null;
   can_view_payment_instructions: boolean;
+  rating?: {
+    can_rate: boolean;
+    already_rated: boolean;
+    stars: number | null;
+  };
+};
+
+export type OrderRatingResult = {
+  rating: {
+    id: string;
+    order_id: string;
+    business_id: string;
+    stars: number;
+    created_at: string;
+  };
+  business_reputation: {
+    tier: "new" | "active" | "reliable" | "elite";
+    label: string;
+    rating_avg: string | null;
+    ratings_count: number;
+    completed_orders_count: number;
+    success_rate: string | null;
+    average_delivery_seconds: number | null;
+  };
 };
 
 export type OrderFormState = {

@@ -31,6 +31,9 @@ export type RemitterScreensModel = {
   openingOrderId: string | null;
   extendingOrderId: string | null;
   cancellingOrderId: string | null;
+  selectedRatingStars: number;
+  setSelectedRatingStars: Dispatch<SetStateAction<number>>;
+  submittingRatingOrderId: string | null;
   orderForm: OrderFormState;
   setOrderForm: Dispatch<SetStateAction<OrderFormState>>;
   paymentInstructions: PaymentInstructions | null;
@@ -52,6 +55,7 @@ export type RemitterScreensModel = {
   submitPaymentReport: () => void | Promise<void>;
   extendOrder: (orderId: string) => void | Promise<void>;
   cancelOrder: (orderId: string) => void | Promise<void>;
+  submitOrderRating: (orderId: string) => void | Promise<void>;
   openOrderChat: (orderId: string) => void | Promise<void>;
 };
 

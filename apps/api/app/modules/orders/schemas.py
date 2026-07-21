@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from pydantic import Field, model_validator
+from pydantic import Field, StrictInt, model_validator
 
 from app.shared.validation import ResourceId, StrictRequestModel
 
@@ -22,6 +22,10 @@ class OrderCreateRequest(StrictRequestModel):
 
 class OrderActionRequest(StrictRequestModel):
     reason: str | None = Field(default=None, max_length=500)
+
+
+class OrderRatingRequest(StrictRequestModel):
+    stars: StrictInt = Field(ge=1, le=5)
 
 
 class PaymentReportRequest(StrictRequestModel):

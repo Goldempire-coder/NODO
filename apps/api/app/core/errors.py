@@ -72,6 +72,8 @@ ERROR_MESSAGES = {
     "ORDER_NOT_FOUND": "No encontramos la orden solicitada.",
     "ORDER_NOT_OWNED": "No encontramos la orden solicitada.",
     "ORDER_STATUS_INVALID": "El estado de la orden no permite esta accion.",
+    "RATING_NOT_ALLOWED": "Esta orden no se puede calificar en su estado actual.",
+    "RATING_ALREADY_EXISTS": "Esta orden ya fue calificada.",
     "ORDER_EXPIRED": "La orden expiro antes de completar esta accion.",
     "ORDER_EXTENSION_ALREADY_USED": "Ya usaste la extension permitida para esta orden.",
     "ORDER_PAYMENT_ALREADY_REPORTED": "La orden ya tiene pago reportado.",

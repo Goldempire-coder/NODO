@@ -27,6 +27,7 @@ export function useClientWorkspaceState(user: PublicUser) {
   const [searchResults, setSearchResults] = useState<AdSummary[]>([]);
   const [selectedAd, setSelectedAd] = useState<AdSummary | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
+  const [selectedRatingStars, setSelectedRatingStars] = useState(0);
   const [myOrders, setMyOrders] = useState<OrderSummary[]>([]);
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -95,6 +96,8 @@ export function useClientWorkspaceState(user: PublicUser) {
     setSendingChatMessage: actions.setSendingChatMessage,
     openingOrderDispute: actions.openingOrderDispute,
     setOpeningOrderDispute: actions.setOpeningOrderDispute,
+    submittingRatingOrderId: actions.submittingRatingOrderId,
+    setSubmittingRatingOrderId: actions.setSubmittingRatingOrderId,
     searchForm,
     setSearchForm,
     searchResults,
@@ -103,6 +106,8 @@ export function useClientWorkspaceState(user: PublicUser) {
     setSelectedAd,
     selectedOrder,
     setSelectedOrder,
+    selectedRatingStars,
+    setSelectedRatingStars,
     myOrders,
     setMyOrders,
     chatOrderId,

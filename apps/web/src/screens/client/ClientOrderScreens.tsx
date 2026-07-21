@@ -24,7 +24,11 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
     orderForm,
     selectedAd,
     selectedOrder,
+    selectedRatingStars,
     setOrderForm,
+    setSelectedRatingStars,
+    submitOrderRating,
+    submittingRatingOrderId,
     view
   } = model;
 
@@ -96,6 +100,38 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
                   {openingChatOrderId === selectedOrder.id ? "Abriendo..." : "Chat"}
                 </Button>
               </div>
+              {selectedOrder.rating?.already_rated ? (
+                <div className="business-grid" aria-label="Calificacion enviada">
+                  <Text className="business-card__label">Calificacion del negocio</Text>
+                  <Text>{selectedOrder.rating.stars} de 5 estrellas</Text>
+                </div>
+              ) : selectedOrder.rating?.can_rate ? (
+                <div className="business-grid" aria-label="Calificar negocio">
+                  <Text className="business-card__label">Calificar negocio</Text>
+                  <div className="business-shell__tabs" role="group" aria-label="Selecciona de 1 a 5 estrellas">
+                    {[1, 2, 3, 4, 5].map((stars) => (
+                      <Button
+                        key={stars}
+                        mode={selectedRatingStars === stars ? "filled" : "outline"}
+                        size="s"
+                        disabled={submittingRatingOrderId === selectedOrder.id}
+                        aria-label={`${stars} estrella${stars === 1 ? "" : "s"}`}
+                        onClick={() => setSelectedRatingStars(stars)}
+                      >
+                        {stars}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button
+                    mode="filled"
+                    stretched
+                    disabled={submittingRatingOrderId === selectedOrder.id || selectedRatingStars < 1}
+                    onClick={() => void submitOrderRating(selectedOrder.id)}
+                  >
+                    {submittingRatingOrderId === selectedOrder.id ? "Enviando..." : "Enviar calificacion"}
+                  </Button>
+                </div>
+              ) : null}
             </>
           ) : (
             <Text>No hay una orden seleccionada.</Text>

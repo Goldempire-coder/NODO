@@ -6,8 +6,9 @@ from app.core.config import Settings
 from app.modules.orders.business_ops import OrderBusinessOps
 from app.modules.orders.create_order_flow import OrderCreateFlow
 from app.modules.orders.payment_flow import OrderPaymentFlow
+from app.modules.orders.rating_ops import OrderRatingOps
 from app.modules.orders.remitter_ops import OrderRemitterOps
-from app.modules.orders.schemas import OrderActionRequest, OrderCreateRequest, PaymentReportRequest
+from app.modules.orders.schemas import OrderActionRequest, OrderCreateRequest, OrderRatingRequest, PaymentReportRequest
 from app.modules.orders.service_support import OrderServiceSupportMixin
 from app.modules.users.models import UserRecord
 
@@ -26,6 +27,7 @@ class OrderService(OrderServiceSupportMixin):
         storage=None,
         marketplace_cache=None,
         notification_service=None,
+        rating_repository=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
@@ -37,6 +39,13 @@ class OrderService(OrderServiceSupportMixin):
         self._storage = storage
         self._marketplace_cache = marketplace_cache
         self._notification_service = notification_service
+        self._rating_ops = OrderRatingOps(
+            repository=self._repository,
+            rating_repository=rating_repository,
+            audit_writer=self._audit,
+            idempotency_store=self._idempotency,
+            rate_limit=self._rate_limit,
+        )
         self._create_flow = OrderCreateFlow(
             repository=self._repository,
             ad_repository=self._ads,
@@ -68,6 +77,7 @@ class OrderService(OrderServiceSupportMixin):
             rate_limit=self._rate_limit,
             materialize_order_expiration=self._materialize_order_expiration,
             return_or_expire_ad=self._return_or_expire_ad,
+            rating_ops=self._rating_ops,
         )
         self._payment_flow = OrderPaymentFlow(
             repository=self._repository,
@@ -92,6 +102,9 @@ class OrderService(OrderServiceSupportMixin):
 
     def cancel(self, *, user: UserRecord, order_id: str, payload: OrderActionRequest | None, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         return self._remitter_ops.cancel(user=user, order_id=order_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
+
+    def create_rating(self, *, user: UserRecord, order_id: str, payload: OrderRatingRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        return self._rating_ops.create(user=user, order_id=order_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
 
     def payment_instructions(self, *, user: UserRecord, order_id: str, request_id: str) -> dict[str, Any]:
         return self._payment_flow.payment_instructions(user=user, order_id=order_id, request_id=request_id)

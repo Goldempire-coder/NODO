@@ -39,6 +39,7 @@ from app.modules.observability.repository import InMemoryFrontendObservabilityRe
 from app.modules.observability.routes import router as observability_router
 from app.modules.operations import InMemoryEmergencyModeRepository, PostgresEmergencyModeRepository
 from app.modules.orders.repository import InMemoryOrderRepository, PostgresOrderRepository
+from app.modules.orders.ratings_repository import InMemoryOrderRatingRepository, PostgresOrderRatingRepository
 from app.modules.orders.routes import router as orders_router
 from app.modules.support.repository import InMemorySupportRepository, PostgresSupportRepository
 from app.modules.support.routes import router as support_router
@@ -209,6 +210,11 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.support_repository = InMemorySupportRepository()
     app.state.credit_repository = InMemoryCreditRepository(app.state.ad_repository, app.state.business_repository)
     app.state.dispute_repository = InMemoryDisputeRepository()
+    app.state.rating_repository = InMemoryOrderRatingRepository(
+        order_repository=app.state.order_repository,
+        business_repository=app.state.business_repository,
+        dispute_repository=app.state.dispute_repository,
+    )
     app.state.job_repository = InMemoryJobRepository()
     app.state.admin_notification_repository = InMemoryAdminNotificationRepository()
     app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)
@@ -246,6 +252,7 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.support_repository = PostgresSupportRepository(settings.database_url)
     app.state.credit_repository = PostgresCreditRepository(settings.database_url)
     app.state.dispute_repository = PostgresDisputeRepository(settings.database_url)
+    app.state.rating_repository = PostgresOrderRatingRepository(settings.database_url)
     app.state.job_repository = PostgresJobRepository(settings.database_url)
     app.state.admin_notification_repository = PostgresAdminNotificationRepository(settings.database_url)
     app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)

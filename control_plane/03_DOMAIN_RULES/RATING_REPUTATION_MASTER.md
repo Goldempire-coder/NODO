@@ -1,6 +1,6 @@
 # RATING_REPUTATION_MASTER.md
 
-Estado: `OFFICIAL_SLICE_42A_FOUNDATION`
+Estado: `OFFICIAL_SLICE_42B_RATING_WRITE`
 
 ## Autoridad
 
@@ -24,10 +24,11 @@ contratos API y las pantallas a estas reglas antes de construir UI.
 - Una orden `completed` admite como maximo un rating del cliente propietario.
 - El rating tiene solo `stars` entero entre 1 y 5.
 - No existen comentarios, resenas textuales, titulo ni cuerpo libre en MVP.
-- El backend valida ownership, estado de la orden e idempotencia en el slice que
-  implemente la escritura.
-- Slice 42A crea contrato y persistencia base; no crea endpoint ni pantalla de
-  rating.
+- El backend valida ownership, estado de la orden, disputa cerrada, duplicados e
+  idempotencia.
+- Slice 42B implementa `POST /api/v1/orders/{order_id}/rating` y una UI minima
+  de 1 a 5 estrellas en la Mini App Cliente.
+- Rating y agregados de reputacion se guardan en una sola operacion segura.
 
 ## Metricas canonicas
 

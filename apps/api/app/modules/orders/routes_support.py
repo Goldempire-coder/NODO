@@ -30,4 +30,5 @@ def order_service(request: Request) -> OrderService:
         storage=request.app.state.private_storage,
         marketplace_cache=request.app.state.marketplace_cache,
         notification_service=notifications,
+        rating_repository=request.app.state.rating_repository,
     )

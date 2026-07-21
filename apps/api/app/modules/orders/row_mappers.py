@@ -9,7 +9,7 @@ from psycopg.types.json import Jsonb
 
 from app.modules.ads.models import CreditLedgerRecord
 from app.modules.businesses.models import FileAssetRecord
-from app.modules.orders.models import OrderRecord, OrderStateEventRecord, PaymentReportRecord
+from app.modules.orders.models import OrderRecord, OrderStateEventRecord, PaymentReportRecord, RatingRecord
 
 
 def decimal_from_row_value(value: object) -> Decimal:
@@ -114,6 +114,17 @@ def payment_report_from_row(row) -> PaymentReportRecord:  # type: ignore[no-unty
         admin_notes=row["admin_notes"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+    )
+
+
+def rating_from_row(row) -> RatingRecord:  # type: ignore[no-untyped-def]
+    return RatingRecord(
+        id=str(row["id"]),
+        order_id=str(row["order_id"]),
+        business_id=str(row["business_id"]),
+        rater_user_id=str(row["rater_user_id"]),
+        stars=int(row["stars"]),
+        created_at=row["created_at"],
     )
 
 
