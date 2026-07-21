@@ -16,9 +16,10 @@ import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 
 const BASE_USDC_CREDIT_NOTICE = "Asegurate de usar la red Base para comprar tus creditos.";
-const BASE_USDC_PENDING_PURCHASE_KEY = "nodo_base_usdc_pending_purchase_id";
+const BASE_USDC_PENDING_PURCHASE_LEGACY_KEY = "nodo_base_usdc_pending_purchase_id";
+const BASE_USDC_PENDING_PURCHASE_KEY_PREFIX = "nodo_base_usdc_pending_purchase_id";
 const BASE_USDC_WALLET_MISSING_MESSAGE = "Compra de creditos no disponible todavia. Falta configurar la wallet Base de NODO.";
-const BASE_USDC_PENDING_STATUSES = new Set(["pending_payment", "pending_onchain_confirmation", "detected", "verified", "under_review"]);
+const BASE_USDC_PENDING_STATUSES = new Set(["pending_payment", "pending_onchain_confirmation", "detected", "under_review"]);
 
 function baseUsdcPaymentErrorMessage(error: unknown) {
   if (error instanceof ApiClientError) {
@@ -30,29 +31,57 @@ function baseUsdcPaymentErrorMessage(error: unknown) {
   return "No logramos iniciar el pago en red Base.";
 }
 
-function rememberPendingBaseUsdcPurchase(purchase: CreditPurchase) {
+function pendingBaseUsdcPurchaseStorageKey(businessId: string | null | undefined) {
+  return businessId ? `${BASE_USDC_PENDING_PURCHASE_KEY_PREFIX}:${businessId}` : null;
+}
+
+function isPendingBaseUsdcPurchaseForBusiness(purchase: CreditPurchase, businessId: string | null | undefined) {
+  return Boolean(businessId && purchase.business_id === businessId && BASE_USDC_PENDING_STATUSES.has(purchase.status));
+}
+
+function rememberPendingBaseUsdcPurchase(purchase: CreditPurchase, storageKey: string | null) {
   if (typeof window === "undefined") {
+    return;
+  }
+  const legacyPurchaseId = window.localStorage.getItem(BASE_USDC_PENDING_PURCHASE_LEGACY_KEY);
+  if (legacyPurchaseId === purchase.id) {
+    window.localStorage.removeItem(BASE_USDC_PENDING_PURCHASE_LEGACY_KEY);
+  }
+  if (!storageKey) {
     return;
   }
   if (BASE_USDC_PENDING_STATUSES.has(purchase.status)) {
-    window.localStorage.setItem(BASE_USDC_PENDING_PURCHASE_KEY, purchase.id);
+    window.localStorage.setItem(storageKey, purchase.id);
     return;
   }
-  window.localStorage.removeItem(BASE_USDC_PENDING_PURCHASE_KEY);
+  const rememberedPurchaseId = window.localStorage.getItem(storageKey);
+  if (rememberedPurchaseId === purchase.id) {
+    window.localStorage.removeItem(storageKey);
+  }
 }
 
-function readRememberedBaseUsdcPurchaseId() {
+function readRememberedBaseUsdcPurchaseId(storageKey: string | null) {
   if (typeof window === "undefined") {
     return null;
   }
-  return window.localStorage.getItem(BASE_USDC_PENDING_PURCHASE_KEY);
+  return (storageKey ? window.localStorage.getItem(storageKey) : null) || window.localStorage.getItem(BASE_USDC_PENDING_PURCHASE_LEGACY_KEY);
 }
 
-function clearRememberedBaseUsdcPurchase() {
+function clearRememberedBaseUsdcPurchase(storageKey: string | null, purchaseId?: string | null) {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.removeItem(BASE_USDC_PENDING_PURCHASE_KEY);
+  const legacyPurchaseId = window.localStorage.getItem(BASE_USDC_PENDING_PURCHASE_LEGACY_KEY);
+  if (!purchaseId || legacyPurchaseId === purchaseId) {
+    window.localStorage.removeItem(BASE_USDC_PENDING_PURCHASE_LEGACY_KEY);
+  }
+  if (!storageKey) {
+    return;
+  }
+  const scopedPurchaseId = window.localStorage.getItem(storageKey);
+  if (!purchaseId || scopedPurchaseId === purchaseId) {
+    window.localStorage.removeItem(storageKey);
+  }
 }
 
 export function useBusinessCreditsModel({
@@ -70,14 +99,17 @@ export function useBusinessCreditsModel({
 }) {
   const [creditWallet, setCreditWallet] = useState<CreditWallet | null>(null);
   const [selectedCreditPurchase, setSelectedCreditPurchase] = useState<CreditPurchase | null>(null);
-  const [creditPackage, setCreditPackage] = useState("starter");
+  const [pendingCreditPurchase, setPendingCreditPurchase] = useState<CreditPurchase | null>(null);
+  const [creditPackage, setCreditPackage] = useState<string | null>(null);
   const [baseUsdcTxHash, setBaseUsdcTxHash] = useState("");
   const [referralData, setReferralData] = useState<ReferralData | null>(null);
   const [referralCodeInput, setReferralCodeInput] = useState("");
   const [generatingCreditPayment, setGeneratingCreditPayment] = useState(false);
+  const [loadingPendingPurchase, setLoadingPendingPurchase] = useState(false);
   const [refreshingCreditPurchase, setRefreshingCreditPurchase] = useState(false);
   const [verifyingCreditTx, setVerifyingCreditTx] = useState(false);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
+  const pendingPurchaseStorageKey = pendingBaseUsdcPurchaseStorageKey(business?.id);
 
   const requireBusinessPinFor = useCallback((action: string) => {
     return requireUnlockedBusinessPin({ action, business, setNotice, setView });
@@ -101,25 +133,56 @@ export function useBusinessCreditsModel({
   const openBuyCredits = useCallback(async () => {
     setNotice(BASE_USDC_CREDIT_NOTICE);
     setView("buy-credits");
-    const rememberedPurchaseId = readRememberedBaseUsdcPurchaseId();
+    setPendingCreditPurchase(null);
+    const rememberedPurchaseId = readRememberedBaseUsdcPurchaseId(pendingPurchaseStorageKey);
     if (rememberedPurchaseId) {
-      setBusy(true);
+      setLoadingPendingPurchase(true);
       try {
         const data = await getBusinessCreditPurchase<{ purchase: CreditPurchase }>(request, rememberedPurchaseId);
-        if (BASE_USDC_PENDING_STATUSES.has(data.purchase.status)) {
-          setSelectedCreditPurchase(data.purchase);
-          setView("credit-payment-pending");
-          setNotice("Tienes una compra Base USDC pendiente.");
+        if (isPendingBaseUsdcPurchaseForBusiness(data.purchase, business?.id)) {
+          setPendingCreditPurchase(data.purchase);
+          setNotice("Tienes un pago Base USDC pendiente. Puedes continuarlo cuando quieras.");
           return;
         }
-        clearRememberedBaseUsdcPurchase();
+        setPendingCreditPurchase(null);
+        clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
       } catch {
-        clearRememberedBaseUsdcPurchase();
+        setPendingCreditPurchase(null);
+        clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
       } finally {
-        setBusy(false);
+        setLoadingPendingPurchase(false);
       }
     }
-  }, [request, setBusy, setNotice, setView]);
+  }, [business?.id, pendingPurchaseStorageKey, request, setNotice, setView]);
+
+  const continuePendingBaseUsdcPayment = useCallback(async () => {
+    const rememberedPurchaseId = pendingCreditPurchase?.id || readRememberedBaseUsdcPurchaseId(pendingPurchaseStorageKey);
+    if (!rememberedPurchaseId) {
+      setNotice("No hay un pago Base USDC pendiente.");
+      return;
+    }
+    setLoadingPendingPurchase(true);
+    try {
+      const data = await getBusinessCreditPurchase<{ purchase: CreditPurchase }>(request, rememberedPurchaseId);
+      if (!isPendingBaseUsdcPurchaseForBusiness(data.purchase, business?.id)) {
+        setPendingCreditPurchase(null);
+        clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
+        setNotice("Ese pago ya no esta pendiente.");
+        return;
+      }
+      setSelectedCreditPurchase(data.purchase);
+      setPendingCreditPurchase(data.purchase);
+      rememberPendingBaseUsdcPurchase(data.purchase, pendingPurchaseStorageKey);
+      setView("credit-payment-pending");
+      setNotice("Continua el pago Base USDC pendiente.");
+    } catch (error) {
+      setPendingCreditPurchase(null);
+      clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
+      setNotice(error instanceof Error ? error.message : "No pudimos abrir el pago pendiente.");
+    } finally {
+      setLoadingPendingPurchase(false);
+    }
+  }, [business?.id, pendingCreditPurchase, pendingPurchaseStorageKey, request, setNotice, setView]);
 
   const loadCreditDashboard = useCallback(async () => {
     setView("credits-dashboard");
@@ -136,6 +199,10 @@ export function useBusinessCreditsModel({
   }, [request, setBusy, setNotice, setView]);
 
   const startBaseUsdcPayment = useCallback(async () => {
+    if (!creditPackage) {
+      setNotice("Elige un paquete para generar el pago.");
+      return;
+    }
     const action = "comprar creditos";
     if (!requireBusinessPinFor(action)) {
       return;
@@ -152,8 +219,9 @@ export function useBusinessCreditsModel({
       }>(request, creditPackage, getIdempotencyKey(idempotencyScope, { creditPackage }));
       clearIdempotencyKey(idempotencyScope);
       setSelectedCreditPurchase(data.purchase);
+      setPendingCreditPurchase(data.purchase);
       setBaseUsdcTxHash("");
-      rememberPendingBaseUsdcPurchase(data.purchase);
+      rememberPendingBaseUsdcPurchase(data.purchase, pendingPurchaseStorageKey);
       setView("credit-payment-pending");
       setNotice(`Pago creado: envia ${data.payment.expected_amount_display || data.purchase.price_usd} USDC en red Base y luego pega el tx hash.`);
       recordBusinessActionCompleted("credit_payment_create", "buy-credits", startedAt);
@@ -167,7 +235,7 @@ export function useBusinessCreditsModel({
     } finally {
       setGeneratingCreditPayment(false);
     }
-  }, [clearIdempotencyKey, creditPackage, getIdempotencyKey, handleBusinessPinError, request, requireBusinessPinFor, setNotice, setView]);
+  }, [clearIdempotencyKey, creditPackage, getIdempotencyKey, handleBusinessPinError, pendingPurchaseStorageKey, request, requireBusinessPinFor, setNotice, setView]);
 
   const refreshSelectedCreditPurchase = useCallback(async () => {
     if (!selectedCreditPurchase) {
@@ -177,14 +245,18 @@ export function useBusinessCreditsModel({
     try {
       const data = await getBusinessCreditPurchase<{ purchase: CreditPurchase }>(request, selectedCreditPurchase.id);
       setSelectedCreditPurchase(data.purchase);
-      rememberPendingBaseUsdcPurchase(data.purchase);
+      setPendingCreditPurchase(BASE_USDC_PENDING_STATUSES.has(data.purchase.status) ? data.purchase : null);
+      rememberPendingBaseUsdcPurchase(data.purchase, pendingPurchaseStorageKey);
+      if (data.purchase.status === "credited") {
+        await refreshCreditWallet();
+      }
       setNotice("Estado de compra actualizado.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos actualizar la compra.");
     } finally {
       setRefreshingCreditPurchase(false);
     }
-  }, [request, selectedCreditPurchase, setNotice]);
+  }, [pendingPurchaseStorageKey, refreshCreditWallet, request, selectedCreditPurchase, setNotice]);
 
   const submitBaseUsdcTxHash = useCallback(async () => {
     if (!selectedCreditPurchase || !baseUsdcTxHash.trim()) {
@@ -208,7 +280,8 @@ export function useBusinessCreditsModel({
       );
       clearIdempotencyKey(idempotencyScope);
       setSelectedCreditPurchase(data.purchase);
-      rememberPendingBaseUsdcPurchase(data.purchase);
+      setPendingCreditPurchase(BASE_USDC_PENDING_STATUSES.has(data.purchase.status) ? data.purchase : null);
+      rememberPendingBaseUsdcPurchase(data.purchase, pendingPurchaseStorageKey);
       if (data.credited) {
         await refreshCreditWallet();
       }
@@ -224,7 +297,7 @@ export function useBusinessCreditsModel({
     } finally {
       setVerifyingCreditTx(false);
     }
-  }, [baseUsdcTxHash, clearIdempotencyKey, getIdempotencyKey, handleBusinessPinError, refreshCreditWallet, request, requireBusinessPinFor, selectedCreditPurchase, setNotice]);
+  }, [baseUsdcTxHash, clearIdempotencyKey, getIdempotencyKey, handleBusinessPinError, pendingPurchaseStorageKey, refreshCreditWallet, request, requireBusinessPinFor, selectedCreditPurchase, setNotice]);
 
   const loadReferrals = useCallback(async () => {
     setView("referrals");
@@ -259,9 +332,11 @@ export function useBusinessCreditsModel({
   return {
     applyReferral,
     baseUsdcTxHash,
+    continuePendingBaseUsdcPayment,
     creditPackage,
     creditWallet,
     generatingCreditPayment,
+    loadingPendingPurchase,
     loadCreditDashboard,
     loadReferrals,
     openBuyCredits,
@@ -270,6 +345,7 @@ export function useBusinessCreditsModel({
     refreshCreditWallet,
     refreshingCreditPurchase,
     refreshSelectedCreditPurchase,
+    pendingCreditPurchase,
     selectedCreditPurchase,
     setBaseUsdcTxHash,
     setCreditPackage,

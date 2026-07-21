@@ -667,6 +667,47 @@ def test_base_usdc_wrong_chain_token_wallet_partial_and_pending_confirmations() 
     assert pending_response.json()["data"]["purchase"]["status"] == "pending_onchain_confirmation"
 
 
+def test_base_usdc_pending_tx_is_credited_later_by_watcher() -> None:
+    client = _client()
+    owner = _login(client, 981, "base_pending_then_auto_credit")
+    business = _create_business(client, owner, "base_pending_then_auto_credit")
+
+    payment = _base_payment(client, owner, key="base_pending_then_auto_credit")
+    purchase_id = payment["purchase"]["id"]
+    tx_hash = _tx_hash("pending-then-auto-credit")
+    client.app.state.onchain_credit_verifier.set_result(
+        tx_hash,
+        _verification(tx_hash, confirmations=1, status="pending_onchain_confirmation", log_index=31),
+    )
+    submitted = client.post(
+        f"/api/v1/business/credits/purchases/{purchase_id}/tx-hash",
+        headers={**_headers(owner, "base_pending_submit"), "Content-Type": "application/json"},
+        json={"tx_hash": tx_hash},
+    )
+
+    assert submitted.status_code == 200, submitted.text
+    assert submitted.json()["data"]["credited"] is False
+    assert submitted.json()["data"]["purchase"]["status"] == "pending_onchain_confirmation"
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 0
+
+    client.app.state.onchain_credit_verifier.set_result(
+        tx_hash,
+        _verification(tx_hash, confirmations=6, status="verified", log_index=31),
+    )
+    watcher_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(request_id="req_auto_credit_later")
+
+    assert watcher_result["credited"] == 1
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 5
+    purchase = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert purchase.status == "credited"
+    purchase_ledgers = [
+        item
+        for item in client.app.state.ad_repository.ledger.values()
+        if item.type == "purchase" and item.related_credit_purchase_id == purchase_id
+    ]
+    assert len(purchase_ledgers) == 1
+
+
 def test_admin_detail_and_reject_onchain_under_review_requires_admin_reason() -> None:
     client = _client()
     owner = _login(client, 974, "base_admin_owner")
@@ -818,7 +859,7 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "mini-action-button--copied" in source
     assert "setCopiedTarget(\"wallet\")" in source
     assert "setCopiedTarget(\"amount\")" in source
-    assert "Envia solo USDC por red Base." in source
+    assert "NODO acredita automaticamente cuando la tx confirma en Base." in source
     assert "Compra de creditos no disponible todavia. Falta configurar la wallet Base de NODO." in hook_source
     assert 'const action = "comprar creditos"' in hook_source
     assert "requireBusinessPinFor(action)" in hook_source
@@ -827,12 +868,29 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "useBusinessCreditsModel({ business: access.business" in model_source
     assert "startBusinessBaseUsdcPayment" in hook_source
     assert "submitBusinessBaseUsdcTxHash" in hook_source
-    assert "localStorage.setItem(BASE_USDC_PENDING_PURCHASE_KEY" in hook_source
+    assert "localStorage.setItem(storageKey, purchase.id)" in hook_source
     assert "Fallback tarjeta" not in source
     assert "Metodo manual" not in source
     assert "Zelle manual" not in source
     assert "USDT TRC20 manual" not in source
     assert "Comprobante privado" not in source
+
+
+def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_choice() -> None:
+    source = open("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx", encoding="utf-8").read()
+    hook_source = open("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts", encoding="utf-8").read()
+    open_buy_source = hook_source.split("const openBuyCredits = useCallback", 1)[1].split("const continuePendingBaseUsdcPayment", 1)[0]
+
+    assert "pendingCreditPurchase" in hook_source
+    assert "loadingPendingPurchase" in hook_source
+    assert "continuePendingBaseUsdcPayment" in hook_source
+    assert "pendingBaseUsdcPurchaseStorageKey(business?.id)" in hook_source
+    assert "BASE_USDC_PENDING_PURCHASE_LEGACY_KEY" in hook_source
+    assert 'setView("credit-payment-pending")' not in open_buy_source
+    assert "Tienes un pago pendiente" in source
+    assert "Continuar pago pendiente" in source
+    assert "Elige un paquete para generar el pago." in source
+    assert "disabled={generatingCreditPayment || !creditPackage}" in source
 
 
 def test_postgres_onchain_duplicate_tx_log_path_is_atomic() -> None:

@@ -10,8 +10,8 @@ const CREDIT_PACKAGES = [
   { code: "enterprise", name: "Enterprise", credits: 200, price: "250.00", hint: "Alto volumen." }
 ];
 
-function packageLabel(packageCode: string) {
-  return CREDIT_PACKAGES.find((item) => item.code === packageCode) || CREDIT_PACKAGES[0];
+function packageLabel(packageCode: string | null | undefined) {
+  return CREDIT_PACKAGES.find((item) => item.code === packageCode) || null;
 }
 
 function shortWallet(value: string | null | undefined) {
@@ -83,8 +83,11 @@ export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel 
 
 export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
+    continuePendingBaseUsdcPayment,
     creditPackage,
     generatingCreditPayment,
+    loadingPendingPurchase,
+    pendingCreditPurchase,
     setCreditPackage,
     startBaseUsdcPayment
   } = model;
@@ -93,6 +96,27 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
     <div className="business-card">
       <Text className="business-card__label">Comprar creditos</Text>
       <Title level="3" className="business-shell__title">Elige un paquete</Title>
+      {pendingCreditPurchase ? (
+        <div className="business-status-panel" role="status">
+          <div>
+            <span className="status-dot" aria-hidden="true" />
+            <div>
+              <strong>Tienes un pago pendiente</strong>
+              <Text>
+                {packageLabel(pendingCreditPurchase.package_code)?.name || pendingCreditPurchase.package_code}: {pendingCreditPurchase.price_usd} USDC
+              </Text>
+              <small>Continualo solo si ya enviaste o vas a enviar ese pago.</small>
+            </div>
+          </div>
+          <button className="mini-action-button" type="button" disabled={loadingPendingPurchase} onClick={() => void continuePendingBaseUsdcPayment()}>
+            {loadingPendingPurchase ? "Cargando..." : "Continuar pago pendiente"}
+          </button>
+        </div>
+      ) : loadingPendingPurchase ? (
+        <div className="business-status-panel" role="status">
+          <Text>Revisando pagos pendientes...</Text>
+        </div>
+      ) : null}
       <div className="credit-package-grid">
         {CREDIT_PACKAGES.map((item) => (
           <button
@@ -112,19 +136,29 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
         <div>
           <span className="status-dot" aria-hidden="true" />
           <div>
-            <strong>{selected.name}: {selected.price} USDC</strong>
-            <Text>{selected.credits} creditos</Text>
-            <small>Pago en USDC sobre red Base.</small>
+            {selected ? (
+              <>
+                <strong>{selected.name}: {selected.price} USDC</strong>
+                <Text>{selected.credits} creditos</Text>
+                <small>Pago en USDC sobre red Base.</small>
+              </>
+            ) : (
+              <>
+                <strong>Selecciona un paquete</strong>
+                <Text>Elige un paquete para generar el pago.</Text>
+                <small>NODO acreditara automaticamente cuando la tx confirme en Base.</small>
+              </>
+            )}
           </div>
         </div>
       </div>
       <button
         className="mini-action-button mini-action-button--filled mini-action-button--full"
         type="button"
-        disabled={generatingCreditPayment}
+        disabled={generatingCreditPayment || !creditPackage}
         onClick={() => void startBaseUsdcPayment()}
       >
-        {generatingCreditPayment ? "Generando..." : "Generar datos de pago"}
+        {generatingCreditPayment ? "Generando..." : creditPackage ? "Generar datos de pago" : "Elige un paquete"}
       </button>
     </div>
   );
@@ -187,7 +221,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
               <div>
                 <strong>{selected?.name || selectedCreditPurchase.package_code}: {selectedCreditPurchase.credits_amount} creditos</strong>
                 <Text>Monto exacto: {selectedCreditPurchase.price_usd} USDC</Text>
-                <small>Envia solo USDC por red Base.</small>
+                <small>NODO acredita automaticamente cuando la tx confirma en Base.</small>
               </div>
             </div>
           </div>
