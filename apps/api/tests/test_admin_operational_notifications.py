@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from psycopg.types.json import Jsonb
 
 from app.modules.credits.onchain import OnchainVerificationResult
 
@@ -56,6 +57,7 @@ _set_env()
 from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.support.postgres_repository import PostgresSupportRepository  # noqa: E402
 from app.routes.telegram_bot import telegram_webhook_secret  # noqa: E402
 
 
@@ -84,6 +86,60 @@ def _client(**env_overrides: str) -> TestClient:
     client.app.state.onchain_credit_verifier = FakeBaseUsdcVerifier()
     client.app.state.verify_base_usdc_credit_purchases_worker._verifier = client.app.state.onchain_credit_verifier
     return client
+
+
+def test_postgres_support_events_adapt_metadata_as_jsonb(monkeypatch) -> None:
+    event_id = str(uuid4())
+    ticket_id = str(uuid4())
+    user_id = str(uuid4())
+    metadata = {"scope": "business_general", "category": "technical_issue"}
+    captured: dict = {}
+
+    class FakeCursor:
+        def fetchone(self) -> dict:
+            return {
+                "id": event_id,
+                "ticket_id": ticket_id,
+                "actor_user_id": user_id,
+                "actor_role": "business_owner",
+                "event_type": "support_ticket_created",
+                "from_status": None,
+                "to_status": "open",
+                "reason": None,
+                "metadata_json": metadata,
+                "created_at": utc_now(),
+            }
+
+    class FakeConnection:
+        def execute(self, sql: str, params: tuple) -> FakeCursor:
+            captured["params"] = params
+            return FakeCursor()
+
+        def commit(self) -> None:
+            captured["committed"] = True
+
+    class FakeConnectionContext:
+        def __enter__(self) -> FakeConnection:
+            return FakeConnection()
+
+        def __exit__(self, exc_type, exc, traceback) -> None:
+            return None
+
+    repository = PostgresSupportRepository("postgresql://unused")
+    monkeypatch.setattr(repository, "_connect", lambda: FakeConnectionContext())
+
+    repository.create_event(
+        ticket_id=ticket_id,
+        actor_user_id=user_id,
+        actor_role="business_owner",
+        event_type="support_ticket_created",
+        to_status="open",
+        metadata_json=metadata,
+    )
+
+    assert isinstance(captured["params"][-1], Jsonb)
+    assert captured["params"][-1].obj == metadata
+    assert captured["committed"] is True
 
 
 def _signed_init_data(telegram_id: int, username: str) -> str:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from psycopg.types.json import Jsonb
+
 from app.modules.businesses.models import FileAssetRecord
 from app.modules.support.models import SupportMessageRecord, SupportTicketEventRecord, SupportTicketRecord
 from app.modules.support.row_mappers import event_from_row, file_from_row, message_from_row, ticket_from_row
@@ -127,7 +129,7 @@ class PostgresSupportRepository:
                 values (%s, %s, %s, %s, %s, %s, %s, %s, now())
                 returning *
                 """,
-                (ticket_id, actor_user_id, actor_role, event_type, from_status, to_status, reason, metadata_json or {}),
+                (ticket_id, actor_user_id, actor_role, event_type, from_status, to_status, reason, Jsonb(metadata_json or {})),
             ).fetchone()
             conn.commit()
         return event_from_row(row)
