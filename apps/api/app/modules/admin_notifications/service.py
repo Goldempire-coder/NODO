@@ -80,7 +80,7 @@ class AdminNotificationService:
                 "resource_id": notification.resource_id,
                 "business_id": notification.business_id,
                 "priority": notification.priority,
-                "created": created,
+                "notification_created": created,
                 "request_id": request_id,
             },
         )

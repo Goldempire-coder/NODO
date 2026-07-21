@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
 from datetime import timedelta
@@ -55,6 +56,8 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.admin_notifications.memory_repository import InMemoryAdminNotificationRepository  # noqa: E402
+from app.modules.admin_notifications.service import AdminNotificationService  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.support.postgres_repository import PostgresSupportRepository  # noqa: E402
@@ -140,6 +143,30 @@ def test_postgres_support_events_adapt_metadata_as_jsonb(monkeypatch) -> None:
     assert isinstance(captured["params"][-1], Jsonb)
     assert captured["params"][-1].obj == metadata
     assert captured["committed"] is True
+
+
+def test_admin_notification_enqueue_logging_avoids_reserved_fields(caplog) -> None:
+    service = AdminNotificationService(repository=InMemoryAdminNotificationRepository())
+    caplog.set_level(logging.INFO, logger="app.modules.admin_notifications.service")
+
+    notification, created = service.enqueue(
+        notification_type="business_support_ticket_created",
+        priority="attention",
+        source_surface="business_mini_app",
+        resource_type="support_ticket",
+        resource_id=str(uuid4()),
+        title="Nuevo ticket de negocio",
+        summary="Nuevo ticket de negocio requiere revision.",
+        action_route="admin://support-ticket/test",
+        dedupe_key=f"support_ticket:{uuid4()}:business_created",
+        metadata={"scope": "business_general"},
+        request_id="req_support_notification_logging",
+    )
+
+    assert created is True
+    assert notification.status == "unread"
+    record = next(record for record in caplog.records if record.getMessage() == "admin_notification_enqueued")
+    assert record.notification_created is True
 
 
 def _signed_init_data(telegram_id: int, username: str) -> str:
