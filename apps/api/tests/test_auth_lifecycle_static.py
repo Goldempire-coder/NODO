@@ -329,9 +329,9 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "uploadingChatAttachment" in _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
     assert "creatingSupportTicket" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "sendingSupportReply" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
-    assert "buildOptimisticSupportMessage" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "applySupportMessageResult" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
-    assert "No pudimos confirmar el envio. Actualiza la conversacion antes de reenviar." in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert "sendingReplyLockRef.current" in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert "No pudimos enviar el mensaje. Tu texto sigue listo para reintentar." in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert 'initialScope: "business_general"' in business_model
     assert 'initialScope = "client_general"' in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert 'const [supportFilter, setSupportFilter] = useState<SupportTicketListFilter>("active")' in _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
@@ -362,14 +362,13 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "business-support-message--mine" in support_screen
     assert "supportSenderLabel" in support_screen
     assert '"Soporte NODO"' in support_screen
-    assert "Conversacion con soporte" in support_screen
     assert "Nueva conversacion" in support_screen
     assert "Archivadas" in support_screen
     assert "No tienes conversaciones archivadas." in support_screen
-    assert "Esta conversacion esta archivada." in support_screen
-    assert "}, [loadSupportTickets, supportFilter]);" in support_screen
+    assert "Conversacion archivada" in support_screen
+    assert "}, [loadSupportTickets]);" in support_screen
     assert "}, [refreshSupportWorkspace]);" in support_screen
-    assert "}, [loadSupportTickets, refreshSupportWorkspace, supportFilter]);" not in support_screen
+    assert "}, [loadSupportTickets, supportFilter]);" not in support_screen
     assert 'setView("business-orders");\n    setBusy(true);' in orders_model
     assert "/api/v1/surface/session" in surface_api
     assert "/api/v1/businesses/me" not in business_model
@@ -473,9 +472,9 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "Archivados" in support_screen
     assert "No tienes tickets archivados." in support_screen
     assert "Este ticket esta archivado." in support_screen
-    assert "}, [loadSupportTickets, supportFilter]);" in support_screen
+    assert "}, [loadSupportTickets]);" in support_screen
     assert "}, [refreshSupportWorkspace]);" in support_screen
-    assert "}, [loadSupportTickets, refreshSupportWorkspace, supportFilter]);" not in support_screen
+    assert "}, [loadSupportTickets, supportFilter]);" not in support_screen
     assert "openingChatOrderId: string | null" in remitter_types
     assert "recordBusinessActionStarted = recordActionStarted" in telemetry_helper
     assert "recordSlowSensitiveAction" in telemetry_helper

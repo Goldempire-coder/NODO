@@ -39,8 +39,8 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
   const emptyCopy = supportFilter === "archived" ? "No tienes tickets archivados." : "No tienes tickets activos.";
 
   useEffect(() => {
-    void loadSupportTickets(supportFilter);
-  }, [loadSupportTickets, supportFilter]);
+    void loadSupportTickets("active");
+  }, [loadSupportTickets]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {

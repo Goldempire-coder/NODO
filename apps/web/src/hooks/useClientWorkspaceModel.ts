@@ -26,7 +26,9 @@ export function useClientWorkspaceModel({
   const [currentUser, setCurrentUser] = useState(user);
   const state = useClientWorkspaceState(user);
   const view = state.view;
-  const setView = useCallback((nextView: ClientView) => state.setView(nextView), [state]);
+  const setNotice = state.setNotice;
+  const setClientView = state.setView;
+  const setView = useCallback((nextView: ClientView) => setClientView(nextView), [setClientView]);
   const request = useCallback(
     async (path: string, options: RequestInit = {}) => {
       const headers = new Headers(options.headers || {});
@@ -35,13 +37,13 @@ export function useClientWorkspaceModel({
         return await apiRequest<any>(path, token, { ...options, headers });
       } catch (error) {
         if (error instanceof ApiClientError && error.code === "TERMS_ACCEPTANCE_REQUIRED") {
-          state.setNotice("Acepta los terminos vigentes para continuar.");
-          state.setView("terms");
+          setNotice("Acepta los terminos vigentes para continuar.");
+          setClientView("terms");
         }
         throw error;
       }
     },
-    [state, token]
+    [setClientView, setNotice, token]
   );
 
   const acceptTerms = useCallback(async () => {

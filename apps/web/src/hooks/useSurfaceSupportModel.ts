@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupportTicket, getSupportTicket, listSupportTickets, sendSupportMessage, uploadSupportAttachment } from "../api/support";
 import type { SupportMessage, SupportTicket, SupportTicketCategory, SupportTicketCreateInput, SupportTicketScope } from "../types/support";
 import type { AuthenticatedRequest } from "../api/client";
@@ -40,50 +40,31 @@ function ticketBelongsToFilter(ticket: SupportTicket, filter: SupportTicketListF
   return filterSupportTickets([ticket], filter).length === 1;
 }
 
-function optimisticSenderRole(scope: SupportTicketScope): string {
-  return scope.startsWith("business_") ? "business_owner" : "remitter";
-}
-
-function buildOptimisticSupportMessage(ticket: SupportTicket, body: string, senderRole: string): SupportMessage {
-  const createdAt = new Date().toISOString();
-  return {
-    id: `optimistic_${ticket.id}_${createdAt}`,
-    ticket_id: ticket.id,
-    sender_role: senderRole,
-    body,
-    visibility: "participants",
-    attachments: [],
-    created_at: createdAt
-  };
-}
-
-function appendSupportMessage(ticket: SupportTicket, message: SupportMessage): SupportTicket {
-  return {
-    ...ticket,
-    messages: [...(ticket.messages || []), message],
-    last_message_at: message.created_at,
-    updated_at: message.created_at
-  };
-}
-
-function removeSupportMessage(ticket: SupportTicket, messageId: string): SupportTicket {
-  return {
-    ...ticket,
-    messages: (ticket.messages || []).filter((message) => message.id !== messageId)
-  };
-}
-
-function applySupportMessageResult(ticket: SupportTicket, optimisticMessageId: string, message: SupportMessage, summary: SupportTicket): SupportTicket {
-  const mergedMessages = (ticket.messages || []).map((item) => (item.id === optimisticMessageId ? message : item));
-  const hasMessage = mergedMessages.some((item) => item.id === message.id);
+function applySupportMessageResult(ticket: SupportTicket, message: SupportMessage, summary: SupportTicket): SupportTicket {
+  const messages = (ticket.messages || []).filter((item) => item.id !== message.id);
   return {
     ...ticket,
     ...summary,
     attachments: ticket.attachments,
     events: ticket.events,
-    messages: hasMessage ? mergedMessages : [...mergedMessages, message],
+    messages: [...messages, message],
     disclaimer: ticket.disclaimer
   };
+}
+
+function normalizeSupportTopic(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function findMatchingActiveTicket(tickets: SupportTicket[], input: SupportTicketCreateInput): SupportTicket | undefined {
+  const subject = normalizeSupportTopic(input.subject);
+  return tickets.find(
+    (ticket) =>
+      ACTIVE_SUPPORT_STATUSES.has(ticket.status) &&
+      ticket.scope === input.scope &&
+      ticket.category === input.category &&
+      normalizeSupportTopic(ticket.subject) === subject
+  );
 }
 
 export function useSurfaceSupportModel({
@@ -109,19 +90,42 @@ export function useSurfaceSupportModel({
     message: ""
   });
   const [creatingSupportTicket, setCreatingSupportTicket] = useState(false);
-  const [loadingSupportTickets, setLoadingSupportTickets] = useState(false);
+  const [loadingSupportFilter, setLoadingSupportFilter] = useState<SupportTicketListFilter | null>(null);
   const [openingSupportTicketId, setOpeningSupportTicketId] = useState<string | null>(null);
   const [sendingSupportReply, setSendingSupportReply] = useState(false);
   const [uploadingSupportAttachment, setUploadingSupportAttachment] = useState(false);
+  const supportFilterRef = useRef<SupportTicketListFilter>("active");
+  const selectedSupportTicketRef = useRef<SupportTicket | null>(null);
+  const creatingTicketLockRef = useRef(false);
+  const openingTicketLockRef = useRef<string | null>(null);
+  const sendingReplyLockRef = useRef(false);
+  const uploadingAttachmentLockRef = useRef(false);
+  const listRequestIdRef = useRef(0);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
-  const loadSupportTickets = useCallback(async (filter: SupportTicketListFilter = supportFilter) => {
+  useEffect(() => {
+    supportFilterRef.current = supportFilter;
+  }, [supportFilter]);
+
+  useEffect(() => {
+    selectedSupportTicketRef.current = selectedSupportTicket;
+  }, [selectedSupportTicket]);
+
+  const loadSupportTickets = useCallback(async (filter?: SupportTicketListFilter) => {
+    const requestId = listRequestIdRef.current + 1;
+    listRequestIdRef.current = requestId;
     const startedAt = actionStartedAt();
     recordActionStarted("support_tickets_load", "support");
-    setLoadingSupportTickets(true);
+    const normalizedFilter = normalizeSupportFilter(filter || supportFilterRef.current);
+    supportFilterRef.current = normalizedFilter;
+    setSupportFilter(normalizedFilter);
+    setLoadingSupportFilter(normalizedFilter);
     try {
-      const normalizedFilter = normalizeSupportFilter(filter);
       const payload = await listSupportTickets(request, supportTicketsQuery(normalizedFilter));
+      if (requestId !== listRequestIdRef.current) {
+        recordActionCompleted("support_tickets_load", "support", startedAt);
+        return;
+      }
       setSupportTickets(filterSupportTickets(payload.items, normalizedFilter));
       setSelectedSupportTicket((current) => {
         if (!current || normalizedFilter !== "active") {
@@ -130,24 +134,36 @@ export function useSurfaceSupportModel({
         const latestSelected = payload.items.find((item) => item.id === current.id) || current;
         return ARCHIVED_SUPPORT_STATUSES.has(latestSelected.status) ? null : current;
       });
-      setSupportFilter(normalizedFilter);
       setNotice("");
       recordActionCompleted("support_tickets_load", "support", startedAt);
     } catch (error) {
+      if (requestId !== listRequestIdRef.current) {
+        recordActionFailed("support_tickets_load", "support", startedAt, error instanceof Error ? error.name : undefined);
+        return;
+      }
       setNotice(error instanceof Error ? error.message : "No pudimos cargar soporte.");
       recordActionFailed("support_tickets_load", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
-      setLoadingSupportTickets(false);
+      if (requestId === listRequestIdRef.current) {
+        setLoadingSupportFilter(null);
+      }
     }
-  }, [request, setNotice, supportFilter]);
+  }, [request, setNotice]);
 
   const refreshSupportWorkspace = useCallback(async () => {
-    const normalizedFilter = normalizeSupportFilter(supportFilter);
+    const normalizedFilter = normalizeSupportFilter(supportFilterRef.current);
+    const currentTicket = selectedSupportTicketRef.current;
     try {
       const payload = await listSupportTickets(request, supportTicketsQuery(normalizedFilter));
+      if (supportFilterRef.current !== normalizedFilter) {
+        return;
+      }
       setSupportTickets(filterSupportTickets(payload.items, normalizedFilter));
-      if (selectedSupportTicket) {
-        const ticket = await getSupportTicket(request, selectedSupportTicket.id);
+      if (currentTicket) {
+        const ticket = await getSupportTicket(request, currentTicket.id);
+        if (selectedSupportTicketRef.current?.id !== currentTicket.id) {
+          return;
+        }
         if (normalizedFilter === "active" && ARCHIVED_SUPPORT_STATUSES.has(ticket.status)) {
           setSelectedSupportTicket(null);
           return;
@@ -157,32 +173,52 @@ export function useSurfaceSupportModel({
     } catch {
       // Background refresh should not interrupt the user's current action.
     }
-  }, [request, selectedSupportTicket, supportFilter]);
+  }, [request]);
 
   const openSupportTicket = useCallback(async (ticketId: string) => {
+    if (openingTicketLockRef.current) {
+      return;
+    }
+    openingTicketLockRef.current = ticketId;
     const startedAt = actionStartedAt();
     recordActionStarted("support_ticket_open", "support");
     setOpeningSupportTicketId(ticketId);
     try {
       const ticket = await getSupportTicket(request, ticketId);
       setSelectedSupportTicket(ticket);
+      setSupportReply("");
       setNotice("");
       recordActionCompleted("support_ticket_open", "support", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos abrir el ticket.");
       recordActionFailed("support_ticket_open", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
+      openingTicketLockRef.current = null;
       setOpeningSupportTicketId(null);
     }
   }, [request, setNotice]);
 
   const submitSupportTicket = useCallback(async (input?: Partial<SupportTicketCreateInput>) => {
+    if (creatingTicketLockRef.current) {
+      return;
+    }
+    creatingTicketLockRef.current = true;
     const startedAt = actionStartedAt();
     recordActionStarted("support_ticket_create", "support");
     setCreatingSupportTicket(true);
     const payload = { ...supportForm, ...(input || {}) };
     const idempotencyScope = `support_ticket_${payload.scope}`;
     try {
+      const existingTicket = findMatchingActiveTicket(supportTickets, payload);
+      if (existingTicket) {
+        const ticket = await getSupportTicket(request, existingTicket.id);
+        setSelectedSupportTicket(ticket);
+        setSupportFilter("active");
+        setSupportForm((current) => ({ ...current, subject: "", message: "" }));
+        setNotice("Ya existe una conversacion activa para este tema.");
+        recordActionCompleted("support_ticket_create", "support", startedAt);
+        return;
+      }
       const ticket = await createSupportTicket(request, payload, getIdempotencyKey(idempotencyScope, payload));
       clearIdempotencyKey(idempotencyScope);
       setSelectedSupportTicket(ticket);
@@ -195,28 +231,33 @@ export function useSurfaceSupportModel({
       setNotice(error instanceof Error ? error.message : "No pudimos crear el ticket.");
       recordActionFailed("support_ticket_create", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
+      creatingTicketLockRef.current = false;
       setCreatingSupportTicket(false);
     }
-  }, [clearIdempotencyKey, getIdempotencyKey, request, setNotice, supportForm]);
+  }, [clearIdempotencyKey, getIdempotencyKey, request, setNotice, supportForm, supportTickets]);
 
   const submitSupportReply = useCallback(async () => {
-    if (!selectedSupportTicket || !supportReply.trim()) {
+    if (sendingReplyLockRef.current) {
       return;
     }
+    if (!selectedSupportTicket || !supportReply.trim() || ARCHIVED_SUPPORT_STATUSES.has(selectedSupportTicket.status)) {
+      return;
+    }
+    sendingReplyLockRef.current = true;
     const startedAt = actionStartedAt();
     recordActionStarted("support_reply_send", "support");
     setSendingSupportReply(true);
     const idempotencyScope = `support_msg_${selectedSupportTicket.id}`;
     const body = supportReply.trim();
-    const optimisticMessage = buildOptimisticSupportMessage(selectedSupportTicket, body, optimisticSenderRole(initialScope));
     try {
-      setSupportReply("");
-      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? appendSupportMessage(current, optimisticMessage) : current));
       const payload = await sendSupportMessage(request, selectedSupportTicket.id, body, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body }));
       clearIdempotencyKey(idempotencyScope);
-      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? applySupportMessageResult(current, optimisticMessage.id, payload.message, payload.ticket) : current));
+      if (selectedSupportTicketRef.current?.id === selectedSupportTicket.id) {
+        setSupportReply("");
+      }
+      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? applySupportMessageResult(current, payload.message, payload.ticket) : current));
       setSupportTickets((current) => {
-        if (!ticketBelongsToFilter(payload.ticket, supportFilter)) {
+        if (!ticketBelongsToFilter(payload.ticket, supportFilterRef.current)) {
           return current.filter((item) => item.id !== payload.ticket.id);
         }
         const rest = current.filter((item) => item.id !== payload.ticket.id);
@@ -225,18 +266,19 @@ export function useSurfaceSupportModel({
       setNotice("");
       recordActionCompleted("support_reply_send", "support", startedAt);
     } catch (error) {
-      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? removeSupportMessage(current, optimisticMessage.id) : current));
-      setNotice(error instanceof Error ? `${error.message}. Actualiza la conversacion antes de reenviar.` : "No pudimos confirmar el envio. Actualiza la conversacion antes de reenviar.");
+      setNotice(error instanceof Error ? error.message : "No pudimos enviar el mensaje. Tu texto sigue listo para reintentar.");
       recordActionFailed("support_reply_send", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
+      sendingReplyLockRef.current = false;
       setSendingSupportReply(false);
     }
-  }, [clearIdempotencyKey, getIdempotencyKey, initialScope, request, selectedSupportTicket, setNotice, supportFilter, supportReply]);
+  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setNotice, supportReply]);
 
   const uploadTicketAttachment = useCallback(async (file: File | null) => {
-    if (!selectedSupportTicket || !file) {
+    if (uploadingAttachmentLockRef.current || !selectedSupportTicket || !file) {
       return;
     }
+    uploadingAttachmentLockRef.current = true;
     const startedAt = actionStartedAt();
     recordActionStarted("support_attachment_upload", "support");
     setUploadingSupportAttachment(true);
@@ -252,6 +294,7 @@ export function useSurfaceSupportModel({
       setNotice(error instanceof Error ? error.message : "No pudimos subir el adjunto.");
       recordActionFailed("support_attachment_upload", "support", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
+      uploadingAttachmentLockRef.current = false;
       setUploadingSupportAttachment(false);
     }
   }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setNotice]);
@@ -262,7 +305,8 @@ export function useSurfaceSupportModel({
 
   return {
     creatingSupportTicket,
-    loadingSupportTickets,
+    loadingSupportFilter,
+    loadingSupportTickets: loadingSupportFilter !== null,
     openingSupportTicketId,
     supportTickets,
     supportFilter,

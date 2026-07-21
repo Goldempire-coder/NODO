@@ -181,58 +181,188 @@ textarea {
   scrollbar-width: thin;
 }
 
-.business-support-thread {
-  gap: 12px;
+.business-support {
+  min-height: min(70dvh, 680px);
+  display: grid;
+  align-content: start;
+  gap: 14px;
 }
 
+.business-support__header,
+.business-support-new__heading,
 .business-support-thread__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
+.business-support__header > div,
+.business-support-new__heading > div,
 .business-support-thread__header > div {
   min-width: 0;
 }
 
-.business-support-messages {
+.business-support-new {
   display: grid;
-  gap: 10px;
-  max-height: min(42vh, 360px);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(6 18 34 / 72%);
+}
+
+.business-support-new__heading strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.business-support-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(3 12 24 / 58%);
+}
+
+.business-support-tabs button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nodo-muted);
+  font: inherit;
+  font-weight: 750;
+}
+
+.business-support-tabs button.is-active {
+  background: rgb(19 152 255 / 16%);
+  color: var(--nodo-text);
+}
+
+.business-support-ticket-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(58dvh, 560px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 4px;
+  scrollbar-width: thin;
+}
+
+.business-support-ticket {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(6 18 34 / 72%);
+  color: var(--nodo-text);
+  text-align: left;
+}
+
+.business-support-ticket:active {
+  background: rgb(19 152 255 / 12%);
+}
+
+.business-support-ticket strong,
+.business-support-ticket small {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.business-support-ticket small,
+.business-support-empty {
+  color: var(--nodo-muted);
+}
+
+.business-support-status {
+  width: fit-content;
+  padding: 4px 8px;
+  border: 1px solid rgb(0 230 118 / 28%);
+  border-radius: 999px;
+  background: rgb(0 230 118 / 10%);
+  color: var(--nodo-green);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.business-support-status--archived {
+  border-color: rgb(148 163 184 / 24%);
+  background: rgb(148 163 184 / 8%);
+  color: var(--nodo-muted);
+}
+
+.business-support-thread {
+  min-height: min(68dvh, 640px);
+  display: grid;
+  grid-template-rows: auto minmax(260px, 1fr) auto;
+  gap: 12px;
+}
+
+.business-support-thread__header {
+  justify-content: flex-start;
+}
+
+.business-support-thread__header > div {
+  display: grid;
+  gap: 7px;
+}
+
+.business-support-back {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--nodo-line);
+  border-radius: 50%;
+  background: rgb(6 18 34 / 72%);
+  color: var(--nodo-text);
+  font-size: 21px;
+}
+
+.business-support-messages {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 4px;
   scrollbar-width: thin;
 }
 
 .business-support-message {
-  width: min(88%, 420px);
+  width: min(86%, 420px);
   display: grid;
-  gap: 4px;
+  gap: 5px;
   justify-self: start;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--nodo-muted), transparent 70%);
+  border: 1px solid rgb(148 163 184 / 20%);
   border-radius: 8px;
-  background: rgb(3 12 24 / 66%);
+  background: rgb(6 18 34 / 86%);
   color: var(--nodo-text);
 }
 
 .business-support-message--mine {
   justify-self: end;
-  border-color: color-mix(in srgb, var(--nodo-button), transparent 46%);
-  background: color-mix(in srgb, var(--nodo-button), transparent 82%);
+  border-color: rgb(19 152 255 / 38%);
+  background: rgb(19 152 255 / 14%);
 }
 
 .business-support-message span {
   color: var(--nodo-muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 750;
 }
 
 .business-support-message p {
   margin: 0;
-  line-height: 1.4;
+  line-height: 1.45;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
@@ -240,6 +370,66 @@ textarea {
 .business-support-message small {
   color: var(--nodo-muted);
   font-size: 11px;
+}
+
+.business-support-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 8px;
+  background: rgb(4 17 33 / 96%);
+  box-shadow: 0 -10px 28px rgb(2 8 23 / 42%);
+}
+
+.business-support-composer textarea {
+  min-height: 58px;
+  max-height: 132px;
+  resize: vertical;
+}
+
+.business-support-composer__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.business-support-attachment {
+  position: relative;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--nodo-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.business-support-attachment input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.business-support-archived-note {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid rgb(148 163 184 / 20%);
+  border-radius: 8px;
+  background: rgb(148 163 184 / 7%);
+  color: var(--nodo-muted);
+}
+
+.business-support-archived-note strong {
+  color: var(--nodo-text);
 }
 
 .payment-instruction {
@@ -936,6 +1126,7 @@ div.ad-row {
 
 .welcome-screen,
 .marketplace-home,
+.business-support,
 .business-card {
   animation: nodo-screen-enter 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
