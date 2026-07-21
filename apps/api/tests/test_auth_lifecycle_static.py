@@ -50,6 +50,17 @@ def test_frontend_telegram_auth_persists_refresh_session_for_lifecycle() -> None
     assert "localStorage" not in session_helper
 
 
+def test_frontend_auth_rejects_non_json_responses_with_a_controlled_error() -> None:
+    auth_api = _read("apps/web/src/api/auth.ts")
+
+    assert "class AuthResponseFormatError extends Error" in auth_api
+    assert 'this.name = "AUTH_RESPONSE_INVALID"' in auth_api
+    assert 'response.headers.get("content-type")' in auth_api
+    assert "await response.text()" in auth_api
+    assert "JSON.parse(rawBody)" in auth_api
+    assert "await response.json()" not in auth_api
+
+
 def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload() -> None:
     admin_entry = _read("apps/web/src/screens/auth/AdminWebEntryPage.tsx")
     admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")

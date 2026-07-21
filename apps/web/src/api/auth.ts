@@ -2,6 +2,28 @@ import type { AuthResponse } from "../types/auth";
 import { resolveApiUrl } from "../lib/env";
 import { clearAuthSession, type AuthSurface } from "./session";
 
+class AuthResponseFormatError extends Error {
+  constructor() {
+    super("El servicio de autenticacion no devolvio una respuesta valida.");
+    this.name = "AUTH_RESPONSE_INVALID";
+  }
+}
+
+async function parseAuthResponse(response: Response): Promise<AuthResponse> {
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  const rawBody = await response.text();
+
+  if (!contentType.includes("json") || !rawBody.trim()) {
+    throw new AuthResponseFormatError();
+  }
+
+  try {
+    return JSON.parse(rawBody) as AuthResponse;
+  } catch {
+    throw new AuthResponseFormatError();
+  }
+}
+
 export async function authenticateWithTelegram(initData: string, surface?: string): Promise<AuthResponse> {
   const response = await fetch(resolveApiUrl("/api/v1/auth/telegram"), {
     method: "POST",
@@ -10,7 +32,7 @@ export async function authenticateWithTelegram(initData: string, surface?: strin
     },
     body: JSON.stringify({ init_data: initData, surface })
   });
-  return (await response.json()) as AuthResponse;
+  return parseAuthResponse(response);
 }
 
 export async function authenticateAdminCredentials(username: string, password: string): Promise<AuthResponse> {
@@ -23,7 +45,7 @@ export async function authenticateAdminCredentials(username: string, password: s
     },
     body: JSON.stringify({ username, password })
   });
-  return (await response.json()) as AuthResponse;
+  return parseAuthResponse(response);
 }
 
 export async function logoutSession(surface: AuthSurface, refreshToken: string | null, accessToken: string | null): Promise<void> {
