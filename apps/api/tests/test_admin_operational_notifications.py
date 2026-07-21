@@ -449,6 +449,17 @@ def test_business_support_message_created_from_business_creates_admin_notificati
     assert ticket_response.status_code == 201, ticket_response.text
     ticket = ticket_response.json()["data"]
 
+    initial_unread = client.get("/api/v1/admin/notifications?status=unread", headers=_bearer(admin, "req_support_message_initial_unread"))
+    assert initial_unread.status_code == 200, initial_unread.text
+    for notification in initial_unread.json()["data"]["items"]:
+        if notification["resource_type"] == "support_ticket":
+            read_response = client.post(f"/api/v1/admin/notifications/{notification['id']}/read", headers=_bearer(admin, f"req_support_message_read_{notification['id']}"))
+            assert read_response.status_code == 200, read_response.text
+
+    count_before_message = client.get("/api/v1/admin/notifications/unread-count", headers=_bearer(admin, "req_support_message_count_before"))
+    assert count_before_message.status_code == 200, count_before_message.text
+    assert count_before_message.json()["data"]["support_unread_count"] == 0
+
     message_response = client.post(
         f"/api/v1/support/tickets/{ticket['id']}/messages",
         headers={**_headers(owner, "business_support_message_reply"), "Content-Type": "application/json", "X-NODO-Surface": "business_mini_app"},
@@ -457,7 +468,13 @@ def test_business_support_message_created_from_business_creates_admin_notificati
     assert message_response.status_code == 201, message_response.text
     message = message_response.json()["data"]["message"]
 
-    notifications = _admin_notifications(client, admin)
+    count = client.get("/api/v1/admin/notifications/unread-count", headers=_bearer(admin, "req_support_message_unread_count"))
+    unread = client.get("/api/v1/admin/notifications?status=unread", headers=_bearer(admin, "req_support_message_unread_list"))
+
+    assert count.status_code == 200, count.text
+    assert count.json()["data"]["support_unread_count"] == 1
+    assert unread.status_code == 200, unread.text
+    notifications = unread.json()["data"]["items"]
     message_notification = next(item for item in notifications if item["notification_type"] == "business_support_message_created")
     assert message_notification["resource_type"] == "support_ticket"
     assert message_notification["resource_id"] == ticket["id"]
