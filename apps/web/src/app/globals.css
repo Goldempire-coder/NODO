@@ -182,10 +182,13 @@ textarea {
 }
 
 .business-support {
-  min-height: min(68dvh, 620px);
+  height: min(68dvh, 620px);
+  max-height: calc(100dvh - 174px);
+  min-height: min(520px, calc(100dvh - 174px));
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
+  overflow: hidden;
 }
 
 .business-support__topbar {
@@ -262,12 +265,16 @@ textarea {
 }
 
 .business-support-new {
+  min-height: 0;
   display: grid;
   gap: 10px;
   padding: 11px;
   border: 1px solid rgb(19 152 255 / 22%);
   border-radius: 12px;
   background: linear-gradient(180deg, rgb(8 35 53 / 88%), rgb(5 17 31 / 96%));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .business-support-new__heading {
@@ -289,8 +296,10 @@ textarea {
 .business-support-inbox {
   min-height: 0;
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   align-content: start;
   gap: 9px;
+  overflow: hidden;
 }
 
 .business-support-thread-selector {
@@ -380,10 +389,13 @@ textarea {
 }
 
 .business-support-thread {
-  min-height: min(62dvh, 590px);
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(220px, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 8px;
+  overflow: hidden;
 }
 
 .business-support-thread__summary {
@@ -416,8 +428,8 @@ textarea {
 
 .business-support-messages {
   min-height: 0;
-  display: grid;
-  align-content: end;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -545,6 +557,12 @@ textarea {
 }
 
 @media (max-width: 420px) {
+  .business-support {
+    height: min(66dvh, 560px);
+    max-height: calc(100dvh - 160px);
+    min-height: min(430px, calc(100dvh - 160px));
+  }
+
   .business-support__topbar {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }

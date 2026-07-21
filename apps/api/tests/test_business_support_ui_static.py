@@ -77,11 +77,17 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
 def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
     global_css = _read("apps/web/src/app/globals.css")
 
-    assert "min-height: min(68dvh, 620px);" in global_css
+    assert "height: min(68dvh, 620px);" in global_css
+    assert "max-height: calc(100dvh - 174px);" in global_css
+    assert "grid-template-rows: auto minmax(0, 1fr);" in global_css
+    assert ".business-support {\n  height: min(68dvh, 620px);" in global_css
+    assert ".business-support-thread {\n  min-height: 0;\n  height: 100%;" in global_css
+    assert "overflow: hidden;" in global_css
+    assert "overflow-y: auto;" in global_css
     assert "min-height: 56px;" in global_css
     assert "width: 34px;" in global_css
     assert "font-size: clamp(18px, 4.5vw, 21px);" in global_css
-    assert "grid-template-rows: auto minmax(220px, 1fr) auto;" in global_css
+    assert "grid-template-rows: auto minmax(0, 1fr) auto;" in global_css
     assert "font-size: clamp(14px, 3.8vw, 16px);" in global_css
     assert "grid-template-columns: 34px minmax(0, 1fr) auto;" in global_css
     assert "min-height: 36px;" in global_css
