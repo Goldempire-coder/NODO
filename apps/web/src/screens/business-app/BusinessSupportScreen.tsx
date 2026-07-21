@@ -45,6 +45,37 @@ function supportTimestamp(value: string | null): string {
   return new Date(value).toLocaleString();
 }
 
+function supportTicketCode(id: string): string {
+  return `SP-${id.slice(0, 8).toUpperCase()}`;
+}
+
+function ArrowLeftIcon() {
+  return (
+    <svg aria-hidden="true" className="business-support-icon-svg" focusable="false" viewBox="0 0 24 24">
+      <path d="M15 18 9 12l6-6" />
+    </svg>
+  );
+}
+
+function PaperclipIcon() {
+  return (
+    <svg aria-hidden="true" className="business-support-icon-svg" focusable="false" viewBox="0 0 24 24">
+      <path d="m21.4 11.6-8.9 8.9a6 6 0 0 1-8.5-8.5l9.6-9.6a4 4 0 0 1 5.7 5.7l-9.6 9.6a2 2 0 0 1-2.8-2.8l8.9-8.9" />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg aria-hidden="true" className="business-support-icon-svg" focusable="false" viewBox="0 0 24 24">
+      <path d="M21 12a9 9 0 0 1-15.1 6.6" />
+      <path d="M3 12A9 9 0 0 1 18.1 5.4" />
+      <path d="M18 2v4h-4" />
+      <path d="M6 22v-4h4" />
+    </svg>
+  );
+}
+
 export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
     creatingSupportTicket,
@@ -69,10 +100,12 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
     uploadTicketAttachment
   } = model;
   const [showNewConversation, setShowNewConversation] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const ticketMessages = selectedSupportTicket?.messages || [];
   const selectedArchived = selectedSupportTicket?.status === "resolved" || selectedSupportTicket?.status === "closed";
   const emptyCopy = supportFilter === "archived" ? "No tienes conversaciones archivadas." : "No tienes conversaciones activas.";
+  const conversationLabel = loadingSupportFilter === supportFilter ? "Actualizando..." : supportFilter === "archived" ? "Archivadas" : "Activas";
 
   useEffect(() => {
     void loadSupportTickets("active");
@@ -119,14 +152,25 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
 
   return (
     <section className="business-support" aria-label="Soporte NODO">
-      <header className="business-support__header">
-        <div>
+      <header className="business-support__topbar">
+        {selectedSupportTicket || showNewConversation ? (
+          <button className="business-support-icon-button" type="button" aria-label="Volver a conversaciones" onClick={returnToConversationList}>
+            <ArrowLeftIcon />
+          </button>
+        ) : (
+          <div className="business-support-avatar" aria-hidden="true">N</div>
+        )}
+        <div className="business-support__identity">
           <Text className="business-card__label">Ayuda para tu negocio</Text>
-          <Title level="3" className="business-shell__title">Soporte NODO</Title>
+          <Title level="3" className="business-shell__title business-support__title">Soporte Operativo</Title>
+          <span>Soporte revisa (En linea)</span>
         </div>
-        {!showNewConversation ? (
+        <button className="business-support-icon-button" type="button" aria-label="Actualizar conversaciones" onClick={() => void refreshSupportWorkspace()}>
+          <RefreshIcon />
+        </button>
+        {!showNewConversation && !selectedSupportTicket ? (
           <Button mode="outline" size="s" type="button" disabled={creatingSupportTicket} onClick={startNewConversation}>
-            Nueva conversacion
+            Nuevo
           </Button>
         ) : null}
       </header>
@@ -142,7 +186,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
           <div className="business-support-new__heading">
             <div>
               <Text className="business-card__label">Nuevo tema</Text>
-              <strong>Cuéntanos que necesitas</strong>
+              <strong>Cuentanos que necesitas</strong>
             </div>
             <Button mode="outline" size="s" type="button" disabled={creatingSupportTicket} onClick={returnToConversationList}>Cancelar</Button>
           </div>
@@ -183,16 +227,15 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
 
       {selectedSupportTicket ? (
         <div className="business-support-thread">
-          <div className="business-support-thread__header">
-            <button className="business-support-back" type="button" aria-label="Volver a conversaciones" onClick={returnToConversationList}>
-              <span aria-hidden="true">&larr;</span>
-            </button>
+          <div className="business-support-thread__summary">
             <div>
-              <Title level="3" className="business-shell__title">{selectedSupportTicket.subject}</Title>
-              <span className={selectedArchived ? "business-support-status business-support-status--archived" : "business-support-status"}>
-                {supportStatusLabel(selectedSupportTicket.status)}
-              </span>
+              <Text className="business-card__label">Conversacion</Text>
+              <Title level="3" className="business-shell__title business-support-thread__title">{selectedSupportTicket.subject}</Title>
+              <small>Ticket ID: #{supportTicketCode(selectedSupportTicket.id)}</small>
             </div>
+            <span className={selectedArchived ? "business-support-status business-support-status--archived" : "business-support-status"}>
+              {supportStatusLabel(selectedSupportTicket.status)}
+            </span>
           </div>
 
           <div className="business-support-messages" aria-label="Mensajes de soporte" aria-live="polite">
@@ -201,7 +244,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
               const isMine = message.sender_role === "business_owner";
               return (
                 <article className={isMine ? "business-support-message business-support-message--mine" : "business-support-message"} key={message.id}>
-                  <span>{supportSenderLabel(message.sender_role)}</span>
+                  <span className="business-support-message__sender">{supportSenderLabel(message.sender_role)}</span>
                   <p>{message.body}</p>
                   {message.attachments?.length ? <small>{message.attachments.length} adjunto(s)</small> : null}
                   <small>{supportTimestamp(message.created_at)}</small>
@@ -217,40 +260,62 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
               <span>Puedes consultar el historial, pero este caso ya no recibe respuestas.</span>
             </div>
           ) : (
-            <div className="business-support-composer">
+            <form
+              className="business-support-composer"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitSupportReply();
+              }}
+            >
+              <button
+                className="business-support-clip"
+                type="button"
+                aria-label="Adjuntar archivo"
+                disabled={uploadingSupportAttachment || sendingSupportReply}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <PaperclipIcon />
+              </button>
               <textarea
+                className="business-support-composer__input"
                 aria-label="Mensaje para Soporte NODO"
                 disabled={sendingSupportReply}
                 maxLength={2000}
-                placeholder="Escribe un mensaje"
+                placeholder={uploadingSupportAttachment ? "Subiendo adjunto..." : "Escribir respuesta..."}
                 rows={2}
                 value={supportReply}
                 onChange={(event) => setSupportReply(event.target.value)}
               />
-              <div className="business-support-composer__actions">
-                <label className="business-support-attachment">
-                  <span>{uploadingSupportAttachment ? "Subiendo..." : "Adjuntar"}</span>
-                  <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingSupportAttachment || sendingSupportReply} type="file" onChange={(event) => void uploadTicketAttachment(event.target.files?.[0] || null)} />
-                </label>
-                <Button mode="filled" size="s" disabled={sendingSupportReply || uploadingSupportAttachment || !supportReply.trim()} onClick={() => void submitSupportReply()}>
-                  {sendingSupportReply ? "Enviando..." : "Enviar"}
-                </Button>
-              </div>
-            </div>
+              <input
+                ref={fileInputRef}
+                className="business-support-file-input"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                disabled={uploadingSupportAttachment || sendingSupportReply}
+                type="file"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0] || null;
+                  event.currentTarget.value = "";
+                  void uploadTicketAttachment(file);
+                }}
+              />
+              <button className="business-support-send" type="submit" disabled={sendingSupportReply || uploadingSupportAttachment || !supportReply.trim()}>
+                {sendingSupportReply ? "..." : "Enviar"}
+              </button>
+            </form>
           )}
         </div>
       ) : null}
 
-      {!selectedSupportTicket && !showNewConversation ? (
-        <>
-          <div className="business-support-tabs" role="tablist" aria-label="Conversaciones de soporte">
-            <button className={supportFilter === "active" ? "is-active" : ""} type="button" role="tab" aria-selected={supportFilter === "active"} disabled={loadingSupportFilter === "active"} onClick={() => selectFilter("active")}>
-              {loadingSupportFilter === "active" ? "Cargando..." : "Activas"}
-            </button>
-            <button className={supportFilter === "archived" ? "is-active" : ""} type="button" role="tab" aria-selected={supportFilter === "archived"} disabled={loadingSupportFilter === "archived"} onClick={() => selectFilter("archived")}>
-              {loadingSupportFilter === "archived" ? "Cargando..." : "Archivadas"}
-            </button>
-          </div>
+      {!selectedSupportTicket ? (
+        <div className="business-support-inbox">
+          <label className="business-support-thread-selector">
+            <span>Ver conversaciones</span>
+            <select aria-label="Ver conversaciones" disabled={loadingSupportTickets} value={supportFilter} onChange={(event) => selectFilter(event.target.value as "active" | "archived")}>
+              <option value="active">Activas</option>
+              <option value="archived">Archivadas</option>
+            </select>
+          </label>
+          <small className="business-support-inbox__hint">{conversationLabel}</small>
 
           <div className="business-support-ticket-list" aria-busy={loadingSupportTickets}>
             {supportTickets.length === 0 && !loadingSupportTickets ? <Text className="business-support-empty">{emptyCopy}</Text> : null}
@@ -260,11 +325,11 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
                   {supportStatusLabel(ticket.status)}
                 </span>
                 <strong>{ticket.subject}</strong>
-                <small>{openingSupportTicketId === ticket.id ? "Abriendo..." : `${supportCategoryLabel(ticket.category)} - ${supportTimestamp(ticket.last_message_at || ticket.updated_at)}`}</small>
+                <small>#{supportTicketCode(ticket.id)} - {openingSupportTicketId === ticket.id ? "Abriendo..." : `${supportCategoryLabel(ticket.category)} - ${supportTimestamp(ticket.last_message_at || ticket.updated_at)}`}</small>
               </button>
             ))}
           </div>
-        </>
+        </div>
       ) : null}
     </section>
   );

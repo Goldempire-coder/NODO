@@ -53,6 +53,12 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
     assert 'className="business-support"' in support_screen
     assert 'className="business-card business-support-thread"' not in support_screen
     assert "business-support-composer" in support_screen
+    assert "business-support-clip" in support_screen
+    assert "PaperclipIcon" in support_screen
+    assert "fileInputRef.current?.click()" in support_screen
+    assert "business-support-thread-selector" in support_screen
+    assert 'aria-label="Ver conversaciones"' in support_screen
+    assert "business-support-tabs" not in support_screen
     assert "business-support-ticket-list" in support_screen
     assert "Soporte NODO" in support_screen
     assert "Esperando tu respuesta" in support_screen
@@ -61,7 +67,24 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
     assert 'new Set<SupportTicket["status"]>(["open", "waiting_support", "waiting_user", "escalated"])' in support_model
     assert 'new Set<SupportTicket["status"]>(["resolved", "closed"])' in support_model
     assert ".business-support-composer" in global_css
+    assert ".business-support-clip" in global_css
+    assert ".business-support-thread-selector" in global_css
     assert "position: sticky" in global_css
+    assert 'Button mode="outline" size="s" type="button" disabled={creatingSupportTicket} onClick={startNewConversation}>' in support_screen
+    assert "Nuevo" in support_screen
+
+
+def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
+    global_css = _read("apps/web/src/app/globals.css")
+
+    assert "min-height: min(68dvh, 620px);" in global_css
+    assert "min-height: 56px;" in global_css
+    assert "width: 34px;" in global_css
+    assert "font-size: clamp(18px, 4.5vw, 21px);" in global_css
+    assert "grid-template-rows: auto minmax(220px, 1fr) auto;" in global_css
+    assert "font-size: clamp(14px, 3.8vw, 16px);" in global_css
+    assert "grid-template-columns: 34px minmax(0, 1fr) auto;" in global_css
+    assert "min-height: 36px;" in global_css
 
 
 def test_business_support_prevents_duplicate_active_topic_creation() -> None:

@@ -362,7 +362,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "business-support-message--mine" in support_screen
     assert "supportSenderLabel" in support_screen
     assert '"Soporte NODO"' in support_screen
-    assert "Nueva conversacion" in support_screen
+    assert "Nuevo" in support_screen
     assert "Archivadas" in support_screen
     assert "No tienes conversaciones archivadas." in support_screen
     assert "Conversacion archivada" in support_screen
