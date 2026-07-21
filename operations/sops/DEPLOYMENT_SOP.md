@@ -10,7 +10,7 @@ Preparar y verificar un despliegue de NODO sin romper servicios Tier 0/Tier 1.
 
 ## Alcance
 
-Backend Railway y frontend Cloudflare Pages. El repo no contiene un comando de deploy automatizado.
+Backend Railway y frontend Cloudflare Pages. El frontend staging tiene comando versionado con guardrails. Backend Railway sigue dependiendo del procedimiento del proveedor.
 
 ## Tier afectado
 
@@ -48,6 +48,7 @@ Durante un SEV-1 activo salvo que el Incident Commander apruebe rollback/deploy 
 - Python.
 - Corepack pnpm.
 - Proveedor Railway/Cloudflare.
+- Para frontend staging: `scripts/deploy_cloudflare_pages_staging.py`.
 
 ## Procedimiento
 
@@ -72,10 +73,28 @@ Durante un SEV-1 activo salvo que el Incident Commander apruebe rollback/deploy 
    ```
    Resultado esperado: solo apariciones permitidas como prohibiciones/docs o ninguna en bundle.
 
-4. Ejecutar deploy con el procedimiento del proveedor.
-   Resultado esperado: DECISION REQUERIDA. No hay comando versionado en repo.
+4. Para frontend staging, construir con guardrails obligatorios:
+   ```powershell
+   $env:NEXT_PUBLIC_API_BASE_URL="https://nodo-api-production.up.railway.app"
+   $env:NEXT_PUBLIC_APP_URL="https://nodo-staging.pages.dev"
+   $env:NEXT_PUBLIC_APP_ENV="staging"
+   pnpm build:web:staging
+   ```
+   Resultado esperado: el script valida las variables publicas, ejecuta el build y confirma que el bundle contiene la URL del API staging. Si falta `NEXT_PUBLIC_API_BASE_URL`, o apunta a Cloudflare Pages/localhost, el script falla antes de desplegar.
 
-5. Ejecutar post deploy:
+5. Para desplegar frontend staging despues de aprobar el build:
+   ```powershell
+   $env:NEXT_PUBLIC_API_BASE_URL="https://nodo-api-production.up.railway.app"
+   $env:NEXT_PUBLIC_APP_URL="https://nodo-staging.pages.dev"
+   $env:NEXT_PUBLIC_APP_ENV="staging"
+   pnpm deploy:web:staging
+   ```
+   Resultado esperado: el script vuelve a construir/verificar, exige worktree limpio y ejecuta Cloudflare Pages contra `nodo-staging` rama `staging`.
+
+6. Para backend Railway, ejecutar deploy con el procedimiento del proveedor.
+   Resultado esperado: DECISION REQUERIDA. No hay comando Railway versionado en repo.
+
+7. Ejecutar post deploy:
    Ver `POST_DEPLOY_VERIFICATION_SOP.md`.
 
 ## Criterio de exito

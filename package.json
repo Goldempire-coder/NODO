@@ -4,6 +4,8 @@
   "version": "0.0.0-slice-00",
   "scripts": {
     "build": "pnpm --filter @nodo/web build",
+    "build:web:staging": "python scripts/deploy_cloudflare_pages_staging.py",
+    "deploy:web:staging": "python scripts/deploy_cloudflare_pages_staging.py --deploy --confirm-staging-deploy",
     "test": "python scripts/run_slice_00_tests.py",
     "test:slice00": "python scripts/run_slice_00_tests.py"
   },
