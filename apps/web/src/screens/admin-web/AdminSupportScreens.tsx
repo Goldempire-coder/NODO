@@ -40,6 +40,16 @@ function contextLine(ticket: SupportTicket): string {
   return refs.length > 0 ? refs.join(" / ") : ticket.scope;
 }
 
+function attachmentLabel(mimeType: string): string {
+  if (mimeType.startsWith("image/")) {
+    return "Foto";
+  }
+  if (mimeType === "application/pdf") {
+    return "PDF";
+  }
+  return "Adjunto";
+}
+
 export function SupportTickets({ model }: { model: AdminWebModel }) {
   const selected = model.selectedSupportTicket;
   const selectedMessages = selected?.messages || [];
@@ -159,9 +169,14 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
                       {(message.attachments || []).length > 0 ? (
                         <div className="admin-web-support-attachments">
                           {(message.attachments || []).map((file) => (
-                            <button className="admin-web-link" key={file.id} type="button" onClick={() => void model.openSupportAttachment(file.id, model.reason || "admin_support_review")}>
-                              Ver adjunto
-                            </button>
+                            <span className="admin-web-support-attachment-actions" key={file.id}>
+                              <button className="admin-web-link" type="button" onClick={() => void model.openSupportAttachment(file.id, model.reason || "admin_support_review", "view")}>
+                                Abrir {attachmentLabel(file.mime_type)}
+                              </button>
+                              <button className="admin-web-link" type="button" onClick={() => void model.openSupportAttachment(file.id, model.reason || "admin_support_review", "download")}>
+                                Descargar
+                              </button>
+                            </span>
                           ))}
                         </div>
                       ) : null}
@@ -172,8 +187,16 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
             </div>
 
             <div className="admin-web-support-composer">
-              {model.supportAttachmentUrl ? (
-                <p className="admin-web-muted">URL temporal generada. No se guarda como dato permanente.</p>
+              {model.supportAttachmentLink ? (
+                <div className="admin-web-support-attachment-ready">
+                  <span>Adjunto temporal listo por {model.supportAttachmentLink.expiresInSeconds}s.</span>
+                  <a href={model.supportAttachmentLink.url} target="_blank" rel="noopener noreferrer">
+                    Abrir
+                  </a>
+                  <a href={model.supportAttachmentLink.url} download={model.supportAttachmentLink.downloadFilename} target="_blank" rel="noopener noreferrer">
+                    Descargar
+                  </a>
+                </div>
               ) : null}
 
               {selectedArchived ? (

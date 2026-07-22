@@ -467,6 +467,8 @@ def test_support_attachments_are_private_limited_and_signed_url_not_persisted() 
     )
     assert view_url.status_code == 200, view_url.text
     signed_url = view_url.json()["data"]["url"]
+    assert view_url.json()["data"]["download_filename"].startswith("nodo-support-")
+    assert view_url.json()["data"]["download_filename"].endswith(".png")
     combined = valid.text + view_url.text + json.dumps([event.__dict__ for event in client.app.state.audit_writer.events], default=str)
     assert "storage_path" not in combined
     assert "account_value" not in combined

@@ -12,6 +12,12 @@ export type SupportMessageResponse = {
   disclaimer?: string;
 };
 
+export type AdminSupportAttachmentViewUrlResponse = {
+  url: string;
+  expires_in_seconds: number;
+  download_filename: string;
+};
+
 export async function createSupportTicket(request: AuthenticatedRequest, input: SupportTicketCreateInput, idempotencyKey: string): Promise<SupportTicket> {
   return request<SupportTicket>("/api/v1/support/tickets", {
     method: "POST",
@@ -117,7 +123,7 @@ export async function adminCloseSupportTicket(request: AuthenticatedRequest, tic
   });
 }
 
-export async function adminSupportAttachmentViewUrl(request: AuthenticatedRequest, ticketId: string, fileId: string, reason: string): Promise<{ url: string; expires_in_seconds: number }> {
+export async function adminSupportAttachmentViewUrl(request: AuthenticatedRequest, ticketId: string, fileId: string, reason: string): Promise<AdminSupportAttachmentViewUrlResponse> {
   return request(`/api/v1/admin/support/tickets/${ticketId}/attachments/${fileId}/view-url`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

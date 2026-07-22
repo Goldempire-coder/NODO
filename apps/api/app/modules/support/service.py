@@ -53,6 +53,16 @@ def _attachment_payload(file) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     return file_asset_public(file)
 
 
+def _attachment_download_filename(*, ticket: SupportTicketRecord, file) -> str:  # type: ignore[no-untyped-def]
+    extension = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "application/pdf": "pdf",
+    }.get(file.mime_type, "bin")
+    return f"nodo-support-{ticket.id[:8]}-{file.id[:8]}.{extension}"
+
+
 class SupportService:
     def __init__(
         self,
@@ -437,7 +447,11 @@ class SupportService:
         url = self._storage.signed_view_url(storage_path=file.storage_path, expires_in=min(self._settings.storage_signed_url_ttl_seconds, 300))
         self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_attachment_viewed", reason=reason, metadata_json={"file_asset_id": file.id})
         self._audit.write(event_type="support_attachment_viewed", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"file_asset_id": file.id})
-        return {"url": url, "expires_in_seconds": min(self._settings.storage_signed_url_ttl_seconds, 300)}
+        return {
+            "url": url,
+            "expires_in_seconds": min(self._settings.storage_signed_url_ttl_seconds, 300),
+            "download_filename": _attachment_download_filename(ticket=ticket, file=file),
+        }
 
     def _require_ticket(self, ticket_id: str) -> SupportTicketRecord:
         ticket = self._repository.get_ticket(_require_uuid(ticket_id, "SUPPORT_TICKET_NOT_FOUND"))

@@ -234,6 +234,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     supportReply: support.supportReply,
     setSupportReply: support.setSupportReply,
     sendingSupportReply: support.sendingSupportReply,
+    supportAttachmentLink: support.supportAttachmentLink,
     supportAttachmentUrl: support.supportAttachmentUrl,
     staff: staff.staff,
     selectedStaff: staff.selectedStaff,

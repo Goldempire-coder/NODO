@@ -14,6 +14,12 @@ import type { SupportMessage, SupportTicket } from "../../types/support";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
 
+type SupportAttachmentLink = {
+  url: string;
+  downloadFilename: string;
+  expiresInSeconds: number;
+};
+
 const ACTIVE_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["open", "waiting_support", "waiting_user", "escalated"]);
 const ARCHIVED_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["resolved", "closed"]);
 
@@ -103,7 +109,7 @@ export function useAdminSupportModel({
   const [selectedSupportTicket, setSelectedSupportTicket] = useState<SupportTicket | null>(null);
   const [supportFilter, setSupportFilter] = useState("active");
   const [supportReply, setSupportReply] = useState("");
-  const [supportAttachmentUrl, setSupportAttachmentUrl] = useState("");
+  const [supportAttachmentLink, setSupportAttachmentLink] = useState<SupportAttachmentLink | null>(null);
   const [sendingSupportReply, setSendingSupportReply] = useState(false);
   const supportReplyInFlight = useRef(false);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
@@ -150,6 +156,7 @@ export function useAdminSupportModel({
     try {
       const ticket = await adminGetSupportTicket(request, ticketId);
       setSelectedSupportTicket(ticket);
+      setSupportAttachmentLink(null);
       setView("support");
       setNotice("");
     } catch (error) {
@@ -225,15 +232,31 @@ export function useAdminSupportModel({
     }
   }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setBusy, setNotice]);
 
-  const openSupportAttachment = useCallback(async (fileId: string, reason: string) => {
+  const openSupportAttachment = useCallback(async (fileId: string, reason: string, mode: "view" | "download" = "view") => {
     if (!selectedSupportTicket) {
       return;
     }
     setBusy(true);
     try {
       const payload = await adminSupportAttachmentViewUrl(request, selectedSupportTicket.id, fileId, reason);
-      setSupportAttachmentUrl(payload.url);
-      setNotice("URL temporal generada.");
+      const link = {
+        url: payload.url,
+        downloadFilename: payload.download_filename,
+        expiresInSeconds: payload.expires_in_seconds
+      };
+      setSupportAttachmentLink(link);
+      if (mode === "download") {
+        const anchor = window.document.createElement("a");
+        anchor.href = payload.url;
+        anchor.download = payload.download_filename;
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        anchor.click();
+        setNotice(`Descarga solicitada: ${payload.download_filename}.`);
+        return;
+      }
+      window.open(payload.url, "_blank", "noopener,noreferrer");
+      setNotice(`Adjunto listo por ${payload.expires_in_seconds}s. Si no se abrio, usa Abrir o Descargar.`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos abrir el adjunto.");
     } finally {
@@ -249,7 +272,8 @@ export function useAdminSupportModel({
     supportReply,
     setSupportReply,
     sendingSupportReply,
-    supportAttachmentUrl,
+    supportAttachmentLink,
+    supportAttachmentUrl: supportAttachmentLink?.url || "",
     loadSupportTickets,
     refreshSupportWorkspace,
     openSupportTicket,

@@ -969,6 +969,36 @@
   gap: 6px;
 }
 
+.admin-web-support-attachment-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-web-support-attachment-ready {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid rgb(32 200 255 / 28%);
+  border-radius: 8px;
+  background: rgb(32 200 255 / 7%);
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-web-support-attachment-ready a {
+  color: var(--admin-cyan);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.admin-web-support-attachment-ready a:hover {
+  text-decoration: underline;
+}
+
 .admin-web-support-composer {
   display: grid;
   gap: 10px;
