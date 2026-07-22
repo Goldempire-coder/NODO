@@ -253,9 +253,11 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     orders_screen = _read("apps/web/src/screens/business-app/BusinessOrdersScreens.tsx")
     chat_screen = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    business_settings = _read("apps/web/src/screens/business-app/BusinessSettingsScreen.tsx")
     credits_api = _read("apps/web/src/api/credits.ts")
     surface_api = _read("apps/web/src/api/surface.ts")
     business_helpers = _read("apps/web/src/hooks/business-mini-app/helpers.ts")
+    app_css = _read("apps/web/src/app/globals.css")
 
     assert "useBusinessAccessModel" in business_model
     assert "acceptBusinessTerms" in business_model
@@ -378,6 +380,12 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "sendingSupportReply" in support_screen
     assert "uploadingSupportAttachment" in support_screen
     assert "business-support-thread" in support_screen
+    assert "Identificacion del negocio" in business_settings
+    assert "const businessId = business?.id || \"\"" in business_settings
+    assert "copyBusinessId" in business_settings
+    assert "ID copiado para soporte." in business_settings
+    assert "business-identity-box" in business_settings
+    assert ".business-identity-box" in app_css
     assert "business-support-message--mine" in support_screen
     assert "supportSenderLabel" in support_screen
     assert '"Soporte NODO"' in support_screen

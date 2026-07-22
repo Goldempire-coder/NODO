@@ -1,13 +1,51 @@
+import { useState } from "react";
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import { humanizePurchaseStatus } from "../../hooks/business-mini-app/helpers";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
+function shortBusinessId(value: string | null | undefined) {
+  if (!value) {
+    return "No disponible";
+  }
+  if (value.length <= 18) {
+    return value;
+  }
+  return `${value.slice(0, 8)}...${value.slice(-6)}`;
+}
+
 export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel }) {
   const { business, lockBusinessPinSession, loadReferrals, paymentMethods, setBusinessAvailability, setView, updatingAvailability } = model;
+  const [businessIdCopied, setBusinessIdCopied] = useState(false);
   const canOperate = business?.verification_status === "approved";
   const isAcceptingOrders = business?.is_accepting_orders !== false;
   const pinConfigured = Boolean(business?.access_link?.pin_configured);
   const pinUnlocked = Boolean(business?.access_link?.pin_unlocked);
+  const businessId = business?.id || "";
+  const copyBusinessId = async () => {
+    if (!businessId) {
+      return;
+    }
+    await copyText(businessId);
+    setBusinessIdCopied(true);
+    window.setTimeout(() => setBusinessIdCopied(false), 1600);
+  };
   return (
     <div className="business-card">
       <Text className="business-card__label">Perfil</Text>
@@ -25,6 +63,16 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
         <Text>Pais: {business?.country || "VE"}</Text>
         <Text>Metodos guardados: {paymentMethods.length}</Text>
       </div>
+      <div className={businessIdCopied ? "business-identity-box is-copied" : "business-identity-box"}>
+        <div>
+          <span>Identificacion del negocio</span>
+          <code>{shortBusinessId(businessId)}</code>
+        </div>
+        <button className="mini-action-button" type="button" disabled={!businessId} onClick={() => void copyBusinessId()}>
+          {businessIdCopied ? "Copiado" : "Copiar ID"}
+        </button>
+      </div>
+      {businessIdCopied ? <Text className="business-identity-box__feedback" role="status">ID copiado para soporte.</Text> : null}
       <Text className="auth-entry__session-meta">Puedes guardar Zelle y USDT TRC20 antes de comprar creditos.</Text>
       <Button
         mode={isAcceptingOrders ? "outline" : "filled"}
