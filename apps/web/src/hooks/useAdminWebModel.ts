@@ -245,6 +245,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setStaffInvite: staff.setStaffInvite,
     adminNotifications: notifications.notifications,
     adminNotificationsUnreadCount: notifications.unreadCount,
+    adminNotificationsUnreadState: notifications.unreadCountState,
     adminNotificationsPanelOpen: notifications.panelOpen,
     adminNotificationBusyId: notifications.notificationBusyId,
     adminSupportUnreadCount: notifications.supportUnreadCount,

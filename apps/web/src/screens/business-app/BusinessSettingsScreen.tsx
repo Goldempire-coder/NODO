@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import { humanizePurchaseStatus } from "../../hooks/business-mini-app/helpers";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
+import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../../hooks/actionTelemetry";
 
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
@@ -16,8 +17,15 @@ async function copyText(value: string) {
   textarea.style.left = "-9999px";
   document.body.appendChild(textarea);
   textarea.select();
-  document.execCommand("copy");
-  document.body.removeChild(textarea);
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } finally {
+    document.body.removeChild(textarea);
+  }
+  if (!copied) {
+    throw new Error("CLIPBOARD_COPY_FAILED");
+  }
 }
 
 function shortBusinessId(value: string | null | undefined) {
@@ -33,6 +41,7 @@ function shortBusinessId(value: string | null | undefined) {
 export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel }) {
   const { business, lockBusinessPinSession, loadReferrals, paymentMethods, setBusinessAvailability, setView, updatingAvailability } = model;
   const [businessIdCopied, setBusinessIdCopied] = useState(false);
+  const [businessIdCopyError, setBusinessIdCopyError] = useState(false);
   const canOperate = business?.verification_status === "approved";
   const isAcceptingOrders = business?.is_accepting_orders !== false;
   const pinConfigured = Boolean(business?.access_link?.pin_configured);
@@ -42,9 +51,19 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
     if (!businessId) {
       return;
     }
-    await copyText(businessId);
-    setBusinessIdCopied(true);
-    window.setTimeout(() => setBusinessIdCopied(false), 1600);
+    const startedAt = actionStartedAt();
+    recordActionStarted("business_id_copy", "business-settings");
+    setBusinessIdCopyError(false);
+    try {
+      await copyText(businessId);
+      setBusinessIdCopied(true);
+      recordActionCompleted("business_id_copy", "business-settings", startedAt);
+      window.setTimeout(() => setBusinessIdCopied(false), 1600);
+    } catch {
+      setBusinessIdCopied(false);
+      setBusinessIdCopyError(true);
+      recordActionFailed("business_id_copy", "business-settings", startedAt, "CLIPBOARD_COPY_FAILED");
+    }
   };
   return (
     <div className="business-card">
@@ -73,6 +92,7 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
         </button>
       </div>
       {businessIdCopied ? <Text className="business-identity-box__feedback" role="status">ID copiado para soporte.</Text> : null}
+      {businessIdCopyError ? <Text className="business-identity-box__feedback" role="alert">No pudimos copiar el ID. Puedes seleccionarlo manualmente.</Text> : null}
       <Text className="auth-entry__session-meta">Puedes guardar Zelle y USDT TRC20 antes de comprar creditos.</Text>
       <Button
         mode={isAcceptingOrders ? "outline" : "filled"}

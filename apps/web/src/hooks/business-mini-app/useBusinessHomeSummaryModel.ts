@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
 import type { BusinessAccessState } from "./helpers";
 
@@ -22,14 +22,14 @@ export function useBusinessHomeSummaryModel({
   refreshBusinessOrders,
   refreshCreditWallet,
   refreshMyAds,
-  setCurrentView,
+  setView,
   view
 }: {
   accessState: BusinessAccessState;
   refreshBusinessOrders: HomeRefresh;
   refreshCreditWallet: HomeRefresh;
   refreshMyAds: HomeRefresh;
-  setCurrentView: Dispatch<SetStateAction<BusinessMiniAppView>>;
+  setView: (view: BusinessMiniAppView) => void;
   view: BusinessMiniAppView;
 }) {
   const [homeSummaryState, setHomeSummaryState] = useState<HomeSummaryState>("idle");
@@ -49,9 +49,9 @@ export function useBusinessHomeSummaryModel({
     if (accessState !== "ready") {
       return false;
     }
-    setCurrentView("business-dashboard");
+    setView("business-dashboard");
     return refreshHomeSummary();
-  }, [accessState, refreshHomeSummary, setCurrentView]);
+  }, [accessState, refreshHomeSummary, setView]);
 
   useEffect(() => {
     if (accessState !== "ready" || view !== "business-dashboard") {

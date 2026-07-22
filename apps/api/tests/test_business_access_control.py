@@ -195,6 +195,8 @@ def test_surface_session_allows_approved_business_with_active_link() -> None:
     assert data["surface"] == "business_mini_app"
     assert data["access_state"] == "allowed"
     assert data["business"]["id"] == business["id"]
+    assert "risk_level" not in data["business"]
+    assert "trust_level" not in data["business"]
     assert "telegram_id" not in data["user"]
     assert "business.ads.create" in data["capabilities"]
 

@@ -651,6 +651,9 @@ def test_admin_operational_notifications_frontend_and_migration_contracts() -> N
     assert "/api/v1/admin/notifications" in admin_api
     assert "adminNotificationsUnreadCount" in shell
     assert "admin://business-intake/" in hook
+    assert "applyUnreadCount(0, 0)" not in hook
+    assert 'setUnreadCountState("stale")' in hook
+    assert "Contador sin actualizar" in shell
     assert "notification_jobs" not in up
     assert "create table if not exists admin_notifications" in up
     assert "drop table if exists admin_notifications" in down

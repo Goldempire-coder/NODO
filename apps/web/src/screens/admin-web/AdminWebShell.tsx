@@ -54,6 +54,7 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
                 <span>Notificaciones</span>
                 {model.adminNotificationsUnreadCount > 0 ? <strong>{model.adminNotificationsUnreadCount}</strong> : null}
               </button>
+              {model.adminNotificationsUnreadState === "stale" ? <small className="admin-web-notification-stale" role="status">Contador sin actualizar</small> : null}
               {model.adminNotificationsPanelOpen ? (
                 <section className="admin-web-notification-panel" aria-label="Bandeja de notificaciones operativas">
                   <div className="admin-web-notification-panel__header">

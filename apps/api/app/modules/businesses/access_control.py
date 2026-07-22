@@ -61,8 +61,6 @@ def public_business_for_surface(business: BusinessRecord, link: BusinessAccessLi
         "business_name": business.business_name,
         "country": business.country,
         "verification_status": business.verification_status,
-        "trust_level": business.trust_level,
-        "risk_level": business.risk_level,
         "min_order_amount_usd": f"{business.min_order_amount_usd:.2f}",
         "max_order_amount_usd": f"{business.max_order_amount_usd:.2f}",
         "daily_limit_usd": f"{business.daily_limit_usd:.2f}",

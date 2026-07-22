@@ -7,6 +7,7 @@ import { isBusinessMiniAppView, type BusinessMiniAppView } from "../constants/bu
 import { CURRENT_CLIENT_TERMS_VERSION, hasAcceptedCurrentClientTerms } from "../constants/legal";
 import type { PublicUser } from "../types/auth";
 import { configureTelemetryContext } from "../observability/clientTelemetry";
+import { actionStartedAt } from "./actionTelemetry";
 import { fallbackForBusinessMiniAppView, ROOT_BUSINESS_VIEWS } from "./business-mini-app/helpers";
 import { useBusinessAccessModel } from "./business-mini-app/useBusinessAccessModel";
 import { useBusinessAdsModel } from "./business-mini-app/useBusinessAdsModel";
@@ -21,6 +22,7 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   const [view, setCurrentView] = useState<BusinessMiniAppView>("business-dashboard");
   const [currentUser, setCurrentUser] = useState(user);
   const viewHistoryRef = useRef<BusinessMiniAppView[]>([]);
+  const pendingViewTransitionRef = useRef<{ from: BusinessMiniAppView; to: BusinessMiniAppView; startedAt: number } | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -43,21 +45,37 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
 
   const setView = useCallback((nextView: BusinessMiniAppView) => {
     const safeView = isBusinessMiniAppView(nextView) ? nextView : "business-dashboard";
+    const startedAt = actionStartedAt();
     setCurrentView((currentView) => {
       if (currentView === safeView) {
         return currentView;
       }
+      pendingViewTransitionRef.current = { from: currentView, to: safeView, startedAt };
       viewHistoryRef.current = [...viewHistoryRef.current, currentView].slice(-20);
       return safeView;
     });
   }, []);
 
   const goBack = useCallback(() => {
+    const startedAt = actionStartedAt();
     setCurrentView((currentView) => {
       const previousView = viewHistoryRef.current.pop();
       const fallback = fallbackForBusinessMiniAppView(currentView);
-      return previousView && isBusinessMiniAppView(previousView) ? previousView : fallback;
+      const nextView = previousView && isBusinessMiniAppView(previousView) ? previousView : fallback;
+      if (nextView !== currentView) {
+        pendingViewTransitionRef.current = { from: currentView, to: nextView, startedAt };
+      }
+      return nextView;
     });
+  }, []);
+
+  const consumeViewTransition = useCallback((renderedView: BusinessMiniAppView) => {
+    const transition = pendingViewTransitionRef.current;
+    if (!transition || transition.to !== renderedView) {
+      return null;
+    }
+    pendingViewTransitionRef.current = null;
+    return transition;
   }, []);
 
   const canGoBack = useMemo(() => !ROOT_BUSINESS_VIEWS.has(view), [view]);
@@ -95,7 +113,7 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     refreshBusinessOrders: orders.refreshBusinessOrders,
     refreshCreditWallet: credits.refreshCreditWallet,
     refreshMyAds: ads.refreshMyAds,
-    setCurrentView,
+    setView,
     view
   });
   const handledOrderDeepLinkRef = useRef(false);
@@ -151,6 +169,7 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     acceptBusinessTerms,
     view,
     setView,
+    consumeViewTransition,
     loadHomeSummary: homeSummary.loadHomeSummary,
     goBack,
     canGoBack,

@@ -9,6 +9,7 @@ import {
   resolveAdminNotification
 } from "../../api/admin";
 import type { AdminNotification, AdminNotificationsList } from "../../types/admin";
+import { actionStartedAt, recordActionFailed } from "../actionTelemetry";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
 
 type OpenHandlers = {
@@ -50,6 +51,7 @@ export function useAdminNotificationsModel({
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [supportUnreadCount, setSupportUnreadCount] = useState(0);
+  const [unreadCountState, setUnreadCountState] = useState<"idle" | "ready" | "stale">("idle");
   const [panelOpen, setPanelOpen] = useState(false);
   const [notificationBusyId, setNotificationBusyId] = useState<string | null>(null);
   const unreadCountInitialized = useRef(false);
@@ -71,11 +73,14 @@ export function useAdminNotificationsModel({
   }, [setNotice]);
 
   const loadUnreadCount = useCallback(async () => {
+    const startedAt = actionStartedAt();
     try {
       const payload = await getAdminNotificationsUnreadCount<{ unread_count: number; support_unread_count?: number }>(request);
       applyUnreadCount(payload.unread_count, payload.support_unread_count ?? 0);
-    } catch {
-      applyUnreadCount(0, 0);
+      setUnreadCountState("ready");
+    } catch (error) {
+      setUnreadCountState("stale");
+      recordActionFailed("admin_notifications_unread_refresh", "admin_notifications", startedAt, error instanceof Error ? error.name : undefined);
     }
   }, [applyUnreadCount, request]);
 
@@ -174,6 +179,7 @@ export function useAdminNotificationsModel({
     panelOpen,
     notificationBusyId,
     supportUnreadCount,
+    unreadCountState,
     loadNotifications,
     loadUnreadCount,
     togglePanel,

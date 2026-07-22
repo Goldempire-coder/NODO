@@ -42,7 +42,7 @@ async function copyText(value: string) {
 }
 
 export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { busy, creditWallet, openBuyCredits } = model;
+  const { busy, creditWallet, creditWalletRefreshState, openBuyCredits, refreshCreditWallet } = model;
   return (
     <div className="business-card">
       <Text className="business-card__label">Creditos</Text>
@@ -66,7 +66,17 @@ export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel 
             <strong>{creditWallet.lifetime_purchased_credits}</strong>
           </div>
         </div>
-      ) : <Text>Carga tu balance para ver el resumen.</Text>}
+      ) : <Text>{creditWalletRefreshState === "stale" ? "No pudimos cargar tu saldo. Reintenta." : "Carga tu balance para ver el resumen."}</Text>}
+      {creditWalletRefreshState === "stale" ? (
+        <div className="business-shell__tabs">
+          <Text className="business-card__label" role="status">
+            {creditWallet ? "Saldo sin actualizar. Mostramos el ultimo saldo conocido." : "Saldo no disponible. Reintenta en un momento."}
+          </Text>
+          <button className="mini-action-button" type="button" disabled={busy} onClick={() => void refreshCreditWallet()}>
+            Reintentar saldo
+          </button>
+        </div>
+      ) : null}
       <div className="business-shell__tabs">
         <button
           className="mini-action-button mini-action-button--filled mini-action-button--full"

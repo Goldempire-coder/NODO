@@ -77,6 +77,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
     busy,
     business,
     canGoBack,
+    consumeViewTransition,
     goBack,
     loadBusinessOrders,
     loadCreditDashboard,
@@ -93,7 +94,6 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
   } = model;
   const [activeNav, setActiveNav] = useState<"home" | "ads" | "orders" | "credits" | "profile">("home");
   const previousViewRef = useRef<BusinessMiniAppView | null>(null);
-  const viewStartedAtRef = useRef<number | null>(null);
   const termsRequired = view === "business-terms";
   const canUseBusinessNav = accessState === "ready" && !termsRequired;
 
@@ -141,13 +141,13 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
 
   useEffect(() => {
     const previousView = previousViewRef.current;
-    if (viewStartedAtRef.current !== null) {
-      recordSlowScreenTransition(view, previousView, elapsedMs(viewStartedAtRef.current));
+    const transition = consumeViewTransition(view);
+    if (transition) {
+      recordSlowScreenTransition(view, transition.from, elapsedMs(transition.startedAt));
     }
     recordScreenView(view, previousView);
     previousViewRef.current = view;
-    viewStartedAtRef.current = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-  }, [view]);
+  }, [consumeViewTransition, view]);
 
   useEffect(() => {
     if (view === "credits-dashboard" || view === "buy-credits" || view === "credit-payment-pending" || view === "referrals") {

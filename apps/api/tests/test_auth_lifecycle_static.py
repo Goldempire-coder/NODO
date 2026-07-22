@@ -384,6 +384,9 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "const businessId = business?.id || \"\"" in business_settings
     assert "copyBusinessId" in business_settings
     assert "ID copiado para soporte." in business_settings
+    assert "No pudimos copiar el ID. Puedes seleccionarlo manualmente." in business_settings
+    assert 'recordActionFailed("business_id_copy"' in business_settings
+    assert "if (!copied)" in business_settings
     assert "business-identity-box" in business_settings
     assert ".business-identity-box" in app_css
     assert "business-support-message--mine" in support_screen
@@ -414,6 +417,7 @@ def test_static_web_build_injects_public_api_env_values() -> None:
 def test_frontend_observability_is_separated_and_redacts_sensitive_metadata() -> None:
     api_client = _read("apps/web/src/api/client.ts")
     telemetry = _read("apps/web/src/observability/clientTelemetry.ts")
+    business_model = _read("apps/web/src/hooks/useBusinessMiniAppModel.ts")
     business_shell = _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
     public_env = _read("apps/web/src/lib/env.ts")
 
@@ -430,7 +434,12 @@ def test_frontend_observability_is_separated_and_redacts_sensitive_metadata() ->
     assert '"token"' in telemetry
     assert '"account"' in telemetry
     assert '"storage"' in telemetry
-    assert "recordSlowScreenTransition(view, previousView, elapsedMs(viewStartedAtRef.current))" in business_shell
+    assert "consumeViewTransition(view)" in business_shell
+    assert "recordSlowScreenTransition(view, transition.from, elapsedMs(transition.startedAt))" in business_shell
+    assert "viewStartedAtRef" not in business_shell
+    assert "pendingViewTransitionRef" in business_model
+    assert "const startedAt = actionStartedAt()" in business_model
+    assert "startedAt }" in business_model
     assert "recordScreenView(view, previousView)" in business_shell
     assert "previousViewRef.current = view" in business_shell
     assert "NEXT_PUBLIC_OBSERVABILITY_INGEST_ENABLED" in public_env
@@ -438,6 +447,33 @@ def test_frontend_observability_is_separated_and_redacts_sensitive_metadata() ->
     assert "slow_sensitive_action" in telemetry
     assert "slow_screen_transition" in telemetry
     assert "recordActionBreadcrumb" in _read("apps/web/src/hooks/actionTelemetry.ts")
+
+
+def test_business_and_admin_resilience_preserve_last_known_values() -> None:
+    credits_model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+    credits_screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    business_dashboard = _read("apps/web/src/screens/business-app/BusinessDashboardScreen.tsx")
+    notifications_model = _read("apps/web/src/hooks/admin-web/useAdminNotificationsModel.ts")
+    admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
+    admin_shell = _read("apps/web/src/screens/admin-web/AdminWebShell.tsx")
+
+    wallet_refresh = credits_model.split("const refreshCreditWallet", 1)[1].split("const openBuyCredits", 1)[0]
+    assert "setCreditWallet(null)" not in wallet_refresh
+    assert 'setCreditWalletRefreshState("stale")' in wallet_refresh
+    assert 'recordBusinessActionFailed("credit_balance_refresh"' in wallet_refresh
+    assert "creditWalletRefreshState" in credits_screen
+    assert "Mostramos el ultimo saldo conocido." in credits_screen
+    assert "Reintentar saldo" in credits_screen
+    assert "creditWalletRefreshState" in business_dashboard
+
+    unread_refresh = notifications_model.split("const loadUnreadCount", 1)[1].split("const loadNotifications", 1)[0]
+    assert "applyUnreadCount(0, 0)" not in unread_refresh
+    assert 'setUnreadCountState("stale")' in unread_refresh
+    assert 'recordActionFailed("admin_notifications_unread_refresh"' in unread_refresh
+    assert "adminNotificationsUnreadState" in admin_model
+    assert "adminNotificationsUnreadState" in admin_shell
+    assert "Contador sin actualizar" in admin_shell
+    assert ".admin-web-notification-stale" in _read("apps/web/src/app/admin-web.css")
 
 
 def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:

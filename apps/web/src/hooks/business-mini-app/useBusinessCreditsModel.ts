@@ -98,6 +98,7 @@ export function useBusinessCreditsModel({
   setView: (view: BusinessMiniAppView) => void;
 }) {
   const [creditWallet, setCreditWallet] = useState<CreditWallet | null>(null);
+  const [creditWalletRefreshState, setCreditWalletRefreshState] = useState<"idle" | "ready" | "stale">("idle");
   const [selectedCreditPurchase, setSelectedCreditPurchase] = useState<CreditPurchase | null>(null);
   const [pendingCreditPurchase, setPendingCreditPurchase] = useState<CreditPurchase | null>(null);
   const [creditPackage, setCreditPackage] = useState<string | null>(null);
@@ -120,12 +121,15 @@ export function useBusinessCreditsModel({
   }, [setNotice, setView]);
 
   const refreshCreditWallet = useCallback(async () => {
+    const startedAt = actionStartedAt();
     try {
       const data = await getBusinessCreditWallet<{ wallet: CreditWallet; disclaimer?: string }>(request);
       setCreditWallet(data.wallet);
+      setCreditWalletRefreshState("ready");
       return data.wallet;
-    } catch {
-      setCreditWallet(null);
+    } catch (error) {
+      setCreditWalletRefreshState("stale");
+      recordBusinessActionFailed("credit_balance_refresh", "credits", startedAt, error instanceof ApiClientError ? error.code : undefined);
       return null;
     }
   }, [request]);
@@ -189,14 +193,14 @@ export function useBusinessCreditsModel({
     setNotice(BASE_USDC_CREDIT_NOTICE);
     setBusy(true);
     try {
-      const data = await getBusinessCreditWallet<{ wallet: CreditWallet; disclaimer?: string }>(request);
-      setCreditWallet(data.wallet);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No logramos cargar tus creditos.");
+      const wallet = await refreshCreditWallet();
+      if (!wallet) {
+        setNotice("No pudimos actualizar tus creditos. Reintenta en un momento.");
+      }
     } finally {
       setBusy(false);
     }
-  }, [request, setBusy, setNotice, setView]);
+  }, [refreshCreditWallet, setBusy, setNotice, setView]);
 
   const startBaseUsdcPayment = useCallback(async () => {
     if (!creditPackage) {
@@ -335,6 +339,7 @@ export function useBusinessCreditsModel({
     continuePendingBaseUsdcPayment,
     creditPackage,
     creditWallet,
+    creditWalletRefreshState,
     generatingCreditPayment,
     loadingPendingPurchase,
     loadCreditDashboard,

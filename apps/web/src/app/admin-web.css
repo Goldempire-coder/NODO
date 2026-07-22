@@ -302,6 +302,13 @@
   font-size: 12px;
 }
 
+.admin-web-notification-stale {
+  display: block;
+  margin-top: 4px;
+  color: var(--admin-amber);
+  font-size: 11px;
+}
+
 .admin-web-notification-panel {
   position: absolute;
   z-index: 30;

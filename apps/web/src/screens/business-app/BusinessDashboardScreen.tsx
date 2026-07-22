@@ -12,7 +12,7 @@ function countActionableOrders(model: BusinessMiniAppModel) {
 }
 
 export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { business, businessOrders, creditWallet, homeSummaryState, loadBusinessOrders, loadCreditDashboard, loadMyAds, ownAds, paymentMethods, setBusinessAvailability, setView, updatingAvailability } = model;
+  const { business, businessOrders, creditWallet, creditWalletRefreshState, homeSummaryState, loadBusinessOrders, loadCreditDashboard, loadMyAds, ownAds, paymentMethods, setBusinessAvailability, setView, updatingAvailability } = model;
   const hasPaymentMethods = paymentMethods.length > 0;
   const isApproved = business?.verification_status === "approved";
   const isAcceptingOrders = business?.is_accepting_orders !== false;
@@ -72,6 +72,7 @@ export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel
           <span>Creditos disponibles</span>
           <strong>{isRefreshing ? "..." : availableCredits ?? "-"}</strong>
           <small>Bloq. {isRefreshing ? "..." : blockedCredits ?? "-"} / Cons. {isRefreshing ? "..." : consumedCredits ?? "-"}</small>
+          {creditWalletRefreshState === "stale" ? <small>Saldo sin actualizar</small> : null}
         </button>
       </div>
       <div className="business-grid">
