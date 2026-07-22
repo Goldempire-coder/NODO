@@ -130,6 +130,32 @@ def test_business_support_prevents_duplicate_active_topic_creation() -> None:
     assert "ACTIVE_SUPPORT_STATUSES.has(ticket.status)" in support_model
 
 
+def test_business_support_shell_back_returns_from_chat_to_ticket_list() -> None:
+    shell = _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
+
+    assert "handleBusinessBack" in shell
+    assert 'view === "business-support" && selectedSupportTicket' in shell
+    assert "setSelectedSupportTicket(null)" in shell
+    assert 'setSupportReply("")' in shell
+    assert 'void loadSupportTickets("active");' in shell
+    assert "onClick={handleBusinessBack}" in shell
+
+
+def test_business_support_upload_picker_and_message_attachment_contract() -> None:
+    support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    support_api = _read("apps/web/src/api/support.ts")
+    support_service = _read("apps/api/app/modules/support/service.py")
+
+    assert 'accept="image/*,application/pdf"' in support_screen
+    assert "capture=" not in support_screen
+    assert "const payload = await uploadSupportAttachment" in support_model
+    assert "applySupportMessageResult(current, payload.message, payload.ticket)" in support_model
+    assert "Promise<SupportMessageResponse>" in support_api
+    assert 'resource_type="support_message"' in support_service
+    assert 'body="Adjunto enviado."' in support_service
+
+
 def test_client_support_request_does_not_depend_on_whole_workspace_state() -> None:
     workspace_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
 

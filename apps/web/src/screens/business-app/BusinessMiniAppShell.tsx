@@ -72,7 +72,25 @@ function NavIcon({ name }: { name: "home" | "ads" | "orders" | "credits" | "prof
 }
 
 export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel }) {
-  const { accessState, busy, business, canGoBack, goBack, loadBusinessOrders, loadCreditDashboard, loadHomeSummary, loadMyAds, notice, setView, user, view } = model;
+  const {
+    accessState,
+    busy,
+    business,
+    canGoBack,
+    goBack,
+    loadBusinessOrders,
+    loadCreditDashboard,
+    loadHomeSummary,
+    loadMyAds,
+    loadSupportTickets,
+    notice,
+    selectedSupportTicket,
+    setSelectedSupportTicket,
+    setSupportReply,
+    setView,
+    user,
+    view
+  } = model;
   const [activeNav, setActiveNav] = useState<"home" | "ads" | "orders" | "credits" | "profile">("home");
   const previousViewRef = useRef<BusinessMiniAppView | null>(null);
   const viewStartedAtRef = useRef<number | null>(null);
@@ -109,6 +127,16 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
       return;
     }
     setView("business-settings");
+  };
+
+  const handleBusinessBack = () => {
+    if (view === "business-support" && selectedSupportTicket) {
+      setSelectedSupportTicket(null);
+      setSupportReply("");
+      void loadSupportTickets("active");
+      return;
+    }
+    goBack();
   };
 
   useEffect(() => {
@@ -163,7 +191,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
 
       {canGoBack && canUseBusinessNav ? (
         <div className="screen-heading">
-          <button className="topbar-back" type="button" aria-label="Volver" onClick={goBack}>
+          <button className="topbar-back" type="button" aria-label="Volver" onClick={handleBusinessBack}>
             <span aria-hidden="true" />
           </button>
           <Title level="2" className="business-shell__title">

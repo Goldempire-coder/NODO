@@ -278,7 +278,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
               <input
                 ref={fileInputRef}
                 className="business-support-file-input"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
+                accept="image/*,application/pdf"
                 disabled={uploadingSupportAttachment || sendingSupportReply}
                 type="file"
                 onChange={(event) => {

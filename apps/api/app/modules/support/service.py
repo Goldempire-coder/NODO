@@ -399,10 +399,26 @@ class SupportService:
         def compute() -> dict[str, Any]:
             file_id = new_id()
             stored = self._storage.store_support_attachment(ticket_id=ticket.id, file_id=file_id, file_name=file_name, content=content)
-            file = self._repository.create_file_asset(file_id=file_id, owner_user_id=user.id, resource_type="support_ticket", resource_id=ticket.id, storage_path=stored.storage_path, mime_type=mime_type, size_bytes=stored.size_bytes)
-            self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_attachment_uploaded", metadata_json={"file_asset_id": file.id, "mime_type": mime_type, "size_bytes": stored.size_bytes})
-            self._audit.write(event_type="support_attachment_uploaded", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"file_asset_id": file.id, "mime_type": mime_type, "size_bytes": stored.size_bytes})
-            return {"attachment": file_asset_public(file), "disclaimer": SUPPORT_DISCLAIMER}
+            message = self._repository.create_message(ticket_id=ticket.id, sender_user_id=user.id, sender_role=user.role, body="Adjunto enviado.", visibility="participants")
+            file = self._repository.create_file_asset(file_id=file_id, owner_user_id=user.id, resource_type="support_message", resource_id=message.id, storage_path=stored.storage_path, mime_type=mime_type, size_bytes=stored.size_bytes)
+            target_status = ticket.status
+            if ticket.status != "escalated":
+                target_status = "waiting_user" if admin else "waiting_support"
+            if target_status != ticket.status:
+                self._repository.update_ticket(ticket, status=target_status)
+            self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_attachment_uploaded", metadata_json={"file_asset_id": file.id, "message_id": message.id, "mime_type": mime_type, "size_bytes": stored.size_bytes})
+            self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_message_created", metadata_json={"visibility": "participants", "has_attachment": True})
+            self._audit.write(event_type="support_attachment_uploaded", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"file_asset_id": file.id, "message_id": message.id, "mime_type": mime_type, "size_bytes": stored.size_bytes})
+            self._audit.write(event_type="support_message_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"visibility": "participants", "has_attachment": True})
+            current_ticket = self._repository.get_ticket(ticket.id) or ticket
+            if self._admin_notifications is not None and not admin and current_ticket.business_id:
+                self._admin_notifications.business_support_message_created(ticket=current_ticket, message=message, request_id=request_id)
+            return {
+                "attachment": file_asset_public(file),
+                "message": message_public(message, [file]),
+                "ticket": self._ticket_summary_payload(current_ticket),
+                "disclaimer": SUPPORT_DISCLAIMER,
+            }
 
         return self._idempotency.replay_or_store(f"support:attachment:{user.id}:{ticket.id}:{idempotency_key}", payload=payload, compute=compute)
 

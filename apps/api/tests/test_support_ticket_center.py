@@ -432,7 +432,19 @@ def test_support_attachments_are_private_limited_and_signed_url_not_persisted() 
         files={"file": ("proof.png", b"proof", "image/png")},
     )
     assert valid.status_code == 201, valid.text
-    file_id = valid.json()["data"]["attachment"]["id"]
+    upload_payload = valid.json()["data"]
+    file_id = upload_payload["attachment"]["id"]
+    assert upload_payload["message"]["body"] == "Adjunto enviado."
+    assert upload_payload["message"]["attachments"][0]["id"] == file_id
+    assert upload_payload["message"]["attachments"][0]["resource_type"] == "support_message"
+
+    user_detail = client.get(f"/api/v1/support/tickets/{ticket['id']}", headers=_bearer(remitter, "support_attachment_user_detail"))
+    assert user_detail.status_code == 200, user_detail.text
+    assert user_detail.json()["data"]["messages"][-1]["attachments"][0]["id"] == file_id
+
+    admin_detail = client.get(f"/api/v1/admin/support/tickets/{ticket['id']}", headers=_bearer(support, "support_attachment_admin_detail"))
+    assert admin_detail.status_code == 200, admin_detail.text
+    assert admin_detail.json()["data"]["messages"][-1]["attachments"][0]["id"] == file_id
 
     bad_mime = client.post(
         f"/api/v1/support/tickets/{ticket['id']}/attachments",
@@ -459,4 +471,6 @@ def test_support_attachments_are_private_limited_and_signed_url_not_persisted() 
     assert "storage_path" not in combined
     assert "account_value" not in combined
     assert signed_url not in json.dumps([event.__dict__ for event in client.app.state.audit_writer.events], default=str)
+    assert "support_attachment_uploaded" in _events(client)
+    assert "support_message_created" in _events(client)
     assert "support_attachment_viewed" in _events(client)

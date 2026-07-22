@@ -42,10 +42,10 @@ export async function sendSupportMessage(request: AuthenticatedRequest, ticketId
   });
 }
 
-export async function uploadSupportAttachment(request: AuthenticatedRequest, ticketId: string, file: File, idempotencyKey: string): Promise<unknown> {
+export async function uploadSupportAttachment(request: AuthenticatedRequest, ticketId: string, file: File, idempotencyKey: string): Promise<SupportMessageResponse> {
   const data = new FormData();
   data.append("file", file);
-  return request(`/api/v1/support/tickets/${ticketId}/attachments`, {
+  return request<SupportMessageResponse>(`/api/v1/support/tickets/${ticketId}/attachments`, {
     method: "POST",
     headers: {
       "Idempotency-Key": idempotencyKey

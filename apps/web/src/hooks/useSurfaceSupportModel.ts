@@ -284,11 +284,17 @@ export function useSurfaceSupportModel({
     setUploadingSupportAttachment(true);
     const idempotencyScope = `support_file_${selectedSupportTicket.id}`;
     try {
-      await uploadSupportAttachment(request, selectedSupportTicket.id, file, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, name: file.name, size: file.size }));
+      const payload = await uploadSupportAttachment(request, selectedSupportTicket.id, file, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, name: file.name, size: file.size }));
       clearIdempotencyKey(idempotencyScope);
-      const ticket = await getSupportTicket(request, selectedSupportTicket.id);
-      setSelectedSupportTicket(ticket);
-      setNotice("Adjunto guardado de forma privada.");
+      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? applySupportMessageResult(current, payload.message, payload.ticket) : current));
+      setSupportTickets((current) => {
+        if (!ticketBelongsToFilter(payload.ticket, supportFilterRef.current)) {
+          return current.filter((item) => item.id !== payload.ticket.id);
+        }
+        const rest = current.filter((item) => item.id !== payload.ticket.id);
+        return [payload.ticket, ...rest];
+      });
+      setNotice("Adjunto enviado a Soporte NODO.");
       recordActionCompleted("support_attachment_upload", "support", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos subir el adjunto.");
