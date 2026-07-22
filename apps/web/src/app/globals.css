@@ -104,6 +104,20 @@ textarea {
   gap: 18px;
 }
 
+.app-shell:has(.business-support--typing) {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.business-shell:has(.business-support--typing) {
+  gap: 10px;
+}
+
+.app-shell:has(.business-support--typing) .primary-nav {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(calc(112% + env(safe-area-inset-bottom)));
+}
+
 .business-shell__header {
   display: flex;
   align-items: flex-start;
@@ -398,6 +412,67 @@ textarea {
   overflow: hidden;
 }
 
+.business-support--typing {
+  height: min(72dvh, 640px);
+  max-height: calc(100dvh - 96px);
+  min-height: min(500px, calc(100dvh - 96px));
+  gap: 6px;
+}
+
+.business-support--typing .business-support__topbar {
+  min-height: 46px;
+  padding: 6px;
+}
+
+.business-support--typing .business-support__topbar .business-card__label,
+.business-support--typing .business-support-thread__summary .business-card__label,
+.business-support--typing .business-support-thread__summary small {
+  display: none;
+}
+
+.business-support--typing .business-support-thread {
+  gap: 6px;
+}
+
+.business-support--typing .business-support-thread__summary {
+  align-items: center;
+  padding-bottom: 4px;
+}
+
+.business-support--typing .business-support-thread__title {
+  font-size: clamp(16px, 4.2vw, 18px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.business-support--typing .business-support-messages {
+  gap: 6px;
+  padding: 6px 2px;
+}
+
+.business-support--typing .business-support-message {
+  padding: 8px 10px;
+}
+
+.business-support--typing .business-support-message p {
+  font-size: clamp(13px, 3.6vw, 15px);
+}
+
+.business-support--typing .business-support-message small {
+  display: none;
+}
+
+.business-support--typing .business-support-composer {
+  grid-template-columns: 34px minmax(0, 1fr) 74px;
+  padding: 6px;
+}
+
+.business-support--typing .business-support-composer__input {
+  min-height: 40px;
+  max-height: 72px;
+}
+
 .business-support-thread__summary {
   min-width: 0;
   display: flex;
@@ -561,6 +636,12 @@ textarea {
     height: min(66dvh, 560px);
     max-height: calc(100dvh - 160px);
     min-height: min(430px, calc(100dvh - 160px));
+  }
+
+  .business-support--typing {
+    height: min(72dvh, 600px);
+    max-height: calc(100dvh - 72px);
+    min-height: min(460px, calc(100dvh - 72px));
   }
 
   .business-support__topbar {

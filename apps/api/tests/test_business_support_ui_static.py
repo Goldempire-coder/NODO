@@ -50,7 +50,7 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
     global_css = _read("apps/web/src/app/globals.css")
 
-    assert 'className="business-support"' in support_screen
+    assert '"business-support business-support--typing" : "business-support"' in support_screen
     assert 'className="business-card business-support-thread"' not in support_screen
     assert "business-support-composer" in support_screen
     assert "business-support-clip" in support_screen
@@ -76,7 +76,10 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
 
 def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
     global_css = _read("apps/web/src/app/globals.css")
+    support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
 
+    assert "composerFocused" in support_screen
+    assert "business-support business-support--typing" in support_screen
     assert "height: min(68dvh, 620px);" in global_css
     assert "max-height: calc(100dvh - 174px);" in global_css
     assert "grid-template-rows: auto minmax(0, 1fr);" in global_css
@@ -91,6 +94,24 @@ def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
     assert "font-size: clamp(14px, 3.8vw, 16px);" in global_css
     assert "grid-template-columns: 34px minmax(0, 1fr) auto;" in global_css
     assert "min-height: 36px;" in global_css
+
+
+def test_business_support_typing_mode_prioritizes_chat_above_mobile_keyboard() -> None:
+    support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    global_css = _read("apps/web/src/app/globals.css")
+
+    assert "focusComposer" in support_screen
+    assert "blurComposer" in support_screen
+    assert "messagesEndRef.current?.scrollIntoView({ block: \"end\" });" in support_screen
+    assert 'onFocus={focusComposer}' in support_screen
+    assert 'onBlur={blurComposer}' in support_screen
+    assert ".app-shell:has(.business-support--typing) .primary-nav" in global_css
+    assert "transform: translateY(calc(112% + env(safe-area-inset-bottom)));" in global_css
+    assert ".business-support--typing {\n  height: min(72dvh, 640px);" in global_css
+    assert ".business-support--typing .business-support__topbar" in global_css
+    assert ".business-support--typing .business-support-thread__summary small" in global_css
+    assert ".business-support--typing .business-support-messages" in global_css
+    assert ".business-support--typing .business-support-composer__input" in global_css
 
 
 def test_business_support_prevents_duplicate_active_topic_creation() -> None:
