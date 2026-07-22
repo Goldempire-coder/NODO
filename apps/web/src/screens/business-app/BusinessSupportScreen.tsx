@@ -126,9 +126,6 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
     setSelectedSupportTicket(null);
     setSupportReply("");
     setShowNewConversation(true);
-    if (supportFilter !== "active") {
-      void loadSupportTickets("active");
-    }
   };
 
   const returnToConversationList = () => {
@@ -295,7 +292,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
         </div>
       ) : null}
 
-      {!selectedSupportTicket ? (
+      {!showNewConversation && !selectedSupportTicket ? (
         <div className="business-support-inbox">
           <div className="business-support-inbox__actions">
             <label className="business-support-thread-selector">

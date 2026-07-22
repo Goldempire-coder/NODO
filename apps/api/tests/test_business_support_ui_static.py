@@ -130,6 +130,17 @@ def test_business_support_prevents_duplicate_active_topic_creation() -> None:
     assert "ACTIVE_SUPPORT_STATUSES.has(ticket.status)" in support_model
 
 
+def test_business_support_new_ticket_transition_is_local_and_does_not_render_inbox() -> None:
+    support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    start_position = support_screen.index("const startNewConversation = () => {")
+    end_position = support_screen.index("};", start_position)
+    start_handler = support_screen[start_position:end_position]
+
+    assert "loadSupportTickets" not in start_handler
+    assert "{!showNewConversation && !selectedSupportTicket ? (" in support_screen
+    assert "{!selectedSupportTicket ? (" not in support_screen
+
+
 def test_business_support_shell_back_returns_from_chat_to_ticket_list() -> None:
     shell = _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
 
