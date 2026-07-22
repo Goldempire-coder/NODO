@@ -200,46 +200,11 @@ textarea {
   max-height: calc(100dvh - 174px);
   min-height: min(520px, calc(100dvh - 174px));
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 8px;
   overflow: hidden;
 }
 
-.business-support__topbar {
-  min-height: 56px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid rgb(148 163 184 / 18%);
-  border-radius: 13px;
-  background:
-    linear-gradient(180deg, rgb(15 28 42 / 88%), rgb(6 17 31 / 94%)),
-    rgb(5 17 31);
-}
-
-.business-support__identity {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.business-support__title {
-  font-size: clamp(18px, 4.5vw, 21px);
-  line-height: 1.02;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.business-support__identity span {
-  color: var(--nodo-muted);
-  font-size: 12px;
-  line-height: 1.25;
-}
-
-.business-support-avatar,
 .business-support-icon-button {
   width: 34px;
   height: 34px;
@@ -249,13 +214,6 @@ textarea {
   border-radius: 11px;
   background: rgb(3 14 28 / 78%);
   color: var(--nodo-text);
-}
-
-.business-support-avatar {
-  border-color: rgb(0 230 118 / 28%);
-  background: linear-gradient(145deg, rgb(9 42 56 / 96%), rgb(11 91 75 / 62%));
-  font-size: 15px;
-  font-weight: 900;
 }
 
 .business-support-icon-button {
@@ -318,6 +276,20 @@ textarea {
 
 .business-support-thread-selector {
   display: grid;
+  gap: 6px;
+}
+
+.business-support-inbox__actions {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.business-support-inbox__buttons {
+  display: flex;
+  align-items: center;
   gap: 6px;
 }
 
@@ -419,12 +391,6 @@ textarea {
   gap: 6px;
 }
 
-.business-support--typing .business-support__topbar {
-  min-height: 46px;
-  padding: 6px;
-}
-
-.business-support--typing .business-support__topbar .business-card__label,
 .business-support--typing .business-support-thread__summary .business-card__label,
 .business-support--typing .business-support-thread__summary small {
   display: none;
@@ -644,18 +610,21 @@ textarea {
     min-height: min(460px, calc(100dvh - 72px));
   }
 
-  .business-support__topbar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-
-  .business-support__topbar > button:last-child {
-    grid-column: 1 / -1;
-    width: 100%;
-  }
-
   .business-support-composer {
     grid-template-columns: 34px minmax(0, 1fr) auto;
     padding: 7px;
+  }
+
+  .business-support-inbox__actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .business-support-inbox__buttons {
+    justify-content: stretch;
+  }
+
+  .business-support-new-button {
+    flex: 1 1 auto;
   }
 
   .business-support-send {

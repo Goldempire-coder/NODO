@@ -61,6 +61,11 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
     assert "business-support-tabs" not in support_screen
     assert "business-support-ticket-list" in support_screen
     assert "Soporte NODO" in support_screen
+    assert "Ayuda para tu negocio" not in support_screen
+    assert "Soporte Operativo" not in support_screen
+    assert "Volver a conversaciones" not in support_screen
+    assert "ArrowLeftIcon" not in support_screen
+    assert "business-support__topbar" not in support_screen
     assert "Esperando tu respuesta" in support_screen
     assert "Activas" in support_screen
     assert "Archivadas" in support_screen
@@ -69,8 +74,11 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
     assert ".business-support-composer" in global_css
     assert ".business-support-clip" in global_css
     assert ".business-support-thread-selector" in global_css
+    assert ".business-support-inbox__actions" in global_css
+    assert ".business-support-new-button" in global_css
+    assert ".business-support__topbar" not in global_css
     assert "position: sticky" in global_css
-    assert 'Button mode="outline" size="s" type="button" disabled={creatingSupportTicket} onClick={startNewConversation}>' in support_screen
+    assert 'className="business-support-new-button"' in support_screen
     assert "Nuevo" in support_screen
 
 
@@ -82,14 +90,14 @@ def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
     assert "business-support business-support--typing" in support_screen
     assert "height: min(68dvh, 620px);" in global_css
     assert "max-height: calc(100dvh - 174px);" in global_css
-    assert "grid-template-rows: auto minmax(0, 1fr);" in global_css
+    assert "grid-template-rows: minmax(0, 1fr);" in global_css
     assert ".business-support {\n  height: min(68dvh, 620px);" in global_css
     assert ".business-support-thread {\n  min-height: 0;\n  height: 100%;" in global_css
     assert "overflow: hidden;" in global_css
     assert "overflow-y: auto;" in global_css
     assert "min-height: 56px;" in global_css
     assert "width: 34px;" in global_css
-    assert "font-size: clamp(18px, 4.5vw, 21px);" in global_css
+    assert "business-support__title" not in global_css
     assert "grid-template-rows: auto minmax(0, 1fr) auto;" in global_css
     assert "font-size: clamp(14px, 3.8vw, 16px);" in global_css
     assert "grid-template-columns: 34px minmax(0, 1fr) auto;" in global_css
@@ -108,7 +116,7 @@ def test_business_support_typing_mode_prioritizes_chat_above_mobile_keyboard() -
     assert ".app-shell:has(.business-support--typing) .primary-nav" in global_css
     assert "transform: translateY(calc(112% + env(safe-area-inset-bottom)));" in global_css
     assert ".business-support--typing {\n  height: min(72dvh, 640px);" in global_css
-    assert ".business-support--typing .business-support__topbar" in global_css
+    assert ".business-support--typing .business-support__topbar" not in global_css
     assert ".business-support--typing .business-support-thread__summary small" in global_css
     assert ".business-support--typing .business-support-messages" in global_css
     assert ".business-support--typing .business-support-composer__input" in global_css

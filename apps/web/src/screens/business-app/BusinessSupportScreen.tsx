@@ -49,14 +49,6 @@ function supportTicketCode(id: string): string {
   return `SP-${id.slice(0, 8).toUpperCase()}`;
 }
 
-function ArrowLeftIcon() {
-  return (
-    <svg aria-hidden="true" className="business-support-icon-svg" focusable="false" viewBox="0 0 24 24">
-      <path d="M15 18 9 12l6-6" />
-    </svg>
-  );
-}
-
 function PaperclipIcon() {
   return (
     <svg aria-hidden="true" className="business-support-icon-svg" focusable="false" viewBox="0 0 24 24">
@@ -169,29 +161,6 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
 
   return (
     <section className={composerFocused && selectedSupportTicket && !selectedArchived ? "business-support business-support--typing" : "business-support"} aria-label="Soporte NODO">
-      <header className="business-support__topbar">
-        {selectedSupportTicket || showNewConversation ? (
-          <button className="business-support-icon-button" type="button" aria-label="Volver a conversaciones" onClick={returnToConversationList}>
-            <ArrowLeftIcon />
-          </button>
-        ) : (
-          <div className="business-support-avatar" aria-hidden="true">N</div>
-        )}
-        <div className="business-support__identity">
-          <Text className="business-card__label">Ayuda para tu negocio</Text>
-          <Title level="3" className="business-shell__title business-support__title">Soporte Operativo</Title>
-          <span>Soporte revisa (En linea)</span>
-        </div>
-        <button className="business-support-icon-button" type="button" aria-label="Actualizar conversaciones" onClick={() => void refreshSupportWorkspace()}>
-          <RefreshIcon />
-        </button>
-        {!showNewConversation && !selectedSupportTicket ? (
-          <Button mode="outline" size="s" type="button" disabled={creatingSupportTicket} onClick={startNewConversation}>
-            Nuevo
-          </Button>
-        ) : null}
-      </header>
-
       {showNewConversation && !selectedSupportTicket ? (
         <form
           className="business-support-new"
@@ -328,13 +297,23 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
 
       {!selectedSupportTicket ? (
         <div className="business-support-inbox">
-          <label className="business-support-thread-selector">
-            <span>Ver conversaciones</span>
-            <select aria-label="Ver conversaciones" disabled={loadingSupportTickets} value={supportFilter} onChange={(event) => selectFilter(event.target.value as "active" | "archived")}>
-              <option value="active">Activas</option>
-              <option value="archived">Archivadas</option>
-            </select>
-          </label>
+          <div className="business-support-inbox__actions">
+            <label className="business-support-thread-selector">
+              <span>Ver conversaciones</span>
+              <select aria-label="Ver conversaciones" disabled={loadingSupportTickets} value={supportFilter} onChange={(event) => selectFilter(event.target.value as "active" | "archived")}>
+                <option value="active">Activas</option>
+                <option value="archived">Archivadas</option>
+              </select>
+            </label>
+            <div className="business-support-inbox__buttons">
+              <button className="business-support-icon-button" type="button" aria-label="Actualizar conversaciones" onClick={() => void refreshSupportWorkspace()}>
+                <RefreshIcon />
+              </button>
+              <Button className="business-support-new-button" mode="outline" size="s" type="button" disabled={creatingSupportTicket} onClick={startNewConversation}>
+                Nuevo
+              </Button>
+            </div>
+          </div>
           <small className="business-support-inbox__hint">{conversationLabel}</small>
 
           <div className="business-support-ticket-list" aria-busy={loadingSupportTickets}>
