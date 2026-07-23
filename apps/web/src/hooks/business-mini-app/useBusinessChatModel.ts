@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { listOrderMessages, openOrderDispute as openOrderDisputeRequest, sendOrderMessage, uploadOrderMessageAttachment } from "../../api/chat";
 import type { AuthenticatedRequest } from "../../api/client";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
@@ -26,12 +26,15 @@ export function useBusinessChatModel({
   const [refreshingChat, setRefreshingChat] = useState(false);
   const [sendingChatMessage, setSendingChatMessage] = useState(false);
   const [uploadingChatAttachment, setUploadingChatAttachment] = useState(false);
+  const sendingChatMessageRef = useRef(false);
+  const uploadingChatAttachmentRef = useRef(false);
+  const openingOrderDisputeRef = useRef(false);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   const openBusinessChat = useCallback(async (orderId: string) => {
     setBusy(true);
     try {
-      const data = await listOrderMessages<{ items: ChatMessage[]; capabilities: ChatCapabilities; disclaimer?: string }>(request, orderId);
+      const data = await listOrderMessages<{ items: ChatMessage[]; capabilities: ChatCapabilities; disclaimer?: string }>(request, orderId, 50);
       setChatOrderId(orderId);
       setChatMessages(data.items);
       setChatCapabilities(data.capabilities);
@@ -50,27 +53,32 @@ export function useBusinessChatModel({
     }
   }, [request, setBusy, setNotice, setView]);
 
-  const refreshChat = useCallback(async () => {
+  const refreshChat = useCallback(async (options?: { silent?: boolean }) => {
     if (!chatOrderId) {
       return;
     }
     setRefreshingChat(true);
     try {
-      const data = await listOrderMessages<{ items: ChatMessage[]; capabilities: ChatCapabilities; disclaimer?: string }>(request, chatOrderId);
+      const data = await listOrderMessages<{ items: ChatMessage[]; capabilities: ChatCapabilities; disclaimer?: string }>(request, chatOrderId, 50);
       setChatMessages(data.items);
       setChatCapabilities(data.capabilities);
-      setNotice(data.disclaimer || "Chat actualizado.");
+      if (!options?.silent) {
+        setNotice(data.disclaimer || "Chat actualizado.");
+      }
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos actualizar el chat.");
+      if (!options?.silent) {
+        setNotice(error instanceof Error ? error.message : "No pudimos actualizar el chat.");
+      }
     } finally {
       setRefreshingChat(false);
     }
   }, [chatOrderId, request, setNotice]);
 
   const uploadChatAttachment = useCallback(async (file: File | null) => {
-    if (!chatOrderId || !file) {
+    if (!chatOrderId || !file || uploadingChatAttachmentRef.current) {
       return;
     }
+    uploadingChatAttachmentRef.current = true;
     setUploadingChatAttachment(true);
     const idempotencyScope = `message_attachment_${chatOrderId}`;
     try {
@@ -81,37 +89,42 @@ export function useBusinessChatModel({
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos adjuntar el archivo.");
     } finally {
+      uploadingChatAttachmentRef.current = false;
       setUploadingChatAttachment(false);
     }
   }, [chatOrderId, clearIdempotencyKey, getIdempotencyKey, request, setNotice]);
 
   const sendChatMessage = useCallback(async () => {
-    if (!chatOrderId) {
+    const body = chatBody.trim();
+    if (!chatOrderId || sendingChatMessageRef.current || (!body && chatAttachments.length === 0)) {
       return;
     }
+    sendingChatMessageRef.current = true;
     setSendingChatMessage(true);
     const idempotencyScope = `message_${chatOrderId}`;
     try {
       await sendOrderMessage(request, chatOrderId, {
-        body: chatBody,
+        body,
         attachment_ids: chatAttachments.map((attachment) => attachment.id)
-      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, body: chatBody, attachmentIds: chatAttachments.map((attachment) => attachment.id) }));
+      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, body, attachmentIds: chatAttachments.map((attachment) => attachment.id) }));
       clearIdempotencyKey(idempotencyScope);
       setChatBody("");
       setChatAttachments([]);
-      await refreshChat();
+      await refreshChat({ silent: true });
       setNotice("Mensaje enviado.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos enviar el mensaje.");
     } finally {
+      sendingChatMessageRef.current = false;
       setSendingChatMessage(false);
     }
   }, [chatAttachments, chatBody, chatOrderId, clearIdempotencyKey, getIdempotencyKey, refreshChat, request, setNotice]);
 
   const openOrderDispute = useCallback(async () => {
-    if (!chatOrderId) {
+    if (!chatOrderId || openingOrderDisputeRef.current) {
       return;
     }
+    openingOrderDisputeRef.current = true;
     setOpeningOrderDispute(true);
     const idempotencyScope = `dispute_${chatOrderId}`;
     try {
@@ -126,6 +139,7 @@ export function useBusinessChatModel({
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos abrir el caso.");
     } finally {
+      openingOrderDisputeRef.current = false;
       setOpeningOrderDispute(false);
     }
   }, [chatBody, chatOrderId, clearIdempotencyKey, disputeReason, getIdempotencyKey, refreshChat, request, setNotice]);
