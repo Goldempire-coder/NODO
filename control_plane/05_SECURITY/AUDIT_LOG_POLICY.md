@@ -84,6 +84,11 @@ metadata
 - dispute opened/resolved
 - admin action executed
 - sensitive data viewed
+- admin_order_chat_viewed
+
+`admin_order_chat_viewed` registra actor, `order_id`, cantidad de mensajes,
+direccion de pagina y si un highlight solicitado fue encontrado. Nunca registra
+el cuerpo del chat, metadata privada de adjuntos, `storage_path` ni signed URLs.
 
 ## Datos prohibidos en audit log
 

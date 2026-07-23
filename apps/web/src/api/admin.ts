@@ -156,6 +156,24 @@ export function getAdminOrder<T>(request: AuthenticatedRequest, orderId: string)
   return request<T>(`/api/v1/admin/orders/${orderId}`);
 }
 
+export function getAdminOrderChatEvidence<T>(
+  request: AuthenticatedRequest,
+  orderId: string,
+  options: { cursor?: string; direction?: "older" | "newer"; highlightMessageId?: string; limit?: number } = {}
+) {
+  const params = new URLSearchParams({ limit: String(options.limit ?? 50) });
+  if (options.cursor) {
+    params.set("cursor", options.cursor);
+  }
+  if (options.direction) {
+    params.set("direction", options.direction);
+  }
+  if (options.highlightMessageId) {
+    params.set("highlight_message_id", options.highlightMessageId);
+  }
+  return request<T>(`/api/v1/admin/orders/${orderId}/chat-evidence?${params.toString()}`, { cache: "no-store" });
+}
+
 export function listAdminDisputes<T>(request: AuthenticatedRequest, status?: string) {
   return request<T>(`/api/v1/admin/disputes?${listParams(20, "status", status)}`);
 }

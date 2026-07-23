@@ -22,6 +22,41 @@ class InMemoryChatRepository:
         next_cursor = page[-1].created_at.isoformat() if len(page) == limit else None
         return page, next_cursor
 
+    def get_message(self, message_id: str) -> MessageRecord | None:
+        message = self.messages.get(message_id)
+        if message is None or message.deleted_at is not None:
+            return None
+        return message
+
+    def list_messages_for_evidence(
+        self,
+        *,
+        order_id: str,
+        cursor: str | None,
+        direction: str,
+        limit: int,
+        anchor_created_at=None,  # type: ignore[no-untyped-def]
+    ) -> tuple[list[MessageRecord], str | None, str | None]:
+        all_items = [message for message in self.messages.values() if message.order_id == order_id and message.deleted_at is None]
+        all_items.sort(key=lambda message: message.created_at)
+        if cursor:
+            if direction == "newer":
+                candidates = [message for message in all_items if message.created_at.isoformat() > cursor]
+                page = candidates[:limit]
+            else:
+                candidates = [message for message in all_items if message.created_at.isoformat() < cursor]
+                page = candidates[-limit:]
+        elif anchor_created_at is not None:
+            candidates = [message for message in all_items if message.created_at <= anchor_created_at]
+            page = candidates[-limit:]
+        else:
+            page = all_items[-limit:]
+        if not page:
+            return [], None, None
+        older_cursor = page[0].created_at.isoformat() if any(message.created_at < page[0].created_at for message in all_items) else None
+        newer_cursor = page[-1].created_at.isoformat() if any(message.created_at > page[-1].created_at for message in all_items) else None
+        return page, older_cursor, newer_cursor
+
     def get_message_by_idempotency_key(self, *, sender_user_id: str, idempotency_key: str) -> MessageRecord | None:
         for message in self.messages.values():
             if message.sender_user_id == sender_user_id and message.idempotency_key == idempotency_key:

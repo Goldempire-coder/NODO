@@ -3,6 +3,7 @@ import { getAdminOrder, listAdminOrders } from "../../api/admin";
 import type { AuthenticatedRequest } from "../../api/client";
 import type { AdminOrderSummary } from "../../types/admin";
 import type { AdminWebOrderDetail, ListResponse, OrdersDisputesView } from "./adminOrdersDisputesTypes";
+import { useAdminOrderChatEvidenceModel } from "./useAdminOrderChatEvidenceModel";
 
 export function useAdminOrdersModel({
   request,
@@ -18,6 +19,7 @@ export function useAdminOrdersModel({
   const [orders, setOrders] = useState<AdminOrderSummary[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<AdminWebOrderDetail | null>(null);
   const [orderFilter, setOrderFilter] = useState("");
+  const chatEvidence = useAdminOrderChatEvidenceModel({ request });
 
   const loadOrders = useCallback(async (status = orderFilter) => {
     setBusy(true);
@@ -35,21 +37,23 @@ export function useAdminOrdersModel({
     }
   }, [orderFilter, request, setBusy, setNotice, setView]);
 
-  const openOrder = useCallback(async (orderId: string) => {
+  const openOrder = useCallback(async (orderId: string, highlightMessageId?: string) => {
     setBusy(true);
     try {
       const data = await getAdminOrder<AdminWebOrderDetail>(request, orderId);
       setSelectedOrder(data);
       setView("order-detail");
       setNotice("Detalle de orden cargado con masking.");
+      void chatEvidence.loadOrderChatEvidence(orderId, highlightMessageId);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No se pudo cargar orden.");
     } finally {
       setBusy(false);
     }
-  }, [request, setBusy, setNotice, setView]);
+  }, [chatEvidence.loadOrderChatEvidence, request, setBusy, setNotice, setView]);
 
   return {
+    ...chatEvidence,
     loadOrders,
     openOrder,
     orderFilter,

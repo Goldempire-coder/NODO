@@ -28,6 +28,51 @@ class PostgresChatRepository:
         items = [message_from_row(row) for row in rows]
         return items, items[-1].created_at.isoformat() if len(items) == limit else None
 
+    def get_message(self, message_id: str) -> MessageRecord | None:
+        with self._connect() as conn:
+            row = conn.execute("select * from messages where id = %s and deleted_at is null", (message_id,)).fetchone()
+        return message_from_row(row) if row else None
+
+    def list_messages_for_evidence(
+        self,
+        *,
+        order_id: str,
+        cursor: str | None,
+        direction: str,
+        limit: int,
+        anchor_created_at=None,  # type: ignore[no-untyped-def]
+    ) -> tuple[list[MessageRecord], str | None, str | None]:
+        sql = "select * from messages where order_id = %s and deleted_at is null"
+        params: list[Any] = [order_id]
+        descending = direction != "newer"
+        if cursor:
+            sql += " and created_at > %s" if direction == "newer" else " and created_at < %s"
+            params.append(cursor)
+        elif anchor_created_at is not None:
+            sql += " and created_at <= %s"
+            params.append(anchor_created_at)
+        sql += " order by created_at desc" if descending else " order by created_at asc"
+        sql += " limit %s"
+        params.append(limit)
+        with self._connect() as conn:
+            rows = conn.execute(sql, params).fetchall()
+            if descending:
+                rows = list(reversed(rows))
+            if not rows:
+                return [], None, None
+            bounds = conn.execute(
+                """
+                select
+                    exists(select 1 from messages where order_id = %s and deleted_at is null and created_at < %s) as has_older,
+                    exists(select 1 from messages where order_id = %s and deleted_at is null and created_at > %s) as has_newer
+                """,
+                (order_id, rows[0]["created_at"], order_id, rows[-1]["created_at"]),
+            ).fetchone()
+        items = [message_from_row(row) for row in rows]
+        older_cursor = items[0].created_at.isoformat() if bounds["has_older"] else None
+        newer_cursor = items[-1].created_at.isoformat() if bounds["has_newer"] else None
+        return items, older_cursor, newer_cursor
+
     def get_message_by_idempotency_key(self, *, sender_user_id: str, idempotency_key: str) -> MessageRecord | None:
         with self._connect() as conn:
             row = conn.execute(

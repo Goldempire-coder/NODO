@@ -283,6 +283,84 @@ Rules:
 - Evidence files are metadata only unless a signed URL endpoint exists.
 - No full payment instructions or `account_value`.
 
+### GET /api/v1/admin/orders/{order_id}/chat-evidence
+
+Lectura dedicada y read-only de la conversacion asociada a una orden. No forma
+parte de `GET /api/v1/admin/orders/{id}` para evitar cargar conversaciones
+privadas al abrir cualquier detalle operativo.
+
+Permissions:
+
+- `admin` y `super_admin` activos pueden leer.
+- `support` puede leer cuando la politica admin read vigente lo permite.
+- Cliente, negocio y actores no autorizados reciben `FORBIDDEN`.
+
+Query:
+
+```txt
+cursor=timestamp|null
+direction=older|newer|null
+highlight_message_id=uuid|null
+limit=1..50
+```
+
+Response 200:
+
+```json
+{
+  "data": {
+    "order_id": "uuid",
+    "items": [
+      {
+        "message_id": "uuid",
+        "sender_role": "business_owner",
+        "sender_label": "Negocio",
+        "body": "texto visible solo en esta lectura autorizada",
+        "status": "sent",
+        "created_at": "timestamp",
+        "highlighted": true,
+        "attachments": [
+          {
+            "attachment_id": "uuid",
+            "mime_type": "image/png",
+            "size_bytes": 12345,
+            "download_available": false
+          }
+        ]
+      }
+    ],
+    "older_cursor": "timestamp|null",
+    "newer_cursor": "timestamp|null",
+    "highlight_message_id": "uuid|null",
+    "highlight_found": true
+  },
+  "request_id": "req_..."
+}
+```
+
+Rules:
+
+- Respuesta con `Cache-Control: private, no-store`.
+- La pagina inicial devuelve hasta 50 mensajes cronologicos recientes.
+- Si `highlight_message_id` pertenece a la orden, la pagina inicial lo incluye.
+- Un highlight inexistente o de otra orden devuelve `MESSAGE_NOT_FOUND`.
+- Ordenes completadas o canceladas conservan evidencia consultable.
+- Los adjuntos son metadata; no devuelve `file_asset_id`, `storage_path` ni
+  signed URLs iniciales.
+- No devuelve `account_value`, PIN, tokens, secretos ni instrucciones completas
+  de pago.
+- Cada lectura exitosa audita `admin_order_chat_viewed` con actor, orden,
+  cantidad, direccion y resultado del highlight, nunca con cuerpos de mensajes.
+- El endpoint general `/api/v1/orders/{id}/messages` no se usa para esta vista.
+
+Errors:
+
+- `UNAUTHENTICATED`
+- `FORBIDDEN`
+- `ORDER_NOT_FOUND`
+- `MESSAGE_NOT_FOUND`
+- `RATE_LIMITED`
+
 ### GET /api/v1/admin/audit-logs
 
 Query:

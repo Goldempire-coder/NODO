@@ -15,18 +15,23 @@ import type { AdminWebView, RequestFn } from "./adminWebTypes";
 type OpenHandlers = {
   openBusinessIntake: (id: string) => Promise<void>;
   openSupportTicket: (id: string) => Promise<void>;
+  openOrder: (id: string, highlightMessageId?: string) => Promise<void>;
   loadCreditPurchases: (status?: string) => Promise<void>;
   loadJobs: () => Promise<void>;
   setView: (view: AdminWebView) => void;
 };
 
-function routeTarget(notification: AdminNotification): { type: string; id?: string } {
+function routeTarget(notification: AdminNotification): { type: string; id?: string; highlightMessageId?: string } {
   const route = notification.action_route || "";
   if (route.startsWith("admin://business-intake/")) {
     return { type: "business_intake", id: route.replace("admin://business-intake/", "") };
   }
   if (route.startsWith("admin://support-ticket/")) {
     return { type: "support_ticket", id: route.replace("admin://support-ticket/", "") };
+  }
+  if (route.startsWith("admin://order/")) {
+    const highlightMessageId = typeof notification.metadata.message_id === "string" ? notification.metadata.message_id : undefined;
+    return { type: "order", id: route.replace("admin://order/", ""), highlightMessageId };
   }
   if (route.startsWith("admin://credit-purchase/")) {
     return { type: "credit_purchase" };
@@ -160,6 +165,10 @@ export function useAdminNotificationsModel({
     }
     if (target.type === "support_ticket" && target.id) {
       await handlers.openSupportTicket(target.id);
+      return;
+    }
+    if (target.type === "order" && target.id) {
+      await handlers.openOrder(target.id, target.highlightMessageId);
       return;
     }
     if (target.type === "credit_purchase") {

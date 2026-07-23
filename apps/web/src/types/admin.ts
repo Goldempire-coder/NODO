@@ -269,6 +269,33 @@ export type AdminOrderSummary = {
   created_at: string;
 };
 
+export type AdminOrderChatEvidenceAttachment = {
+  attachment_id: string;
+  mime_type: string;
+  size_bytes: number;
+  download_available: boolean;
+};
+
+export type AdminOrderChatEvidenceMessage = {
+  message_id: string;
+  sender_role: string;
+  sender_label: string;
+  body?: string | null;
+  status: string;
+  created_at: string;
+  highlighted: boolean;
+  attachments: AdminOrderChatEvidenceAttachment[];
+};
+
+export type AdminOrderChatEvidence = {
+  order_id: string;
+  items: AdminOrderChatEvidenceMessage[];
+  older_cursor?: string | null;
+  newer_cursor?: string | null;
+  highlight_message_id?: string | null;
+  highlight_found: boolean;
+};
+
 export type AdminDisputeSummary = {
   id: string;
   order_id: string;

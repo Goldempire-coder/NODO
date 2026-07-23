@@ -696,6 +696,114 @@
   gap: 14px;
 }
 
+.admin-order-chat-evidence {
+  min-height: 0;
+  gap: 12px;
+}
+
+.admin-order-chat-evidence__header,
+.admin-order-chat-evidence__message header,
+.admin-order-chat-evidence__error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-order-chat-evidence__header h3,
+.admin-order-chat-evidence__header p,
+.admin-order-chat-evidence__message p {
+  margin: 0;
+}
+
+.admin-order-chat-evidence__flag {
+  flex: 0 0 auto;
+  border: 1px solid rgb(255 190 74 / 48%);
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: rgb(255 190 74 / 10%);
+  color: var(--admin-amber);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-order-chat-evidence__messages {
+  display: grid;
+  align-content: start;
+  max-height: 480px;
+  gap: 9px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px 8px 6px 2px;
+}
+
+.admin-order-chat-evidence__message {
+  display: grid;
+  justify-self: start;
+  width: min(82%, 680px);
+  gap: 7px;
+  padding: 10px 11px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: rgb(7 9 17 / 76%);
+}
+
+.admin-order-chat-evidence__message.is-business {
+  justify-self: end;
+  border-color: rgb(255 190 74 / 30%);
+  background: rgb(255 190 74 / 7%);
+}
+
+.admin-order-chat-evidence__message.is-internal {
+  border-color: rgb(32 200 255 / 32%);
+  background: rgb(32 200 255 / 7%);
+}
+
+.admin-order-chat-evidence__message.is-highlighted {
+  border-color: var(--admin-amber);
+  box-shadow: 0 0 0 2px rgb(255 190 74 / 16%);
+}
+
+.admin-order-chat-evidence__message header {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-order-chat-evidence__message header strong {
+  color: var(--admin-text);
+}
+
+.admin-order-chat-evidence__message p {
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.admin-order-chat-evidence__attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-order-chat-evidence__attachments span {
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.admin-order-chat-evidence__page {
+  justify-self: center;
+}
+
+.admin-order-chat-evidence__error {
+  border: 1px solid rgb(255 95 104 / 34%);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: rgb(255 95 104 / 8%);
+}
+
 .admin-web-dl {
   display: grid;
   grid-template-columns: 150px minmax(0, 1fr);

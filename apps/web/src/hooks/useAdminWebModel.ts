@@ -128,6 +128,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     handlers: {
       openBusinessIntake: businessIntake.openBusinessIntake,
       openSupportTicket: support.openSupportTicket,
+      openOrder: ordersDisputes.openOrder,
       loadCreditPurchases: credits.loadCreditPurchases,
       loadJobs: overview.loadJobs,
       setView
@@ -217,6 +218,10 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     selectedUser: users.selectedUser,
     orders: ordersDisputes.orders,
     selectedOrder: ordersDisputes.selectedOrder,
+    orderChatEvidence: ordersDisputes.evidence,
+    orderChatEvidenceError: ordersDisputes.error,
+    orderChatEvidenceLoading: ordersDisputes.loading,
+    orderChatEvidenceLoadingMore: ordersDisputes.loadingMore,
     disputes: ordersDisputes.disputes,
     selectedDispute: ordersDisputes.selectedDispute,
     auditLogs: audit.auditLogs,
@@ -299,6 +304,9 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     changeUserStatus: users.changeUserStatus,
     loadOrders: ordersDisputes.loadOrders,
     openOrder: ordersDisputes.openOrder,
+    loadOlderOrderChatEvidence: ordersDisputes.loadOlderOrderChatEvidence,
+    loadNewerOrderChatEvidence: ordersDisputes.loadNewerOrderChatEvidence,
+    retryOrderChatEvidence: ordersDisputes.retryOrderChatEvidence,
     loadDisputes: ordersDisputes.loadDisputes,
     openDispute: ordersDisputes.openDispute,
     resolveDispute: ordersDisputes.resolveDispute,

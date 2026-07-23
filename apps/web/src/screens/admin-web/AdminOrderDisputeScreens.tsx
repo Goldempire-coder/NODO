@@ -1,6 +1,7 @@
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
 import type { AdminDisputeSummary, AdminOrderSummary } from "../../types/admin";
 import { dateText, Empty, Header, ReasonBox, Table } from "./AdminWebPrimitives";
+import { AdminOrderChatEvidencePanel } from "./AdminOrderChatEvidencePanel";
 
 export function Orders({ model }: { model: AdminWebModel }) {
   return (
@@ -30,11 +31,12 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
   const paymentReport = model.selectedOrder?.payment_report as { status?: string; payment_type?: string; payment_amount?: string; created_at?: string } | undefined;
   const timeline = model.selectedOrder?.timeline as { event_type?: string; to_status?: string; created_at?: string }[] | undefined;
   return (
-    <section className="admin-web-split">
-      <div className="admin-web-panel">
-        <h2>Detalle de orden</h2>
-        {order ? (
-          <dl className="admin-web-dl">
+    <>
+      <section className="admin-web-split">
+        <div className="admin-web-panel">
+          <h2>Detalle de orden</h2>
+          {order ? (
+            <dl className="admin-web-dl">
             <dt>Codigo</dt><dd>{order.public_order_code}</dd>
             <dt>Status</dt><dd>{order.status}</dd>
             <dt>Negocio</dt><dd>{order.business_id}</dd>
@@ -42,26 +44,28 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
             <dt>Monto</dt><dd>{order.amount_usd} USD</dd>
             <dt>Metodo</dt><dd>{order.payment_method_snapshot}</dd>
             <dt>Entrega</dt><dd>{order.delivery_method_snapshot}</dd>
-          </dl>
-        ) : <Empty text="Selecciona una orden." />}
-      </div>
-      <div className="admin-web-panel">
-        <h3>Reporte y timeline</h3>
-        {paymentReport ? (
-          <dl className="admin-web-dl">
+            </dl>
+          ) : <Empty text="Selecciona una orden." />}
+        </div>
+        <div className="admin-web-panel">
+          <h3>Reporte y timeline</h3>
+          {paymentReport ? (
+            <dl className="admin-web-dl">
             <dt>Reporte</dt><dd>{paymentReport.status || "-"}</dd>
             <dt>Tipo</dt><dd>{paymentReport.payment_type || "-"}</dd>
             <dt>Monto</dt><dd>{paymentReport.payment_amount || "-"}</dd>
-          </dl>
-        ) : <p className="admin-web-muted">Sin reporte de pago.</p>}
-        {(timeline || []).slice(0, 6).map((event, index) => (
-          <div className="admin-web-row" key={`${event.event_type}_${index}`}>
-            <span>{event.event_type || "event"}</span>
-            <small>{event.to_status || "-"} - {dateText(event.created_at)}</small>
-          </div>
-        ))}
-      </div>
-    </section>
+            </dl>
+          ) : <p className="admin-web-muted">Sin reporte de pago.</p>}
+          {(timeline || []).slice(0, 6).map((event, index) => (
+            <div className="admin-web-row" key={`${event.event_type}_${index}`}>
+              <span>{event.event_type || "event"}</span>
+              <small>{event.to_status || "-"} - {dateText(event.created_at)}</small>
+            </div>
+          ))}
+        </div>
+      </section>
+      {order ? <AdminOrderChatEvidencePanel model={model} /> : null}
+    </>
   );
 }
 

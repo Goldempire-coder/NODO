@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import Field
 
 from app.auth.dependencies import require_current_user
+from app.modules.admin.order_chat_evidence import AdminOrderChatEvidenceService
 from app.modules.admin.service import AdminService
 from app.modules.users.models import UserRecord
 from app.shared.validation import StrictRequestModel
@@ -35,6 +36,16 @@ def _service(request: Request) -> AdminService:
         emergency_mode_repository=request.app.state.emergency_mode_repository,
         job_repository=request.app.state.job_repository,
         observability_repository=getattr(request.app.state, "observability_repository", None),
+    )
+
+
+def _order_chat_evidence_service(request: Request) -> AdminOrderChatEvidenceService:
+    return AdminOrderChatEvidenceService(
+        settings=request.app.state.settings,
+        order_repository=request.app.state.order_repository,
+        chat_repository=request.app.state.chat_repository,
+        audit_writer=request.app.state.audit_writer,
+        rate_limiter=request.app.state.rate_limiter,
     )
 
 
@@ -265,6 +276,32 @@ def list_orders(
 @router.get("/orders/{order_id}")
 def order_detail(order_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
     return {"data": _service(request).order_detail(user=user, order_id=order_id, request_id=_request_id(request)), "request_id": _request_id(request)}
+
+
+@router.get("/orders/{order_id}/chat-evidence")
+def order_chat_evidence(
+    order_id: str,
+    request: Request,
+    response: Response,
+    cursor: str | None = Query(default=None),
+    direction: str | None = Query(default=None, pattern="^(older|newer)$"),
+    highlight_message_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=50),
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": _order_chat_evidence_service(request).list_evidence(
+            user=user,
+            order_id=order_id,
+            cursor=cursor,
+            direction=direction,
+            limit=limit,
+            highlight_message_id=highlight_message_id,
+            request_id=_request_id(request),
+        ),
+        "request_id": _request_id(request),
+    }
 
 
 @router.get("/audit-logs")
