@@ -7,6 +7,8 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.errors import ApiError
+from app.core.logging import get_logger
+from app.modules.chat.moderation import detect_off_platform_solicitation
 from app.modules.businesses.access_control import evaluate_business_access
 from app.modules.chat.models import ALLOWED_ATTACHMENT_MIME_TYPES, MAX_ATTACHMENT_SIZE_BYTES, new_id
 from app.modules.chat.policy import require_chat_read, require_chat_write, require_message_state
@@ -16,6 +18,7 @@ from app.modules.users.models import UserRecord
 
 
 CHAT_DISCLAIMER = "Usa este chat para coordinar la orden y dejar un respaldo claro entre las partes."
+logger = get_logger(__name__)
 
 
 def _require_uuid(value: str, code: str = "ORDER_NOT_FOUND") -> str:
@@ -44,7 +47,7 @@ def _attachment_payload(attachment) -> dict[str, Any]:  # type: ignore[no-untype
 
 
 class ChatService:
-    def __init__(self, *, settings: Settings, repository, order_repository, business_repository, audit_writer, rate_limiter, idempotency_store, storage) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, settings: Settings, repository, order_repository, business_repository, audit_writer, rate_limiter, idempotency_store, storage, admin_notifications=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
         self._orders = order_repository
@@ -53,6 +56,7 @@ class ChatService:
         self._rate_limiter = rate_limiter
         self._idempotency = idempotency_store
         self._storage = storage
+        self._admin_notifications = admin_notifications
 
     def _rate_limit(self, action: str, user: UserRecord, order_id: str | None = None) -> None:
         key = f"chat:{action}:{user.id}:{order_id or 'global'}"
@@ -144,9 +148,47 @@ class ChatService:
                 request_id=request_id,
                 metadata_json={"order_id": order.id, "attachment_count": len(attached)},
             )
+            self._inspect_business_message_for_off_platform_solicitation(user=user, order=order, message=message, request_id=request_id)
             return {"message": self._message_public(message, attached), "disclaimer": CHAT_DISCLAIMER}
 
         return self._idempotency.replay_or_store(f"chat:message:{user.id}:{order.id}:{idempotency_key}", payload=request_payload, compute=compute)
+
+    def _inspect_business_message_for_off_platform_solicitation(self, *, user: UserRecord, order: OrderRecord, message, request_id: str) -> None:  # type: ignore[no-untyped-def]
+        if user.role != "business_owner":
+            return
+        match = detect_off_platform_solicitation(message.body)
+        if match is None:
+            return
+        self._audit.write(
+            event_type="order_chat_off_platform_solicitation_detected",
+            actor_user_id=user.id,
+            actor_role=user.role,
+            resource_type="message",
+            resource_id=message.id,
+            request_id=request_id,
+            metadata_json={
+                "order_id": order.id,
+                "business_id": order.business_id,
+                "rule_id": match.rule_id,
+                "severity": match.severity,
+            },
+        )
+        if self._admin_notifications is not None:
+            try:
+                self._admin_notifications.order_chat_off_platform_solicitation(order=order, message=message, match=match, request_id=request_id)
+            except Exception as exc:
+                logger.warning(
+                    "order_chat_off_platform_alert_failed",
+                    extra={
+                        "event": "order_chat_off_platform_alert_failed",
+                        "order_id": order.id,
+                        "message_id": message.id,
+                        "business_id": order.business_id,
+                        "rule_id": match.rule_id,
+                        "error_code": type(exc).__name__,
+                        "request_id": request_id,
+                    },
+                )
 
     def upload_attachment(
         self,

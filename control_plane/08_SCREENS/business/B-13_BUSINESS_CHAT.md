@@ -58,6 +58,7 @@ audit events:
 - message_created
 - message_attachment_uploaded
 - dispute_message_created when applicable
+- order_chat_off_platform_solicitation_detected when a business-owner message triggers internal anti-evasion review
 
 slice boundary:
 - This screen does not belong to slice 06.
@@ -65,6 +66,7 @@ slice boundary:
 - Chat endpoints, messages and disputes belong to slice 07 or later contracts.
 - `message_sent` is not a canonical audit event.
 - `message_blocked` is not a canonical audit event in slice 07.
+- Anti-evasion detection does not block messages and does not close the 24h delivered-resolution window.
 - NODO registra evidencia y estado; no recibe, retiene, transfiere ni garantiza fondos.
 
 QA checklist:

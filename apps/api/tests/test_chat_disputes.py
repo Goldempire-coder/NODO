@@ -241,6 +241,10 @@ def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
 
 
+def _admin_notifications(client: TestClient) -> list:
+    return list(client.app.state.admin_notification_repository.notifications.values())
+
+
 def test_messages_are_order_scoped_idempotent_and_audited() -> None:
     client = _client()
     owner, _, _, remitter, order = _seed_reported_order(client)
@@ -284,6 +288,162 @@ def test_messages_are_order_scoped_idempotent_and_audited() -> None:
     assert BOT_TOKEN not in combined
     assert JWT_SECRET not in combined
     assert JWT_REFRESH_SECRET not in combined
+
+
+def test_business_chat_off_platform_phrase_is_allowed_but_alerts_admin_without_leaking_body() -> None:
+    client = _client()
+    owner, business, _, remitter, order = _seed_reported_order(client, owner_id=804, remitter_id=805)
+
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(owner, "off_platform_msg"), "Content-Type": "application/json"},
+        json={"body": "La proxima vez por fuera te doy mejor tasa fuera de la app.", "attachment_ids": []},
+    )
+    replay = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(owner, "off_platform_msg"), "Content-Type": "application/json"},
+        json={"body": "La proxima vez por fuera te doy mejor tasa fuera de la app.", "attachment_ids": []},
+    )
+    remitter_list = client.get(f"/api/v1/orders/{order['id']}/messages", headers=_bearer(remitter, "req_messages_remitter_off_platform"))
+    notifications = _admin_notifications(client)
+    audit_events = client.app.state.audit_writer.events
+
+    assert created.status_code == 201, created.text
+    assert created.json()["data"]["message"]["body"] == "La proxima vez por fuera te doy mejor tasa fuera de la app."
+    assert replay.status_code == 201
+    assert len(notifications) == 1
+    notification = notifications[0]
+    assert notification.notification_type == "order_chat_off_platform_solicitation"
+    assert notification.priority == "high"
+    assert notification.resource_type == "order_chat_message"
+    assert notification.resource_id == created.json()["data"]["message"]["id"]
+    assert notification.business_id == business["id"]
+    assert notification.actor_user_id == owner["user"]["id"]
+    assert notification.action_route == f"admin://order/{order['id']}"
+    assert notification.metadata_json["order_id"] == order["id"]
+    assert notification.metadata_json["message_id"] == created.json()["data"]["message"]["id"]
+    assert notification.metadata_json["rule_id"] == "off_platform_platform_bypass"
+    assert notification.metadata_json["severity"] == "high"
+    assert "fuera de la app" in notification.metadata_json["matched_phrase"]
+    assert remitter_list.status_code == 200
+    assert remitter_list.json()["data"]["items"][0]["body"] == "La proxima vez por fuera te doy mejor tasa fuera de la app."
+    assert "order_chat_off_platform_solicitation_detected" in _event_types(client)
+    detection_events = [event for event in audit_events if event.event_type == "order_chat_off_platform_solicitation_detected"]
+    assert detection_events
+    assert detection_events[0].metadata_json["order_id"] == order["id"]
+    assert detection_events[0].metadata_json["rule_id"] == "off_platform_platform_bypass"
+    combined_audit = json.dumps([event.__dict__ for event in audit_events], default=str)
+    assert "La proxima vez" not in combined_audit
+    assert "fuera de la app" not in combined_audit
+    combined_notification = notification.summary + json.dumps(notification.metadata_json, default=str)
+    assert "account_value" not in combined_notification
+    assert "storage_path" not in combined_notification
+    assert BOT_TOKEN not in combined_notification
+    assert JWT_SECRET not in combined_notification
+
+
+def test_remitter_off_platform_phrase_does_not_create_business_solicitation_alert() -> None:
+    client = _client()
+    _, _, _, remitter, order = _seed_reported_order(client, owner_id=806, remitter_id=807)
+
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "remitter_off_platform_msg"), "Content-Type": "application/json"},
+        json={"body": "La proxima vez por fuera te doy mejor tasa fuera de la app.", "attachment_ids": []},
+    )
+
+    assert created.status_code == 201, created.text
+    assert _admin_notifications(client) == []
+    assert "order_chat_off_platform_solicitation_detected" not in _event_types(client)
+
+
+def test_business_chat_neutral_outside_phrase_does_not_create_alert() -> None:
+    client = _client()
+    owner, _, _, _, order = _seed_reported_order(client, owner_id=816, remitter_id=817)
+
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(owner, "neutral_outside_msg"), "Content-Type": "application/json"},
+        json={"body": "El comprobante quedo por fuera del borde de la foto; lo vuelvo a subir.", "attachment_ids": []},
+    )
+
+    assert created.status_code == 201, created.text
+    assert _admin_notifications(client) == []
+    assert "order_chat_off_platform_solicitation_detected" not in _event_types(client)
+
+
+def test_business_chat_whatsapp_phone_alert_redacts_contact_value() -> None:
+    client = _client()
+    owner, _, _, _, order = _seed_reported_order(client, owner_id=808, remitter_id=809)
+
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(owner, "whatsapp_msg"), "Content-Type": "application/json"},
+        json={"body": "Escribeme por WhatsApp al +58 412 123 4567 para coordinar.", "attachment_ids": []},
+    )
+    notifications = _admin_notifications(client)
+
+    assert created.status_code == 201, created.text
+    assert len(notifications) == 1
+    notification = notifications[0]
+    assert notification.notification_type == "order_chat_off_platform_solicitation"
+    assert notification.priority == "attention"
+    assert notification.metadata_json["rule_id"] == "off_platform_external_contact"
+    assert notification.metadata_json["severity"] == "attention"
+    assert "WhatsApp" in notification.metadata_json["matched_phrase"]
+    assert "412 123 4567" not in notification.metadata_json["matched_phrase"]
+    assert "4121234567" not in notification.metadata_json["matched_phrase"].replace(" ", "")
+    assert "412 123 4567" not in notification.summary
+
+
+def test_business_chat_alert_keeps_only_safe_detection_signal() -> None:
+    client = _client()
+    owner, _, _, _, order = _seed_reported_order(client, owner_id=812, remitter_id=813)
+    sensitive_tail = "PIN 4931 wallet 0x3333333333333333333333333333333333333333"
+
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(owner, "sensitive_off_platform_msg"), "Content-Type": "application/json"},
+        json={"body": f"Hagamos directo conmigo. {sensitive_tail}", "attachment_ids": []},
+    )
+    notifications = _admin_notifications(client)
+
+    assert created.status_code == 201, created.text
+    assert len(notifications) == 1
+    notification = notifications[0]
+    serialized_alert = notification.summary + json.dumps(notification.metadata_json, default=str)
+    assert "directo conmigo" in notification.metadata_json["matched_phrase"]
+    assert sensitive_tail not in serialized_alert
+    assert "4931" not in serialized_alert
+    assert "0x3333333333333333333333333333333333333333" not in serialized_alert
+
+
+def test_business_chat_alert_failure_does_not_block_saved_message(monkeypatch, caplog) -> None:  # type: ignore[no-untyped-def]
+    client = _client()
+    owner, _, _, remitter, order = _seed_reported_order(client, owner_id=814, remitter_id=815)
+
+    def fail_alert(**_kwargs) -> None:  # type: ignore[no-untyped-def]
+        raise RuntimeError("simulated admin notification outage")
+
+    monkeypatch.setattr(client.app.state.admin_notification_service, "order_chat_off_platform_solicitation", fail_alert)
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(owner, "alert_outage_msg"), "Content-Type": "application/json"},
+        json={"body": "Hagamos directo conmigo.", "attachment_ids": []},
+    )
+    listed = client.get(f"/api/v1/orders/{order['id']}/messages", headers=_bearer(remitter, "req_alert_outage_list"))
+
+    assert created.status_code == 201, created.text
+    assert listed.status_code == 200, listed.text
+    assert listed.json()["data"]["items"][0]["body"] == "Hagamos directo conmigo."
+    assert _admin_notifications(client) == []
+    failure_record = next(record for record in caplog.records if record.message == "order_chat_off_platform_alert_failed")
+    assert failure_record.order_id == order["id"]
+    assert failure_record.message_id == created.json()["data"]["message"]["id"]
+    assert failure_record.rule_id == "off_platform_platform_bypass"
+    assert failure_record.error_code == "RuntimeError"
+    assert failure_record.request_id == "req_alert_outage_msg"
+    assert "Hagamos directo conmigo" not in caplog.text
 
 
 def test_message_validation_and_state_rules_are_safe() -> None:

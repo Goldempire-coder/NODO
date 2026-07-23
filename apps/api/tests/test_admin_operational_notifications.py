@@ -651,6 +651,8 @@ def test_admin_operational_notifications_frontend_and_migration_contracts() -> N
     assert "/api/v1/admin/notifications" in admin_api
     assert "adminNotificationsUnreadCount" in shell
     assert "admin://business-intake/" in hook
+    assert "admin://order/" in hook
+    assert "openOrder" in hook
     assert "applyUnreadCount(0, 0)" not in hook
     assert 'setUnreadCountState("stale")' in hook
     assert "Contador sin actualizar" in shell

@@ -122,6 +122,16 @@ Audit:
 
 - message_created
 - dispute_message_created when order is in disputed context
+- order_chat_off_platform_solicitation_detected when business-owner message matches anti-evasion rules. This event must not include full message body.
+
+Internal admin alert:
+
+- business-owner messages may create `admin_notifications.notification_type = order_chat_off_platform_solicitation`.
+- The message remains visible to both parties.
+- The alert links to `admin://order/{id}`.
+- Notification metadata may include `order_id`, `message_id`, `rule_id`, `severity`, `matched_phrase` as a bounded canonical detection signal without surrounding message text, and `sender_role`.
+- Notification metadata must not include `body`, `message_body`, `storage_path`, signed URLs, `account_value`, tokens, PINs or full payment instructions.
+- Admin-notification persistence failure must not block a validated message; the backend records a safe operational failure without message content.
 
 Errors:
 

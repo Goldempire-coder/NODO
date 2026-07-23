@@ -223,6 +223,31 @@ class AdminNotificationService:
             request_id=request_id,
         )
 
+    def order_chat_off_platform_solicitation(self, *, order, message, match, request_id: str) -> None:  # type: ignore[no-untyped-def]
+        priority = "high" if match.severity == "high" else "attention"
+        self.enqueue(
+            notification_type="order_chat_off_platform_solicitation",
+            priority=priority,
+            source_surface="order_chat",
+            resource_type="order_chat_message",
+            resource_id=message.id,
+            business_id=order.business_id,
+            actor_user_id=message.sender_user_id,
+            title="Posible salida fuera de NODO",
+            summary="Un mensaje de negocio requiere revision por posible salida fuera de NODO.",
+            action_route=f"admin://order/{order.id}",
+            dedupe_key=f"order:{order.id}:message:{message.id}:off_platform:{match.rule_id}",
+            metadata={
+                "order_id": order.id,
+                "message_id": message.id,
+                "rule_id": match.rule_id,
+                "severity": match.severity,
+                "matched_phrase": match.matched_phrase,
+                "sender_role": message.sender_role,
+            },
+            request_id=request_id,
+        )
+
     def credit_purchase_attention(self, *, purchase, reason: str, request_id: str, error_code: str | None = None) -> None:  # type: ignore[no-untyped-def]
         priority = "high" if purchase.status in {"failed", "verification_failed", "expired"} else "attention"
         self.enqueue(
