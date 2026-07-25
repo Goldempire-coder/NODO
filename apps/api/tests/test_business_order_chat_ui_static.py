@@ -41,7 +41,8 @@ def test_business_order_chat_has_compact_attachment_and_keyboard_safe_typing_mod
     assert "blurComposer" in chat_screen
     assert "window.setTimeout(scrollMessagesToEnd, 260);" in chat_screen
     assert "business-shell--keyboard-active" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
-    assert "window.visualViewport" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
+    assert "useMobileKeyboardViewport" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
+    assert "window.visualViewport" in _read("apps/web/src/hooks/useMobileKeyboardViewport.ts")
     assert "--nodo-viewport-height" in global_css
     assert ".app-shell:has(.business-order-chat--typing) .primary-nav" in global_css
     assert ".business-shell--keyboard-active .primary-nav" in global_css

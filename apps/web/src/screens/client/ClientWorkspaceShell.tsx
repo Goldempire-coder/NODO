@@ -3,6 +3,7 @@ import { Spinner, Text, Title } from "@telegram-apps/telegram-ui";
 import { AnimatedLogo } from "../../components/nodo/AnimatedLogo";
 import type { ClientView } from "../../constants/clientViews";
 import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
+import { useMobileKeyboardViewport } from "../../hooks/useMobileKeyboardViewport";
 import { elapsedMs, recordScreenView, recordSlowScreenTransition } from "../../observability/clientTelemetry";
 import { ClientScreens } from "./ClientScreens";
 
@@ -70,6 +71,7 @@ function NavIcon({ name }: { name: "home" | "search" | "orders" | "messages" | "
 export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel }) {
   const { busy, canGoBack, goBack, loadActiveMarketplace, loadMyOrders, notice, setView, user, view } = model;
   const [activeNav, setActiveNav] = useState<"home" | "businesses" | "orders" | "messages" | "profile">("home");
+  const keyboardActive = useMobileKeyboardViewport();
   const previousViewRef = useRef<ClientView | null>(null);
   const viewStartedAtRef = useRef<number | null>(null);
   const isOnboardingView = view === "welcome" || view === "terms" || view === "client-profile-setup";
@@ -108,7 +110,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
   }, [view]);
 
   return (
-    <section className="business-shell" aria-live="polite">
+    <section className={keyboardActive ? "business-shell business-shell--keyboard-active" : "business-shell"} aria-live="polite">
       <div className="business-shell__header app-topbar">
         <div className="topbar-brand">
           <AnimatedLogo />
@@ -138,7 +140,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
       ) : null}
 
       {!isOnboardingView ? (
-        <div className="primary-nav">
+        <div className={keyboardActive ? "primary-nav primary-nav--hidden" : "primary-nav"}>
           <button className={activeNav === "home" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => {
             setActiveNav("home");
             setView("marketplace-search");

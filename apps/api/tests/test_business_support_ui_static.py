@@ -117,7 +117,8 @@ def test_business_support_typing_mode_prioritizes_chat_above_mobile_keyboard() -
     assert 'onFocus={focusComposer}' in support_screen
     assert 'onBlur={blurComposer}' in support_screen
     assert "business-shell--keyboard-active" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
-    assert "window.visualViewport" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
+    assert "useMobileKeyboardViewport" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
+    assert "window.visualViewport" in _read("apps/web/src/hooks/useMobileKeyboardViewport.ts")
     assert "--nodo-viewport-height" in global_css
     assert ".app-shell:has(.business-support--typing) .primary-nav" in global_css
     assert ".business-shell--keyboard-active .primary-nav" in global_css

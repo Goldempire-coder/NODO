@@ -82,7 +82,14 @@ export function useClientWorkspaceModel({
   const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice, initialScope: "client_general" });
   const didWarmClientDataRef = useRef(false);
   const handledOrderDeepLinkRef = useRef(false);
+  const prefetchActiveMarketplaceRef = useRef<() => Promise<void>>(async () => undefined);
+  const prefetchMyOrdersRef = useRef<() => Promise<void>>(async () => undefined);
+  const openOrderDetailRef = useRef<(orderId: string) => Promise<void>>(async () => undefined);
   const mainActionBusy = state.busy || state.creatingOrder || state.submittingPaymentReport;
+
+  prefetchActiveMarketplaceRef.current = marketplace.prefetchActiveMarketplace;
+  prefetchMyOrdersRef.current = remitterOrders.prefetchMyOrders;
+  openOrderDetailRef.current = remitterOrders.openOrderDetail;
 
   useEffect(() => {
     configureTelemetryContext(token, "client_mini_app");
@@ -93,13 +100,13 @@ export function useClientWorkspaceModel({
     if (didWarmClientDataRef.current || view === "welcome" || view === "terms" || view === "client-profile-setup") {
       return;
     }
-    didWarmClientDataRef.current = true;
     const timer = window.setTimeout(() => {
-      void marketplace.prefetchActiveMarketplace();
-      void remitterOrders.prefetchMyOrders();
+      didWarmClientDataRef.current = true;
+      void prefetchActiveMarketplaceRef.current();
+      void prefetchMyOrdersRef.current();
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [marketplace, remitterOrders, view]);
+  }, [view]);
 
   useEffect(() => {
     if (
@@ -117,8 +124,8 @@ export function useClientWorkspaceModel({
       return;
     }
     handledOrderDeepLinkRef.current = true;
-    void remitterOrders.openOrderDetail(orderId);
-  }, [remitterOrders, view]);
+    void openOrderDetailRef.current(orderId);
+  }, [view]);
 
   useClientTelegramNativeShell({
     busy: mainActionBusy,

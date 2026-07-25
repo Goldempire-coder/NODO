@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { listOrderMessages, openOrderDispute as openOrderDisputeRequest, sendOrderMessage, uploadOrderMessageAttachment } from "../../api/chat";
 import type { AuthenticatedRequest } from "../../api/client";
 import { CHAT_DISPUTE_COPY } from "../../constants/copy";
@@ -28,6 +29,9 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     setView
   } = state;
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
+  const sendingChatMessageRef = useRef(false);
+  const uploadingChatAttachmentRef = useRef(false);
+  const openingOrderDisputeRef = useRef(false);
 
   async function openOrderChat(orderId: string) {
     const startedAt = actionStartedAt();
@@ -55,13 +59,15 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     }
   }
 
-  async function refreshChat() {
+  async function refreshChat(options?: { silent?: boolean }) {
     if (!chatOrderId) {
       return;
     }
     const startedAt = actionStartedAt();
     recordActionStarted("client_chat_refresh", "order-chat");
-    setRefreshingChat(true);
+    if (!options?.silent) {
+      setRefreshingChat(true);
+    }
     try {
       const data = await listOrderMessages<any>(request, chatOrderId);
       setChatMessages(data.items);
@@ -69,17 +75,22 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setNotice(data.disclaimer || CHAT_DISPUTE_COPY);
       recordActionCompleted("client_chat_refresh", "order-chat", startedAt);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos actualizar el chat.");
+      if (!options?.silent) {
+        setNotice(error instanceof Error ? error.message : "No pudimos actualizar el chat.");
+      }
       recordActionFailed("client_chat_refresh", "order-chat", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
-      setRefreshingChat(false);
+      if (!options?.silent) {
+        setRefreshingChat(false);
+      }
     }
   }
 
   async function uploadChatAttachment(file: File | null) {
-    if (!chatOrderId || !file) {
+    if (uploadingChatAttachmentRef.current || !chatOrderId || !file) {
       return;
     }
+    uploadingChatAttachmentRef.current = true;
     const startedAt = actionStartedAt();
     recordActionStarted("client_chat_attachment_upload", "order-chat");
     setUploadingChatAttachment(true);
@@ -94,41 +105,49 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setNotice(error instanceof Error ? error.message : "No pudimos adjuntar el archivo.");
       recordActionFailed("client_chat_attachment_upload", "order-chat", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
+      uploadingChatAttachmentRef.current = false;
       setUploadingChatAttachment(false);
     }
   }
 
   async function sendChatMessage() {
-    if (!chatOrderId) {
+    if (sendingChatMessageRef.current || !chatOrderId) {
       return;
     }
+    const body = chatBody.trim();
+    if (!body && chatAttachments.length === 0) {
+      return;
+    }
+    sendingChatMessageRef.current = true;
     const startedAt = actionStartedAt();
     recordActionStarted("client_chat_message_send", "order-chat");
     setSendingChatMessage(true);
     const idempotencyScope = `message_${chatOrderId}`;
     try {
       await sendOrderMessage(request, chatOrderId, {
-        body: chatBody,
+        body,
         attachment_ids: chatAttachments.map((attachment) => attachment.id)
-      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, body: chatBody, attachmentIds: chatAttachments.map((attachment) => attachment.id) }));
+      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, body, attachmentIds: chatAttachments.map((attachment) => attachment.id) }));
       clearIdempotencyKey(idempotencyScope);
       setChatBody("");
       setChatAttachments([]);
-      await refreshChat();
+      await refreshChat({ silent: true });
       setNotice("Mensaje registrado.");
       recordActionCompleted("client_chat_message_send", "order-chat", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos enviar el mensaje.");
       recordActionFailed("client_chat_message_send", "order-chat", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
+      sendingChatMessageRef.current = false;
       setSendingChatMessage(false);
     }
   }
 
   async function openOrderDispute() {
-    if (!chatOrderId) {
+    if (openingOrderDisputeRef.current || !chatOrderId) {
       return;
     }
+    openingOrderDisputeRef.current = true;
     const startedAt = actionStartedAt();
     recordActionStarted("client_order_dispute_open", "order-chat");
     setOpeningOrderDispute(true);
@@ -136,17 +155,18 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     try {
       await openOrderDisputeRequest(request, chatOrderId, {
         reason: disputeReason,
-        description: chatBody || undefined,
+        description: chatBody.trim() || undefined,
         evidence_file_ids: []
-      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, disputeReason, description: chatBody || undefined }));
+      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, disputeReason, description: chatBody.trim() || undefined }));
       clearIdempotencyKey(idempotencyScope);
-      await refreshChat();
+      await refreshChat({ silent: true });
       setNotice("Disputa abierta. La resolucion admin queda para contrato futuro.");
       recordActionCompleted("client_order_dispute_open", "order-chat", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos abrir la disputa.");
       recordActionFailed("client_order_dispute_open", "order-chat", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
+      openingOrderDisputeRef.current = false;
       setOpeningOrderDispute(false);
     }
   }

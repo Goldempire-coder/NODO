@@ -7,6 +7,8 @@ import type { PublicUser } from "../../types/auth";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 
+const CLIENT_MARKETPLACE_CACHE_TTL_MS = 30_000;
+
 export function useClientMarketplaceModel(state: ClientWorkspaceState & { request: AuthenticatedRequest; user: PublicUser }) {
   const {
     request,
@@ -36,7 +38,7 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
     };
     const key = marketplaceSearchKey(params);
     const cached = cacheRef.current[key];
-    if (cached && Date.now() - cached.loadedAt < 30_000) {
+    if (cached && Date.now() - cached.loadedAt < CLIENT_MARKETPLACE_CACHE_TTL_MS) {
       setSearchResults(cached.items);
       setSelectedAd(null);
     }
@@ -58,15 +60,25 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
   async function loadActiveMarketplace(sort: "trust" | "rate" | "speed" = searchForm.sort) {
     const startedAt = actionStartedAt();
     recordActionStarted("client_marketplace_list", "marketplace-list");
-    setLoadingMarketplace(true);
     setView("marketplace-list");
     setNotice("");
     const params = { sort, limit: "50" };
     const key = marketplaceSearchKey(params);
     const cached = cacheRef.current[key];
-    if (cached && Date.now() - cached.loadedAt < 30_000) {
+    if (cached && Date.now() - cached.loadedAt < CLIENT_MARKETPLACE_CACHE_TTL_MS) {
       setSearchResults(cached.items);
       setSelectedAd(null);
+      setNotice(cached.items.length ? "" : "No hay negocios activos disponibles en este momento.");
+      recordActionCompleted("client_marketplace_list", "marketplace-list", startedAt);
+      setLoadingMarketplace(false);
+      return;
+    }
+    if (cached) {
+      setSearchResults(cached.items);
+      setSelectedAd(null);
+      setLoadingMarketplace(false);
+    } else {
+      setLoadingMarketplace(true);
     }
     try {
       const data = await searchMarketplaceAds<{ items: typeof searchResults }>(request, params);
@@ -117,7 +129,7 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
   async function prefetchActiveMarketplace(sort: "trust" | "rate" | "speed" = "trust") {
     const key = marketplaceSearchKey({ sort, limit: "50" });
     const cached = cacheRef.current[key];
-    if (cached && Date.now() - cached.loadedAt < 30_000) {
+    if (cached && Date.now() - cached.loadedAt < CLIENT_MARKETPLACE_CACHE_TTL_MS) {
       return;
     }
     try {

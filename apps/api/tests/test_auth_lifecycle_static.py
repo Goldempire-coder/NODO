@@ -487,7 +487,10 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     marketplace_screen = _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx")
     order_screen = _read("apps/web/src/screens/client/ClientOrderScreens.tsx")
     payment_screen = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
-    chat_screen = _read("apps/web/src/screens/client/ClientScreens.tsx")
+    chat_screen = "\n".join((
+        _read("apps/web/src/screens/client/ClientScreens.tsx"),
+        _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx"),
+    ))
     support_screen = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
     remitter_types = _read("apps/web/src/screens/client/RemitterScreens.types.ts")
     telemetry_helper = _read("apps/web/src/hooks/actionTelemetry.ts")
@@ -529,7 +532,7 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "Cargando instrucciones..." in order_screen
     assert "Subiendo comprobante..." in payment_screen
     assert "Enviando reporte..." in payment_screen
-    assert "Enviando..." in chat_screen
+    assert 'sendingChatMessage ? "..." : "Enviar"' in chat_screen
     assert "Abriendo..." in chat_screen
     assert "Creando..." in support_screen
     assert "Archivados" in support_screen
@@ -541,6 +544,39 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "openingChatOrderId: string | null" in remitter_types
     assert "recordBusinessActionStarted = recordActionStarted" in telemetry_helper
     assert "recordSlowSensitiveAction" in telemetry_helper
+
+
+def test_client_mini_app_android_scroll_keyboard_and_cached_loads() -> None:
+    client_shell = _read("apps/web/src/screens/client/ClientWorkspaceShell.tsx")
+    keyboard_hook = _read("apps/web/src/hooks/useMobileKeyboardViewport.ts")
+    global_css = _read("apps/web/src/app/globals.css")
+    client_screens = _read("apps/web/src/screens/client/ClientScreens.tsx")
+    client_chat_screen = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    client_chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    marketplace_model = _read("apps/web/src/hooks/workspace/useClientMarketplaceModel.ts")
+    orders_model = _read("apps/web/src/hooks/workspace/useRemitterOrdersModel.ts")
+    client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
+
+    assert "useMobileKeyboardViewport" in client_shell
+    assert "business-shell--keyboard-active" in client_shell
+    assert "primary-nav--hidden" in client_shell
+    assert "window.visualViewport" in keyboard_hook
+    assert "root.style.setProperty(\"--nodo-viewport-height\"" in keyboard_hook
+    assert "min-height: var(--nodo-viewport-height, 100dvh);" in global_css
+    assert "-webkit-overflow-scrolling: touch;" in global_css
+    assert "touch-action: pan-y;" in global_css
+    assert "ClientOrderChatScreen" in client_screens
+    assert "business-order-chat-messages" in client_chat_screen
+    assert "business-order-chat-composer" in client_chat_screen
+    assert "business-row ad-row" not in client_chat_screen
+    assert "window.setTimeout(scrollMessagesToEnd, 260);" in client_chat_screen
+    assert "refreshChat({ silent: true })" in client_chat_model
+    assert "sendingChatMessageRef.current" in client_chat_model
+    assert "CLIENT_MARKETPLACE_CACHE_TTL_MS" in marketplace_model
+    assert "CLIENT_ORDERS_CACHE_TTL_MS" in orders_model
+    assert "prefetchActiveMarketplaceRef" in client_model
+    assert "prefetchMyOrdersRef" in client_model
+    assert "}, [marketplace, remitterOrders, view]);" not in client_model
 
 
 def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:

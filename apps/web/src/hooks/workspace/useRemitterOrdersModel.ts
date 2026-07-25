@@ -8,6 +8,8 @@ import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActio
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 
+const CLIENT_ORDERS_CACHE_TTL_MS = 15_000;
+
 type RemitterOrdersState = Pick<
   ClientWorkspaceState,
   | "selectedAd"
@@ -98,12 +100,21 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     const screen = targetView === "messages" ? "messages" : "my-orders";
     const startedAt = actionStartedAt();
     recordActionStarted("client_orders_load", screen);
-    setLoadingOrders(true);
     setView(targetView);
     const cached = ordersCacheRef.current;
-    if (cached && Date.now() - cached.loadedAt < 30_000) {
+    if (cached && Date.now() - cached.loadedAt < CLIENT_ORDERS_CACHE_TTL_MS) {
       setMyOrders(cached.items);
       setNotice(cached.items.length ? "" : targetView === "messages" ? "Todavia no tienes conversaciones." : "Todavia no tienes ordenes.");
+      recordActionCompleted("client_orders_load", screen, startedAt);
+      setLoadingOrders(false);
+      return;
+    }
+    if (cached) {
+      setMyOrders(cached.items);
+      setNotice(cached.items.length ? "" : targetView === "messages" ? "Todavia no tienes conversaciones." : "Todavia no tienes ordenes.");
+      setLoadingOrders(false);
+    } else {
+      setLoadingOrders(true);
     }
     try {
       const data = await listMyOrders<{ items: OrderSummary[] }>(request);
@@ -226,13 +237,12 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
 
   async function prefetchMyOrders() {
     const cached = ordersCacheRef.current;
-    if (cached && Date.now() - cached.loadedAt < 30_000) {
+    if (cached && Date.now() - cached.loadedAt < CLIENT_ORDERS_CACHE_TTL_MS) {
       return;
     }
     try {
       const data = await listMyOrders<{ items: OrderSummary[] }>(request);
       ordersCacheRef.current = { items: data.items, loadedAt: Date.now() };
-      setMyOrders(data.items);
     } catch {
       // Background warmup should never interrupt the active screen.
     }
