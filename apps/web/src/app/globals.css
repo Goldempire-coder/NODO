@@ -4,6 +4,7 @@
 
 :root {
   color-scheme: dark;
+  --nodo-viewport-height: 100dvh;
   --nodo-bg: var(--tg-theme-bg-color, #020817);
   --nodo-panel: var(--tg-theme-secondary-bg-color, #07172a);
   --nodo-text: var(--tg-theme-text-color, #ffffff);
@@ -104,18 +105,25 @@ textarea {
   gap: 18px;
 }
 
+.business-shell--keyboard-active {
+  gap: 10px;
+}
+
 .app-shell:has(.business-support--typing),
 .app-shell:has(.business-order-chat--typing) {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
 .business-shell:has(.business-support--typing),
-.business-shell:has(.business-order-chat--typing) {
+.business-shell:has(.business-order-chat--typing),
+.business-shell--keyboard-active {
   gap: 10px;
 }
 
 .app-shell:has(.business-support--typing) .primary-nav,
-.app-shell:has(.business-order-chat--typing) .primary-nav {
+.app-shell:has(.business-order-chat--typing) .primary-nav,
+.business-shell--keyboard-active .primary-nav,
+.primary-nav--hidden {
   pointer-events: none;
   opacity: 0;
   transform: translateY(calc(112% + env(safe-area-inset-bottom)));
@@ -194,14 +202,16 @@ textarea {
   max-height: min(48vh, 440px);
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding-right: 3px;
   scrollbar-width: thin;
 }
 
 .business-support {
-  height: min(68dvh, 620px);
-  max-height: calc(100dvh - 174px);
-  min-height: min(520px, calc(100dvh - 174px));
+  height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);
+  max-height: calc(var(--nodo-viewport-height, 100dvh) - 174px);
+  min-height: min(430px, calc(var(--nodo-viewport-height, 100dvh) - 174px));
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   gap: 8px;
@@ -249,6 +259,8 @@ textarea {
   background: linear-gradient(180deg, rgb(8 35 53 / 88%), rgb(5 17 31 / 96%));
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   scrollbar-width: thin;
 }
 
@@ -321,6 +333,8 @@ textarea {
   gap: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding-right: 2px;
   scrollbar-width: thin;
 }
@@ -388,9 +402,9 @@ textarea {
 }
 
 .business-support--typing {
-  height: min(72dvh, 640px);
-  max-height: calc(100dvh - 96px);
-  min-height: min(500px, calc(100dvh - 96px));
+  height: min(72dvh, calc(var(--nodo-viewport-height, 100dvh) - 96px), 640px);
+  max-height: calc(var(--nodo-viewport-height, 100dvh) - 96px);
+  min-height: min(320px, calc(var(--nodo-viewport-height, 100dvh) - 96px));
   gap: 6px;
 }
 
@@ -477,6 +491,8 @@ textarea {
   gap: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding: 10px 2px;
   scrollbar-width: thin;
 }
@@ -601,9 +617,9 @@ textarea {
 }
 
 .business-order-chat {
-  height: min(68dvh, 620px);
-  max-height: calc(100dvh - 174px);
-  min-height: min(520px, calc(100dvh - 174px));
+  height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);
+  max-height: calc(var(--nodo-viewport-height, 100dvh) - 174px);
+  min-height: min(430px, calc(var(--nodo-viewport-height, 100dvh) - 174px));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   gap: 8px;
@@ -611,9 +627,9 @@ textarea {
 }
 
 .business-order-chat--typing {
-  height: min(72dvh, 640px);
-  max-height: calc(100dvh - 96px);
-  min-height: min(500px, calc(100dvh - 96px));
+  height: min(72dvh, calc(var(--nodo-viewport-height, 100dvh) - 96px), 640px);
+  max-height: calc(var(--nodo-viewport-height, 100dvh) - 96px);
+  min-height: min(320px, calc(var(--nodo-viewport-height, 100dvh) - 96px));
   gap: 6px;
 }
 
@@ -654,6 +670,8 @@ textarea {
   gap: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding: 10px 2px;
   scrollbar-width: thin;
 }
@@ -817,16 +835,16 @@ textarea {
 @media (max-width: 420px) {
   .business-support,
   .business-order-chat {
-    height: min(66dvh, 560px);
-    max-height: calc(100dvh - 160px);
-    min-height: min(430px, calc(100dvh - 160px));
+    height: min(66dvh, calc(var(--nodo-viewport-height, 100dvh) - 150px), 560px);
+    max-height: calc(var(--nodo-viewport-height, 100dvh) - 150px);
+    min-height: min(360px, calc(var(--nodo-viewport-height, 100dvh) - 150px));
   }
 
   .business-support--typing,
   .business-order-chat--typing {
-    height: min(72dvh, 600px);
-    max-height: calc(100dvh - 72px);
-    min-height: min(460px, calc(100dvh - 72px));
+    height: min(74dvh, calc(var(--nodo-viewport-height, 100dvh) - 64px), 600px);
+    max-height: calc(var(--nodo-viewport-height, 100dvh) - 64px);
+    min-height: min(280px, calc(var(--nodo-viewport-height, 100dvh) - 64px));
   }
 
   .business-support-composer,

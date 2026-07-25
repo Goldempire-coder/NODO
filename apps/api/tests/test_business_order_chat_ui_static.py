@@ -39,11 +39,19 @@ def test_business_order_chat_has_compact_attachment_and_keyboard_safe_typing_mod
     assert "composerFocused ? \"business-order-chat business-order-chat--typing\"" in chat_screen
     assert "focusComposer" in chat_screen
     assert "blurComposer" in chat_screen
+    assert "window.setTimeout(scrollMessagesToEnd, 260);" in chat_screen
+    assert "business-shell--keyboard-active" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
+    assert "window.visualViewport" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
+    assert "--nodo-viewport-height" in global_css
     assert ".app-shell:has(.business-order-chat--typing) .primary-nav" in global_css
+    assert ".business-shell--keyboard-active .primary-nav" in global_css
+    assert ".primary-nav--hidden" in global_css
     assert ".business-order-chat--typing {" in global_css
     assert ".business-order-chat--typing .business-order-chat-actions" in global_css
     assert ".business-order-chat--typing .business-order-chat-composer" in global_css
     assert "grid-template-columns: 34px minmax(0, 1fr) 74px;" in global_css
+    assert "-webkit-overflow-scrolling: touch;" in global_css
+    assert "touch-action: pan-y;" in global_css
 
 
 def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations() -> None:

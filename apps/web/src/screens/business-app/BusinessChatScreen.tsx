@@ -100,11 +100,14 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [chatOrderId, chatMessages.length, chatAttachments.length]);
 
+  const scrollMessagesToEnd = () => {
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  };
+
   const focusComposer = () => {
     setComposerFocused(true);
-    window.requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ block: "end" });
-    });
+    window.requestAnimationFrame(scrollMessagesToEnd);
+    window.setTimeout(scrollMessagesToEnd, 260);
   };
 
   const blurComposer = () => {

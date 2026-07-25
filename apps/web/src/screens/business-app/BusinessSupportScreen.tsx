@@ -122,6 +122,10 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [selectedSupportTicket?.id, ticketMessages.length]);
 
+  const scrollMessagesToEnd = () => {
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  };
+
   const startNewConversation = () => {
     setSelectedSupportTicket(null);
     setSupportReply("");
@@ -143,9 +147,8 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
 
   const focusComposer = () => {
     setComposerFocused(true);
-    window.requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ block: "end" });
-    });
+    window.requestAnimationFrame(scrollMessagesToEnd);
+    window.setTimeout(scrollMessagesToEnd, 260);
   };
 
   const blurComposer = () => {

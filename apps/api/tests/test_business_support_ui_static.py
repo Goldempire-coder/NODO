@@ -88,13 +88,15 @@ def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
 
     assert "composerFocused" in support_screen
     assert "business-support business-support--typing" in support_screen
-    assert "height: min(68dvh, 620px);" in global_css
-    assert "max-height: calc(100dvh - 174px);" in global_css
+    assert "height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);" in global_css
+    assert "max-height: calc(var(--nodo-viewport-height, 100dvh) - 174px);" in global_css
     assert "grid-template-rows: minmax(0, 1fr);" in global_css
-    assert ".business-support {\n  height: min(68dvh, 620px);" in global_css
+    assert ".business-support {\n  height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);" in global_css
     assert ".business-support-thread {\n  min-height: 0;\n  height: 100%;" in global_css
     assert "overflow: hidden;" in global_css
     assert "overflow-y: auto;" in global_css
+    assert "-webkit-overflow-scrolling: touch;" in global_css
+    assert "touch-action: pan-y;" in global_css
     assert "min-height: 56px;" in global_css
     assert "width: 34px;" in global_css
     assert "business-support__title" not in global_css
@@ -111,11 +113,17 @@ def test_business_support_typing_mode_prioritizes_chat_above_mobile_keyboard() -
     assert "focusComposer" in support_screen
     assert "blurComposer" in support_screen
     assert "messagesEndRef.current?.scrollIntoView({ block: \"end\" });" in support_screen
+    assert "window.setTimeout(scrollMessagesToEnd, 260);" in support_screen
     assert 'onFocus={focusComposer}' in support_screen
     assert 'onBlur={blurComposer}' in support_screen
+    assert "business-shell--keyboard-active" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
+    assert "window.visualViewport" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
+    assert "--nodo-viewport-height" in global_css
     assert ".app-shell:has(.business-support--typing) .primary-nav" in global_css
+    assert ".business-shell--keyboard-active .primary-nav" in global_css
+    assert ".primary-nav--hidden" in global_css
     assert "transform: translateY(calc(112% + env(safe-area-inset-bottom)));" in global_css
-    assert ".business-support--typing {\n  height: min(72dvh, 640px);" in global_css
+    assert ".business-support--typing {\n  height: min(72dvh, calc(var(--nodo-viewport-height, 100dvh) - 96px), 640px);" in global_css
     assert ".business-support--typing .business-support__topbar" not in global_css
     assert ".business-support--typing .business-support-thread__summary small" in global_css
     assert ".business-support--typing .business-support-messages" in global_css
