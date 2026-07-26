@@ -7,7 +7,7 @@ declare global {
         colorScheme?: "light" | "dark";
         ready?: () => void;
         expand?: () => void;
-        disableVerticalSwipes?: () => void;
+        enableVerticalSwipes?: () => void;
         enableClosingConfirmation?: () => void;
         disableClosingConfirmation?: () => void;
         onEvent?: (eventType: string, callback: () => void) => void;
@@ -87,7 +87,7 @@ export function setupTelegramViewport() {
     // Telegram native helpers must never block authentication.
   }
   try {
-    webApp.disableVerticalSwipes?.();
+    webApp.enableVerticalSwipes?.();
   } catch {
     // Telegram native helpers must never block authentication.
   }

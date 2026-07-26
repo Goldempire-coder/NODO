@@ -23,11 +23,13 @@
 html,
 body {
   margin: 0;
+  height: 100%;
   min-height: 100%;
   min-height: 100dvh;
   background: var(--nodo-bg);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
+  overflow-y: hidden;
   overscroll-behavior-x: none;
   overscroll-behavior-y: contain;
 }
@@ -76,9 +78,12 @@ textarea {
 }
 
 .app-shell {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  height: var(--nodo-viewport-height, 100dvh);
   min-height: var(--nodo-viewport-height, 100dvh);
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
@@ -107,6 +112,9 @@ textarea {
 .business-shell {
   display: grid;
   width: min(100%, 520px);
+  min-width: 0;
+  min-height: 100%;
+  align-content: start;
   margin: 0 auto;
   gap: 18px;
 }
@@ -115,6 +123,7 @@ textarea {
   gap: 10px;
 }
 
+.app-shell:has(.business-shell--keyboard-active),
 .app-shell:has(.business-support--typing),
 .app-shell:has(.business-order-chat--typing) {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
@@ -172,6 +181,7 @@ textarea {
 
 .business-card {
   display: grid;
+  min-width: 0;
   gap: 10px;
   padding: 14px;
   border: 1px solid var(--nodo-line);

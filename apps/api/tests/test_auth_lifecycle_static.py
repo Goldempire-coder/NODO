@@ -549,6 +549,7 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
 def test_client_mini_app_android_scroll_keyboard_and_cached_loads() -> None:
     client_shell = _read("apps/web/src/screens/client/ClientWorkspaceShell.tsx")
     keyboard_hook = _read("apps/web/src/hooks/useMobileKeyboardViewport.ts")
+    telegram_theme = _read("apps/web/src/theme/telegramTheme.ts")
     global_css = _read("apps/web/src/app/globals.css")
     client_screens = _read("apps/web/src/screens/client/ClientScreens.tsx")
     client_chat_screen = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
@@ -562,7 +563,12 @@ def test_client_mini_app_android_scroll_keyboard_and_cached_loads() -> None:
     assert "primary-nav--hidden" in client_shell
     assert "window.visualViewport" in keyboard_hook
     assert "root.style.setProperty(\"--nodo-viewport-height\"" in keyboard_hook
+    assert "enableVerticalSwipes" in telegram_theme
+    assert "disableVerticalSwipes" not in telegram_theme
+    assert "height: var(--nodo-viewport-height, 100dvh);" in global_css
     assert "min-height: var(--nodo-viewport-height, 100dvh);" in global_css
+    assert ".app-shell:has(.business-shell--keyboard-active)" in global_css
+    assert "overflow-y: hidden;" in global_css
     assert "-webkit-overflow-scrolling: touch;" in global_css
     assert "touch-action: pan-y;" in global_css
     assert "ClientOrderChatScreen" in client_screens
