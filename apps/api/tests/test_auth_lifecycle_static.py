@@ -153,6 +153,11 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     support_api = _read("apps/web/src/api/support.ts")
     support_screen = _read("apps/web/src/screens/admin-web/AdminSupportScreens.tsx")
     admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
+    reply_start = support_model.index("const replySupportTicket")
+    reply_catch = support_model.index("} catch (error) {", reply_start)
+    reply_finally = support_model.index("} finally {", reply_catch)
+    successful_reply_block = support_model[reply_start:reply_catch]
+    failed_reply_block = support_model[reply_catch:reply_finally]
 
     assert 'action: () => support.loadSupportTickets("active")' in admin_model
     assert "ADMIN_SUPPORT_REFRESH_MS = 5000" in admin_model
@@ -165,17 +170,26 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "refreshSupportWorkspace" in support_model
     assert 'const [supportFilter, setSupportFilter] = useState("active")' in support_model
     assert "filterSupportTickets(payload.items, normalizedFilter)" in support_model
-    assert "setSelectedSupportTicket(null)" in support_model
+    assert "selectSupportTicket(null)" in support_model
     assert "Ticket cerrado y enviado a archivados." in support_model
-    assert "No pudimos confirmar el envio. Actualiza el hilo antes de reenviar." in support_model
-    assert "setSupportReply(body)" not in support_model
+    assert "No pudimos confirmar el envio. Tu texto sigue listo para reintentar." in support_model
+    assert 'const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<string, string>>({})' in support_model
+    assert 'const supportReply = selectedSupportTicket ? supportReplyDrafts[selectedSupportTicket.id] ?? "" : ""' in support_model
+    assert "clearSupportReplyDraft(ticketId)" in successful_reply_block
+    assert "setSupportReplyDraft(ticketId, body)" in failed_reply_block
+    assert "selectedSupportTicketIdRef" in support_model
+    assert "if (selectedSupportTicketIdRef.current === ticketId)" in failed_reply_block
+    assert (
+        "current?.id === ticketId ? removeSupportMessage(current, optimisticMessage.id) : current"
+        in failed_reply_block
+    )
     assert "buildOptimisticSupportMessage" in support_model
     assert "appendSupportMessage" in support_model
     assert "removeSupportMessage" in support_model
     assert "applySupportMessageResult" in support_model
     assert "const payload = await adminSendSupportMessage" in support_model
     assert "setSelectedSupportTicket((current) =>" in support_model
-    assert "adminSendSupportMessage(request, selectedSupportTicket.id, body" in support_model
+    assert "adminSendSupportMessage(request, ticketId, body" in support_model
     assert "Promise<SupportMessageResponse>" in support_api
     assert "message: SupportMessage" in support_api
     assert "admin-web-support-layout" in support_screen

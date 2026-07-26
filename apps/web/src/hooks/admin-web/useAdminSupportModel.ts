@@ -108,11 +108,46 @@ export function useAdminSupportModel({
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [selectedSupportTicket, setSelectedSupportTicket] = useState<SupportTicket | null>(null);
   const [supportFilter, setSupportFilter] = useState("active");
-  const [supportReply, setSupportReply] = useState("");
+  const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<string, string>>({});
   const [supportAttachmentLink, setSupportAttachmentLink] = useState<SupportAttachmentLink | null>(null);
   const [sendingSupportReply, setSendingSupportReply] = useState(false);
   const supportReplyInFlight = useRef(false);
+  const selectedSupportTicketIdRef = useRef<string | null>(null);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
+  const supportReply = selectedSupportTicket ? supportReplyDrafts[selectedSupportTicket.id] ?? "" : "";
+
+  const setSupportReplyDraft = useCallback((ticketId: string, value: string) => {
+    setSupportReplyDrafts((current) => {
+      if (value === "") {
+        if (!(ticketId in current)) {
+          return current;
+        }
+        const next = { ...current };
+        delete next[ticketId];
+        return next;
+      }
+      if (current[ticketId] === value) {
+        return current;
+      }
+      return { ...current, [ticketId]: value };
+    });
+  }, []);
+
+  const clearSupportReplyDraft = useCallback((ticketId: string) => {
+    setSupportReplyDraft(ticketId, "");
+  }, [setSupportReplyDraft]);
+
+  const setSupportReply = useCallback((value: string) => {
+    const ticketId = selectedSupportTicketIdRef.current;
+    if (ticketId) {
+      setSupportReplyDraft(ticketId, value);
+    }
+  }, [setSupportReplyDraft]);
+
+  const selectSupportTicket = useCallback((ticket: SupportTicket | null) => {
+    selectedSupportTicketIdRef.current = ticket?.id ?? null;
+    setSelectedSupportTicket(ticket);
+  }, []);
 
   const loadSupportTickets = useCallback(async (filter = supportFilter) => {
     setBusy(true);
@@ -121,7 +156,7 @@ export function useAdminSupportModel({
       const payload = await adminListSupportTickets(request, supportTicketsQuery(normalizedFilter));
       setSupportTickets(filterSupportTickets(payload.items, normalizedFilter));
       if (selectedSupportTicket && normalizedFilter === "active" && ARCHIVED_SUPPORT_STATUSES.has(selectedSupportTicket.status)) {
-        setSelectedSupportTicket(null);
+        selectSupportTicket(null);
       }
       setSupportFilter(normalizedFilter);
       setView("support");
@@ -131,7 +166,7 @@ export function useAdminSupportModel({
     } finally {
       setBusy(false);
     }
-  }, [request, selectedSupportTicket, setBusy, setNotice, setView, supportFilter]);
+  }, [request, selectedSupportTicket, selectSupportTicket, setBusy, setNotice, setView, supportFilter]);
 
   const refreshSupportWorkspace = useCallback(async () => {
     const normalizedFilter = supportFilter.trim().toLowerCase() || "active";
@@ -141,21 +176,21 @@ export function useAdminSupportModel({
       if (selectedSupportTicket) {
         const ticket = await adminGetSupportTicket(request, selectedSupportTicket.id);
         if (normalizedFilter === "active" && ARCHIVED_SUPPORT_STATUSES.has(ticket.status)) {
-          setSelectedSupportTicket(null);
+          selectSupportTicket(null);
           return;
         }
-        setSelectedSupportTicket(ticket);
+        selectSupportTicket(ticket);
       }
     } catch {
       // Background refresh should not interrupt the operator's current action.
     }
-  }, [request, selectedSupportTicket, supportFilter]);
+  }, [request, selectedSupportTicket, selectSupportTicket, supportFilter]);
 
   const openSupportTicket = useCallback(async (ticketId: string) => {
     setBusy(true);
     try {
       const ticket = await adminGetSupportTicket(request, ticketId);
-      setSelectedSupportTicket(ticket);
+      selectSupportTicket(ticket);
       setSupportAttachmentLink(null);
       setView("support");
       setNotice("");
@@ -164,43 +199,50 @@ export function useAdminSupportModel({
     } finally {
       setBusy(false);
     }
-  }, [request, setBusy, setNotice, setView]);
+  }, [request, selectSupportTicket, setBusy, setNotice, setView]);
 
   const refreshSelectedSupportTicket = useCallback(async () => {
     if (!selectedSupportTicket) {
       return;
     }
     const ticket = await adminGetSupportTicket(request, selectedSupportTicket.id);
-    setSelectedSupportTicket(ticket);
-  }, [request, selectedSupportTicket]);
+    selectSupportTicket(ticket);
+  }, [request, selectedSupportTicket, selectSupportTicket]);
 
   const replySupportTicket = useCallback(async () => {
     if (!selectedSupportTicket || !supportReply.trim() || supportReplyInFlight.current) {
       return;
     }
+    const ticketId = selectedSupportTicket.id;
     const body = supportReply.trim();
     const optimisticMessage = buildOptimisticSupportMessage(selectedSupportTicket, body);
     supportReplyInFlight.current = true;
     setSendingSupportReply(true);
     setBusy(true);
-    const idempotencyScope = `admin_support_msg_${selectedSupportTicket.id}`;
+    const idempotencyScope = `admin_support_msg_${ticketId}`;
     try {
-      setSupportReply("");
-      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? appendSupportMessage(current, optimisticMessage) : current));
-      const payload = await adminSendSupportMessage(request, selectedSupportTicket.id, body, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, body }));
+      clearSupportReplyDraft(ticketId);
+      setSelectedSupportTicket((current) => (current?.id === ticketId ? appendSupportMessage(current, optimisticMessage) : current));
+      const payload = await adminSendSupportMessage(request, ticketId, body, getIdempotencyKey(idempotencyScope, { ticketId, body }));
       clearIdempotencyKey(idempotencyScope);
-      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? applySupportMessageResult(current, optimisticMessage.id, payload.message, payload.ticket) : current));
+      clearSupportReplyDraft(ticketId);
+      setSelectedSupportTicket((current) => (current?.id === ticketId ? applySupportMessageResult(current, optimisticMessage.id, payload.message, payload.ticket) : current));
       setSupportTickets((items) => items.map((item) => (item.id === payload.ticket.id ? payload.ticket : item)));
       setNotice("");
     } catch (error) {
-      setSelectedSupportTicket((current) => (current?.id === selectedSupportTicket.id ? removeSupportMessage(current, optimisticMessage.id) : current));
-      setNotice(error instanceof Error ? `${error.message}. Actualiza el hilo antes de reenviar.` : "No pudimos confirmar el envio. Actualiza el hilo antes de reenviar.");
+      setSelectedSupportTicket((current) => (current?.id === ticketId ? removeSupportMessage(current, optimisticMessage.id) : current));
+      setSupportReplyDraft(ticketId, body);
+      if (selectedSupportTicketIdRef.current === ticketId) {
+        setNotice(error instanceof Error ? `${error.message}. Tu texto sigue listo para reintentar.` : "No pudimos confirmar el envio. Tu texto sigue listo para reintentar.");
+      } else {
+        setNotice(error instanceof Error ? `${error.message}. Ocurrio en la conversacion anterior.` : "No pudimos confirmar el envio en la conversacion anterior.");
+      }
     } finally {
       supportReplyInFlight.current = false;
       setSendingSupportReply(false);
       setBusy(false);
     }
-  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setBusy, setNotice, supportReply]);
+  }, [clearIdempotencyKey, clearSupportReplyDraft, getIdempotencyKey, request, selectedSupportTicket, setBusy, setNotice, setSupportReplyDraft, supportReply]);
 
   const changeSupportStatus = useCallback(async (action: "escalate" | "resolve" | "close", reason: string) => {
     if (!selectedSupportTicket) {
@@ -217,12 +259,12 @@ export function useAdminSupportModel({
       const ticket = await methods[action](request, selectedSupportTicket.id, reason, getIdempotencyKey(idempotencyScope, { ticketId: selectedSupportTicket.id, action, reason }));
       clearIdempotencyKey(idempotencyScope);
       if (ARCHIVED_SUPPORT_STATUSES.has(ticket.status)) {
-        setSelectedSupportTicket(null);
+        selectSupportTicket(null);
         setSupportTickets((items) => items.filter((item) => item.id !== ticket.id));
         setNotice(archivedTicketNotice(ticket.status));
         return;
       }
-      setSelectedSupportTicket(ticket);
+      selectSupportTicket(ticket);
       setSupportTickets((items) => items.map((item) => (item.id === ticket.id ? ticket : item)));
       setNotice(archivedTicketNotice(ticket.status));
     } catch (error) {
@@ -230,7 +272,7 @@ export function useAdminSupportModel({
     } finally {
       setBusy(false);
     }
-  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setBusy, setNotice]);
+  }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, selectSupportTicket, setBusy, setNotice]);
 
   const openSupportAttachment = useCallback(async (fileId: string, reason: string, mode: "view" | "download" = "view") => {
     if (!selectedSupportTicket) {
