@@ -69,7 +69,21 @@ function NavIcon({ name }: { name: "home" | "search" | "orders" | "messages" | "
 }
 
 export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel }) {
-  const { busy, canGoBack, goBack, loadActiveMarketplace, loadMyOrders, notice, setView, user, view } = model;
+  const {
+    busy,
+    canGoBack,
+    goBack,
+    loadActiveMarketplace,
+    loadMyOrders,
+    loadSupportTickets,
+    notice,
+    selectedSupportTicket,
+    setSelectedSupportTicket,
+    setSupportReply,
+    setView,
+    user,
+    view
+  } = model;
   const [activeNav, setActiveNav] = useState<"home" | "businesses" | "orders" | "messages" | "profile">("home");
   const keyboardActive = useMobileKeyboardViewport();
   const previousViewRef = useRef<ClientView | null>(null);
@@ -86,6 +100,16 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
     previousViewRef.current = view;
     viewStartedAtRef.current = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
   }, [view]);
+
+  const handleClientBack = () => {
+    if (view === "support" && selectedSupportTicket) {
+      setSelectedSupportTicket(null);
+      setSupportReply("");
+      void loadSupportTickets("active");
+      return;
+    }
+    goBack();
+  };
 
   useEffect(() => {
     if (view === "profile") {
@@ -130,7 +154,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
 
       {canGoBack ? (
         <div className="screen-heading">
-          <button className="topbar-back" type="button" aria-label="Volver" onClick={goBack}>
+          <button className="topbar-back" type="button" aria-label="Volver" onClick={handleClientBack}>
             <span aria-hidden="true" />
           </button>
           <Title level="2" className="business-shell__title">

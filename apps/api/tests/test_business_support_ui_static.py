@@ -176,6 +176,36 @@ def test_business_support_upload_picker_and_message_attachment_contract() -> Non
     assert 'body="Adjunto enviado."' in support_service
 
 
+def test_client_support_creates_general_tickets_without_invalid_order_scope() -> None:
+    support_screen = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
+
+    assert "const startNewConversation = () => {" in support_screen
+    assert 'scope: "client_general"' in support_screen
+    assert 'void submitSupportTicket({ scope: "client_general" });' in support_screen
+    assert 'option value="client_order"' not in support_screen
+    assert "Para una orden especifica, abre la orden" in support_screen
+    assert 'className="business-support-new-button"' in support_screen
+    assert "Nuevo" in support_screen
+    assert "Ver tickets" in support_screen
+    assert "No tienes tickets archivados." in support_screen
+    assert "Este ticket esta archivado." in support_screen
+    assert "business-support-clip" in support_screen
+    assert 'accept="image/*,application/pdf"' in support_screen
+    assert "supportSenderLabel" in support_screen
+    assert '"Soporte NODO"' in support_screen
+
+
+def test_client_support_shell_back_returns_from_ticket_to_ticket_list() -> None:
+    shell = _read("apps/web/src/screens/client/ClientWorkspaceShell.tsx")
+
+    assert "handleClientBack" in shell
+    assert 'view === "support" && selectedSupportTicket' in shell
+    assert "setSelectedSupportTicket(null)" in shell
+    assert 'setSupportReply("")' in shell
+    assert 'void loadSupportTickets("active");' in shell
+    assert "onClick={handleClientBack}" in shell
+
+
 def test_client_support_request_does_not_depend_on_whole_workspace_state() -> None:
     workspace_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
 
