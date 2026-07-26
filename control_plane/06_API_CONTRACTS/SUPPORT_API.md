@@ -12,6 +12,7 @@ API para soporte general cliente, soporte por recursos del negocio y cola Admin 
 - Responses nunca incluyen `storage_path`, signed URLs persistidas, `account_value`, tokens ni secretos.
 - Slice 20C: si el actor opera como staff delegado, el backend debe validar `staff_profiles.status = active`, permiso activo y scope compatible.
 - `users.role = support` no basta para saltar restricciones de `staff_permissions` cuando el flujo usa delegacion interna.
+- Tickets, mensajes y adjuntos de usuario final generan aviso operativo al Admin Web segun actor: `client_support_*` para cliente/remitente y `business_support_*` para negocio. El aviso no incluye el cuerpo del mensaje.
 
 ## Endpoints cliente/negocio
 

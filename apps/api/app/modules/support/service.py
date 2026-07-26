@@ -7,6 +7,7 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.errors import ApiError
+from app.core.logging import get_logger
 from app.modules.businesses.access_control import evaluate_business_access
 from app.modules.businesses.models import BusinessRecord
 from app.modules.support.models import (
@@ -33,6 +34,7 @@ from app.modules.users.models import UserRecord
 
 SUPPORT_DISCLAIMER = "NODO registra evidencia y estado; no recibe, retiene, transfiere ni garantiza fondos."
 ADMIN_ROLES = {"admin", "super_admin", "support"}
+logger = get_logger(__name__)
 
 
 def _require_uuid(value: str | None, code: str = "NOT_FOUND") -> str | None:
@@ -216,6 +218,50 @@ class SupportService:
         fields["requester_surface"] = surface or ("business_mini_app" if user.role == "business_owner" else "client_mini_app")
         return fields
 
+    def _notify_admin_support_ticket_created(self, *, ticket: SupportTicketRecord, request_id: str) -> None:
+        if self._admin_notifications is None:
+            return
+        try:
+            if ticket.requester_role == "business_owner":
+                self._admin_notifications.business_support_ticket_created(ticket=ticket, request_id=request_id)
+            elif ticket.requester_role == "remitter":
+                self._admin_notifications.client_support_ticket_created(ticket=ticket, request_id=request_id)
+        except Exception as exc:
+            logger.warning(
+                "support_ticket_admin_notification_failed",
+                extra={
+                    "event": "support_ticket_admin_notification_failed",
+                    "ticket_id": ticket.id,
+                    "requester_role": ticket.requester_role,
+                    "requester_surface": ticket.requester_surface,
+                    "scope": ticket.scope,
+                    "error_code": type(exc).__name__,
+                    "request_id": request_id,
+                },
+            )
+
+    def _notify_admin_support_message_created(self, *, ticket: SupportTicketRecord, message, request_id: str) -> None:  # type: ignore[no-untyped-def]
+        if self._admin_notifications is None:
+            return
+        try:
+            if message.sender_role == "business_owner":
+                self._admin_notifications.business_support_message_created(ticket=ticket, message=message, request_id=request_id)
+            elif message.sender_role == "remitter":
+                self._admin_notifications.client_support_message_created(ticket=ticket, message=message, request_id=request_id)
+        except Exception as exc:
+            logger.warning(
+                "support_message_admin_notification_failed",
+                extra={
+                    "event": "support_message_admin_notification_failed",
+                    "ticket_id": ticket.id,
+                    "message_id": message.id,
+                    "sender_role": message.sender_role,
+                    "scope": ticket.scope,
+                    "error_code": type(exc).__name__,
+                    "request_id": request_id,
+                },
+            )
+
     def _detail_payload(self, *, ticket: SupportTicketRecord, user: UserRecord, admin: bool = False) -> dict[str, Any]:
         messages = self._repository.list_messages(ticket_id=ticket.id)
         resources = [("support_ticket", ticket.id)] + [("support_message", message.id) for message in messages]
@@ -277,8 +323,7 @@ class SupportService:
             self._repository.create_message(ticket_id=ticket.id, sender_user_id=user.id, sender_role=user.role, body=message_body, visibility="participants")
             self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_ticket_created", to_status="open", metadata_json={"scope": payload.scope, "category": payload.category})
             self._audit.write(event_type="support_ticket_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"scope": payload.scope, "category": payload.category})
-            if self._admin_notifications is not None and fields["requester_surface"] == "business_mini_app":
-                self._admin_notifications.business_support_ticket_created(ticket=ticket, request_id=request_id)
+            self._notify_admin_support_ticket_created(ticket=ticket, request_id=request_id)
             return self._detail_payload(ticket=ticket, user=user)
 
         return self._idempotency.replay_or_store(f"support:ticket:{user.id}:{idempotency_key}", payload=request_payload, compute=compute)
@@ -421,8 +466,8 @@ class SupportService:
             self._audit.write(event_type="support_attachment_uploaded", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"file_asset_id": file.id, "message_id": message.id, "mime_type": mime_type, "size_bytes": stored.size_bytes})
             self._audit.write(event_type="support_message_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"visibility": "participants", "has_attachment": True})
             current_ticket = self._repository.get_ticket(ticket.id) or ticket
-            if self._admin_notifications is not None and not admin and current_ticket.business_id:
-                self._admin_notifications.business_support_message_created(ticket=current_ticket, message=message, request_id=request_id)
+            if not admin:
+                self._notify_admin_support_message_created(ticket=current_ticket, message=message, request_id=request_id)
             return {
                 "attachment": file_asset_public(file),
                 "message": message_public(message, [file]),
@@ -479,8 +524,8 @@ class SupportService:
             self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_message_created", metadata_json={"visibility": visibility})
             self._audit.write(event_type="support_message_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"visibility": visibility})
             current_ticket = self._repository.get_ticket(ticket.id) or ticket
-            if self._admin_notifications is not None and not admin and visibility == "participants" and current_ticket.business_id:
-                self._admin_notifications.business_support_message_created(ticket=current_ticket, message=message, request_id=request_id)
+            if not admin and visibility == "participants":
+                self._notify_admin_support_message_created(ticket=current_ticket, message=message, request_id=request_id)
             return {"message": message_public(message), "ticket": self._ticket_summary_payload(current_ticket), "disclaimer": SUPPORT_DISCLAIMER}
 
         return self._idempotency.replay_or_store(f"support:message:{user.id}:{ticket.id}:{idempotency_key}", payload={"body": body, "visibility": visibility}, compute=compute)

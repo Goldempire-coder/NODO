@@ -223,6 +223,52 @@ class AdminNotificationService:
             request_id=request_id,
         )
 
+    def client_support_ticket_created(self, *, ticket, request_id: str) -> None:  # type: ignore[no-untyped-def]
+        priority = {
+            "low": "info",
+            "normal": "attention",
+            "high": "high",
+            "urgent": "critical",
+        }.get(ticket.priority, "attention")
+        self.enqueue(
+            notification_type="client_support_ticket_created",
+            priority=priority,
+            source_surface=ticket.requester_surface,
+            resource_type="support_ticket",
+            resource_id=ticket.id,
+            business_id=ticket.business_id,
+            actor_user_id=ticket.requester_user_id,
+            title="Nuevo ticket de cliente",
+            summary="Nuevo ticket de cliente requiere revision.",
+            action_route=f"admin://support-ticket/{ticket.id}",
+            dedupe_key=f"support_ticket:{ticket.id}:client_created",
+            metadata={"scope": ticket.scope, "category": ticket.category, "status": ticket.status},
+            request_id=request_id,
+        )
+
+    def client_support_message_created(self, *, ticket, message, request_id: str) -> None:  # type: ignore[no-untyped-def]
+        priority = {
+            "low": "info",
+            "normal": "attention",
+            "high": "high",
+            "urgent": "critical",
+        }.get(ticket.priority, "attention")
+        self.enqueue(
+            notification_type="client_support_message_created",
+            priority=priority,
+            source_surface=ticket.requester_surface,
+            resource_type="support_ticket",
+            resource_id=ticket.id,
+            business_id=ticket.business_id,
+            actor_user_id=message.sender_user_id,
+            title="Nuevo mensaje de cliente",
+            summary="Un cliente respondio una conversacion de soporte.",
+            action_route=f"admin://support-ticket/{ticket.id}",
+            dedupe_key=f"support_ticket:{ticket.id}:message:{message.id}:client",
+            metadata={"scope": ticket.scope, "category": ticket.category, "status": ticket.status, "message_id": message.id},
+            request_id=request_id,
+        )
+
     def order_chat_off_platform_solicitation(self, *, order, message, match, request_id: str) -> None:  # type: ignore[no-untyped-def]
         priority = "high" if match.severity == "high" else "attention"
         self.enqueue(

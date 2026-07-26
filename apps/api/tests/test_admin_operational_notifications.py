@@ -575,6 +575,98 @@ def test_business_support_message_created_from_business_creates_admin_notificati
     assert "0x3333333333333333333333333333333333333333" not in serialized
 
 
+def test_client_support_ticket_created_from_client_creates_admin_notification() -> None:
+    client = _client()
+    admin = _make_admin(client, 31221, "admin")
+    remitter = _login(client, 31222, "client_support_notify")
+
+    response = client.post(
+        "/api/v1/support/tickets",
+        headers={**_headers(remitter, "client_support_ticket"), "Content-Type": "application/json", "X-NODO-Surface": "client_mini_app"},
+        json={
+            "scope": "client_general",
+            "category": "technical_issue",
+            "subject": "No puedo abrir soporte 0x3333333333333333333333333333333333333333",
+            "message": "Mensaje del cliente que no debe ir a notificaciones.",
+        },
+    )
+    assert response.status_code == 201, response.text
+    ticket = response.json()["data"]
+
+    notifications = _admin_notifications(client, admin)
+    support_notification = next(item for item in notifications if item["notification_type"] == "client_support_ticket_created")
+    assert support_notification["resource_type"] == "support_ticket"
+    assert support_notification["resource_id"] == ticket["id"]
+    assert support_notification["business_id"] is None
+    assert support_notification["actor_user_id"] == remitter["user"]["id"]
+    assert support_notification["action_route"] == f"admin://support-ticket/{ticket['id']}"
+    assert support_notification["metadata"] == {
+        "category": "technical_issue",
+        "scope": "client_general",
+        "status": "open",
+    }
+    serialized = json.dumps(support_notification)
+    assert "No puedo abrir soporte" not in serialized
+    assert "0x3333333333333333333333333333333333333333" not in serialized
+    assert "Mensaje del cliente" not in serialized
+
+
+def test_client_support_message_created_from_client_creates_admin_notification() -> None:
+    client = _client()
+    admin = _make_admin(client, 31231, "admin")
+    remitter = _login(client, 31232, "client_support_message_notify")
+
+    ticket_response = client.post(
+        "/api/v1/support/tickets",
+        headers={**_headers(remitter, "client_support_message_ticket"), "Content-Type": "application/json", "X-NODO-Surface": "client_mini_app"},
+        json={"scope": "client_general", "category": "technical_issue", "subject": "Boton de ayuda no responde", "message": "Mensaje inicial privado."},
+    )
+    assert ticket_response.status_code == 201, ticket_response.text
+    ticket = ticket_response.json()["data"]
+
+    initial_unread = client.get("/api/v1/admin/notifications?status=unread", headers=_bearer(admin, "req_client_support_message_initial_unread"))
+    assert initial_unread.status_code == 200, initial_unread.text
+    for notification in initial_unread.json()["data"]["items"]:
+        if notification["resource_type"] == "support_ticket":
+            read_response = client.post(f"/api/v1/admin/notifications/{notification['id']}/read", headers=_bearer(admin, f"req_client_support_message_read_{notification['id']}"))
+            assert read_response.status_code == 200, read_response.text
+
+    count_before_message = client.get("/api/v1/admin/notifications/unread-count", headers=_bearer(admin, "req_client_support_message_count_before"))
+    assert count_before_message.status_code == 200, count_before_message.text
+    assert count_before_message.json()["data"]["support_unread_count"] == 0
+
+    message_response = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(remitter, "client_support_message_reply"), "Content-Type": "application/json", "X-NODO-Surface": "client_mini_app"},
+        json={"body": "Hola soporte, mi token privado no debe salir en la campana 0x3333333333333333333333333333333333333333."},
+    )
+    assert message_response.status_code == 201, message_response.text
+    message = message_response.json()["data"]["message"]
+
+    count = client.get("/api/v1/admin/notifications/unread-count", headers=_bearer(admin, "req_client_support_message_unread_count"))
+    unread = client.get("/api/v1/admin/notifications?status=unread", headers=_bearer(admin, "req_client_support_message_unread_list"))
+
+    assert count.status_code == 200, count.text
+    assert count.json()["data"]["support_unread_count"] == 1
+    assert unread.status_code == 200, unread.text
+    notifications = unread.json()["data"]["items"]
+    message_notification = next(item for item in notifications if item["notification_type"] == "client_support_message_created")
+    assert message_notification["resource_type"] == "support_ticket"
+    assert message_notification["resource_id"] == ticket["id"]
+    assert message_notification["business_id"] is None
+    assert message_notification["actor_user_id"] == remitter["user"]["id"]
+    assert message_notification["action_route"] == f"admin://support-ticket/{ticket['id']}"
+    assert message_notification["metadata"] == {
+        "category": "technical_issue",
+        "message_id": message["id"],
+        "scope": "client_general",
+        "status": "waiting_support",
+    }
+    serialized = json.dumps(message_notification)
+    assert "token privado" not in serialized
+    assert "0x3333333333333333333333333333333333333333" not in serialized
+
+
 def test_base_usdc_under_review_and_telegram_failed_permanent_notify_admin() -> None:
     client = _client()
     admin = _make_admin(client, 31301, "admin")
