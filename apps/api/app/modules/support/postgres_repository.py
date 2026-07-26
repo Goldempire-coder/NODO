@@ -50,7 +50,7 @@ class PostgresSupportRepository:
         *,
         requester_user_id: str | None,
         business_id: str | None,
-        status: str | None,
+        statuses: set[str] | None,
         scope: str | None,
         category: str | None,
         priority: str | None,
@@ -63,7 +63,6 @@ class PostgresSupportRepository:
         filters = {
             "requester_user_id": requester_user_id,
             "business_id": business_id,
-            "status": status,
             "scope": scope,
             "category": category,
             "priority": priority,
@@ -73,6 +72,9 @@ class PostgresSupportRepository:
             if value:
                 sql += f" and {column} = %s"
                 params.append(value)
+        if statuses:
+            sql += " and status = any(%s)"
+            params.append(sorted(statuses))
         if cursor:
             sql += " and updated_at < %s"
             params.append(cursor)

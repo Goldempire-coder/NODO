@@ -29,7 +29,7 @@ class InMemorySupportRepository:
         *,
         requester_user_id: str | None,
         business_id: str | None,
-        status: str | None,
+        statuses: set[str] | None,
         scope: str | None,
         category: str | None,
         priority: str | None,
@@ -42,8 +42,8 @@ class InMemorySupportRepository:
             items = [item for item in items if item.requester_user_id == requester_user_id]
         if business_id:
             items = [item for item in items if item.business_id == business_id]
-        if status:
-            items = [item for item in items if item.status == status]
+        if statuses:
+            items = [item for item in items if item.status in statuses]
         if scope:
             items = [item for item in items if item.scope == scope]
         if category:

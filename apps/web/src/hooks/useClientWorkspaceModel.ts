@@ -232,12 +232,14 @@ export function useClientWorkspaceModel({
     supportReply: support.supportReply,
     setSupportReply: support.setSupportReply,
     sendingSupportReply: support.sendingSupportReply,
+    closingSupportTicketId: support.closingSupportTicketId,
     uploadingSupportAttachment: support.uploadingSupportAttachment,
     loadSupportTickets: support.loadSupportTickets,
     refreshSupportWorkspace: support.refreshSupportWorkspace,
     openSupportTicket: support.openSupportTicket,
     submitSupportTicket: support.submitSupportTicket,
     submitSupportReply: support.submitSupportReply,
+    closeOwnSupportTicket: support.closeOwnSupportTicket,
     uploadTicketAttachment: support.uploadTicketAttachment
   };
 }

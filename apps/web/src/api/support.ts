@@ -60,6 +60,15 @@ export async function uploadSupportAttachment(request: AuthenticatedRequest, tic
   });
 }
 
+export async function closeSupportTicket(request: AuthenticatedRequest, ticketId: string, idempotencyKey: string): Promise<SupportTicket> {
+  return request<SupportTicket>(`/api/v1/support/tickets/${ticketId}/close`, {
+    method: "POST",
+    headers: {
+      "Idempotency-Key": idempotencyKey
+    }
+  });
+}
+
 export async function adminListSupportTickets(request: AuthenticatedRequest, query = ""): Promise<SupportListResponse> {
   return request<SupportListResponse>(`/api/v1/admin/support/tickets${query}`);
 }

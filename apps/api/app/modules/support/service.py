@@ -11,16 +11,19 @@ from app.core.logging import get_logger
 from app.modules.businesses.access_control import evaluate_business_access
 from app.modules.businesses.models import BusinessRecord
 from app.modules.support.models import (
+    ACTIVE_SUPPORT_STATUSES,
     ALLOWED_SUPPORT_ATTACHMENT_MIME_TYPES,
     MAX_SUPPORT_ATTACHMENT_SIZE_BYTES,
     SUPPORT_CATEGORIES,
     SUPPORT_MESSAGE_VISIBILITIES,
     SUPPORT_SCOPES,
+    SUPPORT_STATUS_GROUPS,
     SUPPORT_STATUSES,
     SupportTicketRecord,
     new_id,
     utc_now,
 )
+from app.modules.notifications.support_notifications import NoopSupportNotificationService
 from app.modules.support.presenters import event_public, file_asset_public, message_public, ticket_summary
 from app.modules.support.schemas import (
     AdminSupportMessageCreateRequest,
@@ -55,6 +58,21 @@ def _attachment_payload(file) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     return file_asset_public(file)
 
 
+def _support_statuses(*, status: str | None, status_group: str | None) -> set[str] | None:
+    if status and status_group:
+        raise ApiError("SUPPORT_TICKET_STATUS_FILTER_CONFLICT", status_code=400)
+    if status_group:
+        statuses = SUPPORT_STATUS_GROUPS.get(status_group)
+        if statuses is None:
+            raise ApiError("SUPPORT_TICKET_STATUS_GROUP_INVALID", status_code=400)
+        return set(statuses)
+    if status:
+        if status not in SUPPORT_STATUSES:
+            raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
+        return {status}
+    return None
+
+
 def _attachment_download_filename(*, ticket: SupportTicketRecord, file) -> str:  # type: ignore[no-untyped-def]
     extension = {
         "image/jpeg": "jpg",
@@ -83,6 +101,7 @@ class SupportService:
         idempotency_store,
         storage,
         admin_notifications=None,
+        notification_service=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
@@ -98,6 +117,7 @@ class SupportService:
         self._idempotency = idempotency_store
         self._storage = storage
         self._admin_notifications = admin_notifications
+        self._notifications = notification_service or NoopSupportNotificationService()
 
     def _rate_limit(self, action: str, user: UserRecord, ticket_id: str | None = None) -> None:
         key = f"support:{action}:{user.id}:{ticket_id or 'global'}"
@@ -328,10 +348,9 @@ class SupportService:
 
         return self._idempotency.replay_or_store(f"support:ticket:{user.id}:{idempotency_key}", payload=request_payload, compute=compute)
 
-    def list_user_tickets(self, *, user: UserRecord, status: str | None, scope: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
+    def list_user_tickets(self, *, user: UserRecord, status: str | None, status_group: str | None, scope: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         self._rate_limit("list", user)
-        if status and status not in SUPPORT_STATUSES:
-            raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
+        statuses = _support_statuses(status=status, status_group=status_group)
         if scope and scope not in SUPPORT_SCOPES:
             raise ApiError("SUPPORT_SCOPE_INVALID", status_code=400)
         business_id = None
@@ -343,7 +362,7 @@ class SupportService:
         items, next_cursor = self._repository.list_tickets(
             requester_user_id=requester_user_id,
             business_id=business_id,
-            status=status,
+            statuses=statuses,
             scope=scope,
             category=None,
             priority=None,
@@ -372,13 +391,59 @@ class SupportService:
             raise ApiError("SUPPORT_TICKET_NOT_FOUND", status_code=404)
         return self._create_message(user=user, ticket=ticket, body=payload.body, visibility="participants", request_id=request_id, idempotency_key=idempotency_key, admin=False)
 
-    def list_admin_tickets(self, *, user: UserRecord, status: str | None, scope: str | None, category: str | None, priority: str | None, assigned_support_user_id: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
+    def close_user_ticket(self, *, user: UserRecord, ticket_id: str, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        if not idempotency_key:
+            raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
+        ticket = self._require_ticket(ticket_id)
+        if (
+            ticket.requester_user_id != user.id
+            or not self._ticket_visible_to_user(ticket=ticket, user=user)
+            or user.role in ADMIN_ROLES
+        ):
+            raise ApiError("SUPPORT_TICKET_NOT_FOUND", status_code=404)
+        self._rate_limit("close", user, ticket.id)
+
+        def compute() -> dict[str, Any]:
+            current = self._require_ticket(ticket.id)
+            if current.status not in ACTIVE_SUPPORT_STATUSES:
+                raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
+            updated = self._repository.update_ticket(current, status="closed", closed_at=utc_now())
+            reason = "requester_closed_by_mistake"
+            self._repository.create_event(
+                ticket_id=current.id,
+                actor_user_id=user.id,
+                actor_role=user.role,
+                event_type="support_ticket_closed",
+                from_status=current.status,
+                to_status="closed",
+                reason=reason,
+                metadata_json={"closed_by": "requester"},
+            )
+            self._audit.write(
+                event_type="support_ticket_closed",
+                actor_user_id=user.id,
+                actor_role=user.role,
+                resource_type="support_ticket",
+                resource_id=current.id,
+                request_id=request_id,
+                metadata_json={"from_status": current.status, "to_status": "closed", "closed_by": "requester"},
+            )
+            return self._detail_payload(ticket=updated, user=user)
+
+        return self._idempotency.replay_or_store(
+            f"support:close-requester:{user.id}:{ticket.id}:{idempotency_key}",
+            payload={"ticket_id": ticket.id, "action": "close_by_requester"},
+            compute=compute,
+        )
+
+    def list_admin_tickets(self, *, user: UserRecord, status: str | None, status_group: str | None, scope: str | None, category: str | None, priority: str | None, assigned_support_user_id: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         self._require_support_permission(user, "view_support_queue")
         self._rate_limit("admin_list", user)
+        statuses = _support_statuses(status=status, status_group=status_group)
         items, next_cursor = self._repository.list_tickets(
             requester_user_id=None,
             business_id=None,
-            status=status,
+            statuses=statuses,
             scope=scope,
             category=category,
             priority=priority,
@@ -422,9 +487,12 @@ class SupportService:
             raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
 
         def compute() -> dict[str, Any]:
-            updated = self._repository.update_ticket(ticket, assigned_support_user_id=assignee.id)
-            self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_ticket_assigned", reason=reason, metadata_json={"assigned_support_user_id": assignee.id})
-            self._audit.write(event_type="support_ticket_assigned", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"assigned_support_user_id": assignee.id})
+            current = self._require_ticket(ticket.id)
+            if current.status not in ACTIVE_SUPPORT_STATUSES:
+                raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
+            updated = self._repository.update_ticket(current, assigned_support_user_id=assignee.id)
+            self._repository.create_event(ticket_id=current.id, actor_user_id=user.id, actor_role=user.role, event_type="support_ticket_assigned", reason=reason, metadata_json={"assigned_support_user_id": assignee.id})
+            self._audit.write(event_type="support_ticket_assigned", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=current.id, request_id=request_id, metadata_json={"assigned_support_user_id": assignee.id})
             return self._detail_payload(ticket=updated, user=user, admin=True)
 
         return self._idempotency.replay_or_store(f"support:assign:{user.id}:{ticket.id}:{idempotency_key}", payload={"assigned_support_user_id": assignee.id, "reason": reason}, compute=compute)
@@ -452,20 +520,23 @@ class SupportService:
         payload = {"ticket_id": ticket.id, "file_name": file_name, "mime_type": mime_type, "size_bytes": len(content), "content_sha256": hashlib.sha256(content).hexdigest()}
 
         def compute() -> dict[str, Any]:
+            current = self._require_ticket(ticket.id)
+            if current.status not in ACTIVE_SUPPORT_STATUSES:
+                raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
             file_id = new_id()
-            stored = self._storage.store_support_attachment(ticket_id=ticket.id, file_id=file_id, file_name=file_name, content=content)
-            message = self._repository.create_message(ticket_id=ticket.id, sender_user_id=user.id, sender_role=user.role, body="Adjunto enviado.", visibility="participants")
+            stored = self._storage.store_support_attachment(ticket_id=current.id, file_id=file_id, file_name=file_name, content=content)
+            message = self._repository.create_message(ticket_id=current.id, sender_user_id=user.id, sender_role=user.role, body="Adjunto enviado.", visibility="participants")
             file = self._repository.create_file_asset(file_id=file_id, owner_user_id=user.id, resource_type="support_message", resource_id=message.id, storage_path=stored.storage_path, mime_type=mime_type, size_bytes=stored.size_bytes)
-            target_status = ticket.status
-            if ticket.status != "escalated":
+            target_status = current.status
+            if current.status != "escalated":
                 target_status = "waiting_user" if admin else "waiting_support"
-            if target_status != ticket.status:
-                self._repository.update_ticket(ticket, status=target_status)
-            self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_attachment_uploaded", metadata_json={"file_asset_id": file.id, "message_id": message.id, "mime_type": mime_type, "size_bytes": stored.size_bytes})
-            self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_message_created", metadata_json={"visibility": "participants", "has_attachment": True})
-            self._audit.write(event_type="support_attachment_uploaded", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"file_asset_id": file.id, "message_id": message.id, "mime_type": mime_type, "size_bytes": stored.size_bytes})
-            self._audit.write(event_type="support_message_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"visibility": "participants", "has_attachment": True})
-            current_ticket = self._repository.get_ticket(ticket.id) or ticket
+            if target_status != current.status:
+                self._repository.update_ticket(current, status=target_status)
+            self._repository.create_event(ticket_id=current.id, actor_user_id=user.id, actor_role=user.role, event_type="support_attachment_uploaded", metadata_json={"file_asset_id": file.id, "message_id": message.id, "mime_type": mime_type, "size_bytes": stored.size_bytes})
+            self._repository.create_event(ticket_id=current.id, actor_user_id=user.id, actor_role=user.role, event_type="support_message_created", metadata_json={"visibility": "participants", "has_attachment": True})
+            self._audit.write(event_type="support_attachment_uploaded", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=current.id, request_id=request_id, metadata_json={"file_asset_id": file.id, "message_id": message.id, "mime_type": mime_type, "size_bytes": stored.size_bytes})
+            self._audit.write(event_type="support_message_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=current.id, request_id=request_id, metadata_json={"visibility": "participants", "has_attachment": True})
+            current_ticket = self._repository.get_ticket(current.id) or current
             if not admin:
                 self._notify_admin_support_message_created(ticket=current_ticket, message=message, request_id=request_id)
             return {
@@ -507,7 +578,7 @@ class SupportService:
     def _create_message(self, *, user: UserRecord, ticket: SupportTicketRecord, body: str, visibility: str, request_id: str, idempotency_key: str | None, admin: bool) -> dict[str, Any]:
         if not idempotency_key:
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
-        if ticket.status == "closed":
+        if ticket.status not in ACTIVE_SUPPORT_STATUSES:
             raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
         self._rate_limit("message", user, ticket.id)
         body = _sanitize_text(body, 2000)
@@ -515,15 +586,18 @@ class SupportService:
             raise ApiError("SUPPORT_MESSAGE_REQUIRED", status_code=400)
 
         def compute() -> dict[str, Any]:
-            message = self._repository.create_message(ticket_id=ticket.id, sender_user_id=user.id, sender_role=user.role, body=body, visibility=visibility)
-            target_status = ticket.status
-            if visibility == "participants" and ticket.status != "escalated":
+            current = self._require_ticket(ticket.id)
+            if current.status not in ACTIVE_SUPPORT_STATUSES:
+                raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
+            message = self._repository.create_message(ticket_id=current.id, sender_user_id=user.id, sender_role=user.role, body=body, visibility=visibility)
+            target_status = current.status
+            if visibility == "participants" and current.status != "escalated":
                 target_status = "waiting_user" if admin else "waiting_support"
-            if target_status != ticket.status:
-                self._repository.update_ticket(ticket, status=target_status)
-            self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_message_created", metadata_json={"visibility": visibility})
-            self._audit.write(event_type="support_message_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"visibility": visibility})
-            current_ticket = self._repository.get_ticket(ticket.id) or ticket
+            if target_status != current.status:
+                self._repository.update_ticket(current, status=target_status)
+            self._repository.create_event(ticket_id=current.id, actor_user_id=user.id, actor_role=user.role, event_type="support_message_created", metadata_json={"visibility": visibility})
+            self._audit.write(event_type="support_message_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=current.id, request_id=request_id, metadata_json={"visibility": visibility})
+            current_ticket = self._repository.get_ticket(current.id) or current
             if not admin and visibility == "participants":
                 self._notify_admin_support_message_created(ticket=current_ticket, message=message, request_id=request_id)
             return {"message": message_public(message), "ticket": self._ticket_summary_payload(current_ticket), "disclaimer": SUPPORT_DISCLAIMER}
@@ -539,18 +613,24 @@ class SupportService:
             "resolve": "resolve_support_ticket",
             "close": "close_support_ticket",
         }[action]
-        self._require_support_permission(user, permission, ticket)
+        if action == "close":
+            if user.role not in {"admin", "super_admin"}:
+                raise ApiError("FORBIDDEN", status_code=403)
+            self._require_admin_actor(user)
+        else:
+            self._require_support_permission(user, permission, ticket)
         self._rate_limit(action, user, ticket.id)
         reason = _sanitize_text(reason, 500)
         if not reason:
             raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
-        if target_status == "closed" and ticket.status != "resolved":
-            raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
-        if ticket.status == "closed":
-            raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
-
         def compute() -> dict[str, Any]:
-            from_status = ticket.status
+            current = self._require_ticket(ticket.id)
+            if target_status == "closed":
+                if current.status != "resolved":
+                    raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
+            elif current.status not in ACTIVE_SUPPORT_STATUSES:
+                raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
+            from_status = current.status
             fields: dict[str, Any] = {"status": target_status}
             if target_status == "escalated":
                 fields["escalated_at"] = utc_now()
@@ -560,16 +640,22 @@ class SupportService:
                 fields["resolved_at"] = utc_now()
             if target_status == "closed":
                 fields["closed_at"] = utc_now()
-            updated = self._repository.update_ticket(ticket, **fields)
+            updated = self._repository.update_ticket(current, **fields)
             event_type = {
                 "escalate": "support_ticket_escalated",
                 "resolve": "support_ticket_resolved",
                 "close": "support_ticket_closed",
             }[action]
-            self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type=event_type, from_status=from_status, to_status=target_status, reason=reason, metadata_json={"existing_dispute_id": extra.get("existing_dispute_id")} if extra else {})
-            self._audit.write(event_type=event_type, actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"from_status": from_status, "to_status": target_status})
+            self._repository.create_event(ticket_id=current.id, actor_user_id=user.id, actor_role=user.role, event_type=event_type, from_status=from_status, to_status=target_status, reason=reason, metadata_json={"existing_dispute_id": extra.get("existing_dispute_id")} if extra else {})
+            self._audit.write(event_type=event_type, actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=current.id, request_id=request_id, metadata_json={"from_status": from_status, "to_status": target_status})
             if target_status == "escalated" and extra.get("existing_dispute_id"):
-                self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_ticket_linked_to_dispute", reason=reason, metadata_json={"existing_dispute_id": extra["existing_dispute_id"]})
+                self._repository.create_event(ticket_id=current.id, actor_user_id=user.id, actor_role=user.role, event_type="support_ticket_linked_to_dispute", reason=reason, metadata_json={"existing_dispute_id": extra["existing_dispute_id"]})
+            if target_status in {"resolved", "closed"}:
+                self._notifications.ticket_status_changed(
+                    ticket=updated,
+                    notification_type=f"support_ticket_{target_status}_participant",
+                    request_id=request_id,
+                )
             return self._detail_payload(ticket=updated, user=user, admin=True)
 
         return self._idempotency.replay_or_store(f"support:{action}:{user.id}:{ticket.id}:{idempotency_key}", payload={"reason": reason, **extra}, compute=compute)
@@ -592,7 +678,7 @@ class SupportService:
 
     def _validate_upload(self, *, user: UserRecord, ticket: SupportTicketRecord, mime_type: str, content: bytes) -> None:
         self._rate_limit("upload", user, ticket.id)
-        if ticket.status == "closed":
+        if ticket.status not in ACTIVE_SUPPORT_STATUSES:
             raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
         if mime_type not in ALLOWED_SUPPORT_ATTACHMENT_MIME_TYPES:
             raise ApiError("SUPPORT_ATTACHMENT_TYPE_NOT_ALLOWED", status_code=400)

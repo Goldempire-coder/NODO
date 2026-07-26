@@ -22,6 +22,16 @@ def test_support_filter_change_does_not_trigger_duplicate_load() -> None:
     assert "}, [loadSupportTickets, supportFilter]);" not in client_screen
 
 
+def test_support_active_and_archived_lists_request_backend_status_groups() -> None:
+    surface_support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    admin_support_model = _read("apps/web/src/hooks/admin-web/useAdminSupportModel.ts")
+
+    assert 'return `?status_group=${encodeURIComponent(filter)}&limit=50`;' in surface_support_model
+    assert 'return `?status_group=${encodeURIComponent(normalized)}&limit=50`;' in admin_support_model
+    assert "void filter;" not in surface_support_model
+    assert 'normalized === "active" || normalized === "archived"' in admin_support_model
+
+
 def test_support_mutations_have_immediate_double_submit_guards() -> None:
     support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
 
@@ -48,6 +58,8 @@ def test_support_reply_draft_is_cleared_only_after_backend_success() -> None:
 def test_business_support_is_a_single_chat_surface_with_active_archive_buckets() -> None:
     support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    client_support_screen = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
+    support_api = _read("apps/web/src/api/support.ts")
     global_css = _read("apps/web/src/app/globals.css")
 
     assert '"business-support business-support--typing" : "business-support"' in support_screen
@@ -71,6 +83,15 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
     assert "Archivadas" in support_screen
     assert 'new Set<SupportTicket["status"]>(["open", "waiting_support", "waiting_user", "escalated"])' in support_model
     assert 'new Set<SupportTicket["status"]>(["resolved", "closed"])' in support_model
+    assert "closingSupportTicketId" in support_model
+    assert "closeOwnSupportTicket" in support_model
+    assert "closeSupportTicket" in support_api
+    assert "Cerrar conversacion" in support_screen
+    assert "Cerrar ticket" in client_support_screen
+    assert "Cerrando..." in support_screen
+    assert "Cerrando..." in client_support_screen
+    assert "selectedArchived ? (" in support_screen
+    assert "selectedArchived ? (" in client_support_screen
     assert ".business-support-composer" in global_css
     assert ".business-support-clip" in global_css
     assert ".business-support-thread-selector" in global_css

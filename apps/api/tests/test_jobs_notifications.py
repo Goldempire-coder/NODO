@@ -1074,3 +1074,30 @@ def test_slice_39_migration_adds_business_access_status_notification_types_rever
         assert notification_type in down
     assert "drop constraint if exists notification_jobs_type_check" in up
     assert "drop constraint if exists notification_jobs_type_check" in down
+
+
+def test_support_status_notification_migration_is_reversible_and_sender_scoped() -> None:
+    root = Path(__file__).resolve().parents[3]
+    up = (root / "database" / "migrations" / "0034_support_status_notifications.up.sql").read_text(encoding="utf-8")
+    down = (root / "database" / "migrations" / "0034_support_status_notifications.down.sql").read_text(encoding="utf-8")
+    notification_types = (root / "apps" / "api" / "app" / "modules" / "notifications" / "notification_types.py").read_text(encoding="utf-8")
+
+    for notification_type in [
+        "support_ticket_resolved_participant",
+        "support_ticket_closed_participant",
+    ]:
+        assert notification_type in up
+        assert notification_type not in down
+        assert notification_type in notification_types
+    for existing_type in [
+        "business_access_suspended_owner",
+        "business_access_reactivated_owner",
+        "business_access_blocked_owner",
+        "business_access_revoked_owner",
+    ]:
+        assert existing_type in up
+        assert existing_type in down
+    assert "SUPPORT_NOTIFICATION_TYPES" in notification_types
+    assert "| SUPPORT_NOTIFICATION_TYPES" in notification_types
+    assert "drop constraint if exists notification_jobs_type_check" in up
+    assert "drop constraint if exists notification_jobs_type_check" in down

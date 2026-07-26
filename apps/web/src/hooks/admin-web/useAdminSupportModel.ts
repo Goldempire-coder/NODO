@@ -25,7 +25,10 @@ const ARCHIVED_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["resolved", 
 
 function supportTicketsQuery(filter: string): string {
   const normalized = filter.trim().toLowerCase();
-  if (!normalized || normalized === "active" || normalized === "archived" || normalized === "all") {
+  if (normalized === "active" || normalized === "archived") {
+    return `?status_group=${encodeURIComponent(normalized)}&limit=50`;
+  }
+  if (!normalized || normalized === "all") {
     return "?limit=50";
   }
   return `?status=${encodeURIComponent(normalized)}&limit=50`;

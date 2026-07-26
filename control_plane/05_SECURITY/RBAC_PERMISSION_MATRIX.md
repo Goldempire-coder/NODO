@@ -81,24 +81,26 @@ Post-MVP:
 | business_owner | create_support_message | own business ticket | ticket open/waiting_user/waiting_support/escalated | support_message_created | yes |
 | remitter | upload_support_attachment | own ticket/message | MIME allowed, max 5 MB, ticket open/waiting_user/waiting_support/escalated | support_attachment_uploaded | yes |
 | business_owner | upload_support_attachment | own business ticket/message | MIME allowed, max 5 MB, own business resource | support_attachment_uploaded | yes |
+| remitter | close_support_ticket | own ticket | ticket open/waiting_user/waiting_support/escalated | support_ticket_closed | yes |
+| business_owner | close_support_ticket | own business ticket | ticket open/waiting_user/waiting_support/escalated, active business access | support_ticket_closed | yes |
 | support | view_support_ticket_detail | support ticket | support active, masked where required | no | yes |
 | admin | view_support_ticket_detail | support ticket | admin active | no | yes |
 | super_admin | view_support_ticket_detail | support ticket | super_admin active | no | yes |
 | support | create_support_message | support ticket | support active, ticket open/waiting_user/waiting_support/escalated | support_message_created | yes |
 | admin | create_support_message | support ticket | admin active, ticket open/waiting_user/waiting_support/escalated | support_message_created | yes |
 | super_admin | create_support_message | support ticket | super_admin active, ticket open/waiting_user/waiting_support/escalated | support_message_created | yes |
-| support | assign_support_ticket | support ticket | support active, assignee support/admin/super_admin, reason optional | support_ticket_assigned | yes |
-| admin | assign_support_ticket | support ticket | admin active, assignee support/admin/super_admin | support_ticket_assigned | yes |
-| super_admin | assign_support_ticket | support ticket | super_admin active, assignee support/admin/super_admin | support_ticket_assigned | yes |
+| support | assign_support_ticket | support ticket | support active, ticket active, assignee support/admin/super_admin, reason required | support_ticket_assigned | yes |
+| admin | assign_support_ticket | support ticket | admin active, ticket active, assignee support/admin/super_admin, reason required | support_ticket_assigned | yes |
+| super_admin | assign_support_ticket | support ticket | super_admin active, ticket active, assignee support/admin/super_admin, reason required | support_ticket_assigned | yes |
 | support | escalate_support_ticket | support ticket | support active, reason required | support_ticket_escalated | yes |
 | admin | escalate_support_ticket | support ticket | admin active, reason required | support_ticket_escalated | yes |
 | super_admin | escalate_support_ticket | support ticket | super_admin active, reason required | support_ticket_escalated | yes |
 | support | resolve_support_ticket | support ticket | support active, reason required | support_ticket_resolved | yes |
 | admin | resolve_support_ticket | support ticket | admin active, reason required | support_ticket_resolved | yes |
 | super_admin | resolve_support_ticket | support ticket | super_admin active, reason required | support_ticket_resolved | yes |
-| support | close_support_ticket | support ticket | support active, resolved/escalated/waiting_support, reason required | support_ticket_closed | yes |
-| admin | close_support_ticket | support ticket | admin active, reason required | support_ticket_closed | yes |
-| super_admin | close_support_ticket | support ticket | super_admin active, reason required | support_ticket_closed | yes |
+| support | close_support_ticket | support ticket | forbidden; support may resolve but cannot close definitively | no | no |
+| admin | close_support_ticket | support ticket | admin active, ticket resolved, reason required | support_ticket_closed | yes |
+| super_admin | close_support_ticket | support ticket | super_admin active, ticket resolved, reason required | support_ticket_closed | yes |
 | support | view_support_attachment | support attachment | support active, ticket visible, signed URL short-lived | support_attachment_viewed | yes |
 | admin | view_support_attachment | support attachment | admin active, ticket visible, signed URL short-lived | support_attachment_viewed | yes |
 | super_admin | view_support_attachment | support attachment | super_admin active, ticket visible, signed URL short-lived | support_attachment_viewed | yes |
@@ -290,7 +292,7 @@ Post-MVP:
 | support_lead | assign_support_ticket | support_ticket | permission active, reason required | staff_ticket_assigned | yes |
 | support_lead | escalate_support_ticket | support_ticket | permission active, reason required | support_ticket_escalated | yes |
 | support_lead | resolve_support_ticket | support_ticket | permission active, reason required | support_ticket_resolved | yes |
-| support_lead | close_support_ticket | support_ticket | permission active, reason required | support_ticket_closed | yes |
+| support_lead | close_support_ticket | support_ticket | forbidden; definitive close requires admin or super_admin base role | no | no |
 | operations_readonly | view_users_masked | users | permission active | no | yes |
 | operations_readonly | view_businesses_masked | businesses | permission active | no | yes |
 | operations_readonly | view_orders_masked | orders | permission active | no | yes |

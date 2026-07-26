@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createSupportTicket, getSupportTicket, listSupportTickets, sendSupportMessage, uploadSupportAttachment } from "../api/support";
+import { closeSupportTicket, createSupportTicket, getSupportTicket, listSupportTickets, sendSupportMessage, uploadSupportAttachment } from "../api/support";
 import type { SupportMessage, SupportTicket, SupportTicketCategory, SupportTicketCreateInput, SupportTicketScope } from "../types/support";
 import type { AuthenticatedRequest } from "../api/client";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "./actionTelemetry";
@@ -22,7 +22,9 @@ function normalizeSupportFilter(filter?: string): SupportTicketListFilter {
 }
 
 function supportTicketsQuery(filter: SupportTicketListFilter): string {
-  void filter;
+  if (filter === "active" || filter === "archived") {
+    return `?status_group=${encodeURIComponent(filter)}&limit=50`;
+  }
   return "?limit=50";
 }
 
@@ -94,12 +96,14 @@ export function useSurfaceSupportModel({
   const [openingSupportTicketId, setOpeningSupportTicketId] = useState<string | null>(null);
   const [sendingSupportReply, setSendingSupportReply] = useState(false);
   const [uploadingSupportAttachment, setUploadingSupportAttachment] = useState(false);
+  const [closingSupportTicketId, setClosingSupportTicketId] = useState<string | null>(null);
   const supportFilterRef = useRef<SupportTicketListFilter>("active");
   const selectedSupportTicketRef = useRef<SupportTicket | null>(null);
   const creatingTicketLockRef = useRef(false);
   const openingTicketLockRef = useRef<string | null>(null);
   const sendingReplyLockRef = useRef(false);
   const uploadingAttachmentLockRef = useRef(false);
+  const closingTicketLockRef = useRef<string | null>(null);
   const listRequestIdRef = useRef(0);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
@@ -275,7 +279,7 @@ export function useSurfaceSupportModel({
   }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setNotice, supportReply]);
 
   const uploadTicketAttachment = useCallback(async (file: File | null) => {
-    if (uploadingAttachmentLockRef.current || !selectedSupportTicket || !file) {
+    if (uploadingAttachmentLockRef.current || !selectedSupportTicket || !file || ARCHIVED_SUPPORT_STATUSES.has(selectedSupportTicket.status)) {
       return;
     }
     uploadingAttachmentLockRef.current = true;
@@ -305,6 +309,42 @@ export function useSurfaceSupportModel({
     }
   }, [clearIdempotencyKey, getIdempotencyKey, request, selectedSupportTicket, setNotice]);
 
+  const closeOwnSupportTicket = useCallback(async () => {
+    const ticket = selectedSupportTicketRef.current;
+    if (!ticket || closingTicketLockRef.current || !ACTIVE_SUPPORT_STATUSES.has(ticket.status)) {
+      return;
+    }
+    closingTicketLockRef.current = ticket.id;
+    setClosingSupportTicketId(ticket.id);
+    const startedAt = actionStartedAt();
+    recordActionStarted("support_ticket_close", "support");
+    const idempotencyScope = `support_close_${ticket.id}`;
+    try {
+      const closedTicket = await closeSupportTicket(
+        request,
+        ticket.id,
+        getIdempotencyKey(idempotencyScope, { ticketId: ticket.id, action: "close_by_requester" })
+      );
+      clearIdempotencyKey(idempotencyScope);
+      supportFilterRef.current = "archived";
+      setSupportFilter("archived");
+      setSelectedSupportTicket((current) => (current?.id === ticket.id ? closedTicket : current));
+      setSupportTickets((current) => [
+        closedTicket,
+        ...current.filter((item) => item.id !== closedTicket.id && ARCHIVED_SUPPORT_STATUSES.has(item.status))
+      ]);
+      setSupportReply("");
+      setNotice("Conversacion cerrada y enviada a Archivados.");
+      recordActionCompleted("support_ticket_close", "support", startedAt);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos cerrar la conversacion.");
+      recordActionFailed("support_ticket_close", "support", startedAt, error instanceof Error ? error.name : undefined);
+    } finally {
+      closingTicketLockRef.current = null;
+      setClosingSupportTicketId(null);
+    }
+  }, [clearIdempotencyKey, getIdempotencyKey, request, setNotice]);
+
   const setSupportScope = useCallback((scope: SupportTicketScope) => {
     setSupportForm((current) => ({ ...current, scope }));
   }, []);
@@ -325,11 +365,13 @@ export function useSurfaceSupportModel({
     setSupportReply,
     setSupportScope,
     sendingSupportReply,
+    closingSupportTicketId,
     loadSupportTickets,
     refreshSupportWorkspace,
     openSupportTicket,
     submitSupportTicket,
     submitSupportReply,
+    closeOwnSupportTicket,
     uploadTicketAttachment,
     uploadingSupportAttachment
   };

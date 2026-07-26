@@ -13,6 +13,10 @@ API para soporte general cliente, soporte por recursos del negocio y cola Admin 
 - Slice 20C: si el actor opera como staff delegado, el backend debe validar `staff_profiles.status = active`, permiso activo y scope compatible.
 - `users.role = support` no basta para saltar restricciones de `staff_permissions` cuando el flujo usa delegacion interna.
 - Tickets, mensajes y adjuntos de usuario final generan aviso operativo al Admin Web segun actor: `client_support_*` para cliente/remitente y `business_support_*` para negocio. El aviso no incluye el cuerpo del mensaje.
+- Estados activos: `open`, `waiting_support`, `waiting_user`, `escalated`.
+- Estados archivados y de solo lectura: `resolved`, `closed`.
+- Archivar o cerrar no elimina tickets, mensajes, eventos ni adjuntos.
+- Resolver o cerrar por Admin genera un `notification_job` seguro para el requester. El job no incluye subject, body, adjuntos, `storage_path`, signed URL, `account_value`, tokens ni secretos.
 
 ## Endpoints cliente/negocio
 
@@ -58,6 +62,7 @@ Query:
 
 ```txt
 status=optional
+status_group=active|archived, optional
 scope=optional
 cursor=optional
 limit=1..50
@@ -65,6 +70,8 @@ limit=1..50
 
 Rules:
 - Lista solo tickets propios/participados.
+- `status` y `status_group` son mutuamente excluyentes.
+- `status_group` se aplica en backend antes de paginar: `active` incluye `open`, `waiting_support`, `waiting_user`, `escalated`; `archived` incluye `resolved`, `closed`.
 - Cursor pagination.
 - No expone mensajes internos.
 
@@ -94,7 +101,7 @@ Payload:
 ```
 
 Rules:
-- Ticket no cerrado.
+- Ticket en estado activo.
 - Actor debe ser participante autorizado.
 - Audit `support_message_created`.
 
@@ -105,10 +112,27 @@ Multipart upload.
 Rules:
 - MIME permitido: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`.
 - Maximo 5 MB.
+- Ticket en estado activo.
 - `file_assets.file_type = support_attachment`.
 - `file_assets.resource_type = support_ticket` o `support_message`.
 - Response devuelve metadata segura, nunca `storage_path`.
 - Audit `support_attachment_uploaded`.
+
+### POST /api/v1/support/tickets/{id}/close
+
+Headers:
+
+```txt
+Idempotency-Key: requerido
+```
+
+Rules:
+- Solo el requester autorizado del ticket.
+- El ticket debe estar en estado activo.
+- Setea `status = closed` y `closed_at`.
+- Reason interno fijo: `requester_closed_by_mistake`.
+- Conserva mensajes, eventos y adjuntos.
+- Audit `support_ticket_closed` sin contenido privado.
 
 ## Endpoints Admin Web
 
@@ -118,6 +142,7 @@ Query:
 
 ```txt
 status=optional
+status_group=active|archived, optional
 scope=optional
 category=optional
 priority=optional
@@ -128,6 +153,8 @@ limit=1..50
 
 Rules:
 - `support`, `admin`, `super_admin`.
+- `status` y `status_group` son mutuamente excluyentes.
+- `status_group` se aplica en backend antes de paginar.
 - Cursor pagination.
 - List view usa masking y resumen.
 - Para staff delegado, requiere `view_support_queue` o `view_assigned_support_tickets` segun scope.
@@ -162,6 +189,7 @@ Payload:
 
 Rules:
 - `support`, `admin`, `super_admin`.
+- Ticket en estado activo.
 - `support` puede usar `participants` y `support_internal`.
 - `admin_internal` solo `admin`/`super_admin`.
 - Audit `support_message_created`.
@@ -187,6 +215,7 @@ Payload:
 Rules:
 - Assignee debe tener rol `support`, `admin` o `super_admin` y status `active`.
 - Si assignee es staff delegado, debe tener `staff_profiles.status = active`.
+- Ticket en estado activo.
 - Reason obligatorio.
 - Audit `support_ticket_assigned`.
 - Para actor staff delegado, requiere `assign_support_ticket`.
@@ -204,6 +233,7 @@ Payload:
 
 Rules:
 - Reason obligatorio.
+- Solo desde un estado activo.
 - Setea `status = escalated`.
 - Si `existing_dispute_id` se envia, solo vincula metadata/contexto a una disputa existente visible para el actor.
 - No crea disputa nueva.
@@ -223,10 +253,12 @@ Payload:
 
 Rules:
 - Reason obligatorio.
+- Solo desde un estado activo.
 - Setea `status = resolved`.
 - Resolver ticket no resuelve disputa formal.
 - Audit `support_ticket_resolved`.
 - Para actor staff delegado, requiere `resolve_support_ticket`.
+- Encola aviso seguro `support_ticket_resolved_participant`.
 
 ### POST /api/v1/admin/support/tickets/{id}/close
 
@@ -241,8 +273,9 @@ Payload:
 Rules:
 - Reason obligatorio.
 - Solo `resolved -> closed`.
+- Solo `admin` o `super_admin`; el rol `support` no ejecuta cierre definitivo.
 - Audit `support_ticket_closed`.
-- Para actor staff delegado, requiere `close_support_ticket`.
+- Encola aviso seguro `support_ticket_closed_participant`.
 
 ### POST /api/v1/admin/support/tickets/{id}/attachments/{file_id}/view-url
 

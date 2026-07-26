@@ -13,7 +13,9 @@ from app.modules.support.schemas import (
     SupportTicketCreateRequest,
 )
 from app.modules.support.service import SupportService
+from app.modules.notifications.support_notifications import SupportNotificationService
 from app.modules.users.models import UserRecord
+from app.shared.observability import get_correlation_id, get_operation_id
 from app.shared.validation import read_limited_upload
 
 router = APIRouter(tags=["support"])
@@ -24,6 +26,12 @@ def _request_id(request: Request) -> str:
 
 
 def _service(request: Request) -> SupportService:
+    notifications = SupportNotificationService(
+        settings=request.app.state.settings,
+        job_repository=request.app.state.job_repository,
+        correlation_id=get_correlation_id(request),
+        operation_id=get_operation_id(request),
+    )
     return SupportService(
         settings=request.app.state.settings,
         repository=request.app.state.support_repository,
@@ -39,6 +47,7 @@ def _service(request: Request) -> SupportService:
         idempotency_store=request.app.state.idempotency_store,
         storage=request.app.state.private_storage,
         admin_notifications=getattr(request.app.state, "admin_notification_service", None),
+        notification_service=notifications,
     )
 
 
@@ -60,13 +69,14 @@ def create_ticket(
 def list_tickets(
     request: Request,
     status: str | None = Query(default=None),
+    status_group: str | None = Query(default=None),
     scope: str | None = Query(default=None),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
     user: UserRecord = Depends(require_current_user),
 ) -> dict:
     return {
-        "data": _service(request).list_user_tickets(user=user, status=status, scope=scope, cursor=cursor, limit=limit, request_id=_request_id(request)),
+        "data": _service(request).list_user_tickets(user=user, status=status, status_group=status_group, scope=scope, cursor=cursor, limit=limit, request_id=_request_id(request)),
         "request_id": _request_id(request),
     }
 
@@ -117,10 +127,29 @@ async def upload_attachment(
     }
 
 
+@router.post("/support/tickets/{ticket_id}/close")
+def close_own_ticket(
+    ticket_id: str,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": _service(request).close_user_ticket(
+            user=user,
+            ticket_id=ticket_id,
+            request_id=_request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": _request_id(request),
+    }
+
+
 @router.get("/admin/support/tickets")
 def admin_list_tickets(
     request: Request,
     status: str | None = Query(default=None),
+    status_group: str | None = Query(default=None),
     scope: str | None = Query(default=None),
     category: str | None = Query(default=None),
     priority: str | None = Query(default=None),
@@ -133,6 +162,7 @@ def admin_list_tickets(
         "data": _service(request).list_admin_tickets(
             user=user,
             status=status,
+            status_group=status_group,
             scope=scope,
             category=category,
             priority=priority,

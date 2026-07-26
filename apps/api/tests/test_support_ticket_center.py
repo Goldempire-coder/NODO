@@ -46,6 +46,8 @@ _set_env()
 from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.support.models import ACTIVE_SUPPORT_STATUSES  # noqa: E402
+from app.modules.support.postgres_repository import PostgresSupportRepository  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -211,6 +213,38 @@ def _create_ticket(client: TestClient, login: dict, *, scope: str, key: str, **e
     return response.json()["data"]
 
 
+def _seed_repository_ticket(
+    client: TestClient,
+    *,
+    requester: dict,
+    status: str,
+    subject: str,
+    business_id: str | None = None,
+    scope: str = "client_general",
+) -> dict:
+    ticket = client.app.state.support_repository.create_ticket(
+        requester_user_id=requester["user"]["id"],
+        requester_role=requester["user"]["role"],
+        requester_surface="business_mini_app" if requester["user"]["role"] == "business_owner" else "client_mini_app",
+        scope=scope,
+        category="technical_issue",
+        status=status,
+        priority="normal",
+        subject=subject,
+        business_id=business_id,
+        order_id=None,
+        ad_id=None,
+        credit_purchase_id=None,
+        dispute_id=None,
+        assigned_support_user_id=None,
+        last_message_at=None,
+        escalated_at=None,
+        resolved_at=utc_now() if status == "resolved" else None,
+        closed_at=utc_now() if status == "closed" else None,
+    )
+    return {"id": ticket.id, "status": ticket.status}
+
+
 def _events(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
 
@@ -348,9 +382,16 @@ def test_admin_support_queue_actions_do_not_mutate_domain_state() -> None:
     )
     assert resolved.status_code == 200, resolved.text
 
-    closed = client.post(
+    support_close = client.post(
         f"/api/v1/admin/support/tickets/{ticket['id']}/close",
         headers={**_headers(support, "support_close"), "Content-Type": "application/json"},
+        json={"reason": "Caso cerrado"},
+    )
+    assert support_close.status_code == 403
+
+    closed = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/close",
+        headers={**_headers(admin, "admin_close"), "Content-Type": "application/json"},
         json={"reason": "Caso cerrado"},
     )
     assert closed.status_code == 200, closed.text
@@ -365,6 +406,344 @@ def test_admin_support_queue_actions_do_not_mutate_domain_state() -> None:
     assert "support_ticket_escalated" in event_types
     assert "support_ticket_resolved" in event_types
     assert "support_ticket_closed" in event_types
+
+
+def test_resolved_and_closed_support_tickets_are_read_only_and_preserve_evidence() -> None:
+    client = _client()
+    _owner, _business, _ad, remitter, _order = _seed_order(client, base_id=26000)
+    ticket = _create_ticket(client, remitter, scope="client_general", key="archived_read_only")
+    admin = _make_admin(client, 26003, "admin")
+
+    uploaded = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/attachments",
+        headers=_headers(remitter, "archived_evidence_attachment"),
+        files={"file": ("evidence.png", b"safe-evidence", "image/png")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    evidence_message_id = uploaded.json()["data"]["message"]["id"]
+
+    resolved_headers = {**_headers(admin, "archive_resolve"), "Content-Type": "application/json"}
+    resolved = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/resolve",
+        headers=resolved_headers,
+        json={"reason": "Caso atendido"},
+    )
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["data"]["status"] == "resolved"
+
+    replay = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/resolve",
+        headers=resolved_headers,
+        json={"reason": "Caso atendido"},
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["data"]["status"] == "resolved"
+
+    user_reply = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(remitter, "resolved_user_reply"), "Content-Type": "application/json"},
+        json={"body": "No debe reabrir el ticket."},
+    )
+    assert user_reply.status_code == 400
+
+    admin_reply = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(admin, "resolved_admin_reply"), "Content-Type": "application/json"},
+        json={"body": "Tampoco debe reabrirlo.", "visibility": "participants"},
+    )
+    assert admin_reply.status_code == 400
+
+    user_attachment = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/attachments",
+        headers=_headers(remitter, "resolved_user_attachment"),
+        files={"file": ("late.png", b"late-evidence", "image/png")},
+    )
+    assert user_attachment.status_code == 400
+
+    invalid_escalation = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/escalate",
+        headers={**_headers(admin, "resolved_escalate"), "Content-Type": "application/json"},
+        json={"reason": "No debe reabrir"},
+    )
+    assert invalid_escalation.status_code == 400
+
+    invalid_assignment = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/assign",
+        headers={**_headers(admin, "resolved_assign"), "Content-Type": "application/json"},
+        json={"assigned_support_user_id": admin["user"]["id"], "reason": "No debe modificar archivados"},
+    )
+    assert invalid_assignment.status_code == 400
+
+    closed = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/close",
+        headers={**_headers(admin, "archive_close"), "Content-Type": "application/json"},
+        json={"reason": "Cierre definitivo"},
+    )
+    assert closed.status_code == 200, closed.text
+    assert closed.json()["data"]["status"] == "closed"
+
+    closed_reply = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(admin, "closed_admin_reply"), "Content-Type": "application/json"},
+        json={"body": "No debe aceptar mensajes.", "visibility": "participants"},
+    )
+    assert closed_reply.status_code == 400
+
+    detail = client.get(
+        f"/api/v1/support/tickets/{ticket['id']}",
+        headers=_bearer(remitter, "archived_evidence_detail"),
+    )
+    assert detail.status_code == 200, detail.text
+    messages = detail.json()["data"]["messages"]
+    evidence_message = next(message for message in messages if message["id"] == evidence_message_id)
+    assert len(evidence_message["attachments"]) == 1
+    assert evidence_message["attachments"][0]["mime_type"] == "image/png"
+
+
+def test_requesters_can_close_only_their_own_active_support_tickets() -> None:
+    client = _client()
+    owner, _business, _ad, remitter, order = _seed_order(client, base_id=27000)
+    other = _login(client, 27003, "other_requester_close")
+    client_ticket = _create_ticket(client, remitter, scope="client_general", key="client_requester_close")
+    business_ticket = _create_ticket(client, owner, scope="business_general", key="business_requester_close")
+    client_order_ticket = _create_ticket(
+        client,
+        remitter,
+        scope="client_order",
+        key="client_order_requester_close",
+        order_id=order["id"],
+    )
+    business_order_ticket = _create_ticket(
+        client,
+        owner,
+        scope="business_order",
+        key="business_order_requester_close",
+        order_id=order["id"],
+    )
+
+    cross_close = client.post(
+        f"/api/v1/support/tickets/{client_ticket['id']}/close",
+        headers=_headers(other, "cross_requester_close"),
+    )
+    assert cross_close.status_code == 404
+
+    business_cannot_close_client_ticket = client.post(
+        f"/api/v1/support/tickets/{client_order_ticket['id']}/close",
+        headers=_headers(owner, "business_cannot_close_client_ticket"),
+    )
+    assert business_cannot_close_client_ticket.status_code == 404
+
+    client_cannot_close_business_ticket = client.post(
+        f"/api/v1/support/tickets/{business_order_ticket['id']}/close",
+        headers=_headers(remitter, "client_cannot_close_business_ticket"),
+    )
+    assert client_cannot_close_business_ticket.status_code == 404
+
+    client_close = client.post(
+        f"/api/v1/support/tickets/{client_ticket['id']}/close",
+        headers=_headers(remitter, "client_requester_close_apply"),
+    )
+    assert client_close.status_code == 200, client_close.text
+    assert client_close.json()["data"]["status"] == "closed"
+
+    business_close = client.post(
+        f"/api/v1/support/tickets/{business_ticket['id']}/close",
+        headers=_headers(owner, "business_requester_close_apply"),
+    )
+    assert business_close.status_code == 200, business_close.text
+    assert business_close.json()["data"]["status"] == "closed"
+
+    archived = client.get(
+        "/api/v1/support/tickets?status=closed",
+        headers=_bearer(remitter, "client_requester_archived"),
+    )
+    assert archived.status_code == 200, archived.text
+    assert client_ticket["id"] in {item["id"] for item in archived.json()["data"]["items"]}
+
+    business_archived = client.get(
+        "/api/v1/support/tickets?status=closed",
+        headers=_bearer(owner, "business_requester_archived"),
+    )
+    assert business_archived.status_code == 200, business_archived.text
+    assert business_ticket["id"] in {item["id"] for item in business_archived.json()["data"]["items"]}
+
+    admin = _make_admin(client, 27004, "admin")
+    admin_archived = client.get(
+        "/api/v1/admin/support/tickets?status=closed",
+        headers=_bearer(admin, "admin_requester_archived"),
+    )
+    assert admin_archived.status_code == 200, admin_archived.text
+    archived_ids = {item["id"] for item in admin_archived.json()["data"]["items"]}
+    assert {client_ticket["id"], business_ticket["id"]} <= archived_ids
+
+    second_close = client.post(
+        f"/api/v1/support/tickets/{client_ticket['id']}/close",
+        headers=_headers(remitter, "client_requester_close_again"),
+    )
+    assert second_close.status_code == 400
+
+
+def test_support_status_groups_are_filtered_before_the_first_50_for_all_surfaces() -> None:
+    client = _client()
+    owner, business, _ad, remitter, _order = _seed_order(client, base_id=27500)
+    admin = _make_admin(client, 27503, "admin")
+    client_archived = _seed_repository_ticket(
+        client,
+        requester=remitter,
+        status="resolved",
+        subject="Client archived outside mixed first page",
+    )
+    business_archived = _seed_repository_ticket(
+        client,
+        requester=owner,
+        status="closed",
+        subject="Business archived outside mixed first page",
+        business_id=business["id"],
+        scope="business_general",
+    )
+    for index in range(50):
+        _seed_repository_ticket(
+            client,
+            requester=remitter,
+            status="open",
+            subject=f"Client active {index}",
+        )
+        _seed_repository_ticket(
+            client,
+            requester=owner,
+            status="waiting_support",
+            subject=f"Business active {index}",
+            business_id=business["id"],
+            scope="business_general",
+        )
+
+    client_response = client.get(
+        "/api/v1/support/tickets?status_group=archived&limit=50",
+        headers=_bearer(remitter, "client_archived_group"),
+    )
+    assert client_response.status_code == 200, client_response.text
+    assert [item["id"] for item in client_response.json()["data"]["items"]] == [client_archived["id"]]
+
+    business_response = client.get(
+        "/api/v1/support/tickets?status_group=archived&limit=50",
+        headers=_bearer(owner, "business_archived_group"),
+    )
+    assert business_response.status_code == 200, business_response.text
+    assert [item["id"] for item in business_response.json()["data"]["items"]] == [business_archived["id"]]
+
+    admin_response = client.get(
+        "/api/v1/admin/support/tickets?status_group=archived&limit=50",
+        headers=_bearer(admin, "admin_archived_group"),
+    )
+    assert admin_response.status_code == 200, admin_response.text
+    assert {item["id"] for item in admin_response.json()["data"]["items"]} == {
+        client_archived["id"],
+        business_archived["id"],
+    }
+
+    client_active = client.get(
+        "/api/v1/support/tickets?status_group=active&limit=50",
+        headers=_bearer(remitter, "client_active_group"),
+    )
+    assert client_active.status_code == 200, client_active.text
+    assert len(client_active.json()["data"]["items"]) == 50
+    assert all(item["status"] in ACTIVE_SUPPORT_STATUSES for item in client_active.json()["data"]["items"])
+    assert client_active.json()["data"]["next_cursor"] is not None
+
+    invalid_group = client.get(
+        "/api/v1/support/tickets?status_group=unknown",
+        headers=_bearer(remitter, "invalid_status_group"),
+    )
+    assert invalid_group.status_code == 400
+    assert invalid_group.json()["error"]["code"] == "SUPPORT_TICKET_STATUS_GROUP_INVALID"
+
+    conflicting_filters = client.get(
+        "/api/v1/admin/support/tickets?status=closed&status_group=active",
+        headers=_bearer(admin, "conflicting_status_filters"),
+    )
+    assert conflicting_filters.status_code == 400
+    assert conflicting_filters.json()["error"]["code"] == "SUPPORT_TICKET_STATUS_FILTER_CONFLICT"
+
+
+def test_postgres_support_status_group_is_applied_before_limit(monkeypatch) -> None:
+    captured: dict = {}
+
+    class FakeCursor:
+        def fetchall(self) -> list:
+            return []
+
+    class FakeConnection:
+        def execute(self, sql: str, params: list) -> FakeCursor:
+            captured["sql"] = sql
+            captured["params"] = params
+            return FakeCursor()
+
+    class FakeConnectionContext:
+        def __enter__(self) -> FakeConnection:
+            return FakeConnection()
+
+        def __exit__(self, exc_type, exc, traceback) -> None:
+            return None
+
+    repository = PostgresSupportRepository("postgresql://unused")
+    monkeypatch.setattr(repository, "_connect", lambda: FakeConnectionContext())
+
+    repository.list_tickets(
+        requester_user_id=None,
+        business_id=None,
+        statuses=ACTIVE_SUPPORT_STATUSES,
+        scope=None,
+        category=None,
+        priority=None,
+        assigned_support_user_id=None,
+        cursor=None,
+        limit=50,
+    )
+
+    normalized_sql = " ".join(captured["sql"].split())
+    assert "status = any(%s)" in normalized_sql
+    assert normalized_sql.index("status = any(%s)") < normalized_sql.index("order by updated_at desc limit %s")
+    assert set(captured["params"][0]) == ACTIVE_SUPPORT_STATUSES
+    assert captured["params"][-1] == 50
+
+
+def test_support_resolution_notifications_are_deduped_and_safe() -> None:
+    client = _client()
+    _owner, _business, _ad, remitter, _order = _seed_order(client, base_id=28000)
+    ticket = _create_ticket(client, remitter, scope="client_general", key="safe_resolution_notice")
+    admin = _make_admin(client, 28003, "admin")
+
+    resolved = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/resolve",
+        headers={**_headers(admin, "safe_resolution_notice_apply"), "Content-Type": "application/json"},
+        json={"reason": "Contenido privado que no debe entrar en la notificacion"},
+    )
+    assert resolved.status_code == 200, resolved.text
+
+    closed = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/close",
+        headers={**_headers(admin, "safe_close_notice_apply"), "Content-Type": "application/json"},
+        json={"reason": "Otro contenido privado"},
+    )
+    assert closed.status_code == 200, closed.text
+
+    participant_jobs = [
+        job
+        for job in client.app.state.job_repository.notification_jobs.values()
+        if job.notification_type in {"support_ticket_resolved_participant", "support_ticket_closed_participant"}
+    ]
+    assert {job.notification_type for job in participant_jobs} == {
+        "support_ticket_resolved_participant",
+        "support_ticket_closed_participant",
+    }
+    assert all(job.recipient_user_id == remitter["user"]["id"] for job in participant_jobs)
+    assert len({job.dedupe_key for job in participant_jobs}) == 2
+    serialized = json.dumps([job.__dict__ for job in participant_jobs], default=str).lower()
+    assert "contenido privado" not in serialized
+    assert "storage_path" not in serialized
+    assert "signed_url" not in serialized
+    assert "account_value" not in serialized
+    assert "attachment" not in serialized
 
 
 def test_support_ticket_assignment_requires_active_staff_profile_for_support_assignee() -> None:

@@ -71,6 +71,7 @@ function RefreshIcon() {
 export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
     creatingSupportTicket,
+    closingSupportTicketId,
     loadingSupportFilter,
     loadingSupportTickets,
     loadSupportTickets,
@@ -88,6 +89,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
     setSupportReply,
     submitSupportReply,
     submitSupportTicket,
+    closeOwnSupportTicket,
     uploadingSupportAttachment,
     uploadTicketAttachment
   } = model;
@@ -219,9 +221,21 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
               <Title level="3" className="business-shell__title business-support-thread__title">{selectedSupportTicket.subject}</Title>
               <small>Ticket ID: #{supportTicketCode(selectedSupportTicket.id)}</small>
             </div>
-            <span className={selectedArchived ? "business-support-status business-support-status--archived" : "business-support-status"}>
-              {supportStatusLabel(selectedSupportTicket.status)}
-            </span>
+            <div>
+              <span className={selectedArchived ? "business-support-status business-support-status--archived" : "business-support-status"}>
+                {supportStatusLabel(selectedSupportTicket.status)}
+              </span>
+              {!selectedArchived ? (
+                <button
+                  className="mini-action-button"
+                  type="button"
+                  disabled={closingSupportTicketId === selectedSupportTicket.id}
+                  onClick={() => void closeOwnSupportTicket()}
+                >
+                  {closingSupportTicketId === selectedSupportTicket.id ? "Cerrando..." : "Cerrar conversacion"}
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div className="business-support-messages" aria-label="Mensajes de soporte" aria-live="polite">

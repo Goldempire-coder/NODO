@@ -54,7 +54,7 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
   const selected = model.selectedSupportTicket;
   const selectedMessages = selected?.messages || [];
   const selectedArchived = selected?.status === "resolved" || selected?.status === "closed";
-  const selectedCanClose = selected?.status === "resolved";
+  const selectedCanClose = selected?.status === "resolved" && (model.user.role === "admin" || model.user.role === "super_admin");
 
   return (
     <section className="admin-web-split admin-web-support-layout">

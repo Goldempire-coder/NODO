@@ -13,7 +13,13 @@ def new_id() -> str:
     return str(uuid4())
 
 
-SUPPORT_STATUSES = {"open", "waiting_support", "waiting_user", "escalated", "resolved", "closed"}
+ACTIVE_SUPPORT_STATUSES = {"open", "waiting_support", "waiting_user", "escalated"}
+ARCHIVED_SUPPORT_STATUSES = {"resolved", "closed"}
+SUPPORT_STATUSES = ACTIVE_SUPPORT_STATUSES | ARCHIVED_SUPPORT_STATUSES
+SUPPORT_STATUS_GROUPS = {
+    "active": ACTIVE_SUPPORT_STATUSES,
+    "archived": ARCHIVED_SUPPORT_STATUSES,
+}
 SUPPORT_SCOPES = {
     "client_general",
     "client_order",
