@@ -18,6 +18,10 @@ export type AdSummary = {
     id: string;
     business_name: string;
     verification_status: string;
+    availability?: {
+      status: "online" | "offline";
+      label: "Online" | "Offline";
+    };
     rating_avg?: string | null;
     completed_orders_count?: number;
     reputation?: {

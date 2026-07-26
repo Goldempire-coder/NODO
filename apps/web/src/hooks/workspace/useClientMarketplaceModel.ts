@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { getMarketplaceAd, marketplaceSearchKey, searchMarketplaceAds } from "../../api/ads";
-import type { AuthenticatedRequest } from "../../api/client";
+import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import type { PublicUser } from "../../types/auth";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
@@ -68,10 +68,7 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
     if (cached && Date.now() - cached.loadedAt < CLIENT_MARKETPLACE_CACHE_TTL_MS) {
       setSearchResults(cached.items);
       setSelectedAd(null);
-      setNotice(cached.items.length ? "" : "No hay negocios activos disponibles en este momento.");
-      recordActionCompleted("client_marketplace_list", "marketplace-list", startedAt);
       setLoadingMarketplace(false);
-      return;
     }
     if (cached) {
       setSearchResults(cached.items);
@@ -114,10 +111,11 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
       setNotice("");
       recordActionCompleted("client_ad_detail_open", "marketplace-detail", startedAt);
     } catch (error) {
-      if (!optimisticAd) {
-        setSelectedAd(null);
+      setSelectedAd(null);
+      if (error instanceof ApiClientError && error.code === "AD_NOT_AVAILABLE") {
+        setSearchResults((current) => current.filter((ad) => ad.id !== adId));
       }
-      setNotice(error instanceof Error ? error.message : "Anuncio no disponible.");
+      setNotice(error instanceof ApiClientError && error.code === "AD_NOT_AVAILABLE" ? "Ese negocio ya no esta recibiendo ofertas. Elige otro negocio online." : error instanceof Error ? error.message : "Anuncio no disponible.");
       recordActionFailed("client_ad_detail_open", "marketplace-detail", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       if (!optimisticAd) {

@@ -122,6 +122,10 @@ def test_marketplace_business_dto_exposes_reputation_without_internal_controls()
     assert "trust_level" not in public_business
     assert "business_failure_orders_count" not in public_business
     assert "lost_disputes_count" not in public_business
+    assert public_business["availability"] == {
+        "status": "online",
+        "label": "Online",
+    }
     assert public_business["reputation"] == {
         "tier": "reliable",
         "label": "Confiable",

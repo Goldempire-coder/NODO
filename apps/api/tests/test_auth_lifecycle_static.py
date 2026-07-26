@@ -579,6 +579,14 @@ def test_client_mini_app_android_scroll_keyboard_and_cached_loads() -> None:
     assert "refreshChat({ silent: true })" in client_chat_model
     assert "sendingChatMessageRef.current" in client_chat_model
     assert "CLIENT_MARKETPLACE_CACHE_TTL_MS" in marketplace_model
+    marketplace_list_function = marketplace_model.split("async function loadActiveMarketplace", 1)[1].split("async function openAdDetail", 1)[0]
+    fresh_marketplace_cache_block = marketplace_list_function.split("if (cached && Date.now() - cached.loadedAt < CLIENT_MARKETPLACE_CACHE_TTL_MS)", 1)[1].split("if (cached)", 1)[0]
+    assert "setSearchResults(cached.items)" in marketplace_model
+    assert "return;" not in fresh_marketplace_cache_block
+    assert "recordActionCompleted(\"client_marketplace_list\"" not in fresh_marketplace_cache_block
+    assert "setSearchResults((current) => current.filter((ad) => ad.id !== adId));" in marketplace_model
+    assert "AD_NOT_AVAILABLE" in marketplace_model
+    assert "Online: recibiendo ofertas" in _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx")
     assert "CLIENT_ORDERS_CACHE_TTL_MS" in orders_model
     assert "prefetchActiveMarketplaceRef" in client_model
     assert "prefetchMyOrdersRef" in client_model

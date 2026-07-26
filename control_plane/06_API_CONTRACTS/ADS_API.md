@@ -44,6 +44,10 @@ No expone datos privados completos del negocio ni instrucciones completas de pag
     "id": "uuid",
     "business_name": "Casa Cambio Centro",
     "verification_status": "approved",
+    "availability": {
+      "status": "online|offline",
+      "label": "Online|Offline"
+    },
     "rating_avg": "4.80|null",
     "completed_orders_count": 12,
     "reputation": {
@@ -75,6 +79,9 @@ Reglas de privacidad del objeto publico:
 
 - Nunca incluye `risk_level`, `trust_level`, fallos atribuibles, disputas
   perdidas ni senales antifraude.
+- `business.availability` es una senal publica y gruesa para UX. No reemplaza
+  la validacion backend: search/detail/create order siguen verificando que el
+  negocio este aprobado, activo y aceptando ordenes al momento del request.
 - `rating_avg` y `completed_orders_count` en el nivel de `business` se conservan
   como aliases publicos de compatibilidad para consumidores v1. Nuevos
   consumidores deben usar `business.reputation`.

@@ -11,6 +11,10 @@ function businessReputationSummary(ad: AdSummary): string {
   return `${rating ? `★ ${rating}` : "★ Verificado"} - ${completedOrders} órdenes`;
 }
 
+function businessAvailabilitySummary(ad: AdSummary): string {
+  return ad.business?.availability?.status === "offline" ? "Offline: no recibe ofertas" : "Online: recibiendo ofertas";
+}
+
 function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
   const { openAdDetail, openingMarketplaceAdId, searchResults } = model;
   return (
@@ -27,12 +31,13 @@ function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
           <span className="business-main">
             <strong>{displayBusinessName(ad)}</strong>
             <small>{businessReputationSummary(ad)}</small>
+            <small>{businessAvailabilitySummary(ad)}</small>
             <small>Límites: ${ad.amount_min_usd} - ${ad.amount_max_usd}</small>
           </span>
           <span className="business-rate">
             <strong>{ad.rate_bs_per_usd}</strong>
             <small>Bs / USD</small>
-            <em>{openingMarketplaceAdId === ad.id ? "Abriendo..." : "Disponible"}</em>
+            <em>{openingMarketplaceAdId === ad.id ? "Abriendo..." : ad.business?.availability?.label || "Online"}</em>
           </span>
         </button>
       ))}
@@ -138,12 +143,13 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
                 <span className="business-main">
                   <strong>{displayBusinessName(ad)}</strong>
                   <small>{businessReputationSummary(ad)}</small>
+                  <small>{businessAvailabilitySummary(ad)}</small>
                   <small>Límites: ${ad.amount_min_usd} - ${ad.amount_max_usd}</small>
                 </span>
                 <span className="business-rate">
                   <strong>{ad.rate_bs_per_usd}</strong>
                   <small>Bs / USD</small>
-                  <em>{openingMarketplaceAdId === ad.id ? "Abriendo..." : "Disponible"}</em>
+                  <em>{openingMarketplaceAdId === ad.id ? "Abriendo..." : ad.business?.availability?.label || "Online"}</em>
                 </span>
               </button>
             ))}

@@ -32,6 +32,10 @@ def ad_payload(ad: AdRecord, *, business: BusinessRecord | None = None, payment_
             "id": business.id,
             "business_name": business.business_name,
             "verification_status": business.verification_status,
+            "availability": {
+                "status": "online" if business.is_accepting_orders else "offline",
+                "label": "Online" if business.is_accepting_orders else "Offline",
+            },
             "rating_avg": decimal_text(business.rating_avg) if business.rating_avg is not None else None,
             "completed_orders_count": business.completed_orders_count,
             "reputation": public_reputation_payload(business),
