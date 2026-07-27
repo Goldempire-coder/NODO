@@ -50,11 +50,19 @@ export type BusinessOperationalCapacity = {
   min_order_amount_usd: string;
   max_order_amount_usd: string;
   daily_limit_usd: string;
+  daily_reserved_usd: string;
+  daily_consumed_usd: string;
   daily_remaining_usd: string;
+  daily_window: {
+    timezone: "UTC";
+    starts_at: string;
+    ends_at: string;
+  };
   updated_at?: string | null;
   capabilities: {
     can_go_online: boolean;
     can_accept_new_orders: boolean;
+    daily_limit_reached: boolean;
   };
 };
 

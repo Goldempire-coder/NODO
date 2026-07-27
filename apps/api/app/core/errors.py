@@ -40,6 +40,7 @@ ERROR_MESSAGES = {
     "CAPACITY_AMOUNT_INVALID": "Revisa el monto disponible indicado.",
     "BUSINESS_CAPACITY_BELOW_RESERVED": "El monto disponible no puede quedar por debajo de lo reservado.",
     "BUSINESS_CAPACITY_INSUFFICIENT": "El negocio ya no puede cubrir este monto.",
+    "BUSINESS_DAILY_LIMIT_EXCEEDED": "El negocio alcanzo su limite operativo diario.",
     "BUSINESS_CAPACITY_RESERVATION_CONFLICT": "No se pudo reservar la capacidad para esta orden.",
     "SURFACE_ACCESS_DENIED": "No tienes acceso a esta superficie de NODO.",
     "BUSINESS_ACCESS_LINK_REQUIRED": "Este usuario no tiene un vinculo activo con el negocio.",

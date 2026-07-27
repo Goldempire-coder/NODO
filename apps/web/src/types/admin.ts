@@ -39,6 +39,14 @@ export type AdminBusinessOperationalCapacity = BusinessOperationalCapacity & {
     status: "reserved";
     created_at: string;
   }>;
+  daily_orders: Array<{
+    order_id: string;
+    amount_usd: string;
+    capacity_status: "reserved" | "consumed";
+    created_at: string;
+    consumed_at: string | null;
+  }>;
+  daily_orders_truncated: boolean;
 };
 
 export type AdminBusinessAccessLink = {

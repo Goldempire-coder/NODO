@@ -6,7 +6,7 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from urllib.parse import urlencode
@@ -49,6 +49,7 @@ _set_env()
 from app.core.errors import ApiError  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.modules.business_capacity.memory_repository import InMemoryBusinessCapacityRepository  # noqa: E402
+from app.modules.business_capacity.models import BusinessCapacityReservationRecord  # noqa: E402
 from app.modules.businesses.models import BusinessRecord, utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 
@@ -261,6 +262,12 @@ def test_business_can_update_capacity_but_not_below_reserved() -> None:
     assert accepted.json()["data"]["declared_available_capacity_usd"] == "50.00"
     assert accepted.json()["data"]["reserved_capacity_usd"] == "30.00"
     assert accepted.json()["data"]["effective_available_capacity_usd"] == "20.00"
+    assert accepted.json()["data"]["daily_limit_usd"] == "1000.00"
+    assert accepted.json()["data"]["daily_reserved_usd"] == "30.00"
+    assert accepted.json()["data"]["daily_consumed_usd"] == "0.00"
+    assert accepted.json()["data"]["daily_remaining_usd"] == "970.00"
+    assert accepted.json()["data"]["daily_window"]["timezone"] == "UTC"
+    assert accepted.json()["data"]["capabilities"]["daily_limit_reached"] is False
     assert "updated_by_user_id" not in accepted.json()["data"]
 
 
@@ -294,9 +301,18 @@ def test_marketplace_filters_capacity_and_does_not_expose_exact_amounts() -> Non
     availability = covered.json()["data"]["items"][0]["business"]["availability"]
     assert availability["can_cover_requested_amount"] is True
     serialized = json.dumps(covered.json())
-    assert "declared_available_capacity_usd" not in serialized
-    assert "reserved_capacity_usd" not in serialized
-    assert "effective_available_capacity_usd" not in serialized
+    for private_field in {
+        "daily_limit_usd",
+        "daily_reserved_usd",
+        "daily_consumed_usd",
+        "daily_remaining_usd",
+        "declared_available_capacity_usd",
+        "reserved_capacity_usd",
+        "effective_available_capacity_usd",
+        "risk_level",
+        "trust_level",
+    }:
+        assert private_field not in serialized
     assert not_covered.status_code == 200
     assert not_covered.json()["data"]["items"] == []
     assert no_requested_amount.status_code == 200
@@ -326,17 +342,35 @@ def test_admin_can_view_and_adjust_exact_operational_capacity() -> None:
             "reason": "Ajuste operativo de prueba",
         },
     )
-    viewed = client.get(
-        f"/api/v1/admin/businesses/{business.id}/capacity",
-        headers=_headers(admin, "capacity_admin_view"),
-    )
-
     assert denied.status_code == 403
     assert updated.status_code == 200, updated.text
+    client.app.state.capacity_repository.reserve(
+        order_id="00000000-0000-0000-0000-000000000452",
+        business=business,
+        amount_usd=Decimal("20.00"),
+        reason="order_created",
+    )
+    viewed = client.get(
+        f"/api/v1/admin/businesses/{business.id}/capacity",
+        headers=_headers(admin, "capacity_admin_view_with_daily"),
+    )
     assert viewed.status_code == 200, viewed.text
     assert viewed.headers["cache-control"] == "private, no-store"
     assert viewed.json()["data"]["declared_available_capacity_usd"] == "80.00"
-    assert viewed.json()["data"]["reserved_capacity_usd"] == "0.00"
+    assert viewed.json()["data"]["reserved_capacity_usd"] == "20.00"
+    assert viewed.json()["data"]["daily_reserved_usd"] == "20.00"
+    assert viewed.json()["data"]["daily_consumed_usd"] == "0.00"
+    assert viewed.json()["data"]["daily_remaining_usd"] == "980.00"
+    assert viewed.json()["data"]["daily_orders"] == [
+        {
+            "order_id": "00000000-0000-0000-0000-000000000452",
+            "amount_usd": "20.00",
+            "capacity_status": "reserved",
+            "created_at": viewed.json()["data"]["daily_orders"][0]["created_at"],
+            "consumed_at": None,
+        }
+    ]
+    assert viewed.json()["data"]["daily_orders_truncated"] is False
     assert viewed.json()["data"]["updated_by_user_id"] == admin["user"]["id"]
 
 
@@ -649,7 +683,85 @@ def test_daily_limit_caps_gross_order_reservations_not_ad_ranges() -> None:
             reason="order_created",
         )
 
-    assert caught.value.code == "BUSINESS_CAPACITY_INSUFFICIENT"
+    assert caught.value.code == "BUSINESS_DAILY_LIMIT_EXCEEDED"
+
+
+def test_open_reservation_created_yesterday_counts_against_today() -> None:
+    repository = InMemoryBusinessCapacityRepository()
+    now = datetime(2026, 7, 27, 12, 0, tzinfo=timezone.utc)
+    business = BusinessRecord(
+        id="business-carryover",
+        owner_user_id="owner-carryover",
+        business_name="Casa Carryover",
+        rif=None,
+        address=None,
+        phone=None,
+        country="VE",
+        verification_status="approved",
+        is_accepting_orders=True,
+        daily_limit_usd=Decimal("1000.00"),
+        created_at=now,
+        updated_at=now,
+    )
+    repository.set_declared_capacity(
+        business_id=business.id,
+        amount_usd=Decimal("1000.00"),
+        actor_user_id=business.owner_user_id,
+    )
+    repository.reservations["order-carryover"] = BusinessCapacityReservationRecord(
+        id="reservation-carryover",
+        order_id="order-carryover",
+        business_id=business.id,
+        amount_usd=Decimal("300.00"),
+        status="reserved",
+        reason="order_created",
+        created_at=now - timedelta(days=1),
+        updated_at=now - timedelta(days=1),
+    )
+
+    snapshot = repository.get_snapshot(business=business, now=now)
+
+    assert snapshot.daily_reserved_usd == Decimal("300.00")
+    assert snapshot.daily_consumed_usd == Decimal("0.00")
+    assert snapshot.daily_remaining_usd == Decimal("700.00")
+    assert snapshot.daily_window_starts_at == datetime(2026, 7, 27, tzinfo=timezone.utc)
+    assert snapshot.daily_window_ends_at == datetime(2026, 7, 28, tzinfo=timezone.utc)
+
+
+def test_reservation_created_yesterday_and_consumed_today_counts_today() -> None:
+    repository = InMemoryBusinessCapacityRepository()
+    now = datetime(2026, 7, 27, 12, 0, tzinfo=timezone.utc)
+    business = BusinessRecord(
+        id="business-consumed-today",
+        owner_user_id="owner-consumed-today",
+        business_name="Casa Consumed Today",
+        rif=None,
+        address=None,
+        phone=None,
+        country="VE",
+        verification_status="approved",
+        is_accepting_orders=True,
+        daily_limit_usd=Decimal("1000.00"),
+        created_at=now,
+        updated_at=now,
+    )
+    repository.reservations["order-consumed-today"] = BusinessCapacityReservationRecord(
+        id="reservation-consumed-today",
+        order_id="order-consumed-today",
+        business_id=business.id,
+        amount_usd=Decimal("250.00"),
+        status="consumed",
+        reason="completed",
+        created_at=now - timedelta(days=1),
+        updated_at=now - timedelta(hours=1),
+        consumed_at=now - timedelta(hours=1),
+    )
+
+    snapshot = repository.get_snapshot(business=business, now=now)
+
+    assert snapshot.daily_reserved_usd == Decimal("0.00")
+    assert snapshot.daily_consumed_usd == Decimal("250.00")
+    assert snapshot.daily_remaining_usd == Decimal("750.00")
 
 
 def test_released_reservation_does_not_consume_daily_limit() -> None:
@@ -692,8 +804,9 @@ def test_released_reservation_does_not_consume_daily_limit() -> None:
         reason="order_created",
     )
 
-    assert snapshot.daily_reserved_capacity_usd == Decimal("0.00")
-    assert repository.get_snapshot(business=business).daily_reserved_capacity_usd == Decimal("30.00")
+    assert snapshot.daily_reserved_usd == Decimal("0.00")
+    assert snapshot.daily_consumed_usd == Decimal("0.00")
+    assert repository.get_snapshot(business=business).daily_reserved_usd == Decimal("30.00")
 
 
 def test_release_and_consume_are_idempotent_and_consumption_reduces_declared() -> None:
@@ -738,6 +851,51 @@ def test_release_and_consume_are_idempotent_and_consumption_reduces_declared() -
     assert snapshot.declared_available_capacity_usd == Decimal("30.00")
     assert snapshot.reserved_capacity_usd == Decimal("0.00")
     assert snapshot.effective_available_capacity_usd == Decimal("30.00")
+    assert snapshot.daily_reserved_usd == Decimal("0.00")
+    assert snapshot.daily_consumed_usd == Decimal("30.00")
+
+
+def test_concurrent_orders_compete_for_last_daily_capacity() -> None:
+    repository = InMemoryBusinessCapacityRepository()
+    business = BusinessRecord(
+        id="business-daily-race",
+        owner_user_id="owner-daily-race",
+        business_name="Casa Daily Race",
+        rif=None,
+        address=None,
+        phone=None,
+        country="VE",
+        verification_status="approved",
+        is_accepting_orders=True,
+        daily_limit_usd=Decimal("50.00"),
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+    repository.set_declared_capacity(
+        business_id=business.id,
+        amount_usd=Decimal("100.00"),
+        actor_user_id=business.owner_user_id,
+    )
+
+    def reserve(order_id: str) -> str:
+        try:
+            repository.reserve(
+                order_id=order_id,
+                business=business,
+                amount_usd=Decimal("30.00"),
+                reason="order_created",
+            )
+            return "reserved"
+        except ApiError as exc:
+            return exc.code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(reserve, ["daily-order-a", "daily-order-b"]))
+
+    assert sorted(results) == ["BUSINESS_DAILY_LIMIT_EXCEEDED", "reserved"]
+    snapshot = repository.get_snapshot(business=business)
+    assert snapshot.daily_reserved_usd == Decimal("30.00")
+    assert snapshot.daily_remaining_usd == Decimal("20.00")
 
 
 def test_migration_and_frontend_contracts_are_safe() -> None:
@@ -764,14 +922,21 @@ def test_migration_and_frontend_contracts_are_safe() -> None:
     assert "BUSINESS_CAPACITY_INSUFFICIENT" in client_orders
     assert "getBusinessCapacity" in business_capacity_hook
     assert "savingBusinessCapacity" in business_capacity_hook
-    assert "Reservada $" in business_dashboard
-    assert "Restante efectivo" in admin_businesses
+    assert "Reservado activo" in business_dashboard
+    assert "Consumido hoy" in business_dashboard
+    assert "Reinicio diario: 00:00 UTC" in business_dashboard
+    assert "Reservado activo" in admin_businesses
+    assert "Consumido hoy" in admin_businesses
+    assert "Ordenes que explican el limite diario" in admin_businesses
     assert "float" not in migration.casefold()
     postgres_create = (
         ROOT / "apps/api/app/modules/orders/postgres_create_order.py"
     ).read_text()
     postgres_marketplace = (
         ROOT / "apps/api/app/modules/ads/postgres_repository.py"
+    ).read_text()
+    postgres_capacity = (
+        ROOT / "apps/api/app/modules/business_capacity/postgres_repository.py"
     ).read_text()
     assert "reserve_in_transaction" in postgres_create
     assert postgres_create.index("reserve_in_transaction") < postgres_create.index("conn.commit()")
@@ -788,4 +953,29 @@ def test_migration_and_frontend_contracts_are_safe() -> None:
     assert "left join lateral" in optimized_query
     assert "where business_id = businesses.id" in optimized_query
     assert "business_capacity_reservations" in optimized_query
+    assert "consumed_at >=" in optimized_query
+    assert "status = 'reserved'" in optimized_query
     assert optimized_query.index("business_capacity_reservations") < optimized_query.index("limit %s")
+    snapshot_query = postgres_capacity.split("def get_snapshot", 1)[1].split(
+        "def set_declared_capacity",
+        1,
+    )[0]
+    assert "reservation.consumed_at >=" in snapshot_query
+    assert "reservation.status = 'reserved'" in snapshot_query
+    assert "reservation.created_at >=" not in snapshot_query
+
+
+def test_daily_limit_index_migration_supports_consumed_at_queries() -> None:
+    migration = (
+        ROOT / "database/migrations/0036_business_daily_limit_query_indexes.up.sql"
+    ).read_text().casefold()
+    down = (
+        ROOT / "database/migrations/0036_business_daily_limit_query_indexes.down.sql"
+    ).read_text().casefold()
+
+    assert "business_capacity_reservations_consumed_daily_idx" in migration
+    assert "on business_capacity_reservations (business_id, consumed_at)" in migration
+    assert "where status = 'consumed'" in migration
+    assert "consumed_at is not null" in migration
+    assert "include (amount_usd, order_id, created_at)" in migration
+    assert "drop index if exists business_capacity_reservations_consumed_daily_idx" in down

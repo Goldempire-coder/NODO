@@ -102,10 +102,17 @@ export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel
             <strong>Capacidad operativa</strong>
             <small>Declarada ${businessCapacity?.declared_available_capacity_usd ?? "0.00"}</small>
             <small>
-              Reservada ${businessCapacity?.reserved_capacity_usd ?? "0.00"} / Restante ${businessCapacity?.effective_available_capacity_usd ?? "0.00"}
+              Reservada ${businessCapacity?.reserved_capacity_usd ?? "0.00"} / Disponible ${businessCapacity?.effective_available_capacity_usd ?? "0.00"}
             </small>
+            <small>Limite diario ${businessCapacity?.daily_limit_usd ?? business?.daily_limit_usd ?? "0.00"}</small>
+            <small>
+              Reservado activo ${businessCapacity?.daily_reserved_usd ?? "0.00"} / Consumido hoy ${businessCapacity?.daily_consumed_usd ?? "0.00"}
+            </small>
+            <small>Restante diario ${businessCapacity?.daily_remaining_usd ?? "0.00"}</small>
+            <small>Reinicio diario: 00:00 UTC</small>
             {businessCapacityRefreshState === "stale" ? <small>Mostrando el ultimo valor disponible.</small> : null}
             {businessCapacity && effectiveCapacity < 20 ? <small>Configura al menos $20 para recibir nuevas ordenes.</small> : null}
+            {businessCapacity?.capabilities.daily_limit_reached ? <small>Alcanzaste el limite operativo de hoy.</small> : null}
           </div>
         </div>
         <div className="business-inline-form">

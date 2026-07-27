@@ -36,7 +36,14 @@ class BusinessCapacityServiceMixin:
             "min_order_amount_usd": _money(business.min_order_amount_usd),
             "max_order_amount_usd": _money(business.max_order_amount_usd),
             "daily_limit_usd": _money(business.daily_limit_usd),
+            "daily_reserved_usd": _money(snapshot.daily_reserved_usd),
+            "daily_consumed_usd": _money(snapshot.daily_consumed_usd),
             "daily_remaining_usd": _money(snapshot.daily_remaining_usd),
+            "daily_window": {
+                "timezone": "UTC",
+                "starts_at": snapshot.daily_window_starts_at.isoformat(),
+                "ends_at": snapshot.daily_window_ends_at.isoformat(),
+            },
             "updated_at": snapshot.updated_at.isoformat() if snapshot.updated_at else None,
             "capabilities": {
                 "can_go_online": business.verification_status == "approved"
@@ -45,6 +52,9 @@ class BusinessCapacityServiceMixin:
                     business.is_accepting_orders
                     and snapshot.effective_available_capacity_usd >= business.min_order_amount_usd
                     and snapshot.daily_remaining_usd >= business.min_order_amount_usd
+                ),
+                "daily_limit_reached": (
+                    snapshot.daily_remaining_usd < business.min_order_amount_usd
                 ),
             },
         }
@@ -57,7 +67,23 @@ class BusinessCapacityServiceMixin:
                     "created_at": reservation.created_at.isoformat(),
                 }
                 for reservation in snapshot.reservations
+                if reservation.status == "reserved"
             ]
+            data["daily_orders"] = [
+                {
+                    "order_id": reservation.order_id,
+                    "amount_usd": _money(reservation.amount_usd),
+                    "capacity_status": reservation.status,
+                    "created_at": reservation.created_at.isoformat(),
+                    "consumed_at": (
+                        reservation.consumed_at.isoformat()
+                        if reservation.consumed_at
+                        else None
+                    ),
+                }
+                for reservation in snapshot.reservations
+            ]
+            data["daily_orders_truncated"] = snapshot.daily_orders_truncated
         if include_updater:
             data["updated_by_user_id"] = snapshot.updated_by_user_id
         return data

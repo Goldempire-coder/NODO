@@ -325,8 +325,17 @@ Reglas:
 
 ### GET /api/v1/business/capacity
 
-Devuelve al owner vinculado la capacidad declarada, reservada, efectiva y el
-restante diario de su propio negocio.
+Devuelve al owner vinculado la capacidad declarada, reservada y efectiva de su
+propio negocio. El desglose diario incluye:
+
+- `daily_limit_usd`;
+- `daily_reserved_usd`, incluidas reservas abiertas de dias anteriores;
+- `daily_consumed_usd`, segun `consumed_at` dentro del dia UTC;
+- `daily_remaining_usd`;
+- `daily_window` con inicio, fin y `timezone = UTC`;
+- `capabilities.daily_limit_reached`.
+
+No mezcla reservado y consumido en un mismo campo.
 
 ### PUT /api/v1/business/capacity
 

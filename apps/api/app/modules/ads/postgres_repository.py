@@ -170,9 +170,15 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
                 select
                     coalesce(sum(amount_usd) filter (where status = 'reserved'), 0.00) as reserved,
                     coalesce(sum(amount_usd) filter (
-                        where created_at >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
-                          and status in ('reserved', 'consumed')
-                    ), 0.00) as daily_reserved
+                        where status = 'consumed'
+                          and consumed_at >=
+                              date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
+                          and consumed_at <
+                              (
+                                  date_trunc('day', now() at time zone 'UTC')
+                                  + interval '1 day'
+                              ) at time zone 'UTC'
+                    ), 0.00) as daily_consumed
                 from business_capacity_reservations
                 where business_id = businesses.id
             ) capacity_totals on true
@@ -190,7 +196,8 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
               ) >= businesses.min_order_amount_usd
               and (
                   businesses.daily_limit_usd
-                  - coalesce(capacity_totals.daily_reserved, 0.00)
+                  - coalesce(capacity_totals.reserved, 0.00)
+                  - coalesce(capacity_totals.daily_consumed, 0.00)
               ) >= businesses.min_order_amount_usd
         """
         params: list[object] = []
@@ -267,9 +274,15 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
                 select
                     coalesce(sum(amount_usd) filter (where status = 'reserved'), 0.00) as reserved,
                     coalesce(sum(amount_usd) filter (
-                        where created_at >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
-                          and status in ('reserved', 'consumed')
-                    ), 0.00) as daily_reserved
+                        where status = 'consumed'
+                          and consumed_at >=
+                              date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
+                          and consumed_at <
+                              (
+                                  date_trunc('day', now() at time zone 'UTC')
+                                  + interval '1 day'
+                              ) at time zone 'UTC'
+                    ), 0.00) as daily_consumed
                 from business_capacity_reservations
                 where business_id = businesses.id
             ) capacity_totals on true
@@ -287,7 +300,8 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
               ) >= businesses.min_order_amount_usd
               and (
                   businesses.daily_limit_usd
-                  - coalesce(capacity_totals.daily_reserved, 0.00)
+                  - coalesce(capacity_totals.reserved, 0.00)
+                  - coalesce(capacity_totals.daily_consumed, 0.00)
               ) >= businesses.min_order_amount_usd
         """
         params: list[object] = []
@@ -307,7 +321,8 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
                 ) >= %s
                 and (
                     businesses.daily_limit_usd
-                    - coalesce(capacity_totals.daily_reserved, 0.00)
+                    - coalesce(capacity_totals.reserved, 0.00)
+                    - coalesce(capacity_totals.daily_consumed, 0.00)
                 ) >= %s
             """
             params.extend([amount_usd, amount_usd, amount_usd, amount_usd])

@@ -702,9 +702,11 @@ Rules:
 
 ## GET /api/v1/admin/businesses/{id}/capacity
 
-Devuelve capacidad operativa declarada, reservada, efectiva, restante diario y
-reservas activas del negocio. Solo Admin/Super Admin autorizado. Usa
-`Cache-Control: private, no-store`.
+Devuelve capacidad operativa declarada, reservada y efectiva. El desglose diario
+separa `daily_reserved_usd`, `daily_consumed_usd` y `daily_remaining_usd`, usa
+ventana UTC y agrega hasta 50 `daily_orders` que explican el calculo. El flag
+`daily_orders_truncated` indica si existen mas registros. Solo Admin/Super Admin
+autorizado. Usa `Cache-Control: private, no-store`.
 
 ## PUT /api/v1/admin/businesses/{id}/capacity
 

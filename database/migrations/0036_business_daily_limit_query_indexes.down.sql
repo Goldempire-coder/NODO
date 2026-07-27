@@ -1,0 +1,2 @@
+drop index if exists business_capacity_reservations_consumed_daily_idx;
+

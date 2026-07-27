@@ -1,16 +1,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import uuid4
 
 
 ZERO_USD = Decimal("0.00")
+DAILY_CAPACITY_ENTRY_LIMIT = 50
 
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def utc_day_window(value: datetime | None = None) -> tuple[datetime, datetime]:
+    current = as_utc(value or utc_now())
+    starts_at = current.replace(hour=0, minute=0, second=0, microsecond=0)
+    return starts_at, starts_at + timedelta(days=1)
 
 
 def money(value: Decimal) -> Decimal:
@@ -46,11 +59,15 @@ class BusinessCapacitySnapshot:
     declared_available_capacity_usd: Decimal
     reserved_capacity_usd: Decimal
     effective_available_capacity_usd: Decimal
-    daily_reserved_capacity_usd: Decimal
+    daily_reserved_usd: Decimal
+    daily_consumed_usd: Decimal
     daily_remaining_usd: Decimal
+    daily_window_starts_at: datetime
+    daily_window_ends_at: datetime
     updated_by_user_id: str | None
     updated_at: datetime | None
     reservations: tuple[BusinessCapacityReservationRecord, ...] = ()
+    daily_orders_truncated: bool = False
 
 
 def new_id() -> str:

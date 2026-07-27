@@ -6,12 +6,15 @@ from threading import RLock
 
 from app.core.errors import ApiError
 from app.modules.business_capacity.models import (
+    DAILY_CAPACITY_ENTRY_LIMIT,
     ZERO_USD,
     BusinessCapacityRecord,
     BusinessCapacityReservationRecord,
     BusinessCapacitySnapshot,
+    as_utc,
     money,
     new_id,
+    utc_day_window,
     utc_now,
 )
 from app.modules.businesses.models import BusinessRecord
@@ -46,15 +49,22 @@ class InMemoryBusinessCapacityRepository:
             )
         )
 
-    def _daily_reserved(self, business_id: str, now: datetime) -> Decimal:
+    def _daily_consumed(
+        self,
+        business_id: str,
+        *,
+        starts_at: datetime,
+        ends_at: datetime,
+    ) -> Decimal:
         return money(
             sum(
                 (
                     reservation.amount_usd
                     for reservation in self.reservations.values()
                     if reservation.business_id == business_id
-                    and reservation.status in {"reserved", "consumed"}
-                    and reservation.created_at.astimezone(now.tzinfo).date() == now.date()
+                    and reservation.status == "consumed"
+                    and reservation.consumed_at is not None
+                    and starts_at <= as_utc(reservation.consumed_at) < ends_at
                 ),
                 ZERO_USD,
             )
@@ -70,25 +80,63 @@ class InMemoryBusinessCapacityRepository:
         with self._lock:
             capacity = self._capacity(business.id)
             current = now or utc_now()
+            daily_starts_at, daily_ends_at = utc_day_window(current)
             reserved = self._reserved(business.id)
-            daily_reserved = self._daily_reserved(business.id, current)
-            effective = max(ZERO_USD, money(capacity.declared_available_capacity_usd - reserved))
-            daily_remaining = max(ZERO_USD, money(business.daily_limit_usd - daily_reserved))
-            reservations = tuple(
-                reservation
-                for reservation in self.reservations.values()
-                if reservation.business_id == business.id and reservation.status == "reserved"
+            daily_consumed = self._daily_consumed(
+                business.id,
+                starts_at=daily_starts_at,
+                ends_at=daily_ends_at,
             )
+            effective = max(ZERO_USD, money(capacity.declared_available_capacity_usd - reserved))
+            daily_remaining = max(
+                ZERO_USD,
+                money(business.daily_limit_usd - reserved - daily_consumed),
+            )
+            reservations: tuple[BusinessCapacityReservationRecord, ...] = ()
+            daily_orders_truncated = False
+            if include_reservations:
+                explanatory_entries = sorted(
+                    (
+                        reservation
+                        for reservation in self.reservations.values()
+                        if reservation.business_id == business.id
+                        and (
+                            reservation.status == "reserved"
+                            or (
+                                reservation.status == "consumed"
+                                and reservation.consumed_at is not None
+                                and daily_starts_at
+                                <= as_utc(reservation.consumed_at)
+                                < daily_ends_at
+                            )
+                        )
+                    ),
+                    key=lambda reservation: (
+                        0 if reservation.status == "reserved" else 1,
+                        reservation.created_at,
+                        reservation.id,
+                    ),
+                )
+                reservations = tuple(
+                    explanatory_entries[:DAILY_CAPACITY_ENTRY_LIMIT]
+                )
+                daily_orders_truncated = (
+                    len(explanatory_entries) > DAILY_CAPACITY_ENTRY_LIMIT
+                )
             return BusinessCapacitySnapshot(
                 business_id=business.id,
                 declared_available_capacity_usd=capacity.declared_available_capacity_usd,
                 reserved_capacity_usd=reserved,
                 effective_available_capacity_usd=effective,
-                daily_reserved_capacity_usd=daily_reserved,
+                daily_reserved_usd=reserved,
+                daily_consumed_usd=daily_consumed,
                 daily_remaining_usd=daily_remaining,
+                daily_window_starts_at=daily_starts_at,
+                daily_window_ends_at=daily_ends_at,
                 updated_by_user_id=capacity.updated_by_user_id,
                 updated_at=capacity.updated_at,
-                reservations=reservations if include_reservations else (),
+                reservations=reservations,
+                daily_orders_truncated=daily_orders_truncated,
             )
 
     def set_declared_capacity(
@@ -160,8 +208,15 @@ class InMemoryBusinessCapacityRepository:
                 if existing.business_id == business.id and existing.amount_usd == amount:
                     return existing
                 raise ApiError("BUSINESS_CAPACITY_RESERVATION_CONFLICT", status_code=409)
-            if not self.can_cover(business=business, amount_usd=amount):
+            snapshot = self.get_snapshot(business=business)
+            if (
+                amount < business.min_order_amount_usd
+                or amount > business.max_order_amount_usd
+                or amount > snapshot.effective_available_capacity_usd
+            ):
                 raise ApiError("BUSINESS_CAPACITY_INSUFFICIENT", status_code=409)
+            if amount > snapshot.daily_remaining_usd:
+                raise ApiError("BUSINESS_DAILY_LIMIT_EXCEEDED", status_code=409)
             now = utc_now()
             reservation = BusinessCapacityReservationRecord(
                 id=new_id(),

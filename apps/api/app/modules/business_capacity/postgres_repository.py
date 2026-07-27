@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from app.core.errors import ApiError
 from app.modules.business_capacity.models import (
+    DAILY_CAPACITY_ENTRY_LIMIT,
     ZERO_USD,
     BusinessCapacityRecord,
     BusinessCapacityReservationRecord,
@@ -44,55 +45,100 @@ class PostgresBusinessCapacityRepository:
         with self._connect() as conn:
             row = conn.execute(
                 """
+                with daily_window as (
+                    select
+                        date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
+                            as starts_at,
+                        (
+                            date_trunc('day', now() at time zone 'UTC')
+                            + interval '1 day'
+                        ) at time zone 'UTC' as ends_at
+                )
                 select
                     coalesce(capacity.declared_available_capacity_usd, 0.00) as declared,
                     capacity.updated_by_user_id,
                     capacity.updated_at,
-                    coalesce(sum(reservation.amount_usd)
-                        filter (where reservation.status = 'reserved'), 0.00) as reserved,
-                    coalesce(sum(reservation.amount_usd)
-                        filter (
-                            where reservation.created_at >=
-                                date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
-                              and reservation.status in ('reserved', 'consumed')
-                        ), 0.00) as daily_reserved
+                    coalesce((
+                        select sum(reservation.amount_usd)
+                        from business_capacity_reservations reservation
+                        where reservation.business_id = businesses.id
+                          and reservation.status = 'reserved'
+                    ), 0.00) as reserved,
+                    coalesce((
+                        select sum(reservation.amount_usd)
+                        from business_capacity_reservations reservation
+                        where reservation.business_id = businesses.id
+                          and reservation.status = 'consumed'
+                          and reservation.consumed_at >= daily_window.starts_at
+                          and reservation.consumed_at < daily_window.ends_at
+                    ), 0.00) as daily_consumed,
+                    daily_window.starts_at as daily_starts_at,
+                    daily_window.ends_at as daily_ends_at
                 from businesses
                 left join business_capacity capacity on capacity.business_id = businesses.id
-                left join business_capacity_reservations reservation
-                    on reservation.business_id = businesses.id
+                cross join daily_window
                 where businesses.id = %s
-                group by capacity.declared_available_capacity_usd,
-                         capacity.updated_by_user_id,
-                         capacity.updated_at
                 """,
                 (business.id,),
             ).fetchone()
             reservation_rows = []
+            daily_orders_truncated = False
             if include_reservations:
                 reservation_rows = conn.execute(
                     """
-                    select *
-                    from business_capacity_reservations
-                    where business_id = %s and status = 'reserved'
-                    order by created_at asc, id asc
+                    with daily_window as (
+                        select
+                            date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
+                                as starts_at,
+                            (
+                                date_trunc('day', now() at time zone 'UTC')
+                                + interval '1 day'
+                            ) at time zone 'UTC' as ends_at
+                    )
+                    select reservation.*
+                    from business_capacity_reservations reservation
+                    cross join daily_window
+                    where reservation.business_id = %s
+                      and (
+                          reservation.status = 'reserved'
+                          or (
+                              reservation.status = 'consumed'
+                              and reservation.consumed_at >= daily_window.starts_at
+                              and reservation.consumed_at < daily_window.ends_at
+                          )
+                      )
+                    order by
+                        case when reservation.status = 'reserved' then 0 else 1 end,
+                        reservation.created_at asc,
+                        reservation.id asc
+                    limit %s
                     """,
-                    (business.id,),
+                    (business.id, DAILY_CAPACITY_ENTRY_LIMIT + 1),
                 ).fetchall()
+                daily_orders_truncated = len(reservation_rows) > DAILY_CAPACITY_ENTRY_LIMIT
+                reservation_rows = reservation_rows[:DAILY_CAPACITY_ENTRY_LIMIT]
         if row is None:
             raise ApiError("BUSINESS_NOT_FOUND", status_code=404)
         declared = money(Decimal(str(row["declared"])))
         reserved = money(Decimal(str(row["reserved"])))
-        daily_reserved = money(Decimal(str(row["daily_reserved"])))
+        daily_consumed = money(Decimal(str(row["daily_consumed"])))
         return BusinessCapacitySnapshot(
             business_id=business.id,
             declared_available_capacity_usd=declared,
             reserved_capacity_usd=reserved,
             effective_available_capacity_usd=max(ZERO_USD, money(declared - reserved)),
-            daily_reserved_capacity_usd=daily_reserved,
-            daily_remaining_usd=max(ZERO_USD, money(business.daily_limit_usd - daily_reserved)),
+            daily_reserved_usd=reserved,
+            daily_consumed_usd=daily_consumed,
+            daily_remaining_usd=max(
+                ZERO_USD,
+                money(business.daily_limit_usd - reserved - daily_consumed),
+            ),
+            daily_window_starts_at=row["daily_starts_at"],
+            daily_window_ends_at=row["daily_ends_at"],
             updated_by_user_id=str(row["updated_by_user_id"]) if row["updated_by_user_id"] else None,
             updated_at=row["updated_at"],
             reservations=tuple(self._reservation_from_row(item) for item in reservation_rows),
+            daily_orders_truncated=daily_orders_truncated,
         )
 
     def set_declared_capacity(
@@ -263,27 +309,39 @@ class PostgresBusinessCapacityRepository:
             raise ApiError("BUSINESS_OFFLINE", status_code=409)
         totals = conn.execute(
             """
+            with daily_window as (
+                select
+                    date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
+                        as starts_at,
+                    (
+                        date_trunc('day', now() at time zone 'UTC')
+                        + interval '1 day'
+                    ) at time zone 'UTC' as ends_at
+            )
             select
                 coalesce(sum(amount_usd) filter (where status = 'reserved'), 0.00) as reserved,
                 coalesce(sum(amount_usd) filter (
-                    where created_at >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
-                      and status in ('reserved', 'consumed')
-                ), 0.00) as daily_reserved
+                    where status = 'consumed'
+                      and consumed_at >= daily_window.starts_at
+                      and consumed_at < daily_window.ends_at
+                ), 0.00) as daily_consumed
             from business_capacity_reservations
+            cross join daily_window
             where business_id = %s
             """,
             (business_id,),
         ).fetchone()
         declared = Decimal(str(capacity_row["declared"]))
         reserved = Decimal(str(totals["reserved"]))
-        daily_reserved = Decimal(str(totals["daily_reserved"]))
+        daily_consumed = Decimal(str(totals["daily_consumed"]))
         if (
             amount < Decimal(str(capacity_row["min_order_amount_usd"]))
             or amount > Decimal(str(capacity_row["max_order_amount_usd"]))
             or amount > declared - reserved
-            or amount > Decimal(str(capacity_row["daily_limit_usd"])) - daily_reserved
         ):
             raise ApiError("BUSINESS_CAPACITY_INSUFFICIENT", status_code=409)
+        if amount > Decimal(str(capacity_row["daily_limit_usd"])) - reserved - daily_consumed:
+            raise ApiError("BUSINESS_DAILY_LIMIT_EXCEEDED", status_code=409)
         row = conn.execute(
             """
             insert into business_capacity_reservations (

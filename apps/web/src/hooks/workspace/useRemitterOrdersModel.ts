@@ -91,7 +91,10 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
       setNotice("");
       recordActionCompleted("client_order_create", "create-order", startedAt);
     } catch (error) {
-      if (error instanceof ApiClientError && error.code === "BUSINESS_CAPACITY_INSUFFICIENT") {
+      if (
+        error instanceof ApiClientError
+        && ["BUSINESS_CAPACITY_INSUFFICIENT", "BUSINESS_DAILY_LIMIT_EXCEEDED"].includes(error.code)
+      ) {
         setSelectedAd(null);
         setView("marketplace-search");
         setNotice("Ese negocio ya no puede cubrir este monto. Elige otro negocio.");

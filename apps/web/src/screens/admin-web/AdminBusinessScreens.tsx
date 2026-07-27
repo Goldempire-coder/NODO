@@ -153,9 +153,35 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
           <dd>${model.businessOperationalCapacity?.reserved_capacity_usd ?? "0.00"}</dd>
           <dt>Restante efectivo</dt>
           <dd>${model.businessOperationalCapacity?.effective_available_capacity_usd ?? "0.00"}</dd>
+          <dt>Limite diario</dt>
+          <dd>${model.businessOperationalCapacity?.daily_limit_usd ?? "0.00"}</dd>
+          <dt>Reservado activo</dt>
+          <dd>${model.businessOperationalCapacity?.daily_reserved_usd ?? "0.00"}</dd>
+          <dt>Consumido hoy</dt>
+          <dd>${model.businessOperationalCapacity?.daily_consumed_usd ?? "0.00"}</dd>
           <dt>Restante diario</dt>
           <dd>${model.businessOperationalCapacity?.daily_remaining_usd ?? "0.00"}</dd>
+          <dt>Reinicio</dt>
+          <dd>00:00 UTC</dd>
         </dl>
+        <h4>Ordenes que explican el limite diario</h4>
+        {model.businessOperationalCapacity?.daily_orders.length ? (
+          <Table headers={["Orden", "Monto", "Estado", "Fecha"]}>
+            {model.businessOperationalCapacity.daily_orders.map((order) => (
+              <tr key={order.order_id}>
+                <td><code>{order.order_id}</code></td>
+                <td>${order.amount_usd}</td>
+                <td>{order.capacity_status}</td>
+                <td>{dateText(order.consumed_at || order.created_at)}</td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <Empty text="Sin reservas activas ni consumos del dia." />
+        )}
+        {model.businessOperationalCapacity?.daily_orders_truncated ? (
+          <p>Se muestran las primeras 50 ordenes que explican el calculo.</p>
+        ) : null}
         <div className="admin-web-toolbar">
           <label>
             <span>Disponible ahora (USD)</span>
