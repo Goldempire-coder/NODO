@@ -61,14 +61,16 @@ Resultado:
 
 Entrada:
 
-- monto aproximado, fecha aproximada o cliente.
+- anchor exacto encontrado por 46A, como cliente, ticket u orden.
 
 Resultado:
 
-- ficha muestra ordenes compatibles;
+- ficha muestra ordenes relacionadas por ID directo o relacion autorizada;
 - timeline ayuda a comparar tiempos;
 - no declara que el pago fue correcto;
 - no promete recuperacion.
+- no acepta monto/fecha aproximada directamente en 46B; eso pertenece a 46A u
+  otro slice de busqueda avanzada.
 
 ### Varios Tickets Del Mismo Caso
 
@@ -94,9 +96,20 @@ Resultado:
   - wallets completas;
   - datos bancarios completos;
   - cuerpos completos de mensajes;
+  - `severity_hint`;
+  - `suggested_next_step`;
+  - `metadata_json` crudo;
+  - razones privadas;
   - texto crudo de busqueda 46A en audit.
 - Audit log contiene anchor, conteos y request id, no cuerpos.
 - La ficha usa `Cache-Control: private, no-store`.
+- `support` solo ve anchors permitidos por soporte; un anchor no visible para
+  `support` devuelve `404`.
+- `admin` y `super_admin` pueden ver la ficha allowlist completa.
+- Timeline no incluye cuerpos, motivos privados ni metadata libre.
+- `review_checklist` solo contiene checks deterministas con estado permitido.
+- Cada cursor pertenece a su seccion; reutilizarlo en otra seccion falla de
+  forma segura.
 
 ## Pruebas De UX
 
@@ -105,6 +118,8 @@ Resultado:
 - Un error en una seccion permite reintentar esa seccion o ver las demas.
 - Abrir desde 46A no rompe rutas existentes.
 - Links internos abren orden, ticket, negocio, cliente o intake correcto.
+- La ficha no muestra frases de culpabilidad, fraude confirmado, pago valido o
+  recuperacion garantizada.
 
 ## Comandos Esperados
 

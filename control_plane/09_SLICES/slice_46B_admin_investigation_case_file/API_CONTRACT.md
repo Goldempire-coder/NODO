@@ -19,6 +19,10 @@ Query:
 - `anchor_id`: UUID
 - `limit`: entero 1 a 50 por grupo. Default 25.
 - `include_archived`: boolean. Default `true`.
+- `section`: `all|orders|support_tickets|business_intakes|evidence|timeline`.
+  Default `all`.
+- `cursor`: cursor opaco para la seccion solicitada. No aplica con
+  `section=all`.
 
 ## Respuesta Objetivo
 
@@ -33,10 +37,15 @@ Query:
       "action_route": "admin://order/uuid"
     },
     "summary": {
-      "case_title": "Cliente reporta pago sin recordar negocio",
-      "severity_hint": "normal",
+      "case_title": "Ficha de investigacion",
+      "anchor_reason": "order_anchor",
       "last_activity_at": "2026-07-27T00:00:00Z",
-      "suggested_next_step": "Revisar ordenes recientes y ticket activo"
+      "counts": {
+        "orders": 1,
+        "support_tickets": 2,
+        "business_intakes": 0,
+        "timeline_events": 5
+      }
     },
     "participants": {
       "client": {
@@ -58,26 +67,43 @@ Query:
       }
     },
     "orders": {
+      "status": "ok",
       "items": [],
       "truncated": false,
-      "next_cursor": null
+      "next_cursor": null,
+      "error": null
     },
     "support_tickets": {
+      "status": "ok",
       "items": [],
       "truncated": false,
-      "next_cursor": null
+      "next_cursor": null,
+      "error": null
     },
     "business_intakes": {
+      "status": "ok",
       "items": [],
-      "truncated": false
+      "truncated": false,
+      "next_cursor": null,
+      "error": null
     },
     "evidence": {
+      "status": "ok",
       "payment_report_present": false,
       "chat_evidence_available": false,
       "documents": [],
-      "attachments": []
+      "attachments": [],
+      "error": null
     },
     "timeline": [],
+    "review_checklist": [
+      {
+        "code": "RELATED_ORDER_PRESENT",
+        "label": "Orden relacionada encontrada",
+        "status": "present",
+        "action_route": "admin://order/uuid"
+      }
+    ],
     "warnings": [],
     "disclaimer": "Ficha de investigacion. No determina responsabilidad ni garantiza recuperacion."
   },
@@ -101,6 +127,48 @@ Query:
 - La respuesta inicial no debe devolver signed URLs ni `storage_path`.
 - No debe devolver cuerpos completos de mensajes salvo que el endpoint sea
   explicitamente de evidencia de chat y ya tenga auditoria separada.
+- No debe devolver `severity_hint`, `suggested_next_step` ni conclusiones
+  narrativas sobre culpa, fraude, pago valido o recuperacion.
+- `review_checklist` solo puede reflejar checks deterministas basados en datos:
+  `present`, `missing`, `not_checked` o `not_authorized`.
+
+## Paginacion
+
+- `section=all` devuelve la primera pagina de cada seccion.
+- Para cargar mas datos de una seccion se usa `section=<nombre>` y el
+  `cursor` devuelto por esa misma seccion.
+- El cursor debe ser opaco, estar ligado a la seccion y al anchor, y no debe
+  revelar IDs internos no necesarios.
+- Los filtros de permisos, `include_archived`, ordenamiento y cursor se aplican
+  antes de `LIMIT`.
+- Una seccion con fallo parcial debe devolver `status=partial_error` o
+  `status=error` con mensaje seguro. Las demas secciones deben seguir
+  disponibles cuando sea posible.
+
+## Timeline
+
+- El timeline usa allowlist de eventos:
+  - orden creada;
+  - reporte de pago recibido;
+  - estado de orden cambiado;
+  - ticket creado;
+  - ticket resuelto/cerrado;
+  - intake recibido/aprobado/rechazado;
+  - alerta administrativa relacionada.
+- No incluye `metadata_json` crudo.
+- No incluye `reason` privada, cuerpos de mensajes, adjuntos, payloads de
+  proveedor ni texto libre del usuario.
+- La ficha puede decir "evento relacionado", pero no "mismo caso" salvo que la
+  relacion sea por ID directo.
+
+## Reglas Por Rol
+
+- `super_admin` y `admin`: ficha allowlist completa.
+- `support` activo: solo lectura y limitado a tickets visibles por la politica
+  de soporte vigente y resumen operativo estrictamente necesario.
+- Si `support` no puede ver el anchor, responder `404` en vez de filtrar datos.
+- `support` no recibe documentos privados de intake, `metadata_json` de audit,
+  campos de riesgo interno ni evidencia descargable.
 
 ## Relacion Con 46A
 
@@ -126,8 +194,10 @@ Metadata permitida:
 - `anchor_type`
 - `anchor_id`
 - conteo por grupo
+- `section`
 - `include_archived`
 - si hay secciones truncadas
+- secciones con error seguro
 - `request_id`
 
 Metadata prohibida:

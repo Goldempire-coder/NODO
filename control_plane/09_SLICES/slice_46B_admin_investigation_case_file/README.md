@@ -46,7 +46,7 @@ investigar con orden.
 
 ## Que Debe Mostrar La Ficha
 
-- Resumen del caso: pista inicial, estado, severidad operativa y proximo paso.
+- Resumen factual: pista inicial, anchor, estado, ultima actividad y conteos.
 - Personas y negocio: cliente, negocio, owner, telefono/Telegram enmascarado y
   links internos.
 - Ordenes relacionadas: codigo publico, monto, estado, fechas y negocio.
@@ -59,6 +59,8 @@ investigar con orden.
 - Timeline: eventos clave en orden cronologico.
 - Rutas de accion: abrir orden, abrir ticket, abrir negocio, abrir cliente,
   abrir intake o abrir visor de chat autorizado.
+- Checklist deterministico de revision, basado solo en datos presentes o
+  ausentes. No debe recomendar culpables ni inventar conclusion.
 
 ## Que No Construye
 
@@ -73,15 +75,37 @@ investigar con orden.
 - No toca pagos, creditos, Base USDC, Zelle, reputacion ni bots Telegram.
 - No ejecuta migraciones ni deploy.
 
-## Decision Inicial
+## Decision Cerrada
 
-La ficha debe ser carga lazy desde Admin Web. La busqueda 46A sigue liviana y
-solo abre destinos. El expediente 46B se carga cuando Admin decide investigar un
-resultado.
+La ficha debe ser carga lazy desde Admin Web. La busqueda 46A sigue liviana. El
+expediente 46B se carga solo cuando Admin decide investigar un resultado.
 
-Si Builder demuestra que ya existe suficiente informacion en endpoints actuales,
-puede proponer ensamblar la ficha en frontend. Si no, debe proponer endpoint
-admin dedicado de solo lectura.
+Despues de la inspeccion del Builder, la decision es crear endpoint admin
+dedicado de solo lectura:
+
+```txt
+GET /api/v1/admin/investigation/case-file
+```
+
+No se debe componer la ficha en frontend usando cinco endpoints detallados,
+porque eso aumenta payload, acopla pantallas y puede exponer datos privados de
+mas.
+
+## Reglas Cerradas
+
+- No usar `severity_hint`.
+- No usar `suggested_next_step`.
+- No usar frases como "probable fraude", "culpa", "pago valido" o
+  "recuperable".
+- Si se necesita orientar a Admin, usar `review_checklist` con checks
+  deterministas: presente, ausente, no revisado o no autorizado.
+- `support` activo solo ve lo permitido por la politica de soporte. Si el anchor
+  no es visible para ese rol, el endpoint responde `404`.
+- `admin` y `super_admin` pueden ver la ficha allowlist completa.
+- Las secciones se paginan por separado. El cursor pertenece a una seccion y no
+  puede reutilizarse en otra.
+- El timeline solo usa eventos allowlist y nunca `metadata_json` crudo,
+  razones privadas ni cuerpos de mensajes.
 
 ## Criterios De Aceptacion
 
@@ -91,5 +115,6 @@ admin dedicado de solo lectura.
 - No incluye cuerpos privados salvo que abra un visor autorizado especifico.
 - No expone secretos, rutas de storage, signed URLs ni datos bancarios completos.
 - Genera auditoria de lectura sin guardar cuerpos de mensajes ni texto libre.
+- No devuelve campos opinativos como `severity_hint` o `suggested_next_step`.
 - La pantalla es compacta, agrupada y scrollable.
 - Un fallo en una seccion no rompe toda la ficha.
