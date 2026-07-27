@@ -19,6 +19,7 @@ async function runHomeSummaryRefresh(refreshes: HomeRefresh[]) {
 
 export function useBusinessHomeSummaryModel({
   accessState,
+  refreshBusinessCapacity,
   refreshBusinessOrders,
   refreshCreditWallet,
   refreshMyAds,
@@ -26,6 +27,7 @@ export function useBusinessHomeSummaryModel({
   view
 }: {
   accessState: BusinessAccessState;
+  refreshBusinessCapacity: HomeRefresh;
   refreshBusinessOrders: HomeRefresh;
   refreshCreditWallet: HomeRefresh;
   refreshMyAds: HomeRefresh;
@@ -37,13 +39,14 @@ export function useBusinessHomeSummaryModel({
   const refreshHomeSummary = useCallback(async () => {
     setHomeSummaryState("loading");
     const isReady = await runHomeSummaryRefresh([
+      refreshBusinessCapacity,
       refreshCreditWallet,
       refreshMyAds,
       refreshBusinessOrders
     ]);
     setHomeSummaryState(isReady ? "ready" : "error");
     return isReady;
-  }, [refreshBusinessOrders, refreshCreditWallet, refreshMyAds]);
+  }, [refreshBusinessCapacity, refreshBusinessOrders, refreshCreditWallet, refreshMyAds]);
 
   const loadHomeSummary = useCallback(async () => {
     if (accessState !== "ready") {
@@ -60,6 +63,7 @@ export function useBusinessHomeSummaryModel({
     let active = true;
     setHomeSummaryState("loading");
     void runHomeSummaryRefresh([
+      refreshBusinessCapacity,
       refreshCreditWallet,
       refreshMyAds,
       refreshBusinessOrders
@@ -74,6 +78,7 @@ export function useBusinessHomeSummaryModel({
     };
   }, [
     accessState,
+    refreshBusinessCapacity,
     refreshBusinessOrders,
     refreshCreditWallet,
     refreshMyAds,

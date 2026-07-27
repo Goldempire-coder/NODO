@@ -296,7 +296,8 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "queuePaymentMethodDeleteUntilPin" in payment_methods_model
     assert "deletePaymentMethodUnlocked" in payment_methods_model
     assert "await paymentMethods.deletePaymentMethodUnlocked(pendingDeleteId)" in access_model
-    assert "await paymentMethods.loadPaymentMethods()" in access_model
+    assert "paymentMethods.loadPaymentMethods()" in access_model
+    assert "capacity.refreshBusinessCapacity()" in access_model
     assert "refreshCreditWallet: credits.refreshCreditWallet" in business_model
     assert "const loadHomeSummary = useCallback" not in business_model
     assert "view !== \"business-dashboard\"" not in business_model

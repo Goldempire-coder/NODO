@@ -8,6 +8,7 @@ import type { BusinessSummary } from "../../types/business";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 import { accessStateFromError, businessAccessNoticeFromError, type BusinessAccessState } from "./helpers";
 import { useBusinessAvailabilityModel } from "./useBusinessAvailabilityModel";
+import { useBusinessCapacityModel } from "./useBusinessCapacityModel";
 import { useBusinessPaymentMethodsModel } from "./useBusinessPaymentMethodsModel";
 
 export function useBusinessAccessModel({
@@ -60,13 +61,24 @@ export function useBusinessAccessModel({
     setNotice
   });
 
+  const capacity = useBusinessCapacityModel({
+    business,
+    handleBusinessPinError,
+    request,
+    requireBusinessPinFor,
+    setNotice
+  });
+
   const loadBusinessProfile = useCallback(async () => {
     setBusy(true);
     try {
       const session = await getBusinessSurfaceSession<{ business: BusinessSummary | null }>(request);
       const currentBusiness = session.business as BusinessSummary | null;
       setBusiness(currentBusiness);
-      await paymentMethods.loadPaymentMethods();
+      await Promise.all([
+        paymentMethods.loadPaymentMethods(),
+        capacity.refreshBusinessCapacity().catch(() => null)
+      ]);
       setAccessState("ready");
       setNotice("");
     } catch (error) {
@@ -76,7 +88,7 @@ export function useBusinessAccessModel({
     } finally {
       setBusy(false);
     }
-  }, [paymentMethods.loadPaymentMethods, request, setBusy, setNotice]);
+  }, [capacity.refreshBusinessCapacity, paymentMethods.loadPaymentMethods, request, setBusy, setNotice]);
 
   const refreshBusinessAfterPin = useCallback(async () => {
     const session = await getBusinessSurfaceSession<{ business: BusinessSummary | null }>(request);
@@ -86,8 +98,10 @@ export function useBusinessAccessModel({
   const resumePendingPinAction = useCallback(async (successNotice: string) => {
     const pendingDeleteId = paymentMethods.pendingPaymentMethodDeleteId;
     const pendingAvailability = availability.pendingAvailabilityTarget;
+    const pendingCapacityAmount = capacity.pendingBusinessCapacityAmount;
     paymentMethods.clearPendingPaymentMethodDelete();
     availability.clearPendingAvailabilityTarget();
+    capacity.setPendingBusinessCapacityAmount(null);
     if (pendingDeleteId) {
       try {
         await paymentMethods.deletePaymentMethodUnlocked(pendingDeleteId);
@@ -100,8 +114,12 @@ export function useBusinessAccessModel({
       await availability.setBusinessAvailabilityUnlocked(pendingAvailability);
       return;
     }
+    if (pendingCapacityAmount !== null) {
+      await capacity.saveBusinessCapacityUnlocked(pendingCapacityAmount);
+      return;
+    }
     setNotice(successNotice);
-  }, [availability, paymentMethods, setNotice]);
+  }, [availability, capacity, paymentMethods, setNotice]);
 
   const submitBusinessPinSetup = useCallback(async () => {
     const pin = pinForm.pin.trim();
@@ -169,6 +187,7 @@ export function useBusinessAccessModel({
     setAdForm,
     ...paymentMethods,
     ...availability,
+    ...capacity,
     lockBusinessPinSession,
     loadBusinessProfile,
     submitBusinessPinSetup,

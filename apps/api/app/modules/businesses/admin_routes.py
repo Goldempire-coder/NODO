@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 
 from app.auth.dependencies import require_current_user
 from app.modules.businesses.route_dependencies import business_service, request_id
-from app.modules.businesses.schemas import AdminBusinessCapacityUpdateRequest, AdminReasonRequest
+from app.modules.businesses.schemas import AdminBusinessCapacityUpdateRequest, AdminOperationalCapacityUpdateRequest, AdminReasonRequest
 from app.modules.users.models import UserRecord
 
 router = APIRouter(tags=["admin-businesses"])
@@ -85,6 +85,45 @@ def admin_update_business_capacity(
 ) -> dict:
     return {
         "data": business_service(request).update_business_capacity(
+            user=user,
+            business_id=business_id,
+            payload=payload,
+            request_id=request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": request_id(request),
+    }
+
+
+@router.get("/admin/businesses/{business_id}/capacity")
+def admin_business_operational_capacity(
+    business_id: str,
+    request: Request,
+    response: Response,
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": business_service(request).admin_capacity(
+            user=user,
+            business_id=business_id,
+        ),
+        "request_id": request_id(request),
+    }
+
+
+@router.put("/admin/businesses/{business_id}/capacity")
+def admin_update_business_operational_capacity(
+    business_id: str,
+    payload: AdminOperationalCapacityUpdateRequest,
+    request: Request,
+    response: Response,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": business_service(request).admin_update_operational_capacity(
             user=user,
             business_id=business_id,
             payload=payload,

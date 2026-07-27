@@ -110,6 +110,7 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   const support = useSurfaceSupportModel({ request, setBusy, setNotice, initialScope: "business_general" });
   const homeSummary = useBusinessHomeSummaryModel({
     accessState: access.accessState,
+    refreshBusinessCapacity: access.refreshBusinessCapacity,
     refreshBusinessOrders: orders.refreshBusinessOrders,
     refreshCreditWallet: credits.refreshCreditWallet,
     refreshMyAds: ads.refreshMyAds,

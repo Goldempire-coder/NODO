@@ -46,7 +46,8 @@ No expone datos privados completos del negocio ni instrucciones completas de pag
     "verification_status": "approved",
     "availability": {
       "status": "online|offline",
-      "label": "Online|Offline"
+      "label": "Online|Offline",
+      "can_cover_requested_amount": true
     },
     "rating_avg": "4.80|null",
     "completed_orders_count": 12,
@@ -82,6 +83,8 @@ Reglas de privacidad del objeto publico:
 - `business.availability` es una senal publica y gruesa para UX. No reemplaza
   la validacion backend: search/detail/create order siguen verificando que el
   negocio este aprobado, activo y aceptando ordenes al momento del request.
+- `can_cover_requested_amount` solo confirma compatibilidad para el monto
+  solicitado. Nunca expone capacidad declarada, reservada ni efectiva.
 - `rating_avg` y `completed_orders_count` en el nivel de `business` se conservan
   como aliases publicos de compatibilidad para consumidores v1. Nuevos
   consumidores deben usar `business.reputation`.
@@ -165,7 +168,11 @@ Rules:
   - `business.verification_status = approved`
   - `business.risk_level not in ('restricted', 'high_risk')`
   - rango compatible: `amount_min_usd <= amount_usd <= amount_max_usd`
+  - capacidad efectiva y limite diario restante suficientes para `amount_usd`
   - metodo compatible.
+- El filtro de capacidad ocurre en backend antes de cursor y `LIMIT`.
+- Sin `amount_usd`, el anuncio solo aparece si el negocio puede cubrir su
+  minimo operativo.
 - Slice 42A no cambia el algoritmo de ranking. El token v1 `sort=trust`
   conserva temporalmente la heuristica interna existente y no expone
   `trust_level` en el DTO.
@@ -289,7 +296,9 @@ Rules:
 - `amount_max_usd >= amount_min_usd`.
 - `amount_max_usd <= 2000`.
 - `amount_max_usd <= business.max_order_amount_usd`.
-- La suma de `amount_max_usd` de anuncios propios abiertos (`active`, `in_order`) mas el nuevo anuncio no puede superar `business.daily_limit_usd`.
+- `business.daily_limit_usd` limita montos reservados por orden durante el dia,
+  no la suma de rangos publicados. Publicar varios anuncios no consume ese
+  limite por si solo.
 - No permite rangos solapados activos para misma combinacion metodo/entrega.
 - Si `credit_wallet` no existe, slice 03 lo crea de forma idempotente con balances cero antes de validar saldo/founder.
 - Si founder access activo y no expirado, puede publicar sin descontar creditos, pero debe registrar ledger `founder_free_use` o metadata de exencion segun credit service.
@@ -312,7 +321,6 @@ Errores:
 - AD_AMOUNT_RANGE_INVALID
 - AD_AMOUNT_TOO_HIGH
 - AD_LIMIT_NOT_ALLOWED
-- BUSINESS_DAILY_LIMIT_EXCEEDED
 - AD_OVERLAP_NOT_ALLOWED
 - INVALID_PAYMENT_METHOD
 - INVALID_DELIVERY_METHOD
@@ -362,7 +370,8 @@ Rules:
 - Solo permitido desde `archived` o `expired`.
 - No reactiva el mismo registro: crea un anuncio nuevo con `status = active`, `activated_at = now()` y `expires_at = now() + 7 days`.
 - Debe validar negocio publicable, metodo de pago aprobado, no solapamiento y creditos disponibles antes de publicar.
-- Debe respetar `business.daily_limit_usd` sumando exposicion abierta existente y el anuncio nuevo.
+- Republicar no consume `business.daily_limit_usd`; el limite se valida al
+  reservar una orden.
 - Si no hay creditos disponibles, no crea anuncio nuevo y responde `CREDIT_BALANCE_INSUFFICIENT`.
 - La republicacion bloquea nuevos creditos con ledger `hold`.
 - Auditar `ad_created`, `ad_published`, `credits_held` y `ad_republished`.
@@ -375,7 +384,6 @@ Errores:
 - AD_STATUS_INVALID
 - PAYMENT_METHOD_NOT_APPROVED
 - AD_OVERLAP_NOT_ALLOWED
-- BUSINESS_DAILY_LIMIT_EXCEEDED
 - CREDIT_BALANCE_INSUFFICIENT
 - RATE_LIMITED
 - IDEMPOTENCY_PAYLOAD_MISMATCH
@@ -504,7 +512,8 @@ Rules:
 - Permitido para `active` o `paused` no vencidos.
 - No permite modificar `business_id`, `payment_method_id`, `payment_method`, `delivery_method`, `status`, `credit_hold_ledger_id`.
 - Si cambia `amount_max_usd` y cambia `required_credits`, debe revalidar saldo y ajustar hold de forma transaccional; si esa operacion no esta implementada, el backend debe rechazar con `AD_STATUS_INVALID` o `CREDIT_BALANCE_INSUFFICIENT`, no mutar parcial.
-- Si el anuncio esta abierto (`active`, `in_order`), el nuevo `amount_max_usd` debe mantener la exposicion total dentro de `business.daily_limit_usd`.
+- Cambiar el rango anunciado no consume `business.daily_limit_usd`; toda orden
+  nueva vuelve a validar y reservar capacidad en backend.
 - Actualizar rate setea `rate_updated_at`.
 - Auditar `ad_updated`.
 
@@ -517,7 +526,6 @@ Errores:
 - AD_AMOUNT_RANGE_INVALID
 - AD_AMOUNT_TOO_HIGH
 - AD_OVERLAP_NOT_ALLOWED
-- BUSINESS_DAILY_LIMIT_EXCEEDED
 - CREDIT_BALANCE_INSUFFICIENT
 - RATE_LIMITED
 - IDEMPOTENCY_PAYLOAD_MISMATCH

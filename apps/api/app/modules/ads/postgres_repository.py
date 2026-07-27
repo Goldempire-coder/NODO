@@ -165,6 +165,17 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             from ads
             join businesses on businesses.id = ads.business_id
             join business_payment_methods on business_payment_methods.id = ads.payment_method_id
+            left join business_capacity capacity on capacity.business_id = businesses.id
+            left join lateral (
+                select
+                    coalesce(sum(amount_usd) filter (where status = 'reserved'), 0.00) as reserved,
+                    coalesce(sum(amount_usd) filter (
+                        where created_at >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
+                          and status in ('reserved', 'consumed')
+                    ), 0.00) as daily_reserved
+                from business_capacity_reservations
+                where business_id = businesses.id
+            ) capacity_totals on true
             where ads.status = 'active'
               and ads.expires_at > now()
               and businesses.verification_status = 'approved'
@@ -173,6 +184,14 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
               and business_payment_methods.business_id = ads.business_id
               and business_payment_methods.verified_status = 'approved'
               and business_payment_methods.active = true
+              and (
+                  coalesce(capacity.declared_available_capacity_usd, 0.00)
+                  - coalesce(capacity_totals.reserved, 0.00)
+              ) >= businesses.min_order_amount_usd
+              and (
+                  businesses.daily_limit_usd
+                  - coalesce(capacity_totals.daily_reserved, 0.00)
+              ) >= businesses.min_order_amount_usd
         """
         params: list[object] = []
         if payment_method is not None:
@@ -243,6 +262,17 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             from ads
             join businesses on businesses.id = ads.business_id
             join business_payment_methods on business_payment_methods.id = ads.payment_method_id
+            left join business_capacity capacity on capacity.business_id = businesses.id
+            left join lateral (
+                select
+                    coalesce(sum(amount_usd) filter (where status = 'reserved'), 0.00) as reserved,
+                    coalesce(sum(amount_usd) filter (
+                        where created_at >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
+                          and status in ('reserved', 'consumed')
+                    ), 0.00) as daily_reserved
+                from business_capacity_reservations
+                where business_id = businesses.id
+            ) capacity_totals on true
             where ads.status = 'active'
               and ads.expires_at > now()
               and businesses.verification_status = 'approved'
@@ -251,6 +281,14 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
               and business_payment_methods.business_id = ads.business_id
               and business_payment_methods.verified_status = 'approved'
               and business_payment_methods.active = true
+              and (
+                  coalesce(capacity.declared_available_capacity_usd, 0.00)
+                  - coalesce(capacity_totals.reserved, 0.00)
+              ) >= businesses.min_order_amount_usd
+              and (
+                  businesses.daily_limit_usd
+                  - coalesce(capacity_totals.daily_reserved, 0.00)
+              ) >= businesses.min_order_amount_usd
         """
         params: list[object] = []
         if payment_method is not None:
@@ -260,8 +298,19 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             sql += " and ads.delivery_method = %s"
             params.append(delivery_method)
         if amount_usd is not None:
-            sql += " and ads.amount_min_usd <= %s and ads.amount_max_usd >= %s"
-            params.extend([amount_usd, amount_usd])
+            sql += """
+                and ads.amount_min_usd <= %s
+                and ads.amount_max_usd >= %s
+                and (
+                    coalesce(capacity.declared_available_capacity_usd, 0.00)
+                    - coalesce(capacity_totals.reserved, 0.00)
+                ) >= %s
+                and (
+                    businesses.daily_limit_usd
+                    - coalesce(capacity_totals.daily_reserved, 0.00)
+                ) >= %s
+            """
+            params.extend([amount_usd, amount_usd, amount_usd, amount_usd])
         if cursor:
             sql += " and ads.created_at < %s"
             params.append(cursor)

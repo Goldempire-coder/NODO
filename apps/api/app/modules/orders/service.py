@@ -21,6 +21,7 @@ class OrderService(OrderServiceSupportMixin):
         repository,
         ad_repository,
         business_repository,
+        capacity_repository,
         audit_writer,
         rate_limiter,
         idempotency_store,
@@ -33,6 +34,7 @@ class OrderService(OrderServiceSupportMixin):
         self._repository = repository
         self._ads = ad_repository
         self._businesses = business_repository
+        self._capacity = capacity_repository
         self._audit = audit_writer
         self._rate_limiter = rate_limiter
         self._idempotency = idempotency_store
@@ -59,6 +61,7 @@ class OrderService(OrderServiceSupportMixin):
             clear_marketplace_cache=self._clear_marketplace_cache,
             clear_marketplace_cache_after_order=self._clear_marketplace_cache_after_order,
             notification_service=self._notification_service,
+            capacity_repository=self._capacity,
         )
         self._business_ops = OrderBusinessOps(
             repository=self._repository,

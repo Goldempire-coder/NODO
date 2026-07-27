@@ -21,6 +21,7 @@ export type AdSummary = {
     availability?: {
       status: "online" | "offline";
       label: "Online" | "Offline";
+      can_cover_requested_amount?: boolean;
     };
     rating_avg?: string | null;
     completed_orders_count?: number;

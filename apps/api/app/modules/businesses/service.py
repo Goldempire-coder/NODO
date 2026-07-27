@@ -10,6 +10,7 @@ from app.modules.businesses.access_link_rules import require_idempotency_key
 from app.modules.businesses.access_link_service import BusinessAccessLinkServiceMixin
 from app.modules.businesses.access_control import require_active_business_access
 from app.modules.businesses.admin_review_service import BusinessAdminReviewServiceMixin
+from app.modules.businesses.capacity_service import BusinessCapacityServiceMixin
 from app.modules.businesses.models import BusinessAccessLinkRecord, BusinessRecord, utc_now
 from app.modules.businesses.pin_security import hash_pin, verify_pin
 from app.modules.businesses.presenters import business_payload, mask_account, payment_method_display
@@ -24,10 +25,11 @@ BUSINESS_PIN_LOCK_SECONDS = 600
 TRON_BASE58_ALPHABET = set("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 
 
-class BusinessService(BusinessAccessLinkServiceMixin, BusinessAdminReviewServiceMixin):
-    def __init__(self, *, settings: Settings, repository, user_repository, audit_writer, rate_limiter, idempotency_store, storage, marketplace_cache=None, business_status_notifications=None, business_access_notifications=None) -> None:  # type: ignore[no-untyped-def]
+class BusinessService(BusinessAccessLinkServiceMixin, BusinessAdminReviewServiceMixin, BusinessCapacityServiceMixin):
+    def __init__(self, *, settings: Settings, repository, capacity_repository, user_repository, audit_writer, rate_limiter, idempotency_store, storage, marketplace_cache=None, business_status_notifications=None, business_access_notifications=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
+        self._capacity = capacity_repository
         self._users = user_repository
         self._audit = audit_writer
         self._rate_limiter = rate_limiter

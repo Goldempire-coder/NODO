@@ -19,6 +19,7 @@ from app.modules.admin.routes import router as admin_router
 from app.modules.ads.repository import InMemoryAdRepository, PostgresAdRepository
 from app.modules.ads.routes import router as ads_router
 from app.modules.business_intake.repository import InMemoryBusinessIntakeRepository, PostgresBusinessIntakeRepository
+from app.modules.business_capacity import InMemoryBusinessCapacityRepository, PostgresBusinessCapacityRepository
 from app.modules.business_intake.routes import router as business_intake_router
 from app.modules.businesses.repository import InMemoryBusinessRepository, PostgresBusinessRepository
 from app.modules.businesses.routes import router as businesses_router
@@ -201,11 +202,16 @@ async def _base_usdc_credit_watcher_loop(app: FastAPI, settings: Settings, logge
 
 
 def _configure_test_state(app: FastAPI) -> None:
+    app.state.audit_writer = InMemoryAuditWriter()
     app.state.user_repository = InMemoryUserRepository()
     app.state.business_repository = InMemoryBusinessRepository()
+    app.state.capacity_repository = InMemoryBusinessCapacityRepository()
     app.state.business_intake_repository = InMemoryBusinessIntakeRepository()
     app.state.ad_repository = InMemoryAdRepository()
-    app.state.order_repository = InMemoryOrderRepository()
+    app.state.order_repository = InMemoryOrderRepository(
+        capacity_repository=app.state.capacity_repository,
+        audit_writer=app.state.audit_writer,
+    )
     app.state.chat_repository = InMemoryChatRepository()
     app.state.support_repository = InMemorySupportRepository()
     app.state.credit_repository = InMemoryCreditRepository(app.state.ad_repository, app.state.business_repository)
@@ -218,7 +224,6 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.job_repository = InMemoryJobRepository()
     app.state.admin_notification_repository = InMemoryAdminNotificationRepository()
     app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)
-    app.state.audit_writer = InMemoryAuditWriter()
     app.state.staff_repository = InMemoryStaffRepository(users=app.state.user_repository, audit_writer=app.state.audit_writer)
     app.state.admin_repository = InMemoryAdminRepository(
         users=app.state.user_repository,
@@ -243,11 +248,16 @@ def _configure_test_state(app: FastAPI) -> None:
 
 
 def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> None:  # type: ignore[no-untyped-def]
+    app.state.audit_writer = PostgresAuditWriter(settings.database_url)
     app.state.user_repository = PostgresUserRepository(settings.database_url)
     app.state.business_repository = PostgresBusinessRepository(settings.database_url)
+    app.state.capacity_repository = PostgresBusinessCapacityRepository(settings.database_url)
     app.state.business_intake_repository = PostgresBusinessIntakeRepository(settings.database_url)
     app.state.ad_repository = PostgresAdRepository(settings.database_url)
-    app.state.order_repository = PostgresOrderRepository(settings.database_url)
+    app.state.order_repository = PostgresOrderRepository(
+        settings.database_url,
+        capacity_repository=app.state.capacity_repository,
+    )
     app.state.chat_repository = PostgresChatRepository(settings.database_url)
     app.state.support_repository = PostgresSupportRepository(settings.database_url)
     app.state.credit_repository = PostgresCreditRepository(settings.database_url)
@@ -256,7 +266,6 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.job_repository = PostgresJobRepository(settings.database_url)
     app.state.admin_notification_repository = PostgresAdminNotificationRepository(settings.database_url)
     app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)
-    app.state.audit_writer = PostgresAuditWriter(settings.database_url)
     app.state.staff_repository = PostgresStaffRepository(settings.database_url)
     app.state.admin_repository = PostgresAdminRepository(settings.database_url)
     try:

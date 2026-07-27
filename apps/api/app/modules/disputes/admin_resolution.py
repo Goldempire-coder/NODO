@@ -33,7 +33,13 @@ class AdminDisputeResolutionMixin:
         dispute, order = self._resolvable_admin_dispute(user=user, dispute_id=dispute_id, payload=payload)
         old_dispute_status = dispute.status
         old_order_status = order.status
-        updated_dispute, updated_order, event_type, credit_effect, ad_payload = self._apply_admin_dispute_resolution(user=user, dispute=dispute, order=order, payload=payload)
+        updated_dispute, updated_order, event_type, credit_effect, ad_payload = self._apply_admin_dispute_resolution(
+            user=user,
+            dispute=dispute,
+            order=order,
+            payload=payload,
+            request_id=request_id,
+        )
         self._record_admin_dispute_resolution(
             user=user,
             dispute=dispute,
@@ -71,12 +77,21 @@ class AdminDisputeResolutionMixin:
             raise ApiError("ORDER_STATUS_INVALID", status_code=409)
         return dispute, order
 
-    def _apply_admin_dispute_resolution(self, *, user: UserRecord, dispute, order: OrderRecord, payload: DisputeResolveRequest):  # type: ignore[no-untyped-def]
+    def _apply_admin_dispute_resolution(self, *, user: UserRecord, dispute, order: OrderRecord, payload: DisputeResolveRequest, request_id: str):  # type: ignore[no-untyped-def]
         if payload.resolution_type == "keep_under_review":
             updated_dispute = self._repository.update_dispute(dispute, status="in_review", resolution_type=payload.resolution_type, resolution_reason=payload.reason)  # type: ignore[attr-defined]
             return updated_dispute, order, "dispute_marked_in_review", {"type": "none", "amount": 0, "ledger_id": None}, None
 
-        updated_order = self._orders.update_order(order, **self._order_fields_for_dispute_resolution(payload))  # type: ignore[attr-defined]
+        updated_order = self._orders.update_order(  # type: ignore[attr-defined]
+            order,
+            **self._order_fields_for_dispute_resolution(payload),
+            capacity_event_context={
+                "actor_user_id": user.id,
+                "actor_role": user.role,
+                "request_id": request_id,
+                "reason": f"dispute_{payload.resolution_type}",
+            },
+        )
         target_dispute_status = "cancelled" if payload.resolution_type == "cancelled" else "resolved"
         updated_dispute = self._repository.update_dispute(  # type: ignore[attr-defined]
             dispute,

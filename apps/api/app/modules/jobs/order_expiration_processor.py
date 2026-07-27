@@ -77,7 +77,17 @@ class OrderExpirationProcessor(OrderCompletionMixin, OrderDisputeEscalationMixin
             return
         ad = self._ads.get_ad(order.ad_id)
         previous = order.status
-        self._orders.update_order(order, status="cancelled", cancel_reason="payment_not_reported_in_time")
+        self._orders.update_order(
+            order,
+            status="cancelled",
+            cancel_reason="payment_not_reported_in_time",
+            capacity_event_context={
+                "actor_user_id": None,
+                "actor_role": None,
+                "request_id": request_id,
+                "reason": "payment_not_reported_in_time",
+            },
+        )
         business = self._businesses.get_business(order.business_id)
         if ad is not None:
             if ad.expires_at and ad.expires_at <= now:

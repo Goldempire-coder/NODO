@@ -277,7 +277,7 @@ def test_business_capacity_min_and_max_are_enforced_when_publishing_ads() -> Non
     assert above_max.json()["error"]["code"] == "AD_LIMIT_NOT_ALLOWED"
 
 
-def test_business_daily_limit_caps_combined_open_exposure_across_payment_methods() -> None:
+def test_business_daily_limit_does_not_sum_advertised_ranges() -> None:
     client = _client()
     owner = _login(client, 714, "daily_cap_owner")
     business, zelle_method_id = _approved_business_with_method(client, owner, credits=10)
@@ -298,7 +298,7 @@ def test_business_daily_limit_caps_combined_open_exposure_across_payment_methods
     zelle_ad = _create_ad(client, owner, zelle_method_id, key="daily_cap_zelle", amount_min="20.00", amount_max="500.00")
     assert zelle_ad["payment_method"] == "zelle"
 
-    over_daily_limit = client.post(
+    second_ad = client.post(
         "/api/v1/business/ads",
         headers={**_headers(owner, "daily_cap_usdt_over"), "Content-Type": "application/json"},
         json={
@@ -310,23 +310,8 @@ def test_business_daily_limit_caps_combined_open_exposure_across_payment_methods
             "amount_max_usd": "600.00",
         },
     )
-    assert over_daily_limit.status_code == 409
-    assert over_daily_limit.json()["error"]["code"] == "BUSINESS_DAILY_LIMIT_EXCEEDED"
-
-    within_daily_limit = client.post(
-        "/api/v1/business/ads",
-        headers={**_headers(owner, "daily_cap_usdt_allowed"), "Content-Type": "application/json"},
-        json={
-            "payment_method_id": usdt_method.id,
-            "payment_method": "usdt_trc20",
-            "delivery_method": "pago_movil_ve",
-            "rate_bs_per_usd": "39.5",
-            "amount_min_usd": "20.00",
-            "amount_max_usd": "500.00",
-        },
-    )
-    assert within_daily_limit.status_code == 201, within_daily_limit.text
-    assert within_daily_limit.json()["data"]["ad"]["payment_method"] == "usdt_trc20"
+    assert second_ad.status_code == 201, second_ad.text
+    assert second_ad.json()["data"]["ad"]["payment_method"] == "usdt_trc20"
 
 
 def test_payment_method_must_belong_to_business_be_approved_and_active() -> None:

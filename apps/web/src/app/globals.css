@@ -1943,6 +1943,21 @@ div.ad-row {
   line-height: 1.35;
 }
 
+.business-status-panel .business-inline-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.business-inline-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.business-inline-form input {
+  width: 100%;
+  min-width: 0;
+}
+
 .business-status-panel [class*="tgui"],
 .payment-instruction-box [class*="tgui"] {
   color: var(--nodo-muted);

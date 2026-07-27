@@ -114,7 +114,17 @@ class OrderRemitterOps:
             require_order_owner(user, order)
             order = self._materialize_order_expiration(order, actor=user, request_id=request_id)
             require_cancel_allowed(order)
-            updated = self._repository.update_order(order, status="cancelled", cancel_reason="remitter_cancelled_before_payment")
+            updated = self._repository.update_order(
+                order,
+                status="cancelled",
+                cancel_reason="remitter_cancelled_before_payment",
+                capacity_event_context={
+                    "actor_user_id": user.id,
+                    "actor_role": user.role,
+                    "request_id": request_id,
+                    "reason": "remitter_cancelled_before_payment",
+                },
+            )
             ad: AdRecord | None = self._ads.get_ad(order.ad_id)
             if ad is not None:
                 self._return_or_expire_ad(ad, actor=user, request_id=request_id, related_order_id=order.id)

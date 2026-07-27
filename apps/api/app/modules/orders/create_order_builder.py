@@ -129,6 +129,17 @@ def build_create_order_audit_events(*, user: UserRecord, ad: AdRecord, request_i
             "request_id": request_id,
             "metadata_json": {"order_id": None},
         },
+        {
+            "event_type": "business_capacity_reserved",
+            "actor_user_id": user.id,
+            "actor_role": user.role,
+            "resource_type": "order",
+            "resource_id": None,
+            "request_id": request_id,
+            "metadata_json": {
+                "business_id": ad.business_id,
+            },
+        },
     ]
 
 
@@ -137,6 +148,8 @@ def bind_created_order_to_audit_events(audit_events: list[dict[str, Any]], *, or
     for event in audit_events:
         item = {**event}
         if item["event_type"] == "order_created":
+            item["resource_id"] = order_id
+        if item["event_type"] == "business_capacity_reserved":
             item["resource_id"] = order_id
         if item["event_type"] == "ad_moved_in_order":
             item["metadata_json"] = {**item["metadata_json"], "order_id": order_id}

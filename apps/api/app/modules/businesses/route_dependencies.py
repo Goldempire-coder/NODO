@@ -28,6 +28,7 @@ def business_service(request: Request) -> BusinessService:
     return BusinessService(
         settings=request.app.state.settings,
         repository=request.app.state.business_repository,
+        capacity_repository=request.app.state.capacity_repository,
         user_repository=request.app.state.user_repository,
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,
@@ -43,6 +44,7 @@ def legacy_onboarding_service(request: Request) -> LegacyBusinessOnboardingServi
     return LegacyBusinessOnboardingService(
         settings=request.app.state.settings,
         repository=request.app.state.business_repository,
+        capacity_repository=request.app.state.capacity_repository,
         user_repository=request.app.state.user_repository,
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,

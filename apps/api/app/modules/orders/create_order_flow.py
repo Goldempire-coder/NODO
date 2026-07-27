@@ -32,6 +32,7 @@ class OrderCreateFlow:
         ad_expired: Callable[[AdRecord], bool],
         clear_marketplace_cache: Callable[[], None],
         clear_marketplace_cache_after_order: Callable[[str], None],
+        capacity_repository,
         notification_service=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._repository = repository
@@ -45,6 +46,7 @@ class OrderCreateFlow:
         self._ad_expired = ad_expired
         self._clear_marketplace_cache = clear_marketplace_cache
         self._clear_marketplace_cache_after_order = clear_marketplace_cache_after_order
+        self._capacity = capacity_repository
         self._notifications = notification_service or NoopOrderNotificationService()
 
     def create_order(self, *, user: UserRecord, payload: OrderCreateRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
@@ -107,7 +109,12 @@ class OrderCreateFlow:
                 request_id=request_id,
                 idempotency_key=idempotency_key,
             )
-            order = self._persist_create_order_plan(ad=ad, plan=plan, profile=profile)
+            order = self._persist_create_order_plan(
+                ad=ad,
+                business=business,
+                plan=plan,
+                profile=profile,
+            )
             self._write_created_order_audit(plan=plan, order=order, profile=profile)
             self._notifications.order_created_business(order=order, request_id=request_id)
             stage_started = time.perf_counter()
@@ -273,9 +280,14 @@ class OrderCreateFlow:
         profile_mark(profile, "service:get_payment_method", stage_started)
         return payment
 
-    def _persist_create_order_plan(self, *, ad: AdRecord, plan, profile: list[dict[str, Any]] | None):  # type: ignore[no-untyped-def]
+    def _persist_create_order_plan(self, *, ad: AdRecord, business: BusinessRecord, plan, profile: list[dict[str, Any]] | None):  # type: ignore[no-untyped-def]
         stage_started = time.perf_counter()
         create_order_fields = dict(plan.create_order_fields)
+        create_order_fields["capacity_reservation"] = {
+            "business": business,
+            "amount_usd": create_order_fields["amount_usd"],
+            "reason": "order_created",
+        }
         if getattr(self._repository, "creates_initial_state_event_on_create_order", False):
             create_order_fields["initial_state_event"] = plan.initial_state_event
         if getattr(self._repository, "creates_audit_events_on_create_order", False):

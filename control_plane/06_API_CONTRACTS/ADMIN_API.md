@@ -49,6 +49,8 @@ Todas las rutas admin requieren:
 - `POST /api/v1/admin/businesses/{id}/reactivate`
 - `POST /api/v1/admin/businesses/{id}/block`
 - `POST /api/v1/admin/businesses/{id}/capacity`
+- `GET /api/v1/admin/businesses/{id}/capacity`
+- `PUT /api/v1/admin/businesses/{id}/capacity`
 - `GET /api/v1/admin/businesses/{id}/access-links`
 - `GET /api/v1/admin/users/{id}/access-links`
 - `POST /api/v1/admin/businesses/{id}/access-links`
@@ -697,6 +699,18 @@ Rules:
 - `daily_limit_usd` no excede $10,000 en MVP.
 - Invalida cache de marketplace porque puede ocultar o habilitar anuncios.
 - Auditar `business_capacity_updated` con before/after sin datos sensibles.
+
+## GET /api/v1/admin/businesses/{id}/capacity
+
+Devuelve capacidad operativa declarada, reservada, efectiva, restante diario y
+reservas activas del negocio. Solo Admin/Super Admin autorizado. Usa
+`Cache-Control: private, no-store`.
+
+## PUT /api/v1/admin/businesses/{id}/capacity
+
+Actualiza solo `declared_available_capacity_usd` con `Idempotency-Key` y motivo
+opcional. No modifica limites, creditos ni pagos. Rechaza montos menores a lo
+reservado o mayores al limite diario. Audita `business_capacity_updated`.
 
 ## POST /api/v1/admin/businesses/{id}/reject
 

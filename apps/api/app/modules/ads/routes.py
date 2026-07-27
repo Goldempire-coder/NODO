@@ -24,6 +24,7 @@ def _service(request: Request) -> AdService:
         settings=request.app.state.settings,
         repository=request.app.state.ad_repository,
         business_repository=request.app.state.business_repository,
+        capacity_repository=request.app.state.capacity_repository,
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,
         marketplace_rate_limiter=request.app.state.marketplace_rate_limiter,

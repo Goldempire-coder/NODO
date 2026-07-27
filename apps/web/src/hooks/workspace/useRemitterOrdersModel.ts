@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import type { AuthenticatedRequest } from "../../api/client";
+import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import { cancelRemitterOrder, createRemitterOrder, extendPaymentDeadline, getOrder, listMyOrders, submitOrderRating } from "../../api/orders";
 import type { OrderRatingResult, OrderSummary } from "../../types/orders";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
@@ -13,6 +13,7 @@ const CLIENT_ORDERS_CACHE_TTL_MS = 15_000;
 type RemitterOrdersState = Pick<
   ClientWorkspaceState,
   | "selectedAd"
+  | "setSelectedAd"
   | "orderForm"
   | "setSelectedOrder"
   | "setMyOrders"
@@ -32,6 +33,7 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
   const {
     request,
     selectedAd,
+    setSelectedAd,
     orderForm,
     setCancellingOrderId,
     setCreatingOrder,
@@ -89,6 +91,13 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
       setNotice("");
       recordActionCompleted("client_order_create", "create-order", startedAt);
     } catch (error) {
+      if (error instanceof ApiClientError && error.code === "BUSINESS_CAPACITY_INSUFFICIENT") {
+        setSelectedAd(null);
+        setView("marketplace-search");
+        setNotice("Ese negocio ya no puede cubrir este monto. Elige otro negocio.");
+        recordActionFailed("client_order_create", "create-order", startedAt, error.code);
+        return;
+      }
       setNotice(error instanceof Error ? error.message : "No logramos crear la orden. Revisa los datos e intenta de nuevo.");
       recordActionFailed("client_order_create", "create-order", startedAt, error instanceof Error ? error.name : undefined);
     } finally {

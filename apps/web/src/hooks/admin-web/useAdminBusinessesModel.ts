@@ -2,15 +2,21 @@ import { useCallback, useState } from "react";
 import {
   createAdminBusinessAccessLink,
   getAdminBusiness,
+  getAdminBusinessOperationalCapacity,
   getAdminBusinessDocumentViewUrl,
   listAdminBusinessAccessLinks,
   listAdminBusinesses,
   listPendingAdminBusinesses,
   updateAdminBusinessCapacity,
+  updateAdminBusinessOperationalCapacity,
   updateAdminBusinessAccessLink
 } from "../../api/admin";
 import type { AuthenticatedRequest } from "../../api/client";
-import type { AdminBusinessAccessLink, AdminBusinessDetail } from "../../types/admin";
+import type {
+  AdminBusinessAccessLink,
+  AdminBusinessDetail,
+  AdminBusinessOperationalCapacity
+} from "../../types/admin";
 import { idempotencyKey } from "./helpers";
 import type { BusinessIntakeView, BusinessSummaryForAdmin, ListResponse, QueueCriticalAction } from "./adminBusinessIntakeTypes";
 
@@ -36,6 +42,9 @@ export function useAdminBusinessesModel({
   const [businesses, setBusinesses] = useState<BusinessSummaryForAdmin[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<AdminBusinessDetail | null>(null);
   const [businessAccessLinks, setBusinessAccessLinks] = useState<AdminBusinessAccessLink[]>([]);
+  const [businessOperationalCapacity, setBusinessOperationalCapacity] =
+    useState<AdminBusinessOperationalCapacity | null>(null);
+  const [businessOperationalCapacityDraft, setBusinessOperationalCapacityDraft] = useState("0.00");
   const [businessFilter, setBusinessFilter] = useState("");
   const [businessCapacityDraft, setBusinessCapacityDraft] = useState({
     trust_level: "new",
@@ -80,9 +89,10 @@ export function useAdminBusinessesModel({
   const openBusiness = useCallback(async (businessId: string) => {
     setBusy(true);
     try {
-      const [data, links] = await Promise.all([
+      const [data, links, operationalCapacity] = await Promise.all([
         getAdminBusiness<AdminBusinessDetail>(request, businessId),
-        listAdminBusinessAccessLinks<{ items: AdminBusinessAccessLink[] }>(request, businessId)
+        listAdminBusinessAccessLinks<{ items: AdminBusinessAccessLink[] }>(request, businessId),
+        getAdminBusinessOperationalCapacity<AdminBusinessOperationalCapacity>(request, businessId)
       ]);
       setSelectedBusiness(data);
       setBusinessCapacityDraft({
@@ -93,6 +103,8 @@ export function useAdminBusinessesModel({
         active_order_limit: data.business.active_order_limit || 1
       });
       setBusinessAccessLinks(links.items);
+      setBusinessOperationalCapacity(operationalCapacity);
+      setBusinessOperationalCapacityDraft(operationalCapacity.declared_available_capacity_usd);
       setView("business-detail");
       setNotice("Detalle de negocio cargado.");
     } catch (error) {
@@ -124,6 +136,42 @@ export function useAdminBusinessesModel({
       { requiresReason: false }
     );
   }, [adminMutable, businessCapacityDraft, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
+
+  const submitBusinessOperationalCapacity = useCallback(() => {
+    if (!selectedBusiness || !adminMutable) {
+      setNotice("Accion no permitida para este rol.");
+      return;
+    }
+    queueCriticalAction(
+      "Actualizar disponible ahora",
+      "Ajusta la capacidad operativa declarada. No modifica creditos ni pagos.",
+      async () => {
+        await updateAdminBusinessOperationalCapacity(
+          request,
+          selectedBusiness.business.id,
+          {
+            declared_available_capacity_usd: businessOperationalCapacityDraft,
+            reason
+          },
+          idempotencyKey("business_operational_capacity")
+        );
+        setReason("");
+        setNotice("Disponible operativo actualizado.");
+        await openBusiness(selectedBusiness.business.id);
+      },
+      { requiresReason: false }
+    );
+  }, [
+    adminMutable,
+    businessOperationalCapacityDraft,
+    openBusiness,
+    queueCriticalAction,
+    reason,
+    request,
+    selectedBusiness,
+    setNotice,
+    setReason
+  ]);
 
   const openDocument = useCallback((fileId: string) => {
     if (!selectedBusiness || !adminMutable) {
@@ -189,6 +237,8 @@ export function useAdminBusinessesModel({
   return {
     businessAccessLinks,
     businessCapacityDraft,
+    businessOperationalCapacity,
+    businessOperationalCapacityDraft,
     businesses,
     businessFilter,
     changeBusinessAccessLink,
@@ -199,7 +249,9 @@ export function useAdminBusinessesModel({
     openDocument,
     selectedBusiness,
     setBusinessCapacityDraft,
+    setBusinessOperationalCapacityDraft,
     setBusinessFilter,
-    submitBusinessCapacity
+    submitBusinessCapacity,
+    submitBusinessOperationalCapacity
   };
 }

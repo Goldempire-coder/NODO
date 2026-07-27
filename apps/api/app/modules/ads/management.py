@@ -38,8 +38,6 @@ class AdManagementMixin:
             raise ApiError("AD_LIMIT_NOT_ALLOWED", status_code=409)
         if calculate_required_credits(new_max) != ad.required_credits:
             raise ApiError("AD_STATUS_INVALID", status_code=409)
-        if ad.status in {"active", "in_order"}:
-            self._ensure_daily_exposure_allowed(business=business, amount_max_usd=new_max, exclude_ad_id=ad.id)  # type: ignore[attr-defined]
         if self._repository.has_overlapping_ad(  # type: ignore[attr-defined]
             business_id=business.id,
             payment_method=ad.payment_method,
@@ -119,7 +117,6 @@ class AdManagementMixin:
         if ad.amount_min_usd < business.min_order_amount_usd or ad.amount_max_usd > business.max_order_amount_usd:
             raise ApiError("AD_LIMIT_NOT_ALLOWED", status_code=409)
         self._payment_or_invalid(business, ad.payment_method_id, ad.payment_method)  # type: ignore[attr-defined]
-        self._ensure_daily_exposure_allowed(business=business, amount_max_usd=ad.amount_max_usd, exclude_ad_id=ad.id)  # type: ignore[attr-defined]
         if self._repository.has_overlapping_ad(  # type: ignore[attr-defined]
             business_id=business.id,
             payment_method=ad.payment_method,
@@ -172,7 +169,6 @@ class AdManagementMixin:
         required_credits = self._validate_ad_create_rules(business=business, payload=payload)  # type: ignore[attr-defined]
         self._payment_or_invalid(business, payload.payment_method_id, payload.payment_method)  # type: ignore[attr-defined]
         self._ensure_no_overlapping_ad(business=business, payload=payload)  # type: ignore[attr-defined]
-        self._ensure_daily_exposure_allowed(business=business, amount_max_usd=payload.amount_max_usd)  # type: ignore[attr-defined]
 
         def compute() -> dict[str, Any]:
             republished = self._publish_ad(  # type: ignore[attr-defined]

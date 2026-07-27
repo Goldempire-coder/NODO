@@ -135,7 +135,14 @@ class PostgresCreateOrderMixin:
                     select count(*)
                     from orders
                     where orders.business_id = businesses.id
-                      and orders.status = 'waiting_payment'
+                      and orders.status in (
+                          'waiting_payment',
+                          'payment_reported',
+                          'payment_rejected',
+                          'payment_confirmed',
+                          'delivered',
+                          'disputed'
+                      )
                 ) as active_order_count
             from ads
             join businesses on businesses.id = ads.business_id
@@ -147,9 +154,18 @@ class PostgresCreateOrderMixin:
     def create_order(self, **fields: Any) -> OrderRecord:
         initial_state_event = fields.pop("initial_state_event", None)
         audit_events = fields.pop("audit_events", None)
+        capacity_reservation = fields.pop("capacity_reservation", None)
         with self._connect() as conn:  # type: ignore[attr-defined]
             self._move_ad_to_in_order_or_raise(conn, ad_id=fields["ad_id"])
             row = self._insert_order(conn, fields)
+            if capacity_reservation is not None and self._capacity is not None:  # type: ignore[attr-defined]
+                self._capacity.reserve_in_transaction(  # type: ignore[attr-defined]
+                    conn,
+                    order_id=str(row["id"]),
+                    business_id=fields["business_id"],
+                    amount_usd=capacity_reservation["amount_usd"],
+                    reason=capacity_reservation["reason"],
+                )
             if initial_state_event is not None:
                 self._insert_initial_state_event(conn, order_id=row["id"], initial_state_event=initial_state_event)
             if audit_events is not None:

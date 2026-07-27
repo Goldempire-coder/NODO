@@ -105,7 +105,17 @@ class OrderServiceSupportMixin:
         if not is_waiting_payment_expired(order):
             return order
         old_status = order.status
-        expired = self._repository.update_order(order, status="cancelled", cancel_reason="payment_not_reported_in_time")  # type: ignore[attr-defined]
+        expired = self._repository.update_order(  # type: ignore[attr-defined]
+            order,
+            status="cancelled",
+            cancel_reason="payment_not_reported_in_time",
+            capacity_event_context={
+                "actor_user_id": actor.id if actor else None,
+                "actor_role": actor.role if actor else None,
+                "request_id": request_id,
+                "reason": "payment_not_reported_in_time",
+            },
+        )
         ad = self._ads.get_ad(order.ad_id)  # type: ignore[attr-defined]
         if ad is not None:
             self._return_or_expire_ad(ad, actor=actor, request_id=request_id, related_order_id=order.id)

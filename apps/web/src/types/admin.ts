@@ -1,4 +1,4 @@
-import type { BusinessSummary } from "./business";
+import type { BusinessOperationalCapacity, BusinessSummary } from "./business";
 
 export type DocumentFile = {
   id: string;
@@ -29,6 +29,16 @@ export type AdminBusinessDetail = {
     reviewed_at: string | null;
   } | null;
   documents: DocumentFile[];
+};
+
+export type AdminBusinessOperationalCapacity = BusinessOperationalCapacity & {
+  updated_by_user_id?: string | null;
+  active_reservations: Array<{
+    order_id: string;
+    amount_usd: string;
+    status: "reserved";
+    created_at: string;
+  }>;
 };
 
 export type AdminBusinessAccessLink = {

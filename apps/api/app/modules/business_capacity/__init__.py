@@ -1,0 +1,4 @@
+from app.modules.business_capacity.memory_repository import InMemoryBusinessCapacityRepository
+from app.modules.business_capacity.postgres_repository import PostgresBusinessCapacityRepository
+
+__all__ = ["InMemoryBusinessCapacityRepository", "PostgresBusinessCapacityRepository"]

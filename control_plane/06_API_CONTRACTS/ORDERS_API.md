@@ -130,6 +130,12 @@ Rules:
 - Validar `amount_usd >= 20`.
 - Validar `amount_min_usd <= amount_usd <= amount_max_usd`.
 - Validar limites del negocio, incluyendo `business.max_order_amount_usd` y `active_order_limit` cuando aplique.
+- `active_order_limit` cuenta obligaciones abiertas: `waiting_payment`,
+  `payment_reported`, `payment_rejected`, `payment_confirmed`, `delivered` y
+  `disputed`.
+- Validar capacidad efectiva y limite diario restante contra `amount_usd`.
+- Crear una reserva unica ligada a `order_id` dentro de la misma transaccion
+  que crea la orden.
 - Crear orden persistida como `waiting_payment`.
 - Guardar snapshot inmutable de tasa, monto, negocio, metodo, delivery, limites usados e instrucciones privadas.
 - Calcular `amount_bs_calculated = amount_usd * rate_snapshot`.
@@ -138,7 +144,8 @@ Rules:
 - Setear `extension_used = false`.
 - Mover anuncio `active -> in_order`.
 - Crear `order_state_events`.
-- Auditar `order_created` y `ad_moved_in_order`.
+- Auditar `order_created`, `ad_moved_in_order` y
+  `business_capacity_reserved`.
 - Retry con misma idempotency key y mismo payload debe devolver la misma orden.
 - Retry con misma idempotency key y payload distinto debe devolver `IDEMPOTENCY_CONFLICT`.
 
@@ -155,6 +162,8 @@ Errores:
 - BUSINESS_NOT_APPROVED
 - AMOUNT_OUT_OF_RANGE
 - ORDER_ALREADY_EXISTS
+- BUSINESS_CAPACITY_INSUFFICIENT
+- BUSINESS_CAPACITY_RESERVATION_CONFLICT
 - RATE_LIMITED
 
 ## POST /api/v1/orders/{id}/rating
@@ -360,7 +369,8 @@ Rules:
 - Si el anuncio no vencio: `ad.status = active` y el credito permanece bloqueado para la publicacion.
 - Si el anuncio vencio: materializar `ad.status = archived` y consumir el hold con ledger `expire`.
 - Crear state event.
-- Auditar `order_cancelled`.
+- Liberar la reserva de capacidad una sola vez.
+- Auditar `order_cancelled` y `business_capacity_released`.
 - No reporta pago ni toca evidencia.
 
 Errores:
@@ -374,3 +384,14 @@ Errores:
 - IDEMPOTENCY_KEY_REQUIRED
 - IDEMPOTENCY_CONFLICT
 - RATE_LIMITED
+
+## Lifecycle de capacidad
+
+- `waiting_payment`, `payment_reported`, `payment_rejected`,
+  `payment_confirmed`, `delivered` y `disputed` conservan la reserva.
+- Cancelacion o expiracion libera la reserva una sola vez.
+- `completed` consume la reserva una sola vez y reduce la capacidad declarada;
+  el monto consumido no reaparece automaticamente como disponible.
+- Resolver una disputa aplica la accion terminal resultante: `completed`
+  consume y `cancelled` libera.
+- El replay de una transicion no duplica reserva, liberacion ni consumo.

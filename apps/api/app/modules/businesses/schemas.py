@@ -48,6 +48,16 @@ class BusinessAvailabilityUpdateRequest(StrictRequestModel):
     accepting_orders: bool
 
 
+class BusinessCapacityUpdateRequest(StrictRequestModel):
+    availability_status: Literal["online", "offline"]
+    declared_available_capacity_usd: Decimal = Field(ge=Decimal("0.00"))
+
+
+class AdminOperationalCapacityUpdateRequest(StrictRequestModel):
+    declared_available_capacity_usd: Decimal = Field(ge=Decimal("0.00"))
+    reason: str = Field(default="", max_length=500)
+
+
 class BusinessPinSetupRequest(StrictRequestModel):
     pin: str = Field(min_length=4, max_length=6, pattern=r"^[0-9]{4,6}$")
     current_pin: str | None = Field(default=None, min_length=4, max_length=6, pattern=r"^[0-9]{4,6}$")

@@ -9,7 +9,13 @@ from app.modules.businesses.presenters import decimal_text
 from app.modules.businesses.reputation import public_reputation_payload
 
 
-def ad_payload(ad: AdRecord, *, business: BusinessRecord | None = None, payment_method: BusinessPaymentMethodRecord | None = None) -> dict[str, Any]:
+def ad_payload(
+    ad: AdRecord,
+    *,
+    business: BusinessRecord | None = None,
+    payment_method: BusinessPaymentMethodRecord | None = None,
+    can_cover_requested_amount: bool | None = None,
+) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "id": ad.id,
         "business_id": ad.business_id,
@@ -35,6 +41,11 @@ def ad_payload(ad: AdRecord, *, business: BusinessRecord | None = None, payment_
             "availability": {
                 "status": "online" if business.is_accepting_orders else "offline",
                 "label": "Online" if business.is_accepting_orders else "Offline",
+                **(
+                    {"can_cover_requested_amount": can_cover_requested_amount}
+                    if can_cover_requested_amount is not None
+                    else {}
+                ),
             },
             "rating_avg": decimal_text(business.rating_avg) if business.rating_avg is not None else None,
             "completed_orders_count": business.completed_orders_count,

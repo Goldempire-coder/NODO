@@ -59,6 +59,30 @@ export function updateBusinessAvailability<T>(request: AuthenticatedRequest, acc
   });
 }
 
+export function getBusinessCapacity<T>(request: AuthenticatedRequest) {
+  return request<T>("/api/v1/business/capacity", {
+    cache: "no-store"
+  });
+}
+
+export function updateBusinessCapacity<T>(
+  request: AuthenticatedRequest,
+  payload: {
+    availability_status: "online" | "offline";
+    declared_available_capacity_usd: string;
+  },
+  idempotencyKey: string
+) {
+  return request<T>("/api/v1/business/capacity", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
 export function setupBusinessPin<T>(request: AuthenticatedRequest, payload: { pin: string; current_pin?: string }) {
   return request<T>("/api/v1/business/security/pin/setup", {
     method: "POST",

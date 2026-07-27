@@ -12,7 +12,27 @@ function countActionableOrders(model: BusinessMiniAppModel) {
 }
 
 export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { business, businessOrders, creditWallet, creditWalletRefreshState, homeSummaryState, loadBusinessOrders, loadCreditDashboard, loadMyAds, ownAds, paymentMethods, setBusinessAvailability, setView, updatingAvailability } = model;
+  const {
+    business,
+    businessCapacity,
+    businessCapacityDraft,
+    businessCapacityRefreshState,
+    businessOrders,
+    creditWallet,
+    creditWalletRefreshState,
+    homeSummaryState,
+    loadBusinessOrders,
+    loadCreditDashboard,
+    loadMyAds,
+    ownAds,
+    paymentMethods,
+    saveBusinessCapacity,
+    savingBusinessCapacity,
+    setBusinessAvailability,
+    setBusinessCapacityDraft,
+    setView,
+    updatingAvailability
+  } = model;
   const hasPaymentMethods = paymentMethods.length > 0;
   const isApproved = business?.verification_status === "approved";
   const isAcceptingOrders = business?.is_accepting_orders !== false;
@@ -25,6 +45,7 @@ export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel
   const blockedCredits = creditWallet?.blocked_credits;
   const consumedCredits = creditWallet?.consumed_credits;
   const isRefreshing = homeSummaryState === "loading";
+  const effectiveCapacity = Number(businessCapacity?.effective_available_capacity_usd || 0);
 
   return (
     <div className="business-card">
@@ -74,6 +95,37 @@ export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel
           <small>Bloq. {isRefreshing ? "..." : blockedCredits ?? "-"} / Cons. {isRefreshing ? "..." : consumedCredits ?? "-"}</small>
           {creditWalletRefreshState === "stale" ? <small>Saldo sin actualizar</small> : null}
         </button>
+      </div>
+      <div className="business-status-panel business-status-panel--compact">
+        <div>
+          <div>
+            <strong>Capacidad operativa</strong>
+            <small>Declarada ${businessCapacity?.declared_available_capacity_usd ?? "0.00"}</small>
+            <small>
+              Reservada ${businessCapacity?.reserved_capacity_usd ?? "0.00"} / Restante ${businessCapacity?.effective_available_capacity_usd ?? "0.00"}
+            </small>
+            {businessCapacityRefreshState === "stale" ? <small>Mostrando el ultimo valor disponible.</small> : null}
+            {businessCapacity && effectiveCapacity < 20 ? <small>Configura al menos $20 para recibir nuevas ordenes.</small> : null}
+          </div>
+        </div>
+        <div className="business-inline-form">
+          <label>
+            <span>Disponible ahora (USD)</span>
+            <input
+              inputMode="decimal"
+              value={businessCapacityDraft}
+              onChange={(event) => setBusinessCapacityDraft(event.target.value)}
+            />
+          </label>
+          <Button
+            mode="outline"
+            size="s"
+            disabled={savingBusinessCapacity}
+            onClick={() => void saveBusinessCapacity()}
+          >
+            {savingBusinessCapacity ? "Guardando..." : "Actualizar"}
+          </Button>
+        </div>
       </div>
       <div className="business-grid">
         <Button mode="filled" size="s" onClick={() => setView("create-ad")}>

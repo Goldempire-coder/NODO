@@ -28,6 +28,7 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
         settings: Settings,
         repository,
         business_repository,
+        capacity_repository,
         audit_writer,
         rate_limiter,
         marketplace_rate_limiter,
@@ -37,6 +38,7 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
         self._settings = settings
         self._repository = repository
         self._businesses = business_repository
+        self._capacity = capacity_repository
         self._audit = audit_writer
         self._rate_limiter = rate_limiter
         self._marketplace_rate_limiter = marketplace_rate_limiter
@@ -134,11 +136,6 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
         ):
             raise ApiError("AD_OVERLAP_NOT_ALLOWED", status_code=409)
 
-    def _ensure_daily_exposure_allowed(self, *, business: BusinessRecord, amount_max_usd, exclude_ad_id: str | None = None) -> None:  # type: ignore[no-untyped-def]
-        open_exposure = self._repository.business_open_exposure_usd(business_id=business.id, exclude_ad_id=exclude_ad_id)
-        if open_exposure + amount_max_usd > business.daily_limit_usd:
-            raise ApiError("BUSINESS_DAILY_LIMIT_EXCEEDED", status_code=409)
-
     def _publish_ad(self, *, user: UserRecord, business: BusinessRecord, payload: AdCreateRequest, required_credits: int, founder_access_used: bool) -> AdRecord:
         return self._repository.publish_ad(
             business_id=business.id,
@@ -183,9 +180,6 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             stage_started = time.perf_counter()
             self._ensure_no_overlapping_ad(business=business, payload=payload)
             profile_mark(profile, "repo:has_overlapping_ad", stage_started)
-            stage_started = time.perf_counter()
-            self._ensure_daily_exposure_allowed(business=business, amount_max_usd=payload.amount_max_usd)
-            profile_mark(profile, "repo:daily_exposure", stage_started)
             stage_started = time.perf_counter()
             founder_access_used = self._founder_access_valid(business)
             profile_mark(profile, "service:founder_access_valid", stage_started)

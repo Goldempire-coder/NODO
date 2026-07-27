@@ -36,7 +36,7 @@ Todas las rutas requieren `Authorization: Bearer <session_jwt>`.
   "trust_level": "new|basic|plus|pro|premium",
   "risk_level": "normal|watch|under_review|restricted|high_risk",
   "max_order_amount_usd": "100.00",
-  "daily_limit_usd": "300.00",
+  "daily_limit_usd": "1000.00",
   "active_order_limit": 1,
   "approved_at": "timestamp|null",
   "created_at": "timestamp",
@@ -117,7 +117,7 @@ Rules legacy/internal:
   - `trust_level = new`
   - `risk_level = normal`
   - `max_order_amount_usd = 100.00`
-  - `daily_limit_usd = 300.00`
+  - `daily_limit_usd = 1000.00`
   - `active_order_limit = 1`
 - Auditar `business_created`.
 - No crear anuncios, creditos ni ordenes.
@@ -320,6 +320,35 @@ Reglas:
 - Negocio solo lee metodos propios aprobados/activos mediante `GET /api/v1/business/payment-methods`.
 - La gestion/aprobacion de metodos es admin-controlled en 14B.
 - No exponer `account_value`, `storage_path` ni datos bancarios completos.
+
+## Capacidad operativa del negocio
+
+### GET /api/v1/business/capacity
+
+Devuelve al owner vinculado la capacidad declarada, reservada, efectiva y el
+restante diario de su propio negocio.
+
+### PUT /api/v1/business/capacity
+
+Actualiza de forma idempotente:
+
+```json
+{
+  "availability_status": "online",
+  "declared_available_capacity_usd": "80.00"
+}
+```
+
+Rules:
+
+- Requiere negocio aprobado, acceso owner activo, PIN desbloqueado e
+  `Idempotency-Key`.
+- No permite bajar el declarado por debajo de reservas activas.
+- No permite declarar mas que `daily_limit_usd`.
+- Capacidad y disponibilidad se actualizan en una operacion backend.
+- Respuestas usan `Cache-Control: private, no-store`.
+- La capacidad es operativa y declarativa; no representa custodia o garantia
+  de fondos.
 
 ## Errores esperados
 

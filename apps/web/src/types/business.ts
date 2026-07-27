@@ -41,6 +41,23 @@ export type BusinessFormState = {
   country: string;
 };
 
+export type BusinessOperationalCapacity = {
+  business_id: string;
+  availability_status: "online" | "offline";
+  declared_available_capacity_usd: string;
+  reserved_capacity_usd: string;
+  effective_available_capacity_usd: string;
+  min_order_amount_usd: string;
+  max_order_amount_usd: string;
+  daily_limit_usd: string;
+  daily_remaining_usd: string;
+  updated_at?: string | null;
+  capabilities: {
+    can_go_online: boolean;
+    can_accept_new_orders: boolean;
+  };
+};
+
 export type BusinessPaymentMethod = {
   id: string;
   label: string;

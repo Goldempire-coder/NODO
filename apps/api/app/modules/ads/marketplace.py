@@ -69,7 +69,14 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
                     limit=limit,
                     profile=profile,
                 )
-                response = self._marketplace_search_response(items=items, next_cursor=next_cursor, sort=sort, profile=profile, businesses_by_id=businesses_by_id)
+                response = self._marketplace_search_response(
+                    items=items,
+                    next_cursor=next_cursor,
+                    sort=sort,
+                    profile=profile,
+                    amount_usd=amount_usd,
+                    businesses_by_id=businesses_by_id,
+                )
                 self._marketplace_cache.set_json(cache_key, response, self._settings.marketplace_cache_ttl_seconds)  # type: ignore[attr-defined]
                 return profile_attach(response, profile, profile_started)
         finally:
@@ -151,6 +158,15 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
 
         stage_started = time.perf_counter()
         eligible_ids = self._businesses.list_marketplace_eligible_business_ids()  # type: ignore[attr-defined]
+        businesses = self._businesses.get_businesses_by_ids(eligible_ids)  # type: ignore[attr-defined]
+        eligible_ids = {
+            business_id
+            for business_id, business in businesses.items()
+            if self._capacity.can_cover(  # type: ignore[attr-defined]
+                business=business,
+                amount_usd=amount_usd or business.min_order_amount_usd,
+            )
+        }
         profile_mark(profile, "repo:list_marketplace_eligible_business_ids", stage_started)
         stage_started = time.perf_counter()
         items, next_cursor = self._repository.list_marketplace_ads(  # type: ignore[attr-defined]
@@ -171,6 +187,7 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
         next_cursor: str | None,
         sort: str | None,
         profile: list[dict[str, Any]] | None,
+        amount_usd: Decimal | None,
         businesses_by_id: dict[str, BusinessRecord] | None = None,
     ) -> dict[str, Any]:
         if businesses_by_id is None:
@@ -188,7 +205,14 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
         profile_mark(profile, "service:rank", stage_started)
         stage_started = time.perf_counter()
         response = {
-            "items": [ad_payload(ad, business=businesses_by_id.get(ad.business_id)) for ad in ranked],
+            "items": [
+                ad_payload(
+                    ad,
+                    business=businesses_by_id.get(ad.business_id),
+                    can_cover_requested_amount=True if amount_usd is not None else None,
+                )
+                for ad in ranked
+            ],
             "next_cursor": next_cursor,
             "disclaimer": "Negocios verificados por NODO. Compara tasa, limites y disponibilidad antes de elegir.",
         }
@@ -212,10 +236,19 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
             or payment.verified_status != "approved"
             or not payment.active
             or not self._ad_within_current_business_limits(ad=ad, business=business)
+            or not self._capacity.can_cover(  # type: ignore[attr-defined]
+                business=business,
+                amount_usd=ad.amount_min_usd,
+            )
         ):
             raise ApiError("AD_NOT_AVAILABLE", status_code=404)
         return {
-            "ad": ad_payload(ad, business=business, payment_method=payment),
+            "ad": ad_payload(
+                ad,
+                business=business,
+                payment_method=payment,
+                can_cover_requested_amount=True,
+            ),
             "disclaimer": "Revisa monto, tasa y negocio antes de crear la orden. NODO organiza el proceso y guarda el respaldo de la operacion.",
         }
 

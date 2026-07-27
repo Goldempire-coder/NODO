@@ -739,7 +739,7 @@ Default:
 
 ```txt
 max_order_amount_usd = 100
-daily_limit_usd = 300
+daily_limit_usd = 1000
 active_order_limit = 1
 trust_level = new
 ```

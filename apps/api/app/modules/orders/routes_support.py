@@ -24,6 +24,7 @@ def order_service(request: Request) -> OrderService:
         repository=request.app.state.order_repository,
         ad_repository=request.app.state.ad_repository,
         business_repository=request.app.state.business_repository,
+        capacity_repository=request.app.state.capacity_repository,
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,
         idempotency_store=request.app.state.idempotency_store,

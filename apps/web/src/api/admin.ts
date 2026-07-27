@@ -111,6 +111,31 @@ export function updateAdminBusinessCapacity<T>(
   });
 }
 
+export function getAdminBusinessOperationalCapacity<T>(
+  request: AuthenticatedRequest,
+  businessId: string
+) {
+  return request<T>(`/api/v1/admin/businesses/${businessId}/capacity`, {
+    cache: "no-store"
+  });
+}
+
+export function updateAdminBusinessOperationalCapacity<T>(
+  request: AuthenticatedRequest,
+  businessId: string,
+  payload: { declared_available_capacity_usd: string; reason?: string },
+  idempotencyKey: string
+) {
+  return request<T>(`/api/v1/admin/businesses/${businessId}/capacity`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
 export function getAdminBusinessDocumentViewUrl<T>(request: AuthenticatedRequest, businessId: string, fileId: string, reason: string) {
   return request<T>(`/api/v1/admin/businesses/${businessId}/verification-documents/${fileId}/view-url`, {
     method: "POST",

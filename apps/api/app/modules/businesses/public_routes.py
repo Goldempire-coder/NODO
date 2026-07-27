@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Request, Response
 
 from app.auth.dependencies import require_current_user, require_current_user_with_terms
 from app.modules.businesses.route_dependencies import business_service, request_id
-from app.modules.businesses.schemas import BusinessAvailabilityUpdateRequest, BusinessOwnPaymentMethodCreateRequest, BusinessOwnPaymentMethodUpdateRequest, BusinessPinSetupRequest, BusinessPinVerifyRequest
+from app.modules.businesses.schemas import BusinessAvailabilityUpdateRequest, BusinessCapacityUpdateRequest, BusinessOwnPaymentMethodCreateRequest, BusinessOwnPaymentMethodUpdateRequest, BusinessPinSetupRequest, BusinessPinVerifyRequest
 from app.modules.users.models import UserRecord
 
 router = APIRouter(tags=["businesses"])
@@ -18,6 +18,39 @@ def my_business(request: Request, user: UserRecord = Depends(require_current_use
 @router.get("/business/payment-methods")
 def own_payment_methods(request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
     return {"data": business_service(request).own_payment_methods(user=user), "request_id": request_id(request)}
+
+
+@router.get("/business/capacity")
+def own_business_capacity(
+    request: Request,
+    response: Response,
+    user: UserRecord = Depends(require_current_user_with_terms),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": business_service(request).own_capacity(user=user),
+        "request_id": request_id(request),
+    }
+
+
+@router.put("/business/capacity")
+def update_own_business_capacity(
+    payload: BusinessCapacityUpdateRequest,
+    request: Request,
+    response: Response,
+    user: UserRecord = Depends(require_current_user_with_terms),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": business_service(request).update_own_capacity(
+            user=user,
+            payload=payload,
+            request_id=request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": request_id(request),
+    }
 
 
 @router.get("/business/security/pin")

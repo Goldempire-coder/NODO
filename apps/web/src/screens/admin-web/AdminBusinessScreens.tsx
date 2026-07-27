@@ -145,6 +145,37 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
         <button disabled={!model.adminMutable} type="button" onClick={() => model.submitBusinessCapacity()}>Guardar capacidad</button>
       </div>
       <div className="admin-web-panel">
+        <h3>Capacidad operativa declarada</h3>
+        <dl className="admin-web-dl">
+          <dt>Disponible declarado</dt>
+          <dd>${model.businessOperationalCapacity?.declared_available_capacity_usd ?? "0.00"}</dd>
+          <dt>Reservado</dt>
+          <dd>${model.businessOperationalCapacity?.reserved_capacity_usd ?? "0.00"}</dd>
+          <dt>Restante efectivo</dt>
+          <dd>${model.businessOperationalCapacity?.effective_available_capacity_usd ?? "0.00"}</dd>
+          <dt>Restante diario</dt>
+          <dd>${model.businessOperationalCapacity?.daily_remaining_usd ?? "0.00"}</dd>
+        </dl>
+        <div className="admin-web-toolbar">
+          <label>
+            <span>Disponible ahora (USD)</span>
+            <input
+              disabled={!model.adminMutable}
+              inputMode="decimal"
+              value={model.businessOperationalCapacityDraft}
+              onChange={(event) => model.setBusinessOperationalCapacityDraft(event.target.value)}
+            />
+          </label>
+          <button
+            disabled={!model.adminMutable}
+            type="button"
+            onClick={() => model.submitBusinessOperationalCapacity()}
+          >
+            Actualizar disponible
+          </button>
+        </div>
+      </div>
+      <div className="admin-web-panel">
         <h3>Documentos privados</h3>
         {detail.documents.length === 0 ? <Empty text="Sin documentos." /> : null}
         {detail.documents.map((file) => (

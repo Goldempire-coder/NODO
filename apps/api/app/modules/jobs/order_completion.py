@@ -46,7 +46,18 @@ class OrderCompletionMixin:
             counters.changed += 1
             return
         previous = order.status
-        self._orders.update_order(order, status="completed", completion_reason="auto_completed_after_24h", completed_at=now)  # type: ignore[attr-defined]
+        self._orders.update_order(  # type: ignore[attr-defined]
+            order,
+            status="completed",
+            completion_reason="auto_completed_after_24h",
+            completed_at=now,
+            capacity_event_context={
+                "actor_user_id": None,
+                "actor_role": None,
+                "request_id": request_id,
+                "reason": "auto_completed_after_24h",
+            },
+        )
         self._state_event(order.id, previous, "completed", "order_auto_completed_after_24h", "auto_completed_after_24h", request_id)  # type: ignore[attr-defined]
         self._audit.write(  # type: ignore[attr-defined]
             event_type="order_auto_completed_after_24h",

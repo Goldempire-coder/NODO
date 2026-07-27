@@ -16,9 +16,10 @@ from app.modules.users.models import UserRecord
 class LegacyBusinessOnboardingService(LegacyBusinessDocumentMixin, LegacyBusinessSubmissionMixin):
     """Test-fixture only owner onboarding kept outside the production business service."""
 
-    def __init__(self, *, settings: Settings, repository, user_repository, audit_writer, rate_limiter, idempotency_store, storage) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, settings: Settings, repository, capacity_repository, user_repository, audit_writer, rate_limiter, idempotency_store, storage) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
+        self._capacity = capacity_repository
         self._users = user_repository
         self._audit = audit_writer
         self._rate_limiter = rate_limiter
@@ -52,6 +53,11 @@ class LegacyBusinessOnboardingService(LegacyBusinessDocumentMixin, LegacyBusines
                 address=payload.address,
                 phone=payload.phone,
                 country=payload.country,
+            )
+            self._capacity.set_declared_capacity(
+                business_id=business.id,
+                amount_usd=min(business.max_order_amount_usd, business.daily_limit_usd),
+                actor_user_id=user.id,
             )
             if user.role != "business_owner":
                 self._users.set_user_role(user.id, "business_owner")
