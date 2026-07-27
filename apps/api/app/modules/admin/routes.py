@@ -119,6 +119,21 @@ def ux_friction(
     }
 
 
+@router.get("/investigation/search")
+def operational_search(
+    request: Request,
+    response: Response,
+    q: str = Query(min_length=1, max_length=120),
+    limit: int = Query(default=20, ge=1, le=20),
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": _service(request).operational_search(user=user, query=q, limit=limit, request_id=_request_id(request)),
+        "request_id": _request_id(request),
+    }
+
+
 @router.get("/businesses")
 def list_businesses(
     request: Request,

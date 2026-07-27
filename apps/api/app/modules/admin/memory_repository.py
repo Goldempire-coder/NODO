@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.modules.admin.memory_investigation import InMemoryAdminInvestigationMixin
 from app.modules.admin.presenters import iso, mask_sensitive
 from app.modules.admin.user_presenters import admin_business_link_payload, admin_user_payload
 
-class InMemoryAdminRepository:
-    def __init__(self, *, users, businesses, orders, disputes, credits, audit_writer, business_intake=None) -> None:  # type: ignore[no-untyped-def]
+class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
+    def __init__(self, *, users, businesses, orders, disputes, credits, audit_writer, business_intake=None, support=None) -> None:  # type: ignore[no-untyped-def]
         self._users = users
         self._businesses = businesses
         self._business_intake = business_intake
+        self._support = support
         self._orders = orders
         self._disputes = disputes
         self._credits = credits

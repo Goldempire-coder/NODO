@@ -233,6 +233,7 @@ def _configure_test_state(app: FastAPI) -> None:
         credits=app.state.credit_repository,
         audit_writer=app.state.audit_writer,
         business_intake=app.state.business_intake_repository,
+        support=app.state.support_repository,
     )
     app.state.rate_limiter = InMemoryRateLimiter()
     app.state.marketplace_rate_limiter = InMemoryRateLimiter()

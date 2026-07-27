@@ -250,6 +250,131 @@ class _AllowingRateLimiter:
         return True
 
 
+def test_admin_operational_search_links_evidence_without_private_payloads() -> None:
+    client = _client()
+    admin = _login(client, 1201, "search_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    owner, business, _ad, remitter, order, _dispute = _seed_disputed_order(client, owner_id=1202, remitter_id=1203)
+    client.app.state.user_repository.update_profile(remitter["user"]["id"], first_name="Cliente Uno", phone="+17865550123")
+
+    business_record = client.app.state.business_repository.get_business(business["id"])
+    business_record.referral_code = "REF-CARLOS-46"
+    intake = client.app.state.business_intake_repository.create_or_get_draft(
+        telegram_user_id=4512001,
+        telegram_chat_id=4512001,
+        update_id=1,
+        referral_code="REF-CARLOS-46",
+    )
+    client.app.state.business_intake_repository.submit(
+        intake=intake,
+        update_id=2,
+        business_name="Cambio Centro",
+        business_tax_id="J-22222222-2",
+        responsible_name="Responsable Test",
+        responsible_id_number="V-11111111",
+        city="Maracaibo",
+        business_phone="+584121111111",
+        operation="both",
+        banks=["Mercantil"],
+        methods=["usdc"],
+        min_amount_usd="20.00",
+        max_amount_usd="100.00",
+        daily_limit_usd="1000.00",
+        schedule="online",
+        references=["@cambio_centro"],
+    )
+    ticket = client.app.state.support_repository.create_ticket(
+        requester_user_id=remitter["user"]["id"],
+        requester_role="remitter",
+        requester_surface="client_mini_app",
+        scope="client_order",
+        category="order_help",
+        status="waiting_support",
+        priority="normal",
+        subject="No recuerdo el negocio exacto",
+        business_id=business["id"],
+        order_id=order["id"],
+    )
+    client.app.state.support_repository.create_message(
+        ticket_id=ticket.id,
+        sender_user_id=remitter["user"]["id"],
+        sender_role="remitter",
+        body="Pague y escribi una clave privada fuera de la lista",
+        visibility="participants",
+    )
+
+    phone_search = client.get(
+        "/api/v1/admin/investigation/search",
+        params={"q": "+17865550123", "limit": "10"},
+        headers=_bearer(admin, "req_search_phone"),
+    )
+    assert phone_search.status_code == 200, phone_search.text
+    assert phone_search.headers["Cache-Control"] == "private, no-store"
+    phone_data = phone_search.json()["data"]
+    assert phone_data["result_counts"]["users"] == 1
+    assert phone_data["result_counts"]["orders"] == 1
+    assert phone_data["result_counts"]["support_tickets"] == 1
+    assert phone_data["groups"]["orders"][0]["action_route"] == f"admin://order/{order['id']}"
+    assert phone_data["groups"]["support_tickets"][0]["action_route"] == f"admin://support-ticket/{ticket.id}"
+
+    referral_search = client.get(
+        "/api/v1/admin/investigation/search",
+        params={"q": "REF-CARLOS-46", "limit": "10"},
+        headers=_bearer(admin, "req_search_referral"),
+    )
+    assert referral_search.status_code == 200, referral_search.text
+    referral_data = referral_search.json()["data"]
+    assert referral_data["result_counts"]["businesses"] == 1
+    assert referral_data["result_counts"]["business_intakes"] == 1
+    assert referral_data["groups"]["businesses"][0]["action_route"] == f"admin://business/{business['id']}"
+    assert referral_data["groups"]["business_intakes"][0]["action_route"] == f"admin://business-intake/{intake.id}"
+
+    combined = phone_search.text + referral_search.text
+    assert "clave privada" not in combined
+    assert "owner@example.com" not in combined
+    assert "storage_path" not in combined
+    assert "file_asset_id" not in combined
+    search_events = [event for event in client.app.state.audit_writer.events if event.event_type == "admin_operational_search_performed"]
+    assert len(search_events) == 2
+    audit_payload = json.dumps([event.metadata_json for event in search_events], sort_keys=True)
+    assert "+17865550123" not in audit_payload
+    assert "REF-CARLOS-46" not in audit_payload
+    assert all(event.metadata_json.get("query_hash") for event in search_events)
+    assert owner["user"]["id"]
+
+
+def test_admin_operational_search_rbac_and_short_queries() -> None:
+    client = _client()
+    admin = _login(client, 1211, "short_search_admin")
+    business_owner = _login(client, 1212, "short_search_owner")
+    support = _login(client, 1213, "short_search_support")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    client.app.state.user_repository.set_user_role(business_owner["user"]["id"], "business_owner")
+    client.app.state.user_repository.set_user_role(support["user"]["id"], "support")
+
+    too_short = client.get(
+        "/api/v1/admin/investigation/search",
+        params={"q": "ab"},
+        headers=_bearer(admin, "req_search_short"),
+    )
+    assert too_short.status_code == 400, too_short.text
+    assert too_short.json()["error"]["code"] == "ADMIN_OPERATIONAL_SEARCH_QUERY_TOO_SHORT"
+
+    forbidden = client.get(
+        "/api/v1/admin/investigation/search",
+        params={"q": "NODO"},
+        headers=_bearer(business_owner, "req_search_forbidden"),
+    )
+    assert forbidden.status_code == 403, forbidden.text
+
+    allowed = client.get(
+        "/api/v1/admin/investigation/search",
+        params={"q": "NODO"},
+        headers=_bearer(support, "req_search_support"),
+    )
+    assert allowed.status_code == 200, allowed.text
+
+
 def test_admin_dashboard_metrics_use_cache_but_audit_each_view() -> None:
     settings = load_settings(os.environ)
     repository = _AdminReadModelRepository()

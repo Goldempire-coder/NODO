@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.errors import ApiError
+from app.modules.admin.investigation import query_fingerprint
 from app.modules.jobs.serializers import job_run_summary
 from app.modules.admin.policy import require_admin_mutation, require_admin_read
 from app.modules.notifications.user_status_notifications import NoopUserStatusNotificationService, UserStatusNotificationService
@@ -359,6 +360,30 @@ class AdminService:
             full_sensitive=self._can_view_sensitive_user_fields(user),
         )
         return {"items": items, "next_cursor": next_cursor, "disclaimer": ADMIN_DISCLAIMER}
+
+    def operational_search(self, *, user: UserRecord, query: str, limit: int, request_id: str) -> dict[str, Any]:
+        require_admin_read(user)
+        normalized_query = query.strip()
+        if len(normalized_query) < 3:
+            raise ApiError("ADMIN_OPERATIONAL_SEARCH_QUERY_TOO_SHORT", status_code=400)
+        self._rate_limit("operational_search", user)
+        data = self._repository.operational_search(
+            query=normalized_query,
+            limit=limit,
+            full_sensitive=self._can_view_sensitive_user_fields(user),
+        )
+        self._audit_view(
+            event_type="admin_operational_search_performed",
+            user=user,
+            request_id=request_id,
+            metadata={
+                "query_hash": query_fingerprint(normalized_query),
+                "query_length": len(normalized_query),
+                "limit": limit,
+                "result_counts": data.get("result_counts", {}),
+            },
+        )
+        return data | {"disclaimer": ADMIN_DISCLAIMER}
 
     def user_detail(self, *, user: UserRecord, target_user_id: str, request_id: str) -> dict[str, Any]:
         require_admin_read(user)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.modules.admin.postgres_audit import PostgresAdminAuditMixin
 from app.modules.admin.postgres_businesses import PostgresAdminBusinessesMixin
 from app.modules.admin.postgres_dashboard import PostgresAdminDashboardMixin
+from app.modules.admin.postgres_investigation import PostgresAdminInvestigationMixin
 from app.modules.admin.postgres_orders import PostgresAdminOrdersMixin
 from app.modules.admin.postgres_users import PostgresAdminUsersMixin
 from app.shared.db.connection import pooled_connect
@@ -12,6 +13,7 @@ class PostgresAdminRepository(
     PostgresAdminAuditMixin,
     PostgresAdminBusinessesMixin,
     PostgresAdminDashboardMixin,
+    PostgresAdminInvestigationMixin,
     PostgresAdminOrdersMixin,
     PostgresAdminUsersMixin,
 ):

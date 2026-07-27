@@ -27,6 +27,7 @@ Events:
 - support_ticket_linked_to_dispute
 - support_ticket_resolved
 - support_ticket_closed
+- admin_operational_search_performed
 - staff_invite_created
 - staff_invite_expired
 - staff_activated
@@ -85,10 +86,15 @@ metadata
 - admin action executed
 - sensitive data viewed
 - admin_order_chat_viewed
+- admin_operational_search_performed
 
 `admin_order_chat_viewed` registra actor, `order_id`, cantidad de mensajes,
 direccion de pagina y si un highlight solicitado fue encontrado. Nunca registra
 el cuerpo del chat, metadata privada de adjuntos, `storage_path` ni signed URLs.
+
+`admin_operational_search_performed` registra hash corto de la busqueda
+normalizada, largo, limite y conteos por grupo. Nunca registra el texto crudo
+de la busqueda, IDs de resultados, cuerpos de mensajes ni datos privados.
 
 ## Datos prohibidos en audit log
 

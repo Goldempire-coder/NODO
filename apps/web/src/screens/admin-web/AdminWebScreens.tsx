@@ -7,6 +7,7 @@ import { BusinessIntake, BusinessIntakeDetail } from "./AdminBusinessIntakeScree
 import { CreditAdjustments, CreditDetail, CreditPurchases } from "./AdminCreditScreens";
 import { DisputeDetail, Disputes, OrderDetail, Orders } from "./AdminOrderDisputeScreens";
 import { Dashboard, IncidentConsole, Jobs, Metrics, UXFriction } from "./AdminOverviewScreens";
+import { InvestigationSearch } from "./AdminInvestigationScreens";
 import { SupportTickets } from "./AdminSupportScreens";
 import { StaffCenter, StaffDetail, StaffInvite } from "./AdminStaffScreens";
 import { UserDetail, Users } from "./AdminUserScreens";
@@ -27,6 +28,7 @@ export function AdminWebScreens({ model }: { model: AdminWebModel }) {
       {model.view === "incidents" ? <IncidentConsole model={model} /> : null}
       {model.view === "ux-friction" ? <UXFriction model={model} /> : null}
       {model.view === "metrics" ? <Metrics model={model} /> : null}
+      {model.view === "investigation" ? <InvestigationSearch model={model} /> : null}
       {model.view === "businesses" ? <Businesses model={model} /> : null}
       {model.view === "business-detail" ? <BusinessDetail model={model} /> : null}
       {model.view === "users" ? <Users model={model} /> : null}

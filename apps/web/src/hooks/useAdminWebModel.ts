@@ -14,6 +14,7 @@ import { useAdminUsersModel } from "./admin-web/useAdminUsersModel";
 import { useAdminSupportModel } from "./admin-web/useAdminSupportModel";
 import { useAdminStaffModel } from "./admin-web/useAdminStaffModel";
 import { useAdminNotificationsModel } from "./admin-web/useAdminNotificationsModel";
+import { useAdminInvestigationModel } from "./admin-web/useAdminInvestigationModel";
 import type { PublicUser } from "../types/auth";
 
 const ADMIN_BACKGROUND_REFRESH_MS = 15000;
@@ -121,6 +122,20 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setReason: criticalAction.setReason
   });
 
+  const investigation = useAdminInvestigationModel({
+    request,
+    setBusy,
+    setNotice,
+    setView,
+    handlers: {
+      openUser: users.openUser,
+      openBusiness: businessIntake.openBusiness,
+      openBusinessIntake: businessIntake.openBusinessIntake,
+      openOrder: ordersDisputes.openOrder,
+      openSupportTicket: support.openSupportTicket
+    }
+  });
+
   const notifications = useAdminNotificationsModel({
     adminMutable,
     request,
@@ -183,6 +198,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { view: "credit-purchases" as const, label: "Creditos", action: () => credits.loadCreditPurchases("pending_manual_review") },
       { view: "audit-logs" as const, label: "Audit", action: audit.loadAuditLogs },
       { view: "metrics" as const, label: "Metricas", action: overview.loadMetrics },
+      { view: "investigation" as const, label: "Buscar", action: () => investigation.searchInvestigation() },
       { view: "jobs" as const, label: "Jobs", action: overview.loadJobs },
       {
         view: "intake" as const,
@@ -193,7 +209,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { view: "support" as const, label: "Soporte", badge: notifications.supportUnreadCount, action: () => support.loadSupportTickets("active") },
       { view: "staff" as const, label: "Staff", action: () => staff.loadStaff("") }
     ],
-    [audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, notifications.supportUnreadCount, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
+    [audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, investigation.searchInvestigation, notifications.supportUnreadCount, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
   );
 
   return {
@@ -210,6 +226,10 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     emergencyMessage: overview.emergencyMessage,
     setEmergencyMessage: overview.setEmergencyMessage,
     metrics: overview.metrics,
+    investigationQuery: investigation.investigationQuery,
+    setInvestigationQuery: investigation.setInvestigationQuery,
+    investigationResults: investigation.investigationResults,
+    investigationSearched: investigation.investigationSearched,
     businesses: businessIntake.businesses,
     selectedBusiness: businessIntake.selectedBusiness,
     businessAccessLinks: businessIntake.businessAccessLinks,
@@ -295,6 +315,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     deactivateEmergencyMode: overview.deactivateEmergencyMode,
     loadEmergencyMode: overview.loadEmergencyMode,
     loadMetrics: overview.loadMetrics,
+    searchInvestigation: investigation.searchInvestigation,
+    openInvestigationResult: investigation.openInvestigationResult,
     loadBusinesses: businessIntake.loadBusinesses,
     loadPendingBusinesses: businessIntake.loadPendingBusinesses,
     openBusiness: businessIntake.openBusiness,

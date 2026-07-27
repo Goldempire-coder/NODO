@@ -121,6 +121,33 @@ export type AdminUserDetail = {
   disclaimer: string;
 };
 
+export type AdminInvestigationResultType = "user" | "business" | "business_intake" | "order" | "support_ticket";
+
+export type AdminInvestigationSearchItem = {
+  type: AdminInvestigationResultType;
+  id: string;
+  title: string;
+  subtitle: string;
+  matched_on: string[];
+  action_route: string;
+  status?: string | null;
+  reference?: string | null;
+  created_at?: string | null;
+  context: Record<string, string | number | boolean | null | undefined>;
+};
+
+export type AdminInvestigationSearchResponse = {
+  groups: {
+    users: AdminInvestigationSearchItem[];
+    businesses: AdminInvestigationSearchItem[];
+    business_intakes: AdminInvestigationSearchItem[];
+    orders: AdminInvestigationSearchItem[];
+    support_tickets: AdminInvestigationSearchItem[];
+  };
+  result_counts: Record<string, number>;
+  disclaimer: string;
+};
+
 export type AdminDashboard = {
   emergency_mode?: AdminEmergencyMode;
   queues: {

@@ -249,6 +249,27 @@ def test_admin_operational_notifications_surface_support_badge_and_new_notice() 
     assert ".admin-web-support-composer {\n  display: grid;\n  gap: 10px;\n  min-height: 0;" in admin_css
 
 
+def test_admin_operational_search_surface_is_read_only_and_no_store() -> None:
+    admin_api = _read("apps/web/src/api/admin.ts")
+    admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
+    investigation_model = _read("apps/web/src/hooks/admin-web/useAdminInvestigationModel.ts")
+    investigation_screen = _read("apps/web/src/screens/admin-web/AdminInvestigationScreens.tsx")
+    admin_screens = _read("apps/web/src/screens/admin-web/AdminWebScreens.tsx")
+    admin_css = _read("apps/web/src/app/admin-web.css")
+
+    assert "searchAdminInvestigation" in admin_api
+    assert 'cache: "no-store"' in admin_api
+    assert 'view: "investigation" as const, label: "Buscar"' in admin_model
+    assert "openInvestigationResult" in admin_model
+    assert "normalizedQuery.length < 3" in investigation_model
+    assert "AdminInvestigationSearchResponse" in investigation_model
+    assert "model.openInvestigationResult(item)" in investigation_screen
+    assert "Business_intakes" not in investigation_screen
+    assert "InvestigationSearch" in admin_screens
+    assert ".admin-web-investigation-search" in admin_css
+    assert ".admin-web-investigation-result" in admin_css
+
+
 def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() -> None:
     business_model = _read("apps/web/src/hooks/useBusinessMiniAppModel.ts")
     access_model = _read("apps/web/src/hooks/business-mini-app/useBusinessAccessModel.ts")

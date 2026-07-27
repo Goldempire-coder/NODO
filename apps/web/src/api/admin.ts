@@ -50,6 +50,11 @@ export function getAdminUXFriction<T>(request: AuthenticatedRequest) {
   return request<T>("/api/v1/admin/ux-friction");
 }
 
+export function searchAdminInvestigation<T>(request: AuthenticatedRequest, query: string, limit = 20) {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return request<T>(`/api/v1/admin/investigation/search?${params.toString()}`, { cache: "no-store" });
+}
+
 export function listAdminBusinesses<T>(request: AuthenticatedRequest, status?: string) {
   return request<T>(`/api/v1/admin/businesses?${listParams(20, "verification_status", status)}`);
 }

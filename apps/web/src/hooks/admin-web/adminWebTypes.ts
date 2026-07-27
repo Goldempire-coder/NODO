@@ -12,6 +12,7 @@ export type AdminWebView =
   | "dispute-detail"
   | "audit-logs"
   | "metrics"
+  | "investigation"
   | "credit-purchases"
   | "credit-detail"
   | "credit-adjustments"

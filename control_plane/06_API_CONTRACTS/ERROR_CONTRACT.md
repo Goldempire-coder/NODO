@@ -185,6 +185,7 @@ Todas las APIs deben usar este contrato. Prohibido exponer stack traces, SQL, se
 - TELEGRAM_RATE_LIMITED
 - AUTO_COMPLETE_BLOCKED_BY_DISPUTE
 - ADMIN_REASON_REQUIRED
+- ADMIN_OPERATIONAL_SEARCH_QUERY_TOO_SHORT
 - SENSITIVE_EXPORT_BLOCKED
 
 ## Codigos internos de jobs

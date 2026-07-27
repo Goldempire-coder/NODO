@@ -32,6 +32,7 @@ Todas las rutas admin requieren:
 - `GET /api/v1/admin/business-intake/{id}`
 - `POST /api/v1/admin/business-intake/{id}/accept`
 - `POST /api/v1/admin/business-intake/{id}/reject`
+- `GET /api/v1/admin/investigation/search`
 - `GET /api/v1/admin/support/tickets`
 - `GET /api/v1/admin/support/tickets/{id}`
 - `POST /api/v1/admin/support/tickets/{id}/messages`
@@ -177,6 +178,27 @@ Rules:
 - Audita `business_access_blocked`.
 
 Listas admin usan cursor pagination. Prohibido offset en tablas calientes.
+
+## Slice 46A operational search
+
+`GET /api/v1/admin/investigation/search?q=...&limit=20`
+
+Rules:
+
+- Solo `admin`, `super_admin` y `support` activo.
+- Solo lectura.
+- `q` debe tener al menos 3 caracteres despues de trim.
+- `limit` maximo 20 por grupo.
+- Devuelve grupos: `users`, `businesses`, `business_intakes`, `orders`,
+  `support_tickets`.
+- Cada resultado trae `action_route` para abrir la pantalla admin existente.
+- Puede devolver entidades relacionadas: una busqueda por cliente puede mostrar
+  sus ordenes y tickets; una busqueda por orden puede mostrar tickets ligados.
+- Respuesta `Cache-Control: private, no-store`.
+- Audit obligatorio: `admin_operational_search_performed`.
+- Audit guarda hash/largo/conteo, nunca el texto crudo de la busqueda.
+- Prohibido devolver cuerpos de chat, signed URLs, `storage_path`,
+  `file_asset_id`, tokens, secretos o datos bancarios completos.
 
 Campos prohibidos en respuestas admin salvo endpoint de signed URL autorizado:
 
