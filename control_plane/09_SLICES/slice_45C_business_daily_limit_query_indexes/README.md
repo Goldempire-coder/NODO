@@ -1,6 +1,6 @@
 # slice_45C_business_daily_limit_query_indexes
 
-Estado contractual: `LOCAL_VALIDATION_IN_PROGRESS`
+Estado contractual: `STAGING_APPLIED_PENDING_EXPLAIN_PROFILE`
 
 ## Objetivo
 
@@ -41,3 +41,8 @@ Sin indice por `consumed_at`, el marketplace y los snapshots pueden degradarse c
 
 Ejecutar `EXPLAIN` en PostgreSQL aislado o staging seguro despues de aplicar la migracion.
 
+## Reconciliacion 2026-07-28
+
+El plan de migraciones de staging reporto `0036_business_daily_limit_query_indexes.up.sql`
+como aplicado y sin migraciones pendientes. Sigue pendiente perfilar con `EXPLAIN`
+antes de afirmar que el indice resuelve el costo con volumen representativo.

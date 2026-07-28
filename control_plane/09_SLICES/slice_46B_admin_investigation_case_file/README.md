@@ -1,6 +1,6 @@
 # Slice 46B - Admin Investigation Case File
 
-Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
+Estado: STAGING_DEPLOYED_PENDING_OWNER_SMOKE
 
 ## Objetivo
 

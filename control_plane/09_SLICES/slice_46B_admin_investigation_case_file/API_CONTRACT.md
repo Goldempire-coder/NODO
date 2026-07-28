@@ -1,6 +1,6 @@
 # Slice 46B API Contract
 
-Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
+Estado: STAGING_DEPLOYED_PENDING_OWNER_SMOKE
 
 Builder debe mapear primero si este contrato ya puede componerse con endpoints
 existentes. Si no, la opcion recomendada es crear endpoint dedicado:

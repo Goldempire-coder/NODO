@@ -1,6 +1,6 @@
 # Slice 46A - Admin Operational Search
 
-Estado: DRAFT
+Estado: STAGING_DEPLOYED_PENDING_OWNER_SMOKE
 
 ## Objetivo
 

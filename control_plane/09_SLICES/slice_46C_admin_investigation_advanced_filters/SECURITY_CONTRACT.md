@@ -1,6 +1,6 @@
 # Slice 46C Security Contract
 
-Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
+Estado: STAGING_DEPLOYED_PENDING_OWNER_SMOKE
 
 ## Principio
 

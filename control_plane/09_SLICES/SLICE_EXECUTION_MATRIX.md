@@ -138,3 +138,19 @@ No se permite declarar un slice listo sin revisar lineas exactas.
 | Orden | Slice | Objetivo | Dependencias | Estado contractual |
 |---|---|---|---|---|
 | 42B | slice_42B_order_ratings | Rating post-orden 1..5 backend-authoritative, un rating por orden completada, recalculo transaccional y UI minima cliente | 42A,04,07,37 | READY_FOR_OWNER_REVIEW |
+
+## Slice 45
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 45A | slice_45_business_available_capacity_matching | Capacidad disponible declarada por negocio, reservas por orden y matching cliente por monto sin exponer cupo exacto al publico | 03,04,06,14B,20A | STAGING_SCHEMA_APPLIED_PENDING_OWNER_SMOKE |
+| 45B | slice_45B_business_daily_limit_governance | Gobernanza del limite diario: reservado activo, consumido del dia UTC y restante operativo | 45A | STAGING_SCHEMA_APPLIED_PENDING_OWNER_SMOKE |
+| 45C | slice_45C_business_daily_limit_query_indexes | Indice parcial para que consumos diarios por `consumed_at` no degraden con historial | 45B | STAGING_APPLIED_PENDING_EXPLAIN_PROFILE |
+
+## Slice 46
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 46A | slice_46A_admin_operational_search | Busqueda operativa rapida de usuarios, negocios, intakes, ordenes y tickets desde Admin Web | 09,20B,20C | STAGING_DEPLOYED_PENDING_OWNER_SMOKE |
+| 46B | slice_46B_admin_investigation_case_file | Ficha de investigacion read-only por anchor exacto, con evidencia metadata-only y RBAC de soporte | 46A,44B,20B,20C | STAGING_DEPLOYED_PENDING_OWNER_SMOKE |
+| 46C | slice_46C_admin_investigation_advanced_filters | Filtros avanzados para encontrar ordenes candidatas cuando soporte tiene pistas incompletas | 46A,46B,20B,20C | STAGING_DEPLOYED_PENDING_OWNER_SMOKE |

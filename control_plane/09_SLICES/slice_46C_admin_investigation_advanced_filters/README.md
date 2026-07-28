@@ -1,6 +1,6 @@
 # Slice 46C - Admin Investigation Advanced Filters
 
-Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
+Estado: STAGING_DEPLOYED_PENDING_OWNER_SMOKE
 
 ## Objetivo
 

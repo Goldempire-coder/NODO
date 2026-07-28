@@ -1,6 +1,6 @@
 # slice_45_business_available_capacity_matching
 
-Estado contractual: `LOCAL_VALIDATED_READY_FOR_OWNER_REVIEW`
+Estado contractual: `STAGING_SCHEMA_APPLIED_PENDING_OWNER_SMOKE`
 
 ## Objetivo
 
@@ -24,6 +24,7 @@ Sin esta separacion, el marketplace puede mostrar negocios que no pueden cumplir
 
 - `PLAN_READY_FOR_OWNER_REVIEW`
 - `LOCAL_VALIDATED_READY_FOR_OWNER_REVIEW` cuando pase pruebas locales sin deploy
+- `STAGING_SCHEMA_APPLIED_PENDING_OWNER_SMOKE` cuando migracion y schema existan en staging, pero falte smoke funcional
 - `BLOCKED_BY_EXPLICIT_EVIDENCE`
 
 ## Resultado no permitido
@@ -48,10 +49,8 @@ Sin esta separacion, el marketplace puede mostrar negocios que no pueden cumplir
 - No habilita multiples ordenes simultaneas sobre el mismo anuncio.
 - No cambia creditos de publicacion ni lifecycle de anuncios mas alla de validar capacidad al crear orden.
 - No modifica pagos, USDC, Zelle ni Base.
-- No despliega.
 - No cambia produccion.
-- No ejecuta la migracion en staging.
-- No declara uso real.
+- No declara uso real ni flujo validado por el Owner.
 
 ## Decisiones iniciales
 
@@ -61,6 +60,13 @@ Sin esta separacion, el marketplace puede mostrar negocios que no pueden cumplir
 4. El cliente no puede confiar solo en lo que vio en pantalla; crear orden revalida todo en servidor.
 5. El publico no necesita ver el monto exacto disponible salvo que el Owner lo apruebe. El sistema puede mostrar "Disponible para tu monto".
 6. Admin si debe ver declarado, reservado y restante para poder operar soporte.
+
+## Reconciliacion 2026-07-28
+
+Staging reporto `0035_business_available_capacity_matching.up.sql` aplicado y
+sin migraciones pendientes. El codigo del slice esta incluido en el backend
+staging actual, pero falta smoke funcional Cliente/Negocio/Admin antes de mover
+pantallas o declarar el flujo validado.
 
 ## Decision arquitectonica vigente
 

@@ -1,6 +1,6 @@
 # Slice 46C API Contract
 
-Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
+Estado: STAGING_DEPLOYED_PENDING_OWNER_SMOKE
 
 ## GET /api/v1/admin/investigation/order-candidates
 
