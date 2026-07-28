@@ -235,6 +235,37 @@ Rules:
   mensajes, `storage_path`, signed URLs, PIN, tokens, wallets completas o datos
   bancarios completos.
 
+## Slice 46C investigation advanced filters
+
+`GET /api/v1/admin/investigation/order-candidates`
+
+Query:
+
+- `client_hint=<string>` opcional.
+- `business_hint=<string>` opcional.
+- `amount_min_usd=<decimal>` opcional.
+- `amount_max_usd=<decimal>` opcional.
+- `created_from=<iso timestamp>` opcional.
+- `created_to=<iso timestamp>` opcional.
+- `order_status=<status>` opcional.
+- `support_status_group=active|archived|all`
+- `limit=1..25`
+
+Rules:
+
+- Requiere al menos dos filtros fuertes para evitar busquedas amplias.
+- La ventana de fecha maxima del MVP es 31 dias.
+- Solo lectura; no cambia estados ni concluye fraude, culpa, pago valido o
+  recuperacion.
+- Cada candidato devuelve ruta a ficha 46B.
+- `signals` solo contiene razones deterministicas allowlist.
+- No busca cuerpos de mensajes ni metadata libre.
+- No devuelve datos bancarios completos, wallets completas, `storage_path`,
+  signed URLs, `file_asset_id`, tokens, `risk_level`, `trust_level`,
+  `severity_hint` ni `suggested_next_step`.
+- Respuesta `Cache-Control: private, no-store`.
+- Audit obligatorio: `admin_investigation_candidates_searched`.
+
 Campos prohibidos en respuestas admin salvo endpoint de signed URL autorizado:
 
 - `storage_path`
