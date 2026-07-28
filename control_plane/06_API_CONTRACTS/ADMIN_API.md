@@ -249,12 +249,22 @@ Query:
 - `created_to=<iso timestamp>` opcional.
 - `order_status=<status>` opcional.
 - `support_status_group=active|archived|all`
+- `cursor=<opaque>` opcional.
 - `limit=1..25`
 
 Rules:
 
 - Requiere al menos dos filtros fuertes para evitar busquedas amplias.
+- Los filtros se combinan con `AND`.
+- Rango de monto y ventana de fecha deben venir como pares completos o no venir.
 - La ventana de fecha maxima del MVP es 31 dias.
+- `support_status_group=active|archived` exige un ticket relacionado de ese
+  grupo y filtra candidatos antes de `LIMIT`.
+- Paginacion por cursor opaco firmado y ligado a filtros, rol y alcance.
+- Cursor alterado o reutilizado con otros filtros responde
+  `ADMIN_INVESTIGATION_CURSOR_INVALID`.
+- Orden deterministico: `created_at DESC`, `order_id DESC`. No hay score
+  oculto.
 - Solo lectura; no cambia estados ni concluye fraude, culpa, pago valido o
   recuperacion.
 - Cada candidato devuelve ruta a ficha 46B.
@@ -265,6 +275,11 @@ Rules:
   `severity_hint` ni `suggested_next_step`.
 - Respuesta `Cache-Control: private, no-store`.
 - Audit obligatorio: `admin_investigation_candidates_searched`.
+- `support` activo requiere `view_orders_masked` o alcance vigente sobre tickets
+  relacionados. Su filtro de alcance se aplica antes de ordenar y limitar.
+- `client_hint` y `business_hint` no se guardan crudos en audit/logs de app. Al
+  ser query params, no deben usarse para cuerpos de mensajes, bancos completos,
+  wallets, PIN, tokens o datos de pago completos.
 
 Campos prohibidos en respuestas admin salvo endpoint de signed URL autorizado:
 

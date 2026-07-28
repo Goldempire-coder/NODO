@@ -31,7 +31,7 @@ Entrada:
 Resultado:
 
 - devuelve candidatos dentro del rango;
-- ordena por fecha reciente;
+- ordena por fecha reciente con desempate por `order_id`;
 - indica `amount_in_range` y `created_in_window`.
 
 ### Negocio Dice Que No Reconoce Pago
@@ -69,11 +69,54 @@ Resultado:
 
 - responde `ADMIN_INVESTIGATION_DATE_RANGE_INVALID`.
 
+### Rangos Incompletos
+
+Entrada:
+
+- solo `amount_min_usd`;
+- o solo `created_from`.
+
+Resultado:
+
+- responde `ADMIN_INVESTIGATION_AMOUNT_RANGE_INVALID` o
+  `ADMIN_INVESTIGATION_DATE_RANGE_INVALID`;
+- no ejecuta busqueda amplia.
+
+### Estado De Soporte Filtra Candidatos
+
+Entrada:
+
+- filtros suficientes de orden;
+- `support_status_group=archived`.
+
+Resultado:
+
+- devuelve solo ordenes con al menos un ticket relacionado `resolved` o
+  `closed`;
+- no devuelve ordenes con tickets solamente activos;
+- el filtro ocurre antes de `LIMIT`.
+
+### Paginacion Segura
+
+Entrada:
+
+- busqueda valida con mas de 25 candidatos.
+
+Resultado:
+
+- devuelve `next_cursor` opaco;
+- la pagina siguiente conserva filtros y orden;
+- cursor alterado responde `ADMIN_INVESTIGATION_CURSOR_INVALID`;
+- cursor reutilizado con otros filtros o rol responde
+  `ADMIN_INVESTIGATION_CURSOR_INVALID`.
+
 ## Pruebas De Seguridad
 
 - Cliente, negocio y usuario sin sesion reciben rechazo.
 - Support sin permisos recibe rechazo o resultados no visibles.
 - Support con permisos recibe solo campos enmascarados.
+- Support con permisos limitados no recibe ordenes fuera de cola/asignacion,
+  incluso cuando hay mas de 25 coincidencias antes del filtro de alcance.
 - La respuesta no contiene:
   - cuerpos de mensajes;
   - `storage_path`;
@@ -87,6 +130,7 @@ Resultado:
   - `severity_hint`;
   - `suggested_next_step`.
 - Audit no guarda hints crudos.
+- Cursor no contiene hints crudos.
 - La respuesta usa `Cache-Control: private, no-store`.
 
 ## Pruebas De UX

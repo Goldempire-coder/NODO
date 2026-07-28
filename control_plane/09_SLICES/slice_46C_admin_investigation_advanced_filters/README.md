@@ -40,7 +40,7 @@ Admin Web debe mostrar una vista de filtros compacta:
 - estado de soporte;
 - boton para abrir ficha 46B del candidato.
 
-El resultado debe ordenar candidatos por cercania factual, no por juicio:
+El resultado debe devolver candidatos con razones factuales, no por juicio:
 
 - monto dentro del rango;
 - fecha dentro de la ventana;
@@ -48,6 +48,10 @@ El resultado debe ordenar candidatos por cercania factual, no por juicio:
 - negocio relacionado;
 - ticket relacionado;
 - reporte de pago existente.
+
+El orden inicial del MVP es deterministico y simple: ordenes mas recientes
+primero (`created_at DESC`, `order_id DESC`). No hay `score` oculto, ranking de
+riesgo ni conclusion automatica.
 
 No debe declarar culpa, fraude, pago valido ni recuperacion.
 
@@ -81,6 +85,11 @@ reglas de costo distintas.
 - Admin puede buscar candidatos por cliente + monto + fecha.
 - Admin puede buscar candidatos por negocio + fecha.
 - Si faltan filtros suficientes, el backend rechaza la busqueda.
+- Rangos de monto y fecha son pares completos; no se acepta un solo extremo.
+- `support_status_group=active|archived` filtra candidatos, no solo contadores.
+- Support activo ve solo lo que sus permisos y alcance permiten, aplicado antes
+  del limite de resultados.
+- Cursores son opacos, firmados y no reutilizables con otros filtros.
 - La respuesta no contiene cuerpos de mensajes ni datos de pago completos.
 - Cada candidato tiene ruta para abrir ficha 46B.
 - La pantalla es compacta, scrollable y no bloquea el resto del dashboard.

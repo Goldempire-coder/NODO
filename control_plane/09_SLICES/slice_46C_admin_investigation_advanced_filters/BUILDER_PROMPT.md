@@ -14,7 +14,9 @@ Usa estos skills antes de trabajar:
 ## Modo
 
 Primero inspecciona y entrega plan. No modifiques archivos hasta recibir
-aprobacion del Owner.
+aprobacion del Owner. Si ya recibiste aprobacion de implementacion en un turno
+posterior, confirma que los contratos incluyen cursor, rangos completos, RBAC de
+support y orden deterministico antes de tocar codigo.
 
 ## Autoridad
 
@@ -68,9 +70,27 @@ Devuelve:
 
 ## Reglas
 
+- Todos los filtros se combinan con `AND`.
+- Rechaza rangos incompletos: `amount_min_usd`/`amount_max_usd` deben venir
+  juntos, igual que `created_from`/`created_to`.
+- `support_status_group=active|archived` filtra candidatos antes de
+  `ORDER BY`, cursor y `LIMIT`; no es solo un contador.
+- Orden inicial: `created_at DESC`, `order_id DESC`. No inventes score.
+- Cursor opaco firmado y ligado al fingerprint de filtros, rol y alcance. Cursor
+  alterado, vencido o reutilizado con otros filtros responde
+  `ADMIN_INVESTIGATION_CURSOR_INVALID`.
+- Support no se autoriza por `user.role` solamente:
+  - support activo con `view_orders_masked` puede ver candidatos enmascarados;
+  - support activo sin `view_orders_masked` solo ve ordenes ligadas a tickets
+    dentro de su cola visible o asignacion vigente;
+  - support sin permiso aplicable recibe `FORBIDDEN`;
+  - el filtro de alcance de support va antes de `LIMIT`.
 - No buscar cuerpos de mensajes.
 - No exponer datos bancarios completos.
 - No exponer storage paths, signed URLs ni file IDs internos.
+- No guardar `client_hint` ni `business_hint` crudos en audit, logs de app o
+  telemetria. Como son query params, la UI no debe pedir bancos completos,
+  wallets, PIN, tokens ni cuerpos de mensajes.
 - No crear migracion sin evidencia y aprobacion.
 - No tocar pagos, creditos, USDC, Zelle, bots, reputacion ni capacidad.
 - No hacer deploy.

@@ -39,8 +39,11 @@ juez automatico ni en exportador de datos privados.
 
 - Requiere autenticacion Admin.
 - Requiere filtros suficientes.
+- Rechaza rangos incompletos de monto o fecha.
 - Limita ventana de fecha.
 - Limita resultados.
+- Ordena de forma deterministica por fecha e ID, sin score oculto.
+- Usa cursor opaco firmado ligado a filtros, rol y alcance.
 - Rate limit por actor.
 - `Cache-Control: private, no-store`.
 - Audit log obligatorio.
@@ -52,6 +55,24 @@ juez automatico ni en exportador de datos privados.
 si sus permisos vigentes lo permiten. La respuesta debe permanecer enmascarada
 y de solo lectura.
 
+Reglas minimas:
+
+- `support` activo con `view_orders_masked` puede buscar candidatos enmascarados.
+- `support` activo sin `view_orders_masked` solo puede ver ordenes ligadas a
+  tickets dentro de su cola visible o asignacion vigente.
+- Los filtros de alcance de `support` se aplican antes de `ORDER BY`, cursor y
+  `LIMIT`.
+- `support` sin permiso aplicable recibe `FORBIDDEN`.
+
+## Hints En Query String
+
+`client_hint` y `business_hint` no se guardan crudos en audit, logs de app ni
+telemetria. El operador no debe pegar cuerpos de mensajes, bancos completos,
+wallets, PIN, tokens ni datos de pago completos en estos campos. Como son query
+params de `GET`, pueden aparecer en logs de infraestructura fuera del control
+del backend; si el flujo exige pistas sensibles, debe abrirse un slice nuevo
+para evaluar un endpoint `POST` con cuerpo protegido.
+
 ## Evidencia Insuficiente
 
 - Captura visual sin request id.
@@ -59,3 +80,5 @@ y de solo lectura.
 - Test que busca solo por un filtro amplio.
 - Test que no verifica actor `support`.
 - Test que no prueba rangos invalidos.
+- Test que no prueba cursor alterado o reutilizado con otros filtros.
+- Test donde el alcance de `support` se filtra despues del `LIMIT`.

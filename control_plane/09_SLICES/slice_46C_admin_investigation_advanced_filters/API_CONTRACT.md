@@ -18,6 +18,7 @@ Query:
 - `created_to`: timestamp ISO opcional.
 - `order_status`: enum opcional.
 - `support_status_group`: `active|archived|all`, default `all`.
+- `cursor`: cursor opaco opcional devuelto por una pagina anterior.
 - `limit`: entero 1 a 25, default 10.
 
 ## Regla De Filtros Minimos
@@ -31,6 +32,10 @@ menos dos filtros fuertes:
 - ventana de fecha valida;
 - `order_status`.
 
+Todos los filtros se combinan con `AND`. El backend no debe buscar por
+coincidencia amplia y luego recortar con permisos o limite; permisos, filtros,
+ordenamiento y paginacion se aplican antes de devolver candidatos.
+
 Si solo existe un filtro fuerte, responder:
 
 - `ADMIN_INVESTIGATION_FILTER_REQUIRED`
@@ -40,7 +45,21 @@ aprobacion posterior en otro slice. En este MVP se rechaza:
 
 - `ADMIN_INVESTIGATION_DATE_RANGE_INVALID`
 
-Los montos deben ser positivos y `amount_min_usd <= amount_max_usd`.
+Los rangos son pares cerrados:
+
+- `amount_min_usd` y `amount_max_usd` deben venir juntos o no venir.
+- `created_from` y `created_to` deben venir juntos o no venir.
+- Los montos deben ser positivos y `amount_min_usd <= amount_max_usd`.
+- Un rango incompleto o invalido responde
+  `ADMIN_INVESTIGATION_AMOUNT_RANGE_INVALID` o
+  `ADMIN_INVESTIGATION_DATE_RANGE_INVALID`, segun corresponda.
+
+`support_status_group` filtra candidatos cuando su valor no es `all`:
+
+- `active` exige al menos un ticket relacionado en `open`, `waiting_support`,
+  `waiting_user` o `escalated`.
+- `archived` exige al menos un ticket relacionado en `resolved` o `closed`.
+- `all` no filtra por estado de soporte, pero puede devolver conteo.
 
 ## Respuesta
 
@@ -103,19 +122,29 @@ Los montos deben ser positivos y `amount_min_usd <= amount_max_usd`.
 
 ## Paginacion Y Costo
 
-- Cursor opaco.
+- Cursor opaco, firmado y ligado al fingerprint de filtros, rol y alcance de
+  visibilidad.
+- El cursor no guarda hints crudos.
+- Reutilizar un cursor con otros filtros, otro actor, otro rol o cursor
+  alterado responde `ADMIN_INVESTIGATION_CURSOR_INVALID`.
 - Filtros se aplican antes de `LIMIT`.
 - `limit` maximo 25.
 - No offset.
 - No full-text sobre mensajes.
+- Orden deterministico inicial: `created_at DESC`, `order_id DESC`. No existe
+  `score` oculto ni ordenamiento por juicio subjetivo.
 - Si el repositorio necesita indice nuevo, Builder debe proponerlo como
   migracion separada con evidencia `EXPLAIN`.
 
 ## Roles
 
 - `admin` y `super_admin`: pueden buscar candidatos con campos allowlist.
-- `support` activo: solo cuando tenga permisos de soporte/orden enmascarada
-  vigentes. Debe recibir campos enmascarados y solo lectura.
+- `support` activo con `view_orders_masked`: puede buscar candidatos de orden
+  con campos enmascarados y solo lectura.
+- `support` activo sin `view_orders_masked`: solo puede ver ordenes ligadas a
+  tickets dentro de su alcance actual de soporte, por ejemplo cola visible o
+  tickets asignados. Este filtro de alcance se aplica antes de `LIMIT`.
+- `support` sin permiso aplicable: `FORBIDDEN`.
 - Cliente, negocio y actor sin sesion: rechazo.
 
 ## Auditoria
@@ -151,9 +180,21 @@ Metadata prohibida:
 - `ADMIN_INVESTIGATION_FILTER_REQUIRED`: faltan filtros suficientes.
 - `ADMIN_INVESTIGATION_DATE_RANGE_INVALID`: ventana invalida o demasiado amplia.
 - `ADMIN_INVESTIGATION_AMOUNT_RANGE_INVALID`: montos invalidos.
+- `ADMIN_INVESTIGATION_CURSOR_INVALID`: cursor alterado, vencido, incompatible
+  con filtros o fuera del alcance del actor.
 - `FORBIDDEN`: actor sin permiso.
 - `RATE_LIMITED`: exceso de busqueda.
 
 ## Cache
 
 - `Cache-Control: private, no-store`
+
+## Nota De Privacidad Sobre GET
+
+`client_hint` y `business_hint` no deben guardarse crudos en audit, logs de app
+ni telemetria. Aun asi, al estar en query string pueden aparecer en logs de
+infraestructura ajenos al backend. La UI debe orientar al operador a usar
+pistas minimas como telefono parcial, nombre parcial, codigo publico, fecha y
+monto; nunca cuerpos de mensajes, banco completo, wallet, PIN, token ni datos
+de pago completos. Si el uso real exige datos mas sensibles, debe abrirse otro
+slice para evaluar `POST` con cuerpo protegido.
