@@ -148,6 +148,143 @@ export type AdminInvestigationSearchResponse = {
   disclaimer: string;
 };
 
+export type AdminInvestigationCaseFileSectionName =
+  | "orders"
+  | "support_tickets"
+  | "business_intakes"
+  | "evidence"
+  | "timeline";
+
+export type AdminInvestigationCaseFilePage<T> = {
+  status: "ok" | "not_requested" | "partial_error" | "error";
+  items: T[];
+  truncated: boolean;
+  next_cursor?: string | null;
+  total_count?: number | null;
+  error?: { code: string; message: string } | null;
+};
+
+export type AdminInvestigationCaseFile = {
+  anchor: {
+    type: AdminInvestigationResultType;
+    id: string;
+    title: string;
+    status?: string | null;
+    action_route: string;
+  };
+  summary: {
+    case_title: string;
+    anchor_reason: string;
+    last_activity_at?: string | null;
+    counts: {
+      orders: number;
+      support_tickets: number;
+      business_intakes: number;
+      timeline_events?: number | null;
+    };
+  };
+  participants: {
+    client?: {
+      user_id: string;
+      display_name: string;
+      telegram_hint?: string | null;
+      action_route: string;
+    } | null;
+    business?: {
+      business_id: string;
+      name: string;
+      status: string;
+      action_route: string;
+    } | null;
+    business_owner?: {
+      user_id: string;
+      telegram_hint?: string | null;
+      action_route: string;
+    } | null;
+  };
+  orders: AdminInvestigationCaseFilePage<{
+    id: string;
+    public_order_code: string;
+    status: string;
+    business_id: string;
+    remitter_user_id: string;
+    amount_usd: string;
+    created_at: string;
+    updated_at: string;
+    action_route: string;
+  }>;
+  support_tickets: AdminInvestigationCaseFilePage<{
+    id: string;
+    status: string;
+    scope: string;
+    category: string;
+    priority: string;
+    requester_user_id: string;
+    business_id?: string | null;
+    order_id?: string | null;
+    created_at: string;
+    updated_at: string;
+    action_route: string;
+  }>;
+  business_intakes: AdminInvestigationCaseFilePage<{
+    id: string;
+    status: string;
+    referral_code?: string | null;
+    business_name?: string | null;
+    city?: string | null;
+    created_business_id?: string | null;
+    created_at: string;
+    submitted_at?: string | null;
+    reviewed_at?: string | null;
+    action_route: string;
+  }>;
+  evidence: {
+    status: "ok" | "not_requested" | "partial_error" | "error";
+    payment_report_present: boolean;
+    chat_evidence_available: boolean;
+    chat_action_routes: string[];
+    documents: Array<{
+      document_type: string;
+      mime_type: string;
+      size_bytes: number;
+      created_at: string;
+      download_available: boolean;
+      action_route: string;
+    }>;
+    attachments: Array<{
+      attachment_type: string;
+      mime_type: string;
+      size_bytes: number;
+      created_at: string;
+      download_available: boolean;
+      action_route: string;
+    }>;
+    truncated: boolean;
+    next_cursor?: string | null;
+    total_count?: number | null;
+    error?: { code: string; message: string } | null;
+  };
+  timeline: AdminInvestigationCaseFilePage<{
+    id: string;
+    event_type: string;
+    label: string;
+    entity_type: string;
+    entity_id: string;
+    from_status?: string | null;
+    to_status?: string | null;
+    created_at: string;
+    action_route: string;
+  }>;
+  review_checklist: Array<{
+    code: string;
+    label: string;
+    status: "present" | "missing" | "not_checked" | "not_authorized";
+    action_route?: string | null;
+  }>;
+  warnings: Array<{ code: string; section?: string; message: string }>;
+  disclaimer: string;
+};
+
 export type AdminDashboard = {
   emergency_mode?: AdminEmergencyMode;
   queues: {

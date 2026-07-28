@@ -636,6 +636,99 @@
   color: var(--admin-muted);
 }
 
+.admin-web-investigation-result__actions,
+.admin-case-file-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-case-file {
+  display: grid;
+  gap: 16px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+}
+
+.admin-case-file-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-case-file-summary > div,
+.admin-case-file-participants > div {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: rgb(7 12 26 / 56%);
+  padding: 10px;
+}
+
+.admin-case-file-summary span,
+.admin-case-file-participants span,
+.admin-case-file-row span,
+.admin-case-file-evidence span {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.admin-case-file-section {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--admin-line);
+  padding-top: 14px;
+}
+
+.admin-case-file-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-case-file-section__header h3,
+.admin-case-file-section h3 {
+  margin: 0;
+}
+
+.admin-case-file-participants {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-case-file-list,
+.admin-case-file-checklist,
+.admin-case-file-evidence {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-case-file-row,
+.admin-case-file-checklist > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgb(255 255 255 / 7%);
+  padding: 8px 0;
+}
+
+.admin-case-file-row > div {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-case-file-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--admin-warning);
+}
+
 .admin-web-table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -1430,6 +1523,15 @@
   .admin-web-investigation-result,
   .admin-web-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-case-file-summary,
+  .admin-case-file-participants {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-case-file {
+    max-height: none;
   }
 
   .admin-web-panel.span-2 {

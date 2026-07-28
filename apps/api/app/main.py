@@ -14,6 +14,10 @@ from app.core.errors import ApiError, api_error_response
 from app.core.logging import configure_logging, get_logger
 from app.modules.admin_notifications import AdminNotificationService, InMemoryAdminNotificationRepository, PostgresAdminNotificationRepository
 from app.modules.admin_notifications.routes import router as admin_notifications_router
+from app.modules.admin.investigation_case_file_repository import (
+    InMemoryAdminInvestigationCaseFileRepository,
+    PostgresAdminInvestigationCaseFileRepository,
+)
 from app.modules.admin.repository import InMemoryAdminRepository, PostgresAdminRepository
 from app.modules.admin.routes import router as admin_router
 from app.modules.ads.repository import InMemoryAdRepository, PostgresAdRepository
@@ -235,6 +239,14 @@ def _configure_test_state(app: FastAPI) -> None:
         business_intake=app.state.business_intake_repository,
         support=app.state.support_repository,
     )
+    app.state.admin_case_file_repository = InMemoryAdminInvestigationCaseFileRepository(
+        users=app.state.user_repository,
+        businesses=app.state.business_repository,
+        business_intake=app.state.business_intake_repository,
+        orders=app.state.order_repository,
+        support=app.state.support_repository,
+        chat=app.state.chat_repository,
+    )
     app.state.rate_limiter = InMemoryRateLimiter()
     app.state.marketplace_rate_limiter = InMemoryRateLimiter()
     app.state.idempotency_store = InMemoryIdempotencyStore()
@@ -269,6 +281,7 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)
     app.state.staff_repository = PostgresStaffRepository(settings.database_url)
     app.state.admin_repository = PostgresAdminRepository(settings.database_url)
+    app.state.admin_case_file_repository = PostgresAdminInvestigationCaseFileRepository(settings.database_url)
     try:
         warm_pool(settings.database_url, size=int(os.environ.get("NODO_DB_POOL_WARM_SIZE", "8")))
         logger.info(

@@ -8,6 +8,7 @@ import { CreditAdjustments, CreditDetail, CreditPurchases } from "./AdminCreditS
 import { DisputeDetail, Disputes, OrderDetail, Orders } from "./AdminOrderDisputeScreens";
 import { Dashboard, IncidentConsole, Jobs, Metrics, UXFriction } from "./AdminOverviewScreens";
 import { InvestigationSearch } from "./AdminInvestigationScreens";
+import { AdminInvestigationCaseFileScreen } from "./AdminInvestigationCaseFileScreen";
 import { SupportTickets } from "./AdminSupportScreens";
 import { StaffCenter, StaffDetail, StaffInvite } from "./AdminStaffScreens";
 import { UserDetail, Users } from "./AdminUserScreens";
@@ -29,6 +30,7 @@ export function AdminWebScreens({ model }: { model: AdminWebModel }) {
       {model.view === "ux-friction" ? <UXFriction model={model} /> : null}
       {model.view === "metrics" ? <Metrics model={model} /> : null}
       {model.view === "investigation" ? <InvestigationSearch model={model} /> : null}
+      {model.view === "case-file" ? <AdminInvestigationCaseFileScreen model={model} /> : null}
       {model.view === "businesses" ? <Businesses model={model} /> : null}
       {model.view === "business-detail" ? <BusinessDetail model={model} /> : null}
       {model.view === "users" ? <Users model={model} /> : null}

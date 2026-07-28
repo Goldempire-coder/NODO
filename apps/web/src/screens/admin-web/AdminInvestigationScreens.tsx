@@ -25,7 +25,10 @@ function ResultCard({ item, model }: { item: AdminInvestigationSearchItem; model
           {item.created_at ? ` - ${dateText(item.created_at)}` : ""}
         </small>
       </div>
-      <button type="button" onClick={() => void model.openInvestigationResult(item)}>Abrir</button>
+      <div className="admin-web-investigation-result__actions">
+        <button type="button" onClick={() => void model.openInvestigationResult(item)}>Abrir</button>
+        <button type="button" onClick={() => void model.openInvestigationCaseFile(item)}>Investigar</button>
+      </div>
     </article>
   );
 }

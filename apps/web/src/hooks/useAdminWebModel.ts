@@ -15,6 +15,7 @@ import { useAdminSupportModel } from "./admin-web/useAdminSupportModel";
 import { useAdminStaffModel } from "./admin-web/useAdminStaffModel";
 import { useAdminNotificationsModel } from "./admin-web/useAdminNotificationsModel";
 import { useAdminInvestigationModel } from "./admin-web/useAdminInvestigationModel";
+import { useAdminInvestigationCaseFileModel } from "./admin-web/useAdminInvestigationCaseFileModel";
 import type { PublicUser } from "../types/auth";
 
 const ADMIN_BACKGROUND_REFRESH_MS = 15000;
@@ -122,6 +123,19 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setReason: criticalAction.setReason
   });
 
+  const investigationCaseFile = useAdminInvestigationCaseFileModel({
+    request,
+    setNotice,
+    setView,
+    handlers: {
+      openUser: users.openUser,
+      openBusiness: businessIntake.openBusiness,
+      openBusinessIntake: businessIntake.openBusinessIntake,
+      openOrder: ordersDisputes.openOrder,
+      openSupportTicket: support.openSupportTicket
+    }
+  });
+
   const investigation = useAdminInvestigationModel({
     request,
     setBusy,
@@ -132,7 +146,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       openBusiness: businessIntake.openBusiness,
       openBusinessIntake: businessIntake.openBusinessIntake,
       openOrder: ordersDisputes.openOrder,
-      openSupportTicket: support.openSupportTicket
+      openSupportTicket: support.openSupportTicket,
+      openCaseFile: investigationCaseFile.openCaseFile
     }
   });
 
@@ -230,6 +245,9 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setInvestigationQuery: investigation.setInvestigationQuery,
     investigationResults: investigation.investigationResults,
     investigationSearched: investigation.investigationSearched,
+    caseFile: investigationCaseFile.caseFile,
+    caseFileLoading: investigationCaseFile.caseFileLoading,
+    caseFileSectionLoading: investigationCaseFile.caseFileSectionLoading,
     businesses: businessIntake.businesses,
     selectedBusiness: businessIntake.selectedBusiness,
     businessAccessLinks: businessIntake.businessAccessLinks,
@@ -317,6 +335,9 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     loadMetrics: overview.loadMetrics,
     searchInvestigation: investigation.searchInvestigation,
     openInvestigationResult: investigation.openInvestigationResult,
+    openInvestigationCaseFile: investigation.openInvestigationCaseFile,
+    loadCaseFileSection: investigationCaseFile.loadCaseFileSection,
+    openCaseFileRoute: investigationCaseFile.openCaseFileRoute,
     loadBusinesses: businessIntake.loadBusinesses,
     loadPendingBusinesses: businessIntake.loadPendingBusinesses,
     openBusiness: businessIntake.openBusiness,

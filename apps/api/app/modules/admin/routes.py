@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import Field
 
 from app.auth.dependencies import require_current_user
+from app.modules.admin.investigation_case_file import AdminInvestigationCaseFileService
 from app.modules.admin.order_chat_evidence import AdminOrderChatEvidenceService
 from app.modules.admin.service import AdminService
 from app.modules.users.models import UserRecord
@@ -44,6 +45,16 @@ def _order_chat_evidence_service(request: Request) -> AdminOrderChatEvidenceServ
         settings=request.app.state.settings,
         order_repository=request.app.state.order_repository,
         chat_repository=request.app.state.chat_repository,
+        audit_writer=request.app.state.audit_writer,
+        rate_limiter=request.app.state.rate_limiter,
+    )
+
+
+def _investigation_case_file_service(request: Request) -> AdminInvestigationCaseFileService:
+    return AdminInvestigationCaseFileService(
+        settings=request.app.state.settings,
+        repository=request.app.state.admin_case_file_repository,
+        staff_repository=request.app.state.staff_repository,
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,
     )
@@ -130,6 +141,34 @@ def operational_search(
     response.headers["Cache-Control"] = "private, no-store"
     return {
         "data": _service(request).operational_search(user=user, query=q, limit=limit, request_id=_request_id(request)),
+        "request_id": _request_id(request),
+    }
+
+
+@router.get("/investigation/case-file")
+def investigation_case_file(
+    request: Request,
+    response: Response,
+    anchor_type: str = Query(min_length=1, max_length=32),
+    anchor_id: str = Query(min_length=1, max_length=64),
+    section: str = Query(default="all", min_length=1, max_length=32),
+    cursor: str | None = Query(default=None, max_length=2048),
+    limit: int = Query(default=25, ge=1, le=50),
+    include_archived: bool = Query(default=True),
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": _investigation_case_file_service(request).get_case_file(
+            user=user,
+            anchor_type=anchor_type,
+            anchor_id=anchor_id,
+            section=section,
+            cursor=cursor,
+            limit=limit,
+            include_archived=include_archived,
+            request_id=_request_id(request),
+        ),
         "request_id": _request_id(request),
     }
 

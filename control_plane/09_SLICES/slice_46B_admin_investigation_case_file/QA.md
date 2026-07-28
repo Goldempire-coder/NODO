@@ -1,6 +1,6 @@
 # Slice 46B QA
 
-Estado: DRAFT
+Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
 
 ## Casos Obligatorios
 
@@ -126,7 +126,10 @@ Resultado:
 Builder debe proponer comandos exactos tras el mapeo. Base esperada:
 
 ```powershell
+python -m pytest apps/api/tests/test_admin_investigation_case_file.py -q --tb=short
 python -m pytest apps/api/tests/test_admin_console.py -q --tb=short
+python -m pytest apps/api/tests/test_admin_order_chat_evidence.py -q --tb=short
+python -m pytest apps/api/tests/test_support_ticket_center.py -q --tb=short
 python -m pytest apps/api/tests/test_admin_operational_search.py -q --tb=short
 python -m pytest apps/api/tests -q
 python -m ruff check apps/api scripts

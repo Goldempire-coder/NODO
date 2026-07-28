@@ -1,6 +1,6 @@
 # Slice 46B - Admin Investigation Case File
 
-Estado: DRAFT
+Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
 
 ## Objetivo
 

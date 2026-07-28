@@ -200,6 +200,41 @@ Rules:
 - Prohibido devolver cuerpos de chat, signed URLs, `storage_path`,
   `file_asset_id`, tokens, secretos o datos bancarios completos.
 
+## Slice 46B investigation case file
+
+`GET /api/v1/admin/investigation/case-file`
+
+Query:
+
+- `anchor_type=user|business|business_intake|order|support_ticket`
+- `anchor_id=<uuid>`
+- `section=all|orders|support_tickets|business_intakes|evidence|timeline`
+- `cursor=<opaque>` solo para una seccion concreta
+- `limit=1..50`
+- `include_archived=true|false`
+
+Rules:
+
+- `admin` y `super_admin` reciben la ficha allowlist completa.
+- `support` activo solo recibe entidades permitidas por sus permisos vigentes.
+- Un anchor no visible para `support` responde `404`.
+- Solo lectura; no cambia estados ni concluye fraude, culpa, pago valido o
+  recuperacion.
+- Paginacion por seccion. El cursor esta firmado y ligado al anchor, seccion y
+  filtro `include_archived`.
+- Un fallo parcial devuelve error seguro en esa seccion y conserva las demas.
+- Timeline allowlist sin cuerpos, razones privadas ni `metadata_json` crudo.
+- Documentos y adjuntos son solo metadata segura y no incluyen descarga
+  automatica.
+- El chat completo se abre explicitamente mediante
+  `GET /api/v1/admin/orders/{order_id}/chat-evidence`; nunca se incrusta en la
+  ficha inicial.
+- Respuesta `Cache-Control: private, no-store`.
+- Audit obligatorio: `admin_investigation_case_file_viewed`.
+- Prohibido devolver `severity_hint`, `suggested_next_step`, cuerpos de
+  mensajes, `storage_path`, signed URLs, PIN, tokens, wallets completas o datos
+  bancarios completos.
+
 Campos prohibidos en respuestas admin salvo endpoint de signed URL autorizado:
 
 - `storage_path`

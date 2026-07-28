@@ -23,6 +23,7 @@ type InvestigationHandlers = {
   openBusinessIntake: (id: string) => Promise<void>;
   openOrder: (id: string) => Promise<void>;
   openSupportTicket: (id: string) => Promise<void>;
+  openCaseFile: (item: AdminInvestigationSearchItem) => Promise<void>;
 };
 
 export function useAdminInvestigationModel({
@@ -93,6 +94,7 @@ export function useAdminInvestigationModel({
     investigationResults,
     investigationSearched,
     searchInvestigation,
-    openInvestigationResult
+    openInvestigationResult,
+    openInvestigationCaseFile: handlers.openCaseFile
   };
 }

@@ -1,6 +1,6 @@
 # Slice 46B Security Contract
 
-Estado: DRAFT
+Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
 
 ## Principio
 

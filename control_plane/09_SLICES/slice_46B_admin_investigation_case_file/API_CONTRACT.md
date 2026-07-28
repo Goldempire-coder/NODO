@@ -1,6 +1,6 @@
 # Slice 46B API Contract
 
-Estado: DRAFT
+Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
 
 Builder debe mapear primero si este contrato ya puede componerse con endpoints
 existentes. Si no, la opcion recomendada es crear endpoint dedicado:
@@ -93,9 +93,18 @@ Query:
       "chat_evidence_available": false,
       "documents": [],
       "attachments": [],
+      "truncated": false,
+      "next_cursor": null,
+      "total_count": 0,
       "error": null
     },
-    "timeline": [],
+    "timeline": {
+      "status": "ok",
+      "items": [],
+      "truncated": false,
+      "next_cursor": null,
+      "error": null
+    },
     "review_checklist": [
       {
         "code": "RELATED_ORDER_PRESENT",
@@ -214,6 +223,10 @@ Metadata prohibida:
 
 - `ADMIN_CASE_FILE_ANCHOR_INVALID`: anchor desconocido o formato invalido.
 - `ADMIN_CASE_FILE_ANCHOR_NOT_FOUND`: no existe o no es visible para Admin.
+- `ADMIN_CASE_FILE_CURSOR_INVALID`: cursor invalido, alterado o de otra
+  seccion/anchor/filtro.
+- `ADMIN_CASE_FILE_SECTION_UNAVAILABLE`: error parcial seguro dentro de una
+  seccion; no invalida las demas.
 - `FORBIDDEN`: actor sin permiso.
 - `RATE_LIMITED`: exceso de investigacion.
 

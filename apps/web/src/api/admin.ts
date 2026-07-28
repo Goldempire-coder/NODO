@@ -55,6 +55,30 @@ export function searchAdminInvestigation<T>(request: AuthenticatedRequest, query
   return request<T>(`/api/v1/admin/investigation/search?${params.toString()}`, { cache: "no-store" });
 }
 
+export function getAdminInvestigationCaseFile<T>(
+  request: AuthenticatedRequest,
+  options: {
+    anchorType: string;
+    anchorId: string;
+    section?: string;
+    cursor?: string;
+    limit?: number;
+    includeArchived?: boolean;
+  }
+) {
+  const params = new URLSearchParams({
+    anchor_type: options.anchorType,
+    anchor_id: options.anchorId,
+    section: options.section ?? "all",
+    limit: String(options.limit ?? 25),
+    include_archived: String(options.includeArchived ?? true)
+  });
+  if (options.cursor) {
+    params.set("cursor", options.cursor);
+  }
+  return request<T>(`/api/v1/admin/investigation/case-file?${params.toString()}`, { cache: "no-store" });
+}
+
 export function listAdminBusinesses<T>(request: AuthenticatedRequest, status?: string) {
   return request<T>(`/api/v1/admin/businesses?${listParams(20, "verification_status", status)}`);
 }
