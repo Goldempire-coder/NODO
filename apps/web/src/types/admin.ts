@@ -148,6 +148,51 @@ export type AdminInvestigationSearchResponse = {
   disclaimer: string;
 };
 
+export type AdminInvestigationCandidateFilters = {
+  client_hint: string;
+  business_hint: string;
+  amount_min_usd: string;
+  amount_max_usd: string;
+  created_from: string;
+  created_to: string;
+  order_status: string;
+  support_status_group: "all" | "active" | "archived";
+};
+
+export type AdminInvestigationCandidate = {
+  type: "order_candidate";
+  order_id: string;
+  public_order_code: string;
+  status: string;
+  amount_usd: string;
+  created_at: string;
+  updated_at: string;
+  business: {
+    business_id: string;
+    name: string;
+    status: string;
+    action_route: string;
+  };
+  client: {
+    user_id: string;
+    display_name: string;
+    telegram_hint?: string | null;
+    action_route: string;
+  };
+  signals: string[];
+  payment_report_present: boolean;
+  support_ticket_count: number;
+  case_file_route: string;
+  order_route: string;
+};
+
+export type AdminInvestigationCandidatesResponse = {
+  items: AdminInvestigationCandidate[];
+  next_cursor?: string | null;
+  truncated: boolean;
+  disclaimer: string;
+};
+
 export type AdminInvestigationCaseFileSectionName =
   | "orders"
   | "support_tickets"

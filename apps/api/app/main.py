@@ -18,6 +18,10 @@ from app.modules.admin.investigation_case_file_repository import (
     InMemoryAdminInvestigationCaseFileRepository,
     PostgresAdminInvestigationCaseFileRepository,
 )
+from app.modules.admin.investigation_candidates_repository import (
+    InMemoryAdminInvestigationCandidatesRepository,
+    PostgresAdminInvestigationCandidatesRepository,
+)
 from app.modules.admin.repository import InMemoryAdminRepository, PostgresAdminRepository
 from app.modules.admin.routes import router as admin_router
 from app.modules.ads.repository import InMemoryAdRepository, PostgresAdRepository
@@ -247,6 +251,12 @@ def _configure_test_state(app: FastAPI) -> None:
         support=app.state.support_repository,
         chat=app.state.chat_repository,
     )
+    app.state.admin_investigation_candidates_repository = InMemoryAdminInvestigationCandidatesRepository(
+        users=app.state.user_repository,
+        businesses=app.state.business_repository,
+        orders=app.state.order_repository,
+        support=app.state.support_repository,
+    )
     app.state.rate_limiter = InMemoryRateLimiter()
     app.state.marketplace_rate_limiter = InMemoryRateLimiter()
     app.state.idempotency_store = InMemoryIdempotencyStore()
@@ -282,6 +292,9 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.staff_repository = PostgresStaffRepository(settings.database_url)
     app.state.admin_repository = PostgresAdminRepository(settings.database_url)
     app.state.admin_case_file_repository = PostgresAdminInvestigationCaseFileRepository(settings.database_url)
+    app.state.admin_investigation_candidates_repository = PostgresAdminInvestigationCandidatesRepository(
+        settings.database_url
+    )
     try:
         warm_pool(settings.database_url, size=int(os.environ.get("NODO_DB_POOL_WARM_SIZE", "8")))
         logger.info(

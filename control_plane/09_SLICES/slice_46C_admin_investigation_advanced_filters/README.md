@@ -1,6 +1,6 @@
 # Slice 46C - Admin Investigation Advanced Filters
 
-Estado: DRAFT
+Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
 
 ## Objetivo
 

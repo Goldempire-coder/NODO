@@ -40,6 +40,9 @@ export function InvestigationSearch({ model }: { model: AdminWebModel }) {
     <section className="admin-web-panel admin-web-investigation">
       <Header title="Buscar" />
       <p className="admin-web-muted">Busca por telefono, usuario, codigo de orden, ID, nombre de negocio, codigo de referencia o ticket.</p>
+      <div>
+        <button type="button" onClick={model.openAdvancedInvestigation}>Filtros avanzados</button>
+      </div>
       <form
         className="admin-web-investigation-search"
         onSubmit={(event) => {

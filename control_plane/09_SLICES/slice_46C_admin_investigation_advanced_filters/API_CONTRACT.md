@@ -1,6 +1,6 @@
 # Slice 46C API Contract
 
-Estado: DRAFT
+Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
 
 ## GET /api/v1/admin/investigation/order-candidates
 

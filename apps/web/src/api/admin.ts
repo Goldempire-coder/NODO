@@ -55,6 +55,36 @@ export function searchAdminInvestigation<T>(request: AuthenticatedRequest, query
   return request<T>(`/api/v1/admin/investigation/search?${params.toString()}`, { cache: "no-store" });
 }
 
+export function searchAdminInvestigationCandidates<T>(
+  request: AuthenticatedRequest,
+  filters: {
+    client_hint?: string;
+    business_hint?: string;
+    amount_min_usd?: string;
+    amount_max_usd?: string;
+    created_from?: string;
+    created_to?: string;
+    order_status?: string;
+    support_status_group: "all" | "active" | "archived";
+  },
+  cursor?: string,
+  limit = 10
+) {
+  const params = new URLSearchParams({
+    support_status_group: filters.support_status_group,
+    limit: String(limit)
+  });
+  for (const [key, value] of Object.entries(filters)) {
+    if (key !== "support_status_group" && value?.trim()) {
+      params.set(key, value.trim());
+    }
+  }
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return request<T>(`/api/v1/admin/investigation/order-candidates?${params.toString()}`, { cache: "no-store" });
+}
+
 export function getAdminInvestigationCaseFile<T>(
   request: AuthenticatedRequest,
   options: {

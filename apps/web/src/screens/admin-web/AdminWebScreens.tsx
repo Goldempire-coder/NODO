@@ -9,6 +9,7 @@ import { DisputeDetail, Disputes, OrderDetail, Orders } from "./AdminOrderDisput
 import { Dashboard, IncidentConsole, Jobs, Metrics, UXFriction } from "./AdminOverviewScreens";
 import { InvestigationSearch } from "./AdminInvestigationScreens";
 import { AdminInvestigationCaseFileScreen } from "./AdminInvestigationCaseFileScreen";
+import { AdminInvestigationCandidatesScreen } from "./AdminInvestigationCandidatesScreen";
 import { SupportTickets } from "./AdminSupportScreens";
 import { StaffCenter, StaffDetail, StaffInvite } from "./AdminStaffScreens";
 import { UserDetail, Users } from "./AdminUserScreens";
@@ -30,6 +31,7 @@ export function AdminWebScreens({ model }: { model: AdminWebModel }) {
       {model.view === "ux-friction" ? <UXFriction model={model} /> : null}
       {model.view === "metrics" ? <Metrics model={model} /> : null}
       {model.view === "investigation" ? <InvestigationSearch model={model} /> : null}
+      {model.view === "investigation-candidates" ? <AdminInvestigationCandidatesScreen model={model} /> : null}
       {model.view === "case-file" ? <AdminInvestigationCaseFileScreen model={model} /> : null}
       {model.view === "businesses" ? <Businesses model={model} /> : null}
       {model.view === "business-detail" ? <BusinessDetail model={model} /> : null}

@@ -4,8 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { getAdminInvestigationCaseFile } from "../../api/admin";
 import type {
   AdminInvestigationCaseFile,
-  AdminInvestigationCaseFileSectionName,
-  AdminInvestigationSearchItem
+  AdminInvestigationCaseFileSectionName
 } from "../../types/admin";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
 
@@ -70,7 +69,7 @@ export function useAdminInvestigationCaseFileModel({
   const openRequestSeq = useRef(0);
   const sectionRequestSeq = useRef(0);
 
-  const openCaseFile = useCallback(async (item: AdminInvestigationSearchItem) => {
+  const openCaseFile = useCallback(async (item: { id: string; type: string }) => {
     const requestSeq = openRequestSeq.current + 1;
     const requestedCaseKey = caseKey(item);
     openRequestSeq.current = requestSeq;

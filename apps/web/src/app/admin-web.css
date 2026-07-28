@@ -643,6 +643,28 @@
   flex-wrap: wrap;
 }
 
+.admin-web-candidates {
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+}
+
+.admin-web-candidates__filters {
+  align-items: end;
+}
+
+.admin-web-candidates__submit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+}
+
+.admin-web-candidates__results {
+  max-height: 540px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .admin-case-file {
   display: grid;
   gap: 16px;
@@ -1532,6 +1554,15 @@
 
   .admin-case-file {
     max-height: none;
+  }
+
+  .admin-web-candidates {
+    max-height: none;
+  }
+
+  .admin-web-candidates__submit {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .admin-web-panel.span-2 {

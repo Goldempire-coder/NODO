@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import Field
 
 from app.auth.dependencies import require_current_user
+from app.modules.admin.investigation_candidates import AdminInvestigationCandidatesService
 from app.modules.admin.investigation_case_file import AdminInvestigationCaseFileService
 from app.modules.admin.order_chat_evidence import AdminOrderChatEvidenceService
 from app.modules.admin.service import AdminService
@@ -54,6 +55,16 @@ def _investigation_case_file_service(request: Request) -> AdminInvestigationCase
     return AdminInvestigationCaseFileService(
         settings=request.app.state.settings,
         repository=request.app.state.admin_case_file_repository,
+        staff_repository=request.app.state.staff_repository,
+        audit_writer=request.app.state.audit_writer,
+        rate_limiter=request.app.state.rate_limiter,
+    )
+
+
+def _investigation_candidates_service(request: Request) -> AdminInvestigationCandidatesService:
+    return AdminInvestigationCandidatesService(
+        settings=request.app.state.settings,
+        repository=request.app.state.admin_investigation_candidates_repository,
         staff_repository=request.app.state.staff_repository,
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,
@@ -167,6 +178,42 @@ def investigation_case_file(
             cursor=cursor,
             limit=limit,
             include_archived=include_archived,
+            request_id=_request_id(request),
+        ),
+        "request_id": _request_id(request),
+    }
+
+
+@router.get("/investigation/order-candidates")
+def investigation_order_candidates(
+    request: Request,
+    response: Response,
+    client_hint: str | None = Query(default=None, max_length=120),
+    business_hint: str | None = Query(default=None, max_length=120),
+    amount_min_usd: str | None = Query(default=None, max_length=40),
+    amount_max_usd: str | None = Query(default=None, max_length=40),
+    created_from: str | None = Query(default=None, max_length=64),
+    created_to: str | None = Query(default=None, max_length=64),
+    order_status: str | None = Query(default=None, max_length=32),
+    support_status_group: str = Query(default="all", max_length=16),
+    cursor: str | None = Query(default=None, max_length=2048),
+    limit: int = Query(default=10, ge=1, le=25),
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": _investigation_candidates_service(request).search(
+            user=user,
+            client_hint=client_hint,
+            business_hint=business_hint,
+            amount_min_usd=amount_min_usd,
+            amount_max_usd=amount_max_usd,
+            created_from=created_from,
+            created_to=created_to,
+            order_status=order_status,
+            support_status_group=support_status_group,
+            cursor=cursor,
+            limit=limit,
             request_id=_request_id(request),
         ),
         "request_id": _request_id(request),

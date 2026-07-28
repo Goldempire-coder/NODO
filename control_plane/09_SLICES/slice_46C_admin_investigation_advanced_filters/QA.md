@@ -1,6 +1,6 @@
 # Slice 46C QA
 
-Estado: DRAFT
+Estado: IMPLEMENTED_LOCAL - PENDING_VALIDATOR
 
 ## Casos Obligatorios
 
@@ -109,6 +109,21 @@ Resultado:
 - cursor alterado responde `ADMIN_INVESTIGATION_CURSOR_INVALID`;
 - cursor reutilizado con otros filtros o rol responde
   `ADMIN_INVESTIGATION_CURSOR_INVALID`.
+- las mismas reglas de Support, aunque lleguen reordenadas o duplicadas,
+  mantienen valido el cursor;
+- un cambio real en permisos de Support invalida el cursor.
+
+### Pistas Textuales Literales
+
+Entrada:
+
+- `client_hint` o `business_hint` con `%`, `_` o `\`.
+
+Resultado:
+
+- los tres caracteres se buscan literalmente;
+- no se convierten en comodines SQL;
+- memory y Postgres conservan la misma semantica.
 
 ## Pruebas De Seguridad
 
@@ -140,6 +155,9 @@ Resultado:
 - Boton `Investigar` abre ficha 46B.
 - Boton `Abrir orden` conserva navegacion existente.
 - Error de filtros insuficientes explica que se necesita mas informacion.
+- Cambiar cualquier filtro limpia resultados y cursor anteriores.
+- `Cargar mas` solo usa los filtros exactos que generaron el cursor.
+- Una respuesta iniciada con filtros anteriores no reemplaza resultados nuevos.
 - No bloquea campana ni soporte.
 
 ## Comandos Esperados
