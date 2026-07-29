@@ -55,6 +55,8 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
   const selectedMessages = selected?.messages || [];
   const selectedArchived = selected?.status === "resolved" || selected?.status === "closed";
   const selectedCanClose = selected?.status === "resolved" && (model.user.role === "admin" || model.user.role === "super_admin");
+  const assigningSelected = model.assigningSupportTicketId === selected?.id;
+  const selectedAssignee = model.supportAssignees.find((item) => item.user_id === model.supportAssigneeUserId);
 
   return (
     <section className="admin-web-split admin-web-support-layout">
@@ -149,6 +151,62 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
                   <button className="admin-web-button" type="button" onClick={() => void model.changeSupportStatus("resolve", model.reason || "admin_support_resolved")}>
                     Finalizar ticket
                   </button>
+                  {model.adminMutable ? (
+                    <div className="admin-web-support-assignment">
+                      <div>
+                        <strong>Responsable</strong>
+                        <span>{model.selectedSupportHasAssignee ? "Asignado" : "Sin responsable"}</span>
+                      </div>
+                      {!model.supportAssigneesLoaded ? (
+                        <button
+                          className="admin-web-button"
+                          type="button"
+                          disabled={model.supportAssigneesLoading}
+                          onClick={() => void model.loadSupportAssignees()}
+                        >
+                          {model.supportAssigneesLoading ? "Cargando..." : "Cargar responsables"}
+                        </button>
+                      ) : (
+                        <>
+                          <label className="admin-web-field">
+                            <span>Staff activo</span>
+                            <select
+                              disabled={assigningSelected}
+                              value={model.supportAssigneeUserId}
+                              onChange={(event) => model.setSupportAssigneeUserId(event.target.value)}
+                            >
+                              <option value="">Seleccionar</option>
+                              {model.supportAssignees.map((item) => (
+                                <option key={item.id} value={item.user_id}>
+                                  {item.display_name || item.username || item.staff_role} - {item.staff_role}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="admin-web-field">
+                            <span>Motivo breve</span>
+                            <input
+                              disabled={assigningSelected}
+                              maxLength={500}
+                              value={model.supportAssignmentReason}
+                              onChange={(event) => model.setSupportAssignmentReason(event.target.value)}
+                            />
+                          </label>
+                          <button
+                            className="admin-web-button"
+                            type="button"
+                            disabled={assigningSelected || !selectedAssignee || !model.supportAssignmentReason.trim()}
+                            onClick={() => void model.assignSupportTicket()}
+                          >
+                            {assigningSelected ? "Asignando..." : "Asignar"}
+                          </button>
+                          {model.supportAssigneesTruncated ? (
+                            <small>Se muestran los primeros 50 perfiles compatibles.</small>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                  ) : null}
                 </>
               )}
             </div>

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
 import type { AdminInvestigationCaseFilePage, AdminInvestigationCaseFileSectionName } from "../../types/admin";
+import { AdminInvestigationCasePlaybookPanel } from "./AdminInvestigationCasePlaybookPanel";
 import { dateText, Empty, Header } from "./AdminWebPrimitives";
 
 function OpenRoute({ model, route, label = "Abrir" }: { model: AdminWebModel; route?: string | null; label?: string }) {
@@ -80,6 +81,8 @@ export function AdminInvestigationCaseFileScreen({ model }: { model: AdminWebMod
       <div className="admin-case-file-actions">
         <OpenRoute model={model} route={file.anchor.action_route} label="Abrir origen" />
       </div>
+
+      <AdminInvestigationCasePlaybookPanel file={file} onOpenRoute={(route) => void model.openCaseFileRoute(route)} />
 
       <section className="admin-case-file-section">
         <h3>Participantes</h3>

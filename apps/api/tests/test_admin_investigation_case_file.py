@@ -486,6 +486,7 @@ def test_case_file_includes_active_and_archived_tickets_when_requested() -> None
 def test_case_file_frontend_contract_is_separate_and_read_only() -> None:
     root = Path(__file__).resolve().parents[3]
     screen = (root / "apps/web/src/screens/admin-web/AdminInvestigationCaseFileScreen.tsx").read_text(encoding="utf-8")
+    playbook = (root / "apps/web/src/screens/admin-web/AdminInvestigationCasePlaybookPanel.tsx").read_text(encoding="utf-8")
     model = (root / "apps/web/src/hooks/admin-web/useAdminInvestigationCaseFileModel.ts").read_text(encoding="utf-8")
     investigation = (root / "apps/web/src/screens/admin-web/AdminInvestigationScreens.tsx").read_text(encoding="utf-8")
 
@@ -498,3 +499,19 @@ def test_case_file_frontend_contract_is_separate_and_read_only() -> None:
     assert "readOnly" in screen
     assert "<textarea" not in screen
     assert "Enviar" not in screen
+    assert "AdminInvestigationCasePlaybookPanel" in screen
+    assert "Orden relacionada" in playbook
+    assert "Reporte de pago" in playbook
+    assert "Ticket relacionado" in playbook
+    assert "Chat de orden" in playbook
+    assert "Evidencia relacionada" in playbook
+    assert "Intake relacionado" in playbook
+    assert "Pantalla disponible" in playbook
+    assert "onOpenRoute" in playbook
+    assert "<textarea" not in playbook
+    assert "fetch(" not in playbook
+    assert "file_asset_id" not in playbook
+    assert "storage_path" not in playbook
+    assert "signed_url" not in playbook
+    prohibited_claims = ("fraude", "culpa", "pago valido", "pago falso", "recuperacion garantizada")
+    assert not any(claim in playbook.lower() for claim in prohibited_claims)

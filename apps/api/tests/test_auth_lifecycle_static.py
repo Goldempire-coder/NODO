@@ -212,7 +212,9 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "<Table" not in support_screen
     assert "Nota interna opcional" not in support_screen
     assert "Asignar a user id support" not in support_screen
-    assert "supportAssigneeId" not in admin_model
+    assert "supportAssigneeUserId" in admin_model
+    assert "supportAssignmentReason" in admin_model
+    assert "assigningSupportTicketId" in admin_model
     assert "admin-web-support-composer-bar" in support_screen
     assert "admin-web-support-thread__headline" in support_screen
     assert "supportAttachmentLink" in support_model

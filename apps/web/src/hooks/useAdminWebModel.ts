@@ -108,6 +108,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
   });
 
   const support = useAdminSupportModel({
+    adminMutable,
     request,
     setBusy,
     setNotice,
@@ -293,6 +294,16 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     sendingSupportReply: support.sendingSupportReply,
     supportAttachmentLink: support.supportAttachmentLink,
     supportAttachmentUrl: support.supportAttachmentUrl,
+    supportAssignees: support.supportAssignees,
+    supportAssigneesLoaded: support.supportAssigneesLoaded,
+    supportAssigneesLoading: support.supportAssigneesLoading,
+    supportAssigneesTruncated: support.supportAssigneesTruncated,
+    supportAssigneeUserId: support.supportAssigneeUserId,
+    setSupportAssigneeUserId: support.setSupportAssigneeUserId,
+    selectedSupportHasAssignee: support.selectedSupportHasAssignee,
+    supportAssignmentReason: support.supportAssignmentReason,
+    setSupportAssignmentReason: support.setSupportAssignmentReason,
+    assigningSupportTicketId: support.assigningSupportTicketId,
     staff: staff.staff,
     selectedStaff: staff.selectedStaff,
     staffActivity: staff.staffActivity,
@@ -392,6 +403,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     refreshSupportWorkspace: support.refreshSupportWorkspace,
     refreshSelectedSupportTicket: support.refreshSelectedSupportTicket,
     replySupportTicket: support.replySupportTicket,
+    loadSupportAssignees: support.loadSupportAssignees,
+    assignSupportTicket: support.assignSupportTicket,
     changeSupportStatus: support.changeSupportStatus,
     openSupportAttachment: support.openSupportAttachment,
     loadStaff: staff.loadStaff,

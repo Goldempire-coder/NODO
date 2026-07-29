@@ -723,19 +723,30 @@
 
 .admin-case-file-list,
 .admin-case-file-checklist,
-.admin-case-file-evidence {
+.admin-case-file-evidence,
+.admin-case-file-playbook__checks {
   display: grid;
   gap: 8px;
 }
 
 .admin-case-file-row,
-.admin-case-file-checklist > div {
+.admin-case-file-checklist > div,
+.admin-case-file-playbook__checks > div {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid rgb(255 255 255 / 7%);
   padding: 8px 0;
+}
+
+.admin-case-file-playbook__checks > div > span {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.admin-case-file-playbook__checks > div {
+  flex-wrap: wrap;
 }
 
 .admin-case-file-row > div {
@@ -1204,6 +1215,27 @@
   flex: 1 1 240px;
 }
 
+.admin-web-support-assignment {
+  display: grid;
+  flex: 1 1 100%;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(180px, 1fr) minmax(180px, 1.2fr) auto;
+  align-items: end;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgb(255 255 255 / 8%);
+}
+
+.admin-web-support-assignment > div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-web-support-assignment > div span,
+.admin-web-support-assignment small {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
 .admin-web-support-chat {
   display: grid;
   align-content: start;
@@ -1608,6 +1640,10 @@
   .admin-web-support-thread__summary button {
     width: 100%;
     margin-left: 0;
+  }
+
+  .admin-web-support-assignment {
+    grid-template-columns: 1fr;
   }
 
   .admin-web-support-composer-bar {

@@ -31,16 +31,18 @@ migraciones ni datos.
 | 46A operational search | STAGING_DEPLOYED_PENDING_OWNER_SMOKE | commit `7ef4da9`, endpoint/UI incluidos en staging actual | prueba autenticada desde Admin Web |
 | 46B case file | STAGING_DEPLOYED_PENDING_OWNER_SMOKE | commit `3196d35`, endpoint protegido responde auth gate | prueba autenticada desde Admin Web |
 | 46C advanced filters | STAGING_DEPLOYED_PENDING_OWNER_SMOKE | commit `03f4493`, endpoint protegido responde auth gate | prueba autenticada desde Admin Web |
+| 46D support playbooks and repair queue | CONTRACTS_READY_PENDING_OWNER_REVIEW | slice documental creado, sin runtime | inspeccion Builder report-first antes de reparar Dashboard |
 
 ## Lista de reparaciones antes de tocar Dashboard
 
-1. Ejecutar smoke autenticado en Admin Web para 46A, 46B y 46C.
-2. Probar que 46C encuentra candidatos con pistas reales: cliente, negocio, monto y fecha.
-3. Probar que 46B abre la ficha correcta desde un resultado de 46A/46C.
-4. Probar que 44B abre evidencia de chat solo por accion explicita.
-5. Probar flujo 45A/45B desde Cliente/Negocio: monto solicitado, capacidad disponible y limite diario.
-6. Ejecutar `EXPLAIN` de 45C antes de afirmar que el indice cubre volumen historico.
-7. Registrar bugs concretos de Dashboard solo despues de esos smokes.
+1. Ejecutar inspeccion 46D para convertir casos operativos en reparaciones concretas.
+2. Ejecutar smoke autenticado en Admin Web para 46A, 46B y 46C.
+3. Probar que 46C encuentra candidatos con pistas reales: cliente, negocio, monto y fecha.
+4. Probar que 46B abre la ficha correcta desde un resultado de 46A/46C.
+5. Probar que 44B abre evidencia de chat solo por accion explicita.
+6. Probar flujo 45A/45B desde Cliente/Negocio: monto solicitado, capacidad disponible y limite diario.
+7. Ejecutar `EXPLAIN` de 45C antes de afirmar que el indice cubre volumen historico.
+8. Registrar bugs concretos de Dashboard solo despues de esos smokes.
 
 ## No autorizado por este documento
 

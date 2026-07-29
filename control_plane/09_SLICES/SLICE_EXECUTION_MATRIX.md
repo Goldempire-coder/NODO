@@ -154,3 +154,4 @@ No se permite declarar un slice listo sin revisar lineas exactas.
 | 46A | slice_46A_admin_operational_search | Busqueda operativa rapida de usuarios, negocios, intakes, ordenes y tickets desde Admin Web | 09,20B,20C | STAGING_DEPLOYED_PENDING_OWNER_SMOKE |
 | 46B | slice_46B_admin_investigation_case_file | Ficha de investigacion read-only por anchor exacto, con evidencia metadata-only y RBAC de soporte | 46A,44B,20B,20C | STAGING_DEPLOYED_PENDING_OWNER_SMOKE |
 | 46C | slice_46C_admin_investigation_advanced_filters | Filtros avanzados para encontrar ordenes candidatas cuando soporte tiene pistas incompletas | 46A,46B,20B,20C | STAGING_DEPLOYED_PENDING_OWNER_SMOKE |
+| 46D | slice_46D_admin_support_playbooks_and_repair_queue | Playbooks operativos y cola de reparaciones para casos de soporte despues de ubicar el caso | 46A,46B,46C,44B,20B,20C | CONTRACTS_READY_PENDING_OWNER_REVIEW |

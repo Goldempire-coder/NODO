@@ -379,9 +379,10 @@ export function dryRunExpireAndEscalateOrders<T>(request: AuthenticatedRequest, 
   });
 }
 
-export function listAdminStaff<T>(request: AuthenticatedRequest, filters: { status?: string; staff_role?: string; q?: string }) {
-  const params = new URLSearchParams({ limit: "20" });
-  Object.entries(filters).forEach(([key, value]) => {
+export function listAdminStaff<T>(request: AuthenticatedRequest, filters: { status?: string; staff_role?: string; q?: string; cursor?: string; limit?: number }) {
+  const { limit = 20, ...query } = filters;
+  const params = new URLSearchParams({ limit: String(limit) });
+  Object.entries(query).forEach(([key, value]) => {
     if (value) {
       params.set(key, value);
     }

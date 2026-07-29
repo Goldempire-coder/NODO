@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { listAdminStaff } from "../../api/admin";
 import {
+  adminAssignSupportTicket,
   adminCloseSupportTicket,
   adminEscalateSupportTicket,
   adminGetSupportTicket,
@@ -22,6 +24,16 @@ type SupportAttachmentLink = {
 
 const ACTIVE_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["open", "waiting_support", "waiting_user", "escalated"]);
 const ARCHIVED_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["resolved", "closed"]);
+const ASSIGNABLE_STAFF_ROLES = new Set(["support_agent", "support_lead", "admin", "super_admin"]);
+
+type SupportAssignee = {
+  id: string;
+  user_id: string;
+  display_name?: string | null;
+  username?: string | null;
+  staff_role: string;
+  status: string;
+};
 
 function supportTicketsQuery(filter: string): string {
   const normalized = filter.trim().toLowerCase();
@@ -98,11 +110,13 @@ function applySupportMessageResult(ticket: SupportTicket, optimisticMessageId: s
 }
 
 export function useAdminSupportModel({
+  adminMutable,
   request,
   setBusy,
   setNotice,
   setView
 }: {
+  adminMutable: boolean;
   request: RequestFn;
   setBusy: (busy: boolean) => void;
   setNotice: (notice: string) => void;
@@ -114,7 +128,16 @@ export function useAdminSupportModel({
   const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<string, string>>({});
   const [supportAttachmentLink, setSupportAttachmentLink] = useState<SupportAttachmentLink | null>(null);
   const [sendingSupportReply, setSendingSupportReply] = useState(false);
+  const [supportAssignees, setSupportAssignees] = useState<SupportAssignee[]>([]);
+  const [supportAssigneesLoaded, setSupportAssigneesLoaded] = useState(false);
+  const [supportAssigneesLoading, setSupportAssigneesLoading] = useState(false);
+  const [supportAssigneesTruncated, setSupportAssigneesTruncated] = useState(false);
+  const [supportAssigneeUserId, setSupportAssigneeUserId] = useState("");
+  const [supportAssignmentReason, setSupportAssignmentReason] = useState("");
+  const [assigningSupportTicketId, setAssigningSupportTicketId] = useState<string | null>(null);
   const supportReplyInFlight = useRef(false);
+  const supportAssigneesLoadingRef = useRef(false);
+  const supportAssignmentInFlight = useRef(false);
   const selectedSupportTicketIdRef = useRef<string | null>(null);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
   const supportReply = selectedSupportTicket ? supportReplyDrafts[selectedSupportTicket.id] ?? "" : "";
@@ -194,6 +217,8 @@ export function useAdminSupportModel({
     try {
       const ticket = await adminGetSupportTicket(request, ticketId);
       selectSupportTicket(ticket);
+      setSupportAssigneeUserId("");
+      setSupportAssignmentReason("");
       setSupportAttachmentLink(null);
       setView("support");
       setNotice("");
@@ -203,6 +228,86 @@ export function useAdminSupportModel({
       setBusy(false);
     }
   }, [request, selectSupportTicket, setBusy, setNotice, setView]);
+
+  const loadSupportAssignees = useCallback(async () => {
+    if (!adminMutable || supportAssigneesLoadingRef.current) {
+      return;
+    }
+    supportAssigneesLoadingRef.current = true;
+    setSupportAssigneesLoading(true);
+    try {
+      const response = await listAdminStaff<{
+        data: { items: SupportAssignee[]; next_cursor?: string | null };
+      }>(request, { status: "active", limit: 50 });
+      const candidates = response.data.items.filter(
+        (item) => item.status === "active" && ASSIGNABLE_STAFF_ROLES.has(item.staff_role)
+      );
+      setSupportAssignees(candidates);
+      setSupportAssigneesTruncated(Boolean(response.data.next_cursor));
+      setSupportAssigneesLoaded(true);
+      setNotice(
+        candidates.length > 0
+          ? "Responsables activos cargados."
+          : "No hay responsables activos disponibles para asignar."
+      );
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos cargar responsables activos.");
+    } finally {
+      supportAssigneesLoadingRef.current = false;
+      setSupportAssigneesLoading(false);
+    }
+  }, [adminMutable, request, setNotice]);
+
+  const assignSupportTicket = useCallback(async () => {
+    if (!adminMutable || !selectedSupportTicket || ARCHIVED_SUPPORT_STATUSES.has(selectedSupportTicket.status)) {
+      return;
+    }
+    if (!supportAssigneeUserId) {
+      setNotice("Selecciona un responsable activo.");
+      return;
+    }
+    const reason = supportAssignmentReason.trim();
+    if (!reason) {
+      setNotice("Escribe un motivo breve para la asignacion.");
+      return;
+    }
+    if (supportAssignmentInFlight.current) {
+      return;
+    }
+    const ticketId = selectedSupportTicket.id;
+    const assigneeUserId = supportAssigneeUserId;
+    const idempotencyScope = `admin_support_assign_${ticketId}`;
+    supportAssignmentInFlight.current = true;
+    setAssigningSupportTicketId(ticketId);
+    try {
+      const ticket = await adminAssignSupportTicket(
+        request,
+        ticketId,
+        assigneeUserId,
+        reason,
+        getIdempotencyKey(idempotencyScope, { ticketId, assigneeUserId, reason })
+      );
+      clearIdempotencyKey(idempotencyScope);
+      setSelectedSupportTicket((current) => (current?.id === ticketId ? ticket : current));
+      setSupportTickets((items) => items.map((item) => (item.id === ticketId ? ticket : item)));
+      setSupportAssignmentReason("");
+      setNotice("Responsable actualizado.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos asignar el ticket.");
+    } finally {
+      supportAssignmentInFlight.current = false;
+      setAssigningSupportTicketId(null);
+    }
+  }, [
+    adminMutable,
+    clearIdempotencyKey,
+    getIdempotencyKey,
+    request,
+    selectedSupportTicket,
+    setNotice,
+    supportAssigneeUserId,
+    supportAssignmentReason
+  ]);
 
   const refreshSelectedSupportTicket = useCallback(async () => {
     if (!selectedSupportTicket) {
@@ -319,11 +424,23 @@ export function useAdminSupportModel({
     sendingSupportReply,
     supportAttachmentLink,
     supportAttachmentUrl: supportAttachmentLink?.url || "",
+    supportAssignees,
+    supportAssigneesLoaded,
+    supportAssigneesLoading,
+    supportAssigneesTruncated,
+    supportAssigneeUserId,
+    setSupportAssigneeUserId,
+    selectedSupportHasAssignee: Boolean(selectedSupportTicket?.assigned_support_user_id),
+    supportAssignmentReason,
+    setSupportAssignmentReason,
+    assigningSupportTicketId,
     loadSupportTickets,
     refreshSupportWorkspace,
     openSupportTicket,
     refreshSelectedSupportTicket,
     replySupportTicket,
+    loadSupportAssignees,
+    assignSupportTicket,
     changeSupportStatus,
     openSupportAttachment
   };

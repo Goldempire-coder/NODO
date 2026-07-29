@@ -6,6 +6,7 @@ import json
 import os
 import time
 from datetime import timedelta
+from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
@@ -762,6 +763,32 @@ def test_support_ticket_assignment_requires_active_staff_profile_for_support_ass
 
     assert rejected.status_code == 400
     assert rejected.json()["error"]["code"] == "SUPPORT_ASSIGNEE_INVALID"
+
+
+def test_admin_support_assignment_ui_uses_existing_active_staff_contract() -> None:
+    root = Path(__file__).resolve().parents[3]
+    support_model = (root / "apps/web/src/hooks/admin-web/useAdminSupportModel.ts").read_text(encoding="utf-8")
+    admin_model = (root / "apps/web/src/hooks/useAdminWebModel.ts").read_text(encoding="utf-8")
+    support_screen = (root / "apps/web/src/screens/admin-web/AdminSupportScreens.tsx").read_text(encoding="utf-8")
+
+    assert "adminAssignSupportTicket" in support_model
+    assert "listAdminStaff" in support_model
+    assert 'status: "active", limit: 50' in support_model
+    assert 'new Set(["support_agent", "support_lead", "admin", "super_admin"])' in support_model
+    assert "operations_readonly" not in support_model.split("ASSIGNABLE_STAFF_ROLES", 1)[1].split(");", 1)[0]
+    assert "supportAssignmentReason" in support_model
+    assert "assigningSupportTicketId" in support_model
+    assert "supportAssignmentInFlight" in support_model
+    assert "getIdempotencyKey" in support_model
+    assert "clearIdempotencyKey" in support_model
+    assert "adminMutable" in support_model
+    assert "assignSupportTicket: support.assignSupportTicket" in admin_model
+    assert "Cargar responsables" in support_screen
+    assert "Motivo breve" in support_screen
+    assert "Asignando..." in support_screen
+    assert "model.adminMutable" in support_screen
+    assert "assigned_support_user_id" not in support_screen
+    assert "Asignar a user id support" not in support_screen
 
 
 def test_support_escalate_validates_existing_dispute_context() -> None:
