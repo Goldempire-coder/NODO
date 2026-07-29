@@ -33,6 +33,33 @@ class PostgresChatRepository:
             row = conn.execute("select * from messages where id = %s and deleted_at is null", (message_id,)).fetchone()
         return message_from_row(row) if row else None
 
+    def latest_counterparty_messages_for_orders(
+        self,
+        *,
+        order_ids: list[str],
+        recipient_user_id: str,
+        surface: str,
+    ) -> dict[str, MessageRecord]:
+        if not order_ids:
+            return {}
+        allowed_roles = ["remitter"] if surface == "business_mini_app" else ["business_owner"]
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                select distinct on (order_id) *
+                from messages
+                where order_id = any(%s)
+                  and deleted_at is null
+                  and visibility = 'parties'
+                  and status = 'visible'
+                  and sender_user_id <> %s
+                  and sender_role = any(%s)
+                order by order_id, created_at desc, id desc
+                """,
+                (order_ids, recipient_user_id, allowed_roles),
+            ).fetchall()
+        return {message.order_id: message for message in [message_from_row(row) for row in rows]}
+
     def list_messages_for_evidence(
         self,
         *,

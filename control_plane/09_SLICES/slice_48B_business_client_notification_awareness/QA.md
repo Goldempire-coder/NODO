@@ -1,6 +1,6 @@
 # Slice 48B QA
 
-Estado: 48B2_IMPLEMENTED_LOCALLY_WITHOUT_DURABLE_MESSAGE_UNREAD
+Estado: 48B3_IMPLEMENTED_LOCALLY_DURABLE_ATTENTION_READ_STATE
 
 ## Pruebas De Mapeo Requeridas
 
@@ -68,11 +68,28 @@ Cuando el Owner apruebe construir:
 - Una apertura fallida conserva el pendiente; solo una apertura exitosa lo
   reconoce durante la sesion.
 - `truncated.orders` y `truncated.support` muestran `50+`, no un total exacto.
-- No se afirma unread durable de mensajes de chat.
+- 48B2 no afirmaba unread durable de mensajes de chat.
+
+## Regresiones 48B3
+
+- `attention-summary` devuelve firmas opacas, sin cuerpos ni IDs de mensajes.
+- `attention/acknowledge` persiste el reconocimiento por usuario, superficie,
+  tipo, recurso y firma.
+- Reabrir la app no debe resucitar un pendiente reconocido si la firma no
+  cambio.
+- Un mensaje nuevo de la contraparte debe cambiar la firma y volver a mostrar
+  el pendiente.
+- Un ticket de soporte reconocido debe reaparecer cuando Soporte responde de
+  nuevo.
+- El endpoint debe rechazar firmas viejas, recursos no visibles o superficies
+  no autorizadas.
+- La migracion `0038_surface_attention_read_state` debe ser revisada antes de
+  aplicarse en staging.
 
 ## Comandos Esperados
 
 ```powershell
+python -m pytest apps/api/tests/test_business_client_notification_awareness_static.py -q --tb=short
 python -m pytest apps/api/tests/test_jobs_notifications.py apps/api/tests/test_order_creation.py apps/api/tests/test_support_ticket_center.py -q --tb=short
 python -m pytest apps/api/tests/test_auth_lifecycle_static.py -q --tb=short
 python -m ruff check apps/api scripts

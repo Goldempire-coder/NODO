@@ -32,11 +32,16 @@ def test_surface_attention_polling_is_single_visible_non_overlapping_and_stale_s
     assert "refreshInFlightRef.current" in awareness
     assert awareness.count("window.setInterval") == 1
     assert "getSurfaceAttentionSummary(request)" in awareness
+    assert "acknowledgeSurfaceAttention(request" in awareness
     assert "/api/v1/notifications/attention-summary" in (
+        ROOT / "apps" / "web" / "src" / "api" / "notifications.ts"
+    ).read_text(encoding="utf-8")
+    assert "/api/v1/notifications/attention/acknowledge" in (
         ROOT / "apps" / "web" / "src" / "api" / "notifications.ts"
     ).read_text(encoding="utf-8")
     assert "attentionStale" in awareness
     assert "acknowledgeAttention" in awareness
+    assert "pendingAcknowledgementsRef" not in awareness
     assert "message.body" not in awareness
     assert "storage_path" not in awareness
     assert "signed_url" not in awareness
@@ -195,6 +200,8 @@ def test_48b2_contract_does_not_claim_durable_message_unread_without_persistence
         / "API_CONTRACT.md"
     ).read_text(encoding="utf-8")
 
-    assert "48B2_IMPLEMENTED_LOCALLY_WITHOUT_DURABLE_MESSAGE_UNREAD" in readme
+    assert "48B3_IMPLEMENTED_LOCALLY_DURABLE_ATTENTION_READ_STATE" in readme
+    assert "POST /api/v1/notifications/attention/acknowledge" in api_contract
     assert "pendientes operativos" in api_contract.lower()
-    assert "no equivale a unread durable por mensaje" in api_contract.lower()
+    assert "firma opaca" in api_contract.lower()
+    assert "cuerpo del mensaje" not in api_contract.lower().split("## restricciones de privacidad")[0]

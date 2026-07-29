@@ -24,3 +24,9 @@ export type SurfaceAttentionSummary = {
   items: SurfaceAttentionItem[];
   truncated: SurfaceAttentionTruncated;
 };
+
+export type SurfaceAttentionAcknowledgeRequest = {
+  kind: AttentionKind;
+  resource_id: string;
+  signature: string;
+};

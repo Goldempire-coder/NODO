@@ -117,14 +117,14 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   const openBusinessOrderWithAttention = useCallback(async (orderId: string) => {
     const opened = await orders.openBusinessOrder(orderId);
     if (opened) {
-      acknowledgeAttention("order", orderId);
+      void acknowledgeAttention("order", orderId);
     }
   }, [acknowledgeAttention, orders.openBusinessOrder]);
   const openBusinessSupportTicketWithAttention = useCallback(async (ticketId: string) => {
     setView("business-support");
     const opened = await support.openSupportTicket(ticketId);
     if (opened) {
-      acknowledgeAttention("support", ticketId);
+      void acknowledgeAttention("support", ticketId);
     }
   }, [acknowledgeAttention, setView, support.openSupportTicket]);
   const openBusinessSupport = useCallback(() => {

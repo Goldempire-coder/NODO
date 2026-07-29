@@ -44,6 +44,10 @@ from app.modules.jobs.repository import InMemoryJobRepository, PostgresJobReposi
 from app.modules.jobs.routes import router as jobs_router
 from app.modules.jobs.worker import ExpireAndEscalateOrdersWorker
 from app.modules.notifications.telegram_sender import NotificationSenderWorker
+from app.modules.notifications.attention_read_repository import (
+    InMemorySurfaceAttentionReadRepository,
+    PostgresSurfaceAttentionReadRepository,
+)
 from app.modules.notifications.attention_routes import router as notification_attention_router
 from app.modules.observability.repository import InMemoryFrontendObservabilityRepository, PostgresFrontendObservabilityRepository
 from app.modules.observability.routes import router as observability_router
@@ -223,6 +227,7 @@ def _configure_test_state(app: FastAPI) -> None:
     )
     app.state.chat_repository = InMemoryChatRepository()
     app.state.support_repository = InMemorySupportRepository()
+    app.state.surface_attention_read_repository = InMemorySurfaceAttentionReadRepository()
     app.state.credit_repository = InMemoryCreditRepository(app.state.ad_repository, app.state.business_repository)
     app.state.dispute_repository = InMemoryDisputeRepository()
     app.state.rating_repository = InMemoryOrderRatingRepository(
@@ -284,6 +289,7 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     )
     app.state.chat_repository = PostgresChatRepository(settings.database_url)
     app.state.support_repository = PostgresSupportRepository(settings.database_url)
+    app.state.surface_attention_read_repository = PostgresSurfaceAttentionReadRepository(settings.database_url)
     app.state.credit_repository = PostgresCreditRepository(settings.database_url)
     app.state.dispute_repository = PostgresDisputeRepository(settings.database_url)
     app.state.rating_repository = PostgresOrderRatingRepository(settings.database_url)

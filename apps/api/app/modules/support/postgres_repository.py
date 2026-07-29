@@ -111,6 +111,29 @@ class PostgresSupportRepository:
             ).fetchall()
         return [message_from_row(row) for row in rows]
 
+    def latest_participant_messages_for_tickets(
+        self,
+        *,
+        ticket_ids: list[str],
+        recipient_user_id: str,
+    ) -> dict[str, SupportMessageRecord]:
+        if not ticket_ids:
+            return {}
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                select distinct on (ticket_id) *
+                from support_messages
+                where ticket_id = any(%s)
+                  and deleted_at is null
+                  and visibility = 'participants'
+                  and sender_user_id <> %s
+                order by ticket_id, created_at desc, id desc
+                """,
+                (ticket_ids, recipient_user_id),
+            ).fetchall()
+        return {message.ticket_id: message for message in [message_from_row(row) for row in rows]}
+
     def create_event(
         self,
         *,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AuthenticatedRequest } from "../api/client";
-import { getSurfaceAttentionSummary } from "../api/notifications";
+import { acknowledgeSurfaceAttention, getSurfaceAttentionSummary } from "../api/notifications";
 import type {
   AttentionKind,
   SurfaceAttentionCounts,
@@ -34,7 +34,6 @@ export function useSurfaceAttentionModel({
   const itemsRef = useRef<SurfaceAttentionItem[]>([]);
   const previousSignaturesRef = useRef<Set<string> | null>(null);
   const acknowledgedSignaturesRef = useRef(new Set<string>());
-  const pendingAcknowledgementsRef = useRef(new Set<string>());
   const refreshInFlightRef = useRef(false);
 
   const refreshAttention = useCallback(async () => {
@@ -45,13 +44,6 @@ export function useSurfaceAttentionModel({
     try {
       const summary = await getSurfaceAttentionSummary(request);
       const nextItems = summary.items;
-      for (const item of nextItems) {
-        const resourceKey = `${item.kind}:${item.resource_id}`;
-        if (pendingAcknowledgementsRef.current.has(resourceKey)) {
-          acknowledgedSignaturesRef.current.add(item.signature);
-          pendingAcknowledgementsRef.current.delete(resourceKey);
-        }
-      }
       const nextSignatures = new Set(nextItems.map((item) => item.signature));
       const previousSignatures = previousSignaturesRef.current;
       const alertCandidates = nextItems.filter(
@@ -119,20 +111,32 @@ export function useSurfaceAttentionModel({
     [pendingItems]
   );
 
-  const acknowledgeAttention = useCallback((kind: AttentionKind, resourceId: string) => {
+  const acknowledgeAttention = useCallback(async (kind: AttentionKind, resourceId: string) => {
     const item = itemsRef.current.find(
       (candidate) => candidate.kind === kind && candidate.resource_id === resourceId
     );
     if (!item) {
-      pendingAcknowledgementsRef.current.add(`${kind}:${resourceId}`);
-      return;
+      return false;
+    }
+    try {
+      const result = await acknowledgeSurfaceAttention(request, {
+        kind,
+        resource_id: resourceId,
+        signature: item.signature
+      });
+      if (!result.acknowledged) {
+        return false;
+      }
+    } catch {
+      return false;
     }
     acknowledgedSignaturesRef.current.add(item.signature);
     setAcknowledgedVersion((current) => current + 1);
     setAttentionAlert((current) => (
       current?.kind === kind && current.resource_id === resourceId ? null : current
     ));
-  }, []);
+    return true;
+  }, [request]);
 
   const dismissAttention = useCallback(() => {
     setAttentionAlert(null);

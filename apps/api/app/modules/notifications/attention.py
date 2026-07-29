@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from app.core.errors import ApiError
 from app.modules.businesses.access_control import require_active_business_access
+from app.modules.notifications.schemas import AttentionAcknowledgeRequest
 from app.modules.orders.policy import require_remitter
 from app.modules.support.models import ACTIVE_SUPPORT_STATUSES
 from app.modules.users.models import UserRecord
@@ -33,10 +35,14 @@ class SurfaceAttentionService:
         business_repository,
         order_repository,
         support_repository,
+        chat_repository,
+        read_repository,
     ) -> None:  # type: ignore[no-untyped-def]
         self._businesses = business_repository
         self._orders = order_repository
         self._support = support_repository
+        self._chat = chat_repository
+        self._read = read_repository
 
     def summary(
         self,
@@ -44,6 +50,63 @@ class SurfaceAttentionService:
         user: UserRecord,
         surface: str,
     ) -> dict[str, Any]:
+        items, orders_truncated, support_truncated = self._visible_attention_items(user=user, surface=surface)
+        return {
+            "counts": {
+                "orders": len([item for item in items if item["kind"] == "order"]),
+                "support": len([item for item in items if item["kind"] == "support"]),
+                "total": len(items),
+            },
+            "items": items,
+            "truncated": {
+                "orders": orders_truncated,
+                "support": support_truncated,
+            },
+        }
+
+    def acknowledge(
+        self,
+        *,
+        user: UserRecord,
+        surface: str,
+        payload: AttentionAcknowledgeRequest,
+    ) -> dict[str, bool]:
+        items, _orders_truncated, _support_truncated = self._collect_attention_items(
+            user=user,
+            surface=surface,
+            filter_acknowledged=False,
+        )
+        item = next(
+            (
+                candidate
+                for candidate in items
+                if candidate["kind"] == payload.kind and candidate["resource_id"] == str(payload.resource_id)
+            ),
+            None,
+        )
+        if item is None:
+            raise ApiError("ATTENTION_ITEM_NOT_FOUND", status_code=404)
+        if item["signature"] != payload.signature:
+            raise ApiError("ATTENTION_SIGNATURE_STALE", status_code=409)
+        self._read.mark_acknowledged(
+            user_id=user.id,
+            surface=surface,
+            resource_kind=payload.kind,
+            resource_id=str(payload.resource_id),
+            signature=payload.signature,
+        )
+        return {"acknowledged": True}
+
+    def _visible_attention_items(self, *, user: UserRecord, surface: str) -> tuple[list[dict[str, Any]], bool, bool]:
+        return self._collect_attention_items(user=user, surface=surface, filter_acknowledged=True)
+
+    def _collect_attention_items(
+        self,
+        *,
+        user: UserRecord,
+        surface: str,
+        filter_acknowledged: bool,
+    ) -> tuple[list[dict[str, Any]], bool, bool]:
         support_requester_user_id: str | None
         support_business_id: str | None
         if surface == "business_mini_app":
@@ -84,17 +147,34 @@ class SurfaceAttentionService:
         )
         support_truncated = len(tickets) > ATTENTION_PAGE_LIMIT
         tickets = tickets[:ATTENTION_PAGE_LIMIT]
+        latest_order_messages = self._chat.latest_counterparty_messages_for_orders(
+            order_ids=[order.id for order in orders],
+            recipient_user_id=user.id,
+            surface=surface,
+        )
+        latest_support_messages = self._support.latest_participant_messages_for_tickets(
+            ticket_ids=[ticket.id for ticket in tickets],
+            recipient_user_id=user.id,
+        )
         order_items = [
             {
                 "kind": "order",
                 "resource_id": order.id,
-                "signature": f"order:{order.id}:{order.status}",
+                "signature": _signature(
+                    "order",
+                    order.id,
+                    order.status,
+                    latest_order_messages[order.id].id if order.id in latest_order_messages else "no-message",
+                ),
                 "message": (
                     f"La orden {order.public_order_code} requiere atencion."
                     if surface == "business_mini_app"
                     else f"Tu orden {order.public_order_code} tiene una actualizacion pendiente."
                 ),
-                "occurred_at": order.updated_at.isoformat(),
+                "occurred_at": _max_iso(
+                    order.updated_at,
+                    latest_order_messages[order.id].created_at if order.id in latest_order_messages else None,
+                ),
             }
             for order in orders
         ]
@@ -102,26 +182,46 @@ class SurfaceAttentionService:
             {
                 "kind": "support",
                 "resource_id": ticket.id,
-                "signature": f"support:{ticket.id}:{ticket.status}:{ticket.updated_at.isoformat()}",
+                "signature": _signature(
+                    "support",
+                    ticket.id,
+                    ticket.status,
+                    latest_support_messages[ticket.id].id if ticket.id in latest_support_messages else ticket.updated_at.isoformat(),
+                ),
                 "message": "Soporte NODO actualizo tu ticket.",
-                "occurred_at": ticket.updated_at.isoformat(),
+                "occurred_at": _max_iso(
+                    ticket.updated_at,
+                    latest_support_messages[ticket.id].created_at if ticket.id in latest_support_messages else None,
+                ),
             }
             for ticket in tickets
         ]
+        items = [*order_items, *support_items]
+        if filter_acknowledged:
+            acknowledged = self._read.get_acknowledged_signatures(
+                user_id=user.id,
+                surface=surface,
+                resources=[(item["kind"], item["resource_id"]) for item in items],
+            )
+            items = [
+                item
+                for item in items
+                if acknowledged.get((item["kind"], item["resource_id"])) != item["signature"]
+            ]
         items = sorted(
-            [*order_items, *support_items],
+            items,
             key=lambda item: item["occurred_at"],
             reverse=True,
         )
-        return {
-            "counts": {
-                "orders": len(order_items),
-                "support": len(support_items),
-                "total": len(items),
-            },
-            "items": items,
-            "truncated": {
-                "orders": orders_truncated,
-                "support": support_truncated,
-            },
-        }
+        return items, orders_truncated, support_truncated
+
+
+def _signature(*parts: str) -> str:
+    payload = "\x1f".join(parts).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()[:32]
+
+
+def _max_iso(first, second=None) -> str:  # type: ignore[no-untyped-def]
+    if second is not None and second > first:
+        return second.isoformat()
+    return first.isoformat()

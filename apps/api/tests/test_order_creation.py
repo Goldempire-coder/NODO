@@ -304,6 +304,169 @@ def test_surface_attention_summary_is_one_safe_request_for_orders_and_support() 
     assert business["id"] not in serialized
 
 
+def test_surface_attention_acknowledgement_is_durable_and_reopens_on_new_order_message() -> None:
+    client = _client()
+    owner = _login(client, 8921, "attention_ack_owner")
+    _business, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="attention_ack_ad")
+    remitter = _login(client, 8922, "attention_ack_client")
+    order = _create_order(client, remitter, ad["id"], key="attention_ack_order")
+    stored_order = client.app.state.order_repository.get_by_id(order["id"])
+    stored_order.status = "payment_reported"
+
+    first_summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(owner, "attention_ack_summary"),
+            "X-NODO-Surface": "business_mini_app",
+        },
+    )
+    assert first_summary.status_code == 200, first_summary.text
+    order_item = next(item for item in first_summary.json()["data"]["items"] if item["kind"] == "order")
+
+    acknowledged = client.post(
+        "/api/v1/notifications/attention/acknowledge",
+        headers={
+            **_bearer(owner, "attention_ack_post"),
+            "Content-Type": "application/json",
+            "X-NODO-Surface": "business_mini_app",
+        },
+        json={
+            "kind": "order",
+            "resource_id": order["id"],
+            "signature": order_item["signature"],
+        },
+    )
+    assert acknowledged.status_code == 200, acknowledged.text
+    assert acknowledged.json()["data"] == {"acknowledged": True}
+
+    hidden_summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(owner, "attention_ack_hidden"),
+            "X-NODO-Surface": "business_mini_app",
+        },
+    )
+    assert hidden_summary.status_code == 200, hidden_summary.text
+    assert order["id"] not in [item["resource_id"] for item in hidden_summary.json()["data"]["items"]]
+
+    message = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "attention_ack_message"), "Content-Type": "application/json"},
+        json={"body": "Mensaje privado que no debe estar en awareness", "attachment_ids": []},
+    )
+    assert message.status_code == 201, message.text
+
+    stale_ack = client.post(
+        "/api/v1/notifications/attention/acknowledge",
+        headers={
+            **_bearer(owner, "attention_ack_stale"),
+            "Content-Type": "application/json",
+            "X-NODO-Surface": "business_mini_app",
+        },
+        json={
+            "kind": "order",
+            "resource_id": order["id"],
+            "signature": order_item["signature"],
+        },
+    )
+    assert stale_ack.status_code == 409
+    assert stale_ack.json()["error"]["code"] == "ATTENTION_SIGNATURE_STALE"
+
+    reopened_summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(owner, "attention_ack_reopened"),
+            "X-NODO-Surface": "business_mini_app",
+        },
+    )
+    assert reopened_summary.status_code == 200, reopened_summary.text
+    reopened_item = next(item for item in reopened_summary.json()["data"]["items"] if item["resource_id"] == order["id"])
+    serialized = json.dumps(reopened_summary.json()["data"]).lower()
+    assert reopened_item["signature"] != order_item["signature"]
+    assert "mensaje privado" not in serialized
+    assert message.json()["data"]["message"]["id"] not in serialized
+
+
+def test_surface_attention_acknowledgement_is_durable_for_support_updates() -> None:
+    client = _client()
+    remitter = _login(client, 8931, "attention_support_ack_client")
+    support_response = client.post(
+        "/api/v1/support/tickets",
+        headers={
+            **_headers(remitter, "attention_support_ack_ticket"),
+            "Content-Type": "application/json",
+            "X-NODO-Surface": "client_mini_app",
+        },
+        json={
+            "scope": "client_general",
+            "category": "technical_issue",
+            "subject": "Asunto privado",
+            "message": "Cuerpo privado",
+        },
+    )
+    assert support_response.status_code == 201, support_response.text
+    ticket = client.app.state.support_repository.get_ticket(support_response.json()["data"]["id"])
+    client.app.state.support_repository.update_ticket(ticket, status="waiting_user")
+
+    first_summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(remitter, "attention_support_ack_summary"),
+            "X-NODO-Surface": "client_mini_app",
+        },
+    )
+    assert first_summary.status_code == 200, first_summary.text
+    support_item = next(item for item in first_summary.json()["data"]["items"] if item["kind"] == "support")
+
+    acknowledged = client.post(
+        "/api/v1/notifications/attention/acknowledge",
+        headers={
+            **_bearer(remitter, "attention_support_ack_post"),
+            "Content-Type": "application/json",
+            "X-NODO-Surface": "client_mini_app",
+        },
+        json={
+            "kind": "support",
+            "resource_id": ticket.id,
+            "signature": support_item["signature"],
+        },
+    )
+    assert acknowledged.status_code == 200, acknowledged.text
+
+    hidden_summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(remitter, "attention_support_ack_hidden"),
+            "X-NODO-Surface": "client_mini_app",
+        },
+    )
+    assert hidden_summary.status_code == 200, hidden_summary.text
+    assert ticket.id not in [item["resource_id"] for item in hidden_summary.json()["data"]["items"]]
+
+    client.app.state.support_repository.create_message(
+        ticket_id=ticket.id,
+        sender_user_id="00000000-0000-0000-0000-000000000001",
+        sender_role="support",
+        body="Respuesta privada que no debe salir",
+        visibility="participants",
+    )
+    client.app.state.support_repository.update_ticket(ticket, status="waiting_user")
+
+    reopened_summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(remitter, "attention_support_ack_reopened"),
+            "X-NODO-Surface": "client_mini_app",
+        },
+    )
+    assert reopened_summary.status_code == 200, reopened_summary.text
+    reopened_item = next(item for item in reopened_summary.json()["data"]["items"] if item["resource_id"] == ticket.id)
+    serialized = json.dumps(reopened_summary.json()["data"]).lower()
+    assert reopened_item["signature"] != support_item["signature"]
+    assert "respuesta privada" not in serialized
+
+
 def test_surface_attention_orders_use_latest_operational_update_before_limit() -> None:
     client = _client()
     owner = _login(client, 8911, "attention_order_owner")

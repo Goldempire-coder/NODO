@@ -1,6 +1,6 @@
 # Slice 48B Security Contract
 
-Estado: 48B2_IMPLEMENTED_LOCALLY_WITHOUT_DURABLE_MESSAGE_UNREAD
+Estado: 48B3_IMPLEMENTED_LOCALLY_DURABLE_ATTENTION_READ_STATE
 
 ## Objetivo De Seguridad
 
@@ -30,8 +30,16 @@ Avisar rapido sin filtrar informacion sensible ni crear spam operativo.
 - La respuesta usa `Cache-Control: private, no-store`.
 - El aviso interno solo usa tipo, ID, estado y codigo publico de orden.
 - Nunca usa cuerpo de chat, cuerpo de soporte, adjuntos o metadata libre.
-- El reconocimiento de un pendiente es estado efimero de sesion y no se
-  presenta como comprobante durable de lectura.
+- 48B3 persiste el reconocimiento de un pendiente por usuario, superficie,
+  tipo, recurso y firma opaca.
+- El endpoint de reconocimiento revalida ownership y superficie antes de
+  escribir estado.
+- Una firma vieja no marca como leido un pendiente nuevo.
+- El estado persistido no contiene cuerpo de mensaje, asunto, adjuntos,
+  comprobantes, bancos, wallets, telefonos, documentos, URLs firmadas, PINs,
+  tokens ni razones libres.
+- El reconocimiento durable no se presenta como comprobante legal de lectura
+  del contenido; solo controla badges operativos.
 
 ## Anti Spam Y Dedupe
 

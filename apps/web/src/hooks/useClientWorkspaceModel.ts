@@ -92,14 +92,14 @@ export function useClientWorkspaceModel({
   const openClientOrderWithAttention = useCallback(async (orderId: string) => {
     const opened = await remitterOrders.openOrderDetail(orderId);
     if (opened) {
-      acknowledgeAttention("order", orderId);
+      void acknowledgeAttention("order", orderId);
     }
   }, [acknowledgeAttention, remitterOrders.openOrderDetail]);
   const openClientSupportTicketWithAttention = useCallback(async (ticketId: string) => {
     setClientView("support");
     const opened = await support.openSupportTicket(ticketId);
     if (opened) {
-      acknowledgeAttention("support", ticketId);
+      void acknowledgeAttention("support", ticketId);
     }
   }, [acknowledgeAttention, setClientView, support.openSupportTicket]);
   const openClientSupport = useCallback(() => {

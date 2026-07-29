@@ -28,6 +28,33 @@ class InMemoryChatRepository:
             return None
         return message
 
+    def latest_counterparty_messages_for_orders(
+        self,
+        *,
+        order_ids: list[str],
+        recipient_user_id: str,
+        surface: str,
+    ) -> dict[str, MessageRecord]:
+        if not order_ids:
+            return {}
+        allowed_roles = {"remitter"} if surface == "business_mini_app" else {"business_owner"}
+        order_id_set = set(order_ids)
+        result: dict[str, MessageRecord] = {}
+        for message in self.messages.values():
+            if (
+                message.order_id not in order_id_set
+                or message.deleted_at is not None
+                or message.visibility != "parties"
+                or message.status != "visible"
+                or message.sender_user_id == recipient_user_id
+                or message.sender_role not in allowed_roles
+            ):
+                continue
+            current = result.get(message.order_id)
+            if current is None or (message.created_at, message.id) > (current.created_at, current.id):
+                result[message.order_id] = message
+        return result
+
     def list_messages_for_evidence(
         self,
         *,

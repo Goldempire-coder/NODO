@@ -1,6 +1,6 @@
 # Slice 48B API Contract Draft
 
-Estado: 48B2_IMPLEMENTED_LOCALLY_OPERATIONAL_ATTENTION
+Estado: 48B3_IMPLEMENTED_LOCALLY_DURABLE_ATTENTION_READ_STATE
 
 ## Principio
 
@@ -32,16 +32,57 @@ La respuesta contiene solo:
 - Cliente: ordenes que requieren accion y tickets `waiting_user`.
 - Las ordenes se filtran por ownership/estado y se limitan por
   `updated_at DESC, id DESC`, el mismo criterio operativo de `occurred_at`.
-- El reconocimiento al abrir una orden o ticket dura solo durante la sesion.
+- El reconocimiento al abrir una orden o ticket se guarda en backend mediante
+  48B3.
 - El reconocimiento ocurre solo despues de cargar correctamente el recurso.
-- Si el estado del recurso cambia, vuelve a aparecer como pendiente.
+- Si el estado del recurso cambia o llega un mensaje nuevo de la contraparte,
+  vuelve a aparecer como pendiente.
 - El ultimo valor valido se conserva si una consulta temporal falla.
 - Si una seccion supera 50 pendientes, `truncated` obliga a mostrar `50+`;
   el cliente no descarga paginas adicionales.
 
-Este contrato no equivale a unread durable por mensaje. No afirma cuantos
-mensajes de chat no fueron leidos y no agrega tablas ni campos de lectura. Un
-unread exacto por participante requiere contrato y migracion separados.
+### Reconocimiento Durable 48B3
+
+```http
+POST /api/v1/notifications/attention/acknowledge
+X-NODO-Surface: business_mini_app | client_mini_app
+Cache-Control: private, no-store
+```
+
+Request:
+
+```json
+{
+  "kind": "order",
+  "resource_id": "uuid",
+  "signature": "firma opaca recibida en attention-summary"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "acknowledged": true
+}
+```
+
+Reglas:
+
+- El backend revalida que el recurso pertenezca al usuario y superficie.
+- La firma debe coincidir con el pendiente vigente; una firma vieja devuelve
+  `ATTENTION_SIGNATURE_STALE`.
+- El estado guardado solo contiene usuario, superficie, tipo, recurso, firma y
+  fechas de reconocimiento.
+- La firma opaca se recalcula sin exponer IDs de mensajes en la respuesta.
+- No se guardan cuerpos, asuntos, adjuntos, comprobantes, bancos, wallets,
+  telefonos, documentos, URLs firmadas, PINs, tokens ni razones libres.
+- Si la app se reinstala o se abre en otro dispositivo, el backend conserva el
+  reconocimiento mientras la firma sea igual.
+
+Este contrato sigue siendo un mecanismo liviano de pendientes por recurso. No
+promete un total historico exacto de mensajes no leidos ni descarga chats para
+calcular badges.
 
 ### Politica De Refresh
 

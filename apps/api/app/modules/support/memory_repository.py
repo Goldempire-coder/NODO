@@ -85,6 +85,29 @@ class InMemorySupportRepository:
         items.sort(key=lambda message: message.created_at)
         return items
 
+    def latest_participant_messages_for_tickets(
+        self,
+        *,
+        ticket_ids: list[str],
+        recipient_user_id: str,
+    ) -> dict[str, SupportMessageRecord]:
+        if not ticket_ids:
+            return {}
+        ticket_id_set = set(ticket_ids)
+        result: dict[str, SupportMessageRecord] = {}
+        for message in self.messages.values():
+            if (
+                message.ticket_id not in ticket_id_set
+                or message.deleted_at is not None
+                or message.visibility != "participants"
+                or message.sender_user_id == recipient_user_id
+            ):
+                continue
+            current = result.get(message.ticket_id)
+            if current is None or (message.created_at, message.id) > (current.created_at, current.id):
+                result[message.ticket_id] = message
+        return result
+
     def create_event(
         self,
         *,

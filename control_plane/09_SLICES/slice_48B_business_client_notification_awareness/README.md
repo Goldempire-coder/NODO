@@ -1,6 +1,6 @@
 # Slice 48B - Business And Client Notification Awareness
 
-Estado: 48B2_IMPLEMENTED_LOCALLY_WITHOUT_DURABLE_MESSAGE_UNREAD
+Estado: 48B3_IMPLEMENTED_LOCALLY_DURABLE_ATTENTION_READ_STATE
 
 ## Objetivo
 
@@ -85,6 +85,24 @@ No construir todavia:
   `Sin actualizar`.
 - El ciclo de Negocio reemplaza el polling previo de ordenes cada 10 segundos.
 
-No se implemento unread durable por mensaje. Chat no tiene hoy estado de lectura
-por participante; prometer ese contador requiere persistencia nueva y aprobacion
-del Owner. Queda como 48B2b junto con 48B3.
+48B2 no implementaba persistencia de lectura. 48B3 agrega estado durable de
+pendientes por recurso y firma opaca, sin convertirlo en descarga de chats ni
+inbox historico completo.
+
+## 48B3 Implementado Localmente
+
+- Abrir correctamente una orden o ticket puede reconocer el pendiente en backend.
+- El reconocimiento se guarda por usuario, superficie, tipo de recurso, recurso
+  y firma opaca.
+- Si la app se cierra y vuelve a abrir, el pendiente reconocido no reaparece
+  mientras la firma siga siendo la misma.
+- Si llega un mensaje nuevo de la contraparte o cambia el estado operativo, la
+  firma cambia y el pendiente vuelve a aparecer.
+- No se guarda cuerpo de mensajes, asunto, adjuntos, comprobantes, bancos,
+  wallets, telefonos, documentos ni URLs firmadas.
+- La migracion reversible `0038_surface_attention_read_state` crea la tabla de
+  lectura; no debe ejecutarse sin validacion y aprobacion de deploy.
+
+48B3 sigue siendo un contador liviano de pendientes por recurso. No descarga
+conversaciones ni calcula un total historico exacto si una cuenta acumula mas de
+50 pendientes por seccion.
