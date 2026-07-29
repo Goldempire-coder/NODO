@@ -32,6 +32,12 @@ migraciones ni datos.
 | 46B case file | STAGING_DEPLOYED_PENDING_OWNER_SMOKE | commit `3196d35`, endpoint protegido responde auth gate | prueba autenticada desde Admin Web |
 | 46C advanced filters | STAGING_DEPLOYED_PENDING_OWNER_SMOKE | commit `03f4493`, endpoint protegido responde auth gate | prueba autenticada desde Admin Web |
 | 46D support playbooks and repair queue | CONTRACTS_READY_PENDING_OWNER_REVIEW | slice documental creado, sin runtime | inspeccion Builder report-first antes de reparar Dashboard |
+| 47A observability base | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
+| 47B operational alerting | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
+| 47C jobs/retries/reconciliation | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
+| 47D cost/noise control | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
+| 47E forensic audit/evidence trail | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
+| 47F recovery/rollback/game day | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
 
 ## Lista de reparaciones antes de tocar Dashboard
 
@@ -43,6 +49,8 @@ migraciones ni datos.
 6. Probar flujo 45A/45B desde Cliente/Negocio: monto solicitado, capacidad disponible y limite diario.
 7. Ejecutar `EXPLAIN` de 45C antes de afirmar que el indice cubre volumen historico.
 8. Registrar bugs concretos de Dashboard solo despues de esos smokes.
+9. Ejecutar 47A-47F uno por uno, empezando por 47A, sin mezclar operabilidad,
+   alertas, jobs, costo, auditoria forense y recuperacion en un solo paquete.
 
 ## No autorizado por este documento
 

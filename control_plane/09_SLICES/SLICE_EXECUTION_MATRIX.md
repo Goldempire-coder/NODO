@@ -155,3 +155,14 @@ No se permite declarar un slice listo sin revisar lineas exactas.
 | 46B | slice_46B_admin_investigation_case_file | Ficha de investigacion read-only por anchor exacto, con evidencia metadata-only y RBAC de soporte | 46A,44B,20B,20C | STAGING_DEPLOYED_PENDING_OWNER_SMOKE |
 | 46C | slice_46C_admin_investigation_advanced_filters | Filtros avanzados para encontrar ordenes candidatas cuando soporte tiene pistas incompletas | 46A,46B,20B,20C | STAGING_DEPLOYED_PENDING_OWNER_SMOKE |
 | 46D | slice_46D_admin_support_playbooks_and_repair_queue | Playbooks operativos y cola de reparaciones para casos de soporte despues de ubicar el caso | 46A,46B,46C,44B,20B,20C | CONTRACTS_READY_PENDING_OWNER_REVIEW |
+
+## Slice 47
+
+| Orden | Slice | Objetivo | Dependencias | Estado contractual |
+|---|---|---|---|---|
+| 47A | slice_47A_operability_observability_base | Observabilidad operativa base para ubicar fallas por superficie, request, version y recurso sin filtrar datos sensibles | 20B,24,35,37,46A-46D | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW |
+| 47B | slice_47B_operational_alerting_dashboard | Alertas accionables en Dashboard para soporte, intake, jobs, infraestructura y riesgo sin ruido ni cuerpos privados | 47A,20B,46A-46D | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW |
+| 47C | slice_47C_jobs_retries_reconciliation | Jobs, reintentos, idempotencia y reconciliacion no destructiva para tareas internas y notificaciones | 10,19,20B,45A,45B,47A,47B | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW |
+| 47D | slice_47D_cost_noise_control | Control de costo y ruido: polling, Redis, DB, storage, logs y llamadas repetidas sin perder visibilidad critica | 47A,47B,Admin Web,Cliente,Negocio | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW |
+| 47E | slice_47E_forensic_audit_evidence_trail | Auditoria forense y trazabilidad de evidencia para reconstruir hechos sin conclusiones automaticas | 44B,46B,46D,47A | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW |
+| 47F | slice_47F_recovery_rollback_game_day | Recuperacion, rollback, restore y game days seguros en staging antes de uso real controlado | 31B,47A,47B,47C,SOPs | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW |
