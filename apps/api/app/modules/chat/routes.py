@@ -6,7 +6,9 @@ from app.auth.dependencies import require_current_user, require_current_user_wit
 from app.modules.chat.models import MAX_ATTACHMENT_SIZE_BYTES
 from app.modules.chat.schemas import MessageCreateRequest
 from app.modules.chat.service import ChatService
+from app.modules.notifications.chat_notifications import ChatNotificationService
 from app.modules.users.models import UserRecord
+from app.shared.observability import get_correlation_id, get_operation_id
 from app.shared.validation import read_limited_upload
 
 router = APIRouter(tags=["chat"])
@@ -17,6 +19,13 @@ def _request_id(request: Request) -> str:
 
 
 def _service(request: Request) -> ChatService:
+    notifications = ChatNotificationService(
+        settings=request.app.state.settings,
+        job_repository=request.app.state.job_repository,
+        business_repository=request.app.state.business_repository,
+        correlation_id=get_correlation_id(request),
+        operation_id=get_operation_id(request),
+    )
     return ChatService(
         settings=request.app.state.settings,
         repository=request.app.state.chat_repository,
@@ -27,6 +36,7 @@ def _service(request: Request) -> ChatService:
         idempotency_store=request.app.state.idempotency_store,
         storage=request.app.state.private_storage,
         admin_notifications=getattr(request.app.state, "admin_notification_service", None),
+        notification_service=notifications,
     )
 
 

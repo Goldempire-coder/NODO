@@ -409,6 +409,94 @@ def test_admin_support_queue_actions_do_not_mutate_domain_state() -> None:
     assert "support_ticket_closed" in event_types
 
 
+def test_admin_support_replies_notify_each_participant_once_without_private_content() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner, business, _, remitter, _ = _seed_order(client, base_id=20100)
+    admin = _make_admin(client, 20103, "admin")
+    client_ticket = _create_ticket(
+        client,
+        remitter,
+        scope="client_general",
+        key="slice48b1_client_ticket",
+    )
+    business_ticket = _create_ticket(
+        client,
+        owner,
+        scope="business_general",
+        key="slice48b1_business_ticket",
+        business_id=business["id"],
+    )
+
+    client_reply_headers = {
+        **_headers(admin, "slice48b1_client_admin_reply"),
+        "Content-Type": "application/json",
+    }
+    client_reply_payload = {
+        "body": "PRIVATE_SUPPORT_REPLY_BODY_48B1",
+        "visibility": "participants",
+    }
+    first = client.post(
+        f"/api/v1/admin/support/tickets/{client_ticket['id']}/messages",
+        headers=client_reply_headers,
+        json=client_reply_payload,
+    )
+    replay = client.post(
+        f"/api/v1/admin/support/tickets/{client_ticket['id']}/messages",
+        headers=client_reply_headers,
+        json=client_reply_payload,
+    )
+    assert first.status_code == 201, first.text
+    assert replay.status_code == 201, replay.text
+
+    business_reply = client.post(
+        f"/api/v1/admin/support/tickets/{business_ticket['id']}/messages",
+        headers={**_headers(admin, "slice48b1_business_admin_reply"), "Content-Type": "application/json"},
+        json={"body": "PRIVATE_BUSINESS_SUPPORT_REPLY_48B1", "visibility": "participants"},
+    )
+    assert business_reply.status_code == 201, business_reply.text
+
+    participant_jobs = [
+        job
+        for job in client.app.state.job_repository.notification_jobs.values()
+        if job.notification_type == "support_message_created_participant"
+    ]
+    assert len(participant_jobs) == 2
+    client_job = next(job for job in participant_jobs if job.recipient_user_id == remitter["user"]["id"])
+    business_job = next(job for job in participant_jobs if job.recipient_user_id == owner["user"]["id"])
+    assert client_job.metadata_json["target_surface"] == "client_mini_app"
+    assert client_job.metadata_json["action_url"].endswith(
+        f"/?view=support&ticket_id={client_ticket['id']}"
+    )
+    assert business_job.metadata_json["target_surface"] == "business_mini_app"
+    assert business_job.metadata_json["action_url"].endswith(
+        f"/business/?view=business-support&ticket_id={business_ticket['id']}"
+    )
+    serialized = json.dumps([job.__dict__ for job in participant_jobs], default=str)
+    assert "PRIVATE_SUPPORT_REPLY_BODY_48B1" not in serialized
+    assert "PRIVATE_BUSINESS_SUPPORT_REPLY_48B1" not in serialized
+    assert "storage_path" not in serialized
+    assert "file_asset_id" not in serialized
+    assert "signed_url" not in serialized
+
+    participant_reply = client.post(
+        f"/api/v1/support/tickets/{client_ticket['id']}/messages",
+        headers={**_headers(remitter, "slice48b1_participant_reply"), "Content-Type": "application/json"},
+        json={"body": "Respuesta del participante"},
+    )
+    assert participant_reply.status_code == 201, participant_reply.text
+    assert len(
+        [
+            job
+            for job in client.app.state.job_repository.notification_jobs.values()
+            if job.notification_type == "support_message_created_participant"
+        ]
+    ) == 2
+    assert any(
+        notification.notification_type == "client_support_message_created"
+        for notification in client.app.state.admin_notification_repository.notifications.values()
+    )
+
+
 def test_resolved_and_closed_support_tickets_are_read_only_and_preserve_evidence() -> None:
     client = _client()
     _owner, _business, _ad, remitter, _order = _seed_order(client, base_id=26000)

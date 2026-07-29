@@ -290,6 +290,77 @@ def test_messages_are_order_scoped_idempotent_and_audited() -> None:
     assert JWT_REFRESH_SECRET not in combined
 
 
+def test_order_chat_messages_notify_only_the_counterparty_once_without_private_content() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner, _, _, remitter, order = _seed_reported_order(client, owner_id=803, remitter_id=804)
+
+    uploaded = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments",
+        headers=_headers(remitter, "slice48b1_attachment"),
+        files={"file": ("private-proof.png", b"private-proof", "image/png")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    attachment = uploaded.json()["data"]["attachment"]
+    client_payload = {
+        "body": "PRIVATE_CLIENT_CHAT_BODY_48B1",
+        "attachment_ids": [attachment["id"]],
+    }
+    client_headers = {**_headers(remitter, "slice48b1_client_message"), "Content-Type": "application/json"}
+
+    created = client.post(f"/api/v1/orders/{order['id']}/messages", headers=client_headers, json=client_payload)
+    replay = client.post(f"/api/v1/orders/{order['id']}/messages", headers=client_headers, json=client_payload)
+
+    assert created.status_code == 201, created.text
+    assert replay.status_code == 201, replay.text
+    business_jobs = [
+        job
+        for job in client.app.state.job_repository.notification_jobs.values()
+        if job.notification_type == "order_message_created_business"
+    ]
+    assert len(business_jobs) == 1
+    business_job = business_jobs[0]
+    assert business_job.recipient_user_id == owner["user"]["id"]
+    assert business_job.metadata_json["target_surface"] == "business_mini_app"
+    assert business_job.metadata_json["action_url"].endswith(
+        f"/business/?view=business-chat&order_id={order['id']}"
+    )
+    serialized_business_job = json.dumps(business_job.__dict__, default=str)
+    assert "PRIVATE_CLIENT_CHAT_BODY_48B1" not in serialized_business_job
+    assert attachment["id"] not in serialized_business_job
+    assert attachment["file_asset_id"] not in serialized_business_job
+    assert "storage_path" not in serialized_business_job
+    assert "signed_url" not in serialized_business_job
+
+    business_payload = {"body": "PRIVATE_BUSINESS_CHAT_BODY_48B1", "attachment_ids": []}
+    business_headers = {**_headers(owner, "slice48b1_business_message"), "Content-Type": "application/json"}
+    business_created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=business_headers,
+        json=business_payload,
+    )
+    business_replay = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=business_headers,
+        json=business_payload,
+    )
+
+    assert business_created.status_code == 201, business_created.text
+    assert business_replay.status_code == 201, business_replay.text
+    client_jobs = [
+        job
+        for job in client.app.state.job_repository.notification_jobs.values()
+        if job.notification_type == "order_message_created_client"
+    ]
+    assert len(client_jobs) == 1
+    client_job = client_jobs[0]
+    assert client_job.recipient_user_id == remitter["user"]["id"]
+    assert client_job.metadata_json["target_surface"] == "client_mini_app"
+    assert client_job.metadata_json["action_url"].endswith(
+        f"/?view=order-chat&order_id={order['id']}"
+    )
+    assert "PRIVATE_BUSINESS_CHAT_BODY_48B1" not in json.dumps(client_job.__dict__, default=str)
+
+
 def test_business_chat_off_platform_phrase_is_allowed_but_alerts_admin_without_leaking_body() -> None:
     client = _client()
     owner, business, _, remitter, order = _seed_reported_order(client, owner_id=804, remitter_id=805)

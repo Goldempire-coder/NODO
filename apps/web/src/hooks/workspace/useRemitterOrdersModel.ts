@@ -3,7 +3,11 @@
 import { useRef } from "react";
 import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import { cancelRemitterOrder, createRemitterOrder, extendPaymentDeadline, getOrder, listMyOrders, submitOrderRating } from "../../api/orders";
-import type { OrderRatingResult, OrderSummary } from "../../types/orders";
+import type {
+  OrderCancelReason,
+  OrderRatingResult,
+  OrderSummary
+} from "../../types/orders";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
@@ -29,9 +33,15 @@ type RemitterOrdersState = Pick<
   | "setView"
 >;
 
-export function useRemitterOrdersModel(state: RemitterOrdersState & { request: AuthenticatedRequest }) {
+export function useRemitterOrdersModel(
+  state: RemitterOrdersState & {
+    request: AuthenticatedRequest;
+    searchFreshForAmount: (amountUsd: string) => Promise<void>;
+  }
+) {
   const {
     request,
+    searchFreshForAmount,
     selectedAd,
     setSelectedAd,
     orderForm,
@@ -162,9 +172,11 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
       setView("order-summary");
       setNotice("");
       recordActionCompleted("client_order_detail_open", "order-summary", startedAt);
+      return true;
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos abrir la orden.");
       recordActionFailed("client_order_detail_open", "order-summary", startedAt, error instanceof Error ? error.name : undefined);
+      return false;
     } finally {
       if (!optimisticOrder) {
         setOpeningOrderId(null);
@@ -192,21 +204,37 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     }
   }
 
-  async function cancelOrder(orderId: string) {
+  async function cancelOrder(
+    orderId: string,
+    reason: OrderCancelReason,
+    paymentNotSentConfirmed: boolean
+  ): Promise<boolean> {
     const startedAt = actionStartedAt();
     recordActionStarted("client_order_cancel", "order-summary");
     setCancellingOrderId(orderId);
     const idempotencyScope = `order_cancel_${orderId}`;
     try {
-      const data = await cancelRemitterOrder<{ order: OrderSummary }>(request, orderId, "No pude realizar el pago", getIdempotencyKey(idempotencyScope, { orderId, reason: "No pude realizar el pago" }));
+      const data = await cancelRemitterOrder<{ order: OrderSummary }>(
+        request,
+        orderId,
+        reason,
+        paymentNotSentConfirmed,
+        getIdempotencyKey(idempotencyScope, {
+          orderId,
+          reason,
+          payment_not_sent_confirmed: paymentNotSentConfirmed
+        })
+      );
       clearIdempotencyKey(idempotencyScope);
       setSelectedOrder(data.order);
       rememberOrder(data.order);
-      setNotice("Orden cancelada.");
+      await searchFreshForAmount(data.order.amount_usd);
       recordActionCompleted("client_order_cancel", "order-summary", startedAt);
+      return true;
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos cancelar la orden.");
       recordActionFailed("client_order_cancel", "order-summary", startedAt, error instanceof Error ? error.name : undefined);
+      return false;
     } finally {
       setCancellingOrderId(null);
     }
@@ -260,5 +288,13 @@ export function useRemitterOrdersModel(state: RemitterOrdersState & { request: A
     }
   }
 
-  return { createOrder, loadMyOrders, openOrderDetail, extendOrder, cancelOrder, submitRating, prefetchMyOrders };
+  return {
+    cancelOrder,
+    createOrder,
+    extendOrder,
+    loadMyOrders,
+    openOrderDetail,
+    prefetchMyOrders,
+    submitRating
+  };
 }

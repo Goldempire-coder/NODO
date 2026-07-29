@@ -1,4 +1,5 @@
 import type { AuthenticatedRequest } from "./client";
+import type { OrderCancelReason } from "../types/orders";
 
 export type CreateOrderPayload = {
   ad_id: string;
@@ -41,14 +42,23 @@ export function extendPaymentDeadline<T>(request: AuthenticatedRequest, orderId:
   });
 }
 
-export function cancelRemitterOrder<T>(request: AuthenticatedRequest, orderId: string, reason: string, idempotencyKey: string) {
+export function cancelRemitterOrder<T>(
+  request: AuthenticatedRequest,
+  orderId: string,
+  reason: OrderCancelReason,
+  paymentNotSentConfirmed: boolean,
+  idempotencyKey: string
+) {
   return request<T>(`/api/v1/orders/${orderId}/cancel`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey
     },
-    body: JSON.stringify({ reason })
+    body: JSON.stringify({
+      reason,
+      payment_not_sent_confirmed: paymentNotSentConfirmed
+    })
   });
 }
 

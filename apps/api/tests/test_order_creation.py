@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import hashlib
 import hmac
 import inspect
@@ -8,6 +9,7 @@ import os
 import time
 from datetime import timedelta
 from urllib.parse import urlencode
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -49,6 +51,7 @@ from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.orders.postgres_create_order import PostgresCreateOrderMixin  # noqa: E402
+from app.modules.orders.postgres_queries import PostgresOrderQueriesMixin  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -191,6 +194,162 @@ def _create_order(client: TestClient, remitter: dict, ad_id: str, *, key: str = 
 
 def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
+
+
+def test_surface_attention_summary_is_one_safe_request_for_orders_and_support() -> None:
+    client = _client()
+    owner = _login(client, 8901, "attention_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="attention_ad")
+    remitter = _login(client, 8902, "attention_client")
+    order = _create_order(client, remitter, ad["id"], key="attention_order")
+    support_response = client.post(
+        "/api/v1/support/tickets",
+        headers={
+            **_headers(remitter, "attention_support"),
+            "Content-Type": "application/json",
+            "X-NODO-Surface": "client_mini_app",
+        },
+        json={
+            "scope": "client_order",
+            "category": "order_help",
+            "subject": "Asunto privado no notificable",
+            "message": "Cuerpo privado no notificable",
+            "order_id": order["id"],
+        },
+    )
+    assert support_response.status_code == 201, support_response.text
+    ticket = client.app.state.support_repository.get_ticket(support_response.json()["data"]["id"])
+    client.app.state.support_repository.update_ticket(ticket, status="waiting_user")
+
+    client_summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(remitter, "attention_client_summary"),
+            "X-NODO-Surface": "client_mini_app",
+        },
+    )
+    assert client_summary.status_code == 200, client_summary.text
+    assert client_summary.headers["cache-control"] == "private, no-store"
+    data = client_summary.json()["data"]
+    assert data["counts"] == {"orders": 1, "support": 1, "total": 2}
+    assert {item["kind"] for item in data["items"]} == {"order", "support"}
+    serialized = json.dumps(data).lower()
+    assert "asunto privado" not in serialized
+    assert "cuerpo privado" not in serialized
+    for forbidden in [
+        "body",
+        "subject",
+        "storage_path",
+        "signed_url",
+        "file_asset_id",
+        "account_value",
+        "token",
+        "wallet",
+        "pin",
+    ]:
+        assert forbidden not in serialized
+
+    business_summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(owner, "attention_business_summary"),
+            "X-NODO-Surface": "business_mini_app",
+        },
+    )
+    assert business_summary.status_code == 200, business_summary.text
+    assert business_summary.json()["data"]["counts"]["orders"] == 1
+    assert business_summary.json()["data"]["counts"]["support"] == 0
+
+    business_support_response = client.post(
+        "/api/v1/support/tickets",
+        headers={
+            **_headers(owner, "attention_business_support"),
+            "Content-Type": "application/json",
+            "X-NODO-Surface": "business_mini_app",
+        },
+        json={
+            "scope": "business_general",
+            "category": "technical_issue",
+            "subject": "Asunto privado del negocio",
+            "message": "Cuerpo privado del negocio",
+        },
+    )
+    assert business_support_response.status_code == 201, business_support_response.text
+    business_ticket = client.app.state.support_repository.get_ticket(
+        business_support_response.json()["data"]["id"]
+    )
+    client.app.state.support_repository.update_ticket(business_ticket, status="waiting_user")
+    business_support_summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(owner, "attention_business_support_summary"),
+            "X-NODO-Surface": "business_mini_app",
+        },
+    )
+    assert business_support_summary.status_code == 200, business_support_summary.text
+    assert business_support_summary.json()["data"]["counts"]["support"] == 1
+    business_serialized = json.dumps(business_support_summary.json()["data"]).lower()
+    assert "asunto privado del negocio" not in business_serialized
+    assert "cuerpo privado del negocio" not in business_serialized
+
+    wrong_surface = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(remitter, "attention_wrong_surface"),
+            "X-NODO-Surface": "business_mini_app",
+        },
+    )
+    assert wrong_surface.status_code == 403
+    assert business["id"] not in serialized
+
+
+def test_surface_attention_orders_use_latest_operational_update_before_limit() -> None:
+    client = _client()
+    owner = _login(client, 8911, "attention_order_owner")
+    _business, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="attention_order_ad")
+    remitter = _login(client, 8912, "attention_order_client")
+    order = _create_order(client, remitter, ad["id"], key="attention_order_old")
+    stored_order = client.app.state.order_repository.get_by_id(order["id"])
+    latest_update = stored_order.updated_at
+    stored_order.created_at = latest_update - timedelta(days=2)
+    stored_order.updated_at = latest_update + timedelta(seconds=1)
+    for index in range(55):
+        extra_order = replace(
+            stored_order,
+            id=str(uuid4()),
+            public_order_code=f"NODO-ATTN-{index:03}",
+            created_at=latest_update - timedelta(minutes=index),
+            updated_at=latest_update - timedelta(hours=index + 1),
+        )
+        client.app.state.order_repository.orders[extra_order.id] = extra_order
+
+    response = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(remitter, "attention_latest_update"),
+            "X-NODO-Surface": "client_mini_app",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    order_items = [item for item in data["items"] if item["kind"] == "order"]
+    assert len(order_items) == 50
+    assert data["truncated"]["orders"] is True
+    assert order_items[0]["resource_id"] == order["id"]
+    assert order["id"] in {item["resource_id"] for item in order_items}
+
+
+def test_postgres_attention_queries_order_by_operational_update_before_limit() -> None:
+    for method_name in (
+        "list_attention_for_business",
+        "list_attention_for_remitter",
+    ):
+        source = inspect.getsource(getattr(PostgresOrderQueriesMixin, method_name))
+        assert "order by updated_at desc, id desc" in source
+        assert "limit %s" in source
 
 
 def test_create_order_requires_terms_but_user_can_accept_later() -> None:
@@ -494,7 +653,7 @@ def test_cancel_waiting_payment_returns_ad_and_keeps_listing_credit_blocked() ->
     cancelled = client.post(
         f"/api/v1/orders/{order['id']}/cancel",
         headers={**_headers(remitter, "cancel_order"), "Content-Type": "application/json"},
-        json={"reason": "No pude pagar"},
+        json={"reason": "choose_another_business", "payment_not_sent_confirmed": True},
     )
 
     assert cancelled.status_code == 200
@@ -505,6 +664,75 @@ def test_cancel_waiting_payment_returns_ad_and_keeps_listing_credit_blocked() ->
     assert wallet.blocked_credits == 1
     assert "order_cancelled" in _event_types(client)
     assert "credits_released" not in _event_types(client)
+
+
+def test_slice_48a_cancel_rejects_unknown_reason() -> None:
+    client = _client()
+    owner = _login(client, 943, "owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="cancel_reason_ad")
+    remitter = _login(client, 944, "remitter")
+    order = _create_order(client, remitter, ad["id"], key="cancel_reason_order")
+
+    response = client.post(
+        f"/api/v1/orders/{order['id']}/cancel",
+        headers={**_headers(remitter, "cancel_unknown_reason"), "Content-Type": "application/json"},
+        json={"reason": "free text with private details", "payment_not_sent_confirmed": True},
+    )
+
+    assert response.status_code == 422
+    assert client.app.state.order_repository.get_by_id(order["id"]).status == "waiting_payment"
+
+
+def test_slice_48a_cancel_after_instructions_requires_no_payment_confirmation() -> None:
+    client = _client()
+    owner = _login(client, 945, "owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="cancel_confirm_ad")
+    remitter = _login(client, 946, "remitter")
+    order = _create_order(client, remitter, ad["id"], key="cancel_confirm_order")
+    reveal = client.get(
+        f"/api/v1/orders/{order['id']}/payment-instructions",
+        headers=_bearer(remitter, "req_cancel_confirm_reveal"),
+    )
+    assert reveal.status_code == 200, reveal.text
+
+    missing_confirmation = client.post(
+        f"/api/v1/orders/{order['id']}/cancel",
+        headers={**_headers(remitter, "cancel_without_confirmation"), "Content-Type": "application/json"},
+        json={"reason": "business_unavailable"},
+    )
+    confirmed = client.post(
+        f"/api/v1/orders/{order['id']}/cancel",
+        headers={**_headers(remitter, "cancel_with_confirmation"), "Content-Type": "application/json"},
+        json={"reason": "business_unavailable", "payment_not_sent_confirmed": True},
+    )
+
+    assert missing_confirmation.status_code == 409
+    assert missing_confirmation.json()["error"]["code"] == "ORDER_PAYMENT_NOT_SENT_CONFIRMATION_REQUIRED"
+    assert missing_confirmation.json()["error"]["message"] == (
+        "Confirma que no enviaste el pago antes de cancelar esta orden."
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["data"]["order"]["cancel_reason"] == "remitter_cancelled_before_payment"
+
+
+def test_slice_48a_cancel_requires_boolean_confirmation_type() -> None:
+    client = _client()
+    owner = _login(client, 947, "owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="cancel_bool_ad")
+    remitter = _login(client, 948, "remitter")
+    order = _create_order(client, remitter, ad["id"], key="cancel_bool_order")
+
+    response = client.post(
+        f"/api/v1/orders/{order['id']}/cancel",
+        headers={**_headers(remitter, "cancel_string_confirmation"), "Content-Type": "application/json"},
+        json={"reason": "business_unavailable", "payment_not_sent_confirmed": "true"},
+    )
+
+    assert response.status_code == 422
+    assert client.app.state.order_repository.get_by_id(order["id"]).status == "waiting_payment"
 
 
 def test_cancel_after_payment_reported_is_prohibited() -> None:

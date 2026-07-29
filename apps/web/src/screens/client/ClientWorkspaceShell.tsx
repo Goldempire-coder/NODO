@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Spinner, Text, Title } from "@telegram-apps/telegram-ui";
 import { AnimatedLogo } from "../../components/nodo/AnimatedLogo";
+import { AttentionBadge, AttentionBanner } from "../../components/nodo/SurfaceAttention";
 import type { ClientView } from "../../constants/clientViews";
 import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
 import { useMobileKeyboardViewport } from "../../hooks/useMobileKeyboardViewport";
@@ -70,13 +71,19 @@ function NavIcon({ name }: { name: "home" | "search" | "orders" | "messages" | "
 
 export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel }) {
   const {
+    attentionAlert,
+    attentionCounts,
+    attentionStale,
+    attentionTruncated,
     busy,
     canGoBack,
+    dismissAttention,
     goBack,
     loadActiveMarketplace,
     loadMyOrders,
     loadSupportTickets,
     notice,
+    openAttentionAlert,
     selectedSupportTicket,
     setSelectedSupportTicket,
     setSupportReply,
@@ -185,6 +192,11 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
           }}>
             <NavIcon name="orders" />
             <span>Órdenes</span>
+            <AttentionBadge
+              count={attentionCounts.orders}
+              label="ordenes pendientes"
+              truncated={attentionTruncated.orders}
+            />
           </button>
           <button className={activeNav === "messages" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => {
             setActiveNav("messages");
@@ -192,6 +204,11 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
           }}>
             <NavIcon name="messages" />
             <span>Mensajes</span>
+            <AttentionBadge
+              count={attentionCounts.support}
+              label="respuestas de soporte pendientes"
+              truncated={attentionTruncated.support}
+            />
           </button>
           <button className={activeNav === "profile" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => {
             setActiveNav("profile");
@@ -211,6 +228,13 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
       ) : null}
 
       {shouldShowNotice ? <Text className="auth-entry__message">{notice}</Text> : null}
+
+      <AttentionBanner
+        item={attentionAlert}
+        stale={attentionStale}
+        onDismiss={dismissAttention}
+        onOpen={() => void openAttentionAlert()}
+      />
 
       <ClientScreens model={model} />
     </section>

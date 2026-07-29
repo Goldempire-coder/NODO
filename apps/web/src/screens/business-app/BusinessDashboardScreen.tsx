@@ -1,4 +1,5 @@
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
+import { AttentionBadge } from "../../components/nodo/SurfaceAttention";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 import { paymentMethodCanReceive } from "./ads/businessAdViewHelpers";
 
@@ -13,6 +14,8 @@ function countActionableOrders(model: BusinessMiniAppModel) {
 
 export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
+    attentionCounts,
+    attentionTruncated,
     business,
     businessCapacity,
     businessCapacityDraft,
@@ -24,6 +27,7 @@ export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel
     loadBusinessOrders,
     loadCreditDashboard,
     loadMyAds,
+    openBusinessSupport,
     ownAds,
     paymentMethods,
     saveBusinessCapacity,
@@ -147,8 +151,13 @@ export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel
         <Button mode="outline" size="s" onClick={() => void loadCreditDashboard()}>
           Creditos
         </Button>
-        <Button mode="outline" size="s" onClick={() => setView("business-support")}>
+        <Button mode="outline" size="s" onClick={openBusinessSupport}>
           Soporte NODO
+          <AttentionBadge
+            count={attentionCounts.support}
+            label="respuestas pendientes"
+            truncated={attentionTruncated.support}
+          />
         </Button>
         <Button mode="outline" size="s" onClick={() => setView("payment-methods")}>
           Zelle / USDT

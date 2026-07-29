@@ -1,43 +1,10 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import { getBusinessOrder, listBusinessOrders, mutateBusinessOrder as mutateBusinessOrderRequest } from "../../api/businessOrders";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
-import { notifyTelegram } from "../../theme/telegramTheme";
 import type { BusinessOrderDetail, BusinessOrderSummary } from "../../types/orders";
 import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
-
-type OrderSnapshot = Map<string, string>;
-
-function snapshotOrder(order: BusinessOrderSummary) {
-  return [
-    order.status,
-    order.paid_reported_at || "",
-    order.payment_confirmed_at || "",
-    order.delivered_at || "",
-    order.business_response_deadline_at || "",
-    order.delivery_deadline_at || ""
-  ].join("|");
-}
-
-function buildOrderSnapshot(items: BusinessOrderSummary[]): OrderSnapshot {
-  return new Map(items.map((item) => [item.id, snapshotOrder(item)]));
-}
-
-function orderUpdateNotice(previous: OrderSnapshot, items: BusinessOrderSummary[]) {
-  const newOrder = items.find((item) => !previous.has(item.id));
-  if (newOrder) {
-    return `Nueva orden ${newOrder.public_order_code}. Revisala para atender al cliente.`;
-  }
-  const updatedOrder = items.find((item) => previous.get(item.id) !== snapshotOrder(item));
-  if (!updatedOrder) {
-    return "";
-  }
-  if (updatedOrder.status === "payment_reported") {
-    return `Pago reportado en ${updatedOrder.public_order_code}. Revisa la orden.`;
-  }
-  return `Orden ${updatedOrder.public_order_code} actualizada.`;
-}
 
 export function useBusinessOrdersModel({
   request,
@@ -55,8 +22,6 @@ export function useBusinessOrdersModel({
   const [businessOrderReason, setBusinessOrderReason] = useState("");
   const [businessOrderFilter, setBusinessOrderFilter] = useState<string>("open");
   const [businessOrderAction, setBusinessOrderAction] = useState<"confirm-payment" | "reject-payment-report" | "mark-delivered" | null>(null);
-  const businessOrdersSnapshotRef = useRef<OrderSnapshot>(new Map());
-  const businessOrdersWatchReadyRef = useRef(false);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   const loadBusinessOrders = useCallback(async (status?: string) => {
@@ -66,10 +31,6 @@ export function useBusinessOrdersModel({
     try {
       const data = await listBusinessOrders<{ items: BusinessOrderSummary[] }>(request, requestedStatus);
       setBusinessOrders(data.items);
-      if (requestedStatus === "open") {
-        businessOrdersSnapshotRef.current = buildOrderSnapshot(data.items);
-        businessOrdersWatchReadyRef.current = true;
-      }
       setBusinessOrderDetail(null);
       setBusinessOrderFilter(requestedStatus);
       setNotice(data.items.length ? "Ordenes del negocio cargadas." : requestedStatus === "history" ? "No hay ordenes completadas todavia." : "No hay ordenes abiertas por ahora.");
@@ -84,36 +45,12 @@ export function useBusinessOrdersModel({
     try {
       const data = await listBusinessOrders<{ items: BusinessOrderSummary[] }>(request, "open");
       setBusinessOrders(data.items);
-      businessOrdersSnapshotRef.current = buildOrderSnapshot(data.items);
-      businessOrdersWatchReadyRef.current = true;
       return true;
     } catch {
       setBusinessOrders([]);
       return false;
     }
   }, [request]);
-
-  const pollBusinessOrderUpdates = useCallback(async () => {
-    try {
-      const data = await listBusinessOrders<{ items: BusinessOrderSummary[] }>(request, "open");
-      const nextSnapshot = buildOrderSnapshot(data.items);
-      if (businessOrdersWatchReadyRef.current) {
-        const notice = orderUpdateNotice(businessOrdersSnapshotRef.current, data.items);
-        if (notice) {
-          setNotice(notice);
-          notifyTelegram("success");
-        }
-      }
-      businessOrdersSnapshotRef.current = nextSnapshot;
-      businessOrdersWatchReadyRef.current = true;
-      if (businessOrderFilter === "open") {
-        setBusinessOrders(data.items);
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  }, [businessOrderFilter, request, setNotice]);
 
   const openBusinessOrder = useCallback(async (orderId: string) => {
     setBusinessOrderDetail(null);
@@ -125,9 +62,11 @@ export function useBusinessOrdersModel({
       setBusinessOrderDetail(data);
       setBusinessOrderReason("");
       setNotice(data.disclaimer || "Orden lista para operar desde el negocio.");
+      return true;
     } catch (error) {
       setBusinessOrderDetail(null);
       setNotice(error instanceof Error ? error.message : "No logramos abrir la orden del negocio.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -177,7 +116,6 @@ export function useBusinessOrdersModel({
     loadBusinessOrders,
     mutateBusinessOrder,
     openBusinessOrder,
-    pollBusinessOrderUpdates,
     refreshBusinessOrders,
     setBusinessOrderReason
   };

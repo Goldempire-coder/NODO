@@ -85,6 +85,38 @@ class OrderNotificationService:
             operation_id=operation_id,
         )
 
+    def order_cancelled_before_payment_business(
+        self,
+        *,
+        order: OrderRecord,
+        request_id: str,
+        correlation_id: str | None = None,
+        operation_id: str | None = None,
+    ) -> None:
+        business = self._businesses.get_business(order.business_id)
+        if business is None:
+            self._log_enqueue_skipped(
+                "order_cancelled_payment_not_reported",
+                order,
+                "BUSINESS_NOT_FOUND",
+                request_id,
+            )
+            return
+        self._enqueue(
+            notification_type="order_cancelled_payment_not_reported",
+            order=order,
+            recipient_user_id=business.owner_user_id,
+            target_surface="business_mini_app",
+            text=(
+                f"La orden {order.public_order_code} fue cancelada por el cliente "
+                "antes de reportar pago."
+            ),
+            action_url=self._business_order_url(order.id),
+            request_id=request_id,
+            correlation_id=correlation_id,
+            operation_id=operation_id,
+        )
+
     def payment_confirmed_client(self, *, order: OrderRecord, request_id: str, correlation_id: str | None = None, operation_id: str | None = None) -> None:
         self._enqueue(
             notification_type="payment_confirmed_client",
@@ -271,6 +303,9 @@ class NoopOrderNotificationService:
         return
 
     def payment_reported_business(self, **_: Any) -> None:
+        return
+
+    def order_cancelled_before_payment_business(self, **_: Any) -> None:
         return
 
     def payment_confirmed_client(self, **_: Any) -> None:

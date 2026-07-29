@@ -1568,6 +1568,7 @@ div.ad-row {
 }
 
 .nav-button {
+  position: relative;
   min-width: 0;
   min-height: 56px;
   display: grid;
@@ -1580,6 +1581,76 @@ div.ad-row {
   font-size: 10px;
   font-weight: 750;
   transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.attention-badge {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgb(2 13 25 / 70%);
+  border-radius: 9px;
+  background: var(--nodo-green);
+  color: #04111f;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.business-grid .attention-badge,
+.business-row .attention-badge {
+  position: static;
+  margin-left: 6px;
+}
+
+.attention-strip {
+  width: min(100%, 720px);
+  min-height: 44px;
+  margin: 8px auto 2px;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-left: 3px solid var(--nodo-green);
+  border-radius: 0 8px 8px 0;
+  background: rgb(8 29 47 / 92%);
+  color: var(--nodo-text);
+  font-size: 13px;
+}
+
+.attention-strip--stale {
+  min-height: 32px;
+  border-left-color: #f2c94c;
+  color: var(--nodo-muted);
+  font-size: 12px;
+}
+
+.attention-strip__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.attention-strip button {
+  min-width: 38px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: rgb(19 152 255 / 18%);
+  color: var(--nodo-text);
+  font: inherit;
+  font-weight: 750;
+}
+
+.attention-strip small {
+  grid-column: 1 / -1;
+  color: var(--nodo-muted);
 }
 
 .nav-button:active,

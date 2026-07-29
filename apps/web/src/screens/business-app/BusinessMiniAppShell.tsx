@@ -1,6 +1,7 @@
 import { Spinner, Text, Title } from "@telegram-apps/telegram-ui";
 import { useEffect, useRef, useState } from "react";
 import { AnimatedLogo } from "../../components/nodo/AnimatedLogo";
+import { AttentionBadge, AttentionBanner } from "../../components/nodo/SurfaceAttention";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 import { useMobileKeyboardViewport } from "../../hooks/useMobileKeyboardViewport";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
@@ -75,6 +76,10 @@ function NavIcon({ name }: { name: "home" | "ads" | "orders" | "credits" | "prof
 export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel }) {
   const {
     accessState,
+    attentionAlert,
+    attentionCounts,
+    attentionStale,
+    attentionTruncated,
     busy,
     business,
     canGoBack,
@@ -86,6 +91,8 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
     loadMyAds,
     loadSupportTickets,
     notice,
+    dismissAttention,
+    openAttentionAlert,
     selectedSupportTicket,
     setSelectedSupportTicket,
     setSupportReply,
@@ -215,6 +222,11 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
           <button className={activeNav === "orders" ? "nav-button is-active" : "nav-button"} type="button" onClick={openOrders}>
             <NavIcon name="orders" />
             <span>Ordenes</span>
+            <AttentionBadge
+              count={attentionCounts.orders}
+              label="ordenes pendientes"
+              truncated={attentionTruncated.orders}
+            />
           </button>
           <button className={activeNav === "credits" ? "nav-button is-active" : "nav-button"} type="button" onClick={openCredits}>
             <NavIcon name="credits" />
@@ -235,6 +247,13 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
       ) : null}
 
       {notice ? <Text className="auth-entry__message">{notice}</Text> : null}
+
+      <AttentionBanner
+        item={attentionAlert}
+        stale={attentionStale}
+        onDismiss={dismissAttention}
+        onOpen={() => void openAttentionAlert()}
+      />
 
       <BusinessMiniAppScreens model={model} />
     </section>

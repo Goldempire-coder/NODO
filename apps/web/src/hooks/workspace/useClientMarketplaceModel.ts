@@ -17,6 +17,7 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
     setLoadingMarketplace,
     setOpeningMarketplaceAdId,
     setSearchingMarketplace,
+    setSearchForm,
     setSearchResults,
     setSelectedAd,
     setNotice,
@@ -52,6 +53,55 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos buscar negocios en este momento.");
       recordActionFailed("client_marketplace_search", "marketplace-search", startedAt, error instanceof Error ? error.name : undefined);
+    } finally {
+      setSearchingMarketplace(false);
+    }
+  }
+
+  async function searchFreshForAmount(amountUsd: string) {
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_marketplace_search", "marketplace-search");
+    setSearchingMarketplace(true);
+    setView("marketplace-search");
+    setNotice("");
+    cacheRef.current = {};
+    setSearchResults([]);
+    setSelectedAd(null);
+    setSearchForm((current) => ({ ...current, amount_usd: amountUsd }));
+    const params = {
+      amount_usd: amountUsd,
+      payment_method: searchForm.payment_method,
+      delivery_method: searchForm.delivery_method,
+      sort: searchForm.sort
+    };
+    try {
+      const data = await searchMarketplaceAds<{ items: typeof searchResults }>(
+        request,
+        params
+      );
+      const key = marketplaceSearchKey(params);
+      cacheRef.current[key] = { items: data.items, loadedAt: Date.now() };
+      setSearchResults(data.items);
+      setNotice(
+        data.items.length
+          ? "Orden cancelada. Te mostramos otros negocios disponibles para el mismo monto."
+          : "Orden cancelada. No encontramos otros negocios disponibles para el mismo monto."
+      );
+      recordActionCompleted(
+        "client_marketplace_search",
+        "marketplace-search",
+        startedAt
+      );
+    } catch (error) {
+      setNotice(
+        "La orden fue cancelada, pero no logramos buscar otros negocios. Intenta de nuevo."
+      );
+      recordActionFailed(
+        "client_marketplace_search",
+        "marketplace-search",
+        startedAt,
+        error instanceof Error ? error.name : undefined
+      );
     } finally {
       setSearchingMarketplace(false);
     }
@@ -138,5 +188,11 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
     }
   }
 
-  return { searchAds, loadActiveMarketplace, openAdDetail, prefetchActiveMarketplace };
+  return {
+    searchAds,
+    searchFreshForAmount,
+    loadActiveMarketplace,
+    openAdDetail,
+    prefetchActiveMarketplace
+  };
 }

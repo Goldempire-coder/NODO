@@ -539,6 +539,12 @@ class SupportService:
             current_ticket = self._repository.get_ticket(current.id) or current
             if not admin:
                 self._notify_admin_support_message_created(ticket=current_ticket, message=message, request_id=request_id)
+            else:
+                self._notifications.message_created_participant(
+                    ticket=current_ticket,
+                    message=message,
+                    request_id=request_id,
+                )
             return {
                 "attachment": file_asset_public(file),
                 "message": message_public(message, [file]),
@@ -600,6 +606,12 @@ class SupportService:
             current_ticket = self._repository.get_ticket(current.id) or current
             if not admin and visibility == "participants":
                 self._notify_admin_support_message_created(ticket=current_ticket, message=message, request_id=request_id)
+            elif admin and visibility == "participants":
+                self._notifications.message_created_participant(
+                    ticket=current_ticket,
+                    message=message,
+                    request_id=request_id,
+                )
             return {"message": message_public(message), "ticket": self._ticket_summary_payload(current_ticket), "disclaimer": SUPPORT_DISCLAIMER}
 
         return self._idempotency.replay_or_store(f"support:message:{user.id}:{ticket.id}:{idempotency_key}", payload={"body": body, "visibility": visibility}, compute=compute)

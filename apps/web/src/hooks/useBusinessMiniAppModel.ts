@@ -17,6 +17,7 @@ import { useBusinessHomeSummaryModel } from "./business-mini-app/useBusinessHome
 import { useBusinessOrdersModel } from "./business-mini-app/useBusinessOrdersModel";
 import { useBusinessTelegramControls } from "./business-mini-app/useBusinessTelegramControls";
 import { useSurfaceSupportModel } from "./useSurfaceSupportModel";
+import { useSurfaceAttentionModel } from "./useSurfaceAttentionModel";
 
 export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; token: string }) {
   const [view, setCurrentView] = useState<BusinessMiniAppView>("business-dashboard");
@@ -108,6 +109,38 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   const orders = useBusinessOrdersModel({ request, setBusy, setNotice, setView });
   const chat = useBusinessChatModel({ request, setBusy, setNotice, setView });
   const support = useSurfaceSupportModel({ request, setBusy, setNotice, initialScope: "business_general" });
+  const awareness = useSurfaceAttentionModel({
+    enabled: access.accessState === "ready" && hasAcceptedCurrentClientTerms(currentUser),
+    request
+  });
+  const { acknowledgeAttention, attentionAlert } = awareness;
+  const openBusinessOrderWithAttention = useCallback(async (orderId: string) => {
+    const opened = await orders.openBusinessOrder(orderId);
+    if (opened) {
+      acknowledgeAttention("order", orderId);
+    }
+  }, [acknowledgeAttention, orders.openBusinessOrder]);
+  const openBusinessSupportTicketWithAttention = useCallback(async (ticketId: string) => {
+    setView("business-support");
+    const opened = await support.openSupportTicket(ticketId);
+    if (opened) {
+      acknowledgeAttention("support", ticketId);
+    }
+  }, [acknowledgeAttention, setView, support.openSupportTicket]);
+  const openBusinessSupport = useCallback(() => {
+    setView("business-support");
+  }, [setView]);
+  const openAttentionAlert = useCallback(async () => {
+    const item = attentionAlert;
+    if (!item) {
+      return;
+    }
+    if (item.kind === "order") {
+      await openBusinessOrderWithAttention(item.resource_id);
+      return;
+    }
+    await openBusinessSupportTicketWithAttention(item.resource_id);
+  }, [attentionAlert, openBusinessOrderWithAttention, openBusinessSupportTicketWithAttention]);
   const homeSummary = useBusinessHomeSummaryModel({
     accessState: access.accessState,
     refreshBusinessCapacity: access.refreshBusinessCapacity,
@@ -117,7 +150,7 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     setView,
     view
   });
-  const handledOrderDeepLinkRef = useRef(false);
+  const handledDeepLinkRef = useRef(false);
 
   useEffect(() => {
     configureTelemetryContext(token, "business_mini_app");
@@ -129,32 +162,39 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   }, [access.loadBusinessProfile]);
 
   useEffect(() => {
-    if (handledOrderDeepLinkRef.current || access.accessState !== "ready" || typeof window === "undefined") {
+    if (handledDeepLinkRef.current || access.accessState !== "ready" || typeof window === "undefined") {
       return;
     }
     const params = new URLSearchParams(window.location.search);
+    const deepLinkView = params.get("view");
     const orderId = params.get("order_id");
-    if (params.get("view") !== "business-order-detail" || !orderId) {
+    const ticketId = params.get("ticket_id");
+    if (deepLinkView === "business-order-detail" && orderId) {
+      handledDeepLinkRef.current = true;
+      void openBusinessOrderWithAttention(orderId);
       return;
     }
-    handledOrderDeepLinkRef.current = true;
-    void orders.openBusinessOrder(orderId);
-  }, [access.accessState, orders.openBusinessOrder]);
+    if (deepLinkView === "business-chat" && orderId) {
+      handledDeepLinkRef.current = true;
+      void chat.openBusinessChat(orderId);
+      return;
+    }
+    if (deepLinkView === "business-support" && ticketId) {
+      handledDeepLinkRef.current = true;
+      void openBusinessSupportTicketWithAttention(ticketId);
+    }
+  }, [
+    access.accessState,
+    chat.openBusinessChat,
+    openBusinessOrderWithAttention,
+    openBusinessSupportTicketWithAttention
+  ]);
 
   useEffect(() => {
-    if (access.accessState !== "ready") {
-      return;
-    }
-    if (!hasAcceptedCurrentClientTerms(currentUser)) {
+    if (access.accessState === "ready" && !hasAcceptedCurrentClientTerms(currentUser)) {
       setCurrentView("business-terms");
-      return;
     }
-    void orders.pollBusinessOrderUpdates();
-    const interval = window.setInterval(() => {
-      void orders.pollBusinessOrderUpdates();
-    }, 10000);
-    return () => window.clearInterval(interval);
-  }, [access.accessState, currentUser, orders.pollBusinessOrderUpdates]);
+  }, [access.accessState, currentUser]);
 
   useBusinessTelegramControls({
     adForm: access.adForm,
@@ -183,7 +223,12 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     ...orders,
     ...credits,
     ...chat,
-    ...support
+    ...support,
+    ...awareness,
+    openAttentionAlert,
+    openBusinessOrder: openBusinessOrderWithAttention,
+    openBusinessSupport,
+    openSupportTicket: openBusinessSupportTicketWithAttention
   };
 }
 

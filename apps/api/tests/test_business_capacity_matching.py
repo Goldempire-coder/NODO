@@ -475,7 +475,7 @@ def test_order_lifecycle_releases_keeps_or_consumes_capacity_once() -> None:
     cancelled = client.post(
         f"/api/v1/orders/{cancelled_order['id']}/cancel",
         headers=_headers(remitter, "cancel_capacity"),
-        json={"reason": "No pude pagar"},
+        json={"reason": "customer_mistake"},
     )
     assert cancelled.status_code == 200, cancelled.text
     assert client.app.state.capacity_repository.get_reservation(cancelled_order["id"]).status == "released"

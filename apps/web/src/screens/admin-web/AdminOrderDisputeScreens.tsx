@@ -30,6 +30,9 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
   const order = model.selectedOrder?.order as AdminOrderSummary | undefined;
   const paymentReport = model.selectedOrder?.payment_report as { status?: string; payment_type?: string; payment_amount?: string; created_at?: string } | undefined;
   const timeline = model.selectedOrder?.timeline as { event_type?: string; to_status?: string; created_at?: string }[] | undefined;
+  const cancelledBeforePayment = (timeline || []).some(
+    (event) => event.event_type === "order_cancelled_by_remitter"
+  );
   return (
     <>
       <section className="admin-web-split">
@@ -46,6 +49,9 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
             <dt>Entrega</dt><dd>{order.delivery_method_snapshot}</dd>
             </dl>
           ) : <Empty text="Selecciona una orden." />}
+          {cancelledBeforePayment ? (
+            <p className="admin-web-muted">Cancelada antes de reportar pago.</p>
+          ) : null}
         </div>
         <div className="admin-web-panel">
           <h3>Reporte y timeline</h3>

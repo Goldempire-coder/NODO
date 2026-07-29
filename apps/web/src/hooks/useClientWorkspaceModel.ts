@@ -15,6 +15,7 @@ import { useRemitterOrdersModel } from "./workspace/useRemitterOrdersModel";
 import { useClientTelegramNativeShell } from "./workspace/useClientTelegramNativeShell";
 import { useClientWorkspaceState } from "./workspace/useClientWorkspaceState";
 import { useSurfaceSupportModel } from "./useSurfaceSupportModel";
+import { useSurfaceAttentionModel } from "./useSurfaceAttentionModel";
 
 export function useClientWorkspaceModel({
   user,
@@ -76,20 +77,59 @@ export function useClientWorkspaceModel({
 
   const context = { ...state, request, user: currentUser };
   const marketplace = useClientMarketplaceModel(context);
-  const remitterOrders = useRemitterOrdersModel(context);
+  const remitterOrders = useRemitterOrdersModel({
+    ...context,
+    searchFreshForAmount: marketplace.searchFreshForAmount
+  });
   const paymentReport = usePaymentReportModel({ ...context, loadMyOrders: remitterOrders.loadMyOrders });
   const chatDisputes = useClientChatDisputesModel(context);
   const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice, initialScope: "client_general" });
+  const awareness = useSurfaceAttentionModel({
+    enabled: !["welcome", "terms", "client-profile-setup"].includes(view),
+    request
+  });
+  const { acknowledgeAttention, attentionAlert } = awareness;
+  const openClientOrderWithAttention = useCallback(async (orderId: string) => {
+    const opened = await remitterOrders.openOrderDetail(orderId);
+    if (opened) {
+      acknowledgeAttention("order", orderId);
+    }
+  }, [acknowledgeAttention, remitterOrders.openOrderDetail]);
+  const openClientSupportTicketWithAttention = useCallback(async (ticketId: string) => {
+    setClientView("support");
+    const opened = await support.openSupportTicket(ticketId);
+    if (opened) {
+      acknowledgeAttention("support", ticketId);
+    }
+  }, [acknowledgeAttention, setClientView, support.openSupportTicket]);
+  const openClientSupport = useCallback(() => {
+    setClientView("support");
+  }, [setClientView]);
+  const openAttentionAlert = useCallback(async () => {
+    const item = attentionAlert;
+    if (!item) {
+      return;
+    }
+    if (item.kind === "order") {
+      await openClientOrderWithAttention(item.resource_id);
+      return;
+    }
+    await openClientSupportTicketWithAttention(item.resource_id);
+  }, [attentionAlert, openClientOrderWithAttention, openClientSupportTicketWithAttention]);
   const didWarmClientDataRef = useRef(false);
-  const handledOrderDeepLinkRef = useRef(false);
+  const handledDeepLinkRef = useRef(false);
   const prefetchActiveMarketplaceRef = useRef<() => Promise<void>>(async () => undefined);
   const prefetchMyOrdersRef = useRef<() => Promise<void>>(async () => undefined);
   const openOrderDetailRef = useRef<(orderId: string) => Promise<void>>(async () => undefined);
+  const openOrderChatRef = useRef<(orderId: string) => Promise<void>>(async () => undefined);
+  const openSupportTicketRef = useRef<(ticketId: string) => Promise<void>>(async () => undefined);
   const mainActionBusy = state.busy || state.creatingOrder || state.submittingPaymentReport;
 
   prefetchActiveMarketplaceRef.current = marketplace.prefetchActiveMarketplace;
   prefetchMyOrdersRef.current = remitterOrders.prefetchMyOrders;
-  openOrderDetailRef.current = remitterOrders.openOrderDetail;
+  openOrderDetailRef.current = openClientOrderWithAttention;
+  openOrderChatRef.current = chatDisputes.openOrderChat;
+  openSupportTicketRef.current = openClientSupportTicketWithAttention;
 
   useEffect(() => {
     configureTelemetryContext(token, "client_mini_app");
@@ -110,7 +150,7 @@ export function useClientWorkspaceModel({
 
   useEffect(() => {
     if (
-      handledOrderDeepLinkRef.current
+      handledDeepLinkRef.current
       || view === "welcome"
       || view === "terms"
       || view === "client-profile-setup"
@@ -119,13 +159,25 @@ export function useClientWorkspaceModel({
       return;
     }
     const params = new URLSearchParams(window.location.search);
+    const deepLinkView = params.get("view");
     const orderId = params.get("order_id");
-    if (params.get("view") !== "order-summary" || !orderId) {
+    const ticketId = params.get("ticket_id");
+    if (deepLinkView === "order-summary" && orderId) {
+      handledDeepLinkRef.current = true;
+      void openOrderDetailRef.current(orderId);
       return;
     }
-    handledOrderDeepLinkRef.current = true;
-    void openOrderDetailRef.current(orderId);
-  }, [view]);
+    if (deepLinkView === "order-chat" && orderId) {
+      handledDeepLinkRef.current = true;
+      void openOrderChatRef.current(orderId);
+      return;
+    }
+    if (deepLinkView === "support" && ticketId) {
+      handledDeepLinkRef.current = true;
+      setClientView("support");
+      void openSupportTicketRef.current(ticketId);
+    }
+  }, [setClientView, view]);
 
   useClientTelegramNativeShell({
     busy: mainActionBusy,
@@ -201,14 +253,18 @@ export function useClientWorkspaceModel({
     submittingPaymentReport: state.submittingPaymentReport,
     paymentReportForm: state.paymentReportForm,
     setPaymentReportForm: state.setPaymentReportForm,
+    ...awareness,
     acceptTerms,
     submitClientProfile,
     searchAds: marketplace.searchAds,
+    searchFreshForAmount: marketplace.searchFreshForAmount,
     loadActiveMarketplace: marketplace.loadActiveMarketplace,
     openAdDetail: marketplace.openAdDetail,
     createOrder: remitterOrders.createOrder,
     loadMyOrders: remitterOrders.loadMyOrders,
-    openOrderDetail: remitterOrders.openOrderDetail,
+    openAttentionAlert,
+    openClientSupport,
+    openOrderDetail: openClientOrderWithAttention,
     openPaymentInstructions: paymentReport.openPaymentInstructions,
     uploadPaymentEvidence: paymentReport.uploadPaymentEvidence,
     submitPaymentReport: paymentReport.submitPaymentReport,
@@ -236,7 +292,7 @@ export function useClientWorkspaceModel({
     uploadingSupportAttachment: support.uploadingSupportAttachment,
     loadSupportTickets: support.loadSupportTickets,
     refreshSupportWorkspace: support.refreshSupportWorkspace,
-    openSupportTicket: support.openSupportTicket,
+    openSupportTicket: openClientSupportTicketWithAttention,
     submitSupportTicket: support.submitSupportTicket,
     submitSupportReply: support.submitSupportReply,
     closeOwnSupportTicket: support.closeOwnSupportTicket,

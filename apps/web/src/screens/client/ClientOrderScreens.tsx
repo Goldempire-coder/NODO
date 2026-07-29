@@ -1,12 +1,17 @@
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
+import { useEffect, useState } from "react";
+import { AttentionBadge } from "../../components/nodo/SurfaceAttention";
 import { formatOrderMethodLine } from "../../constants/paymentLabels";
 import { sanitizeDecimalInput } from "../../lib/numericInput";
+import type { OrderCancelReason } from "../../types/orders";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
 
 const CHAT_STATUSES = ["payment_reported", "payment_rejected", "payment_confirmed", "delivered", "disputed"];
 
 export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
   const {
+    attentionCounts,
+    attentionTruncated,
     cancelOrder,
     cancellingOrderId,
     createOrder,
@@ -20,6 +25,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
     openingOrderId,
     openOrderChat,
     openOrderDetail,
+    openClientSupport,
     openPaymentInstructions,
     orderForm,
     selectedAd,
@@ -31,6 +37,16 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
     submittingRatingOrderId,
     view
   } = model;
+  const [cancelPromptOrderId, setCancelPromptOrderId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState<OrderCancelReason>(
+    "choose_another_business"
+  );
+
+  useEffect(() => {
+    if (cancelPromptOrderId && cancelPromptOrderId !== selectedOrder?.id) {
+      setCancelPromptOrderId(null);
+    }
+  }, [cancelPromptOrderId, selectedOrder?.id]);
 
   return (
     <>
@@ -93,13 +109,85 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
                 <Button mode="outline" size="s" disabled={extendingOrderId === selectedOrder.id || selectedOrder.status !== "waiting_payment" || selectedOrder.extension_used} onClick={() => void extendOrder(selectedOrder.id)}>
                   {extendingOrderId === selectedOrder.id ? "Extendiendo..." : "Extender"}
                 </Button>
-                <Button mode="outline" size="s" disabled={cancellingOrderId === selectedOrder.id || selectedOrder.status !== "waiting_payment"} onClick={() => void cancelOrder(selectedOrder.id)}>
-                  {cancellingOrderId === selectedOrder.id ? "Cancelando..." : "Cancelar"}
+                <Button
+                  mode="outline"
+                  size="s"
+                  disabled={
+                    cancellingOrderId === selectedOrder.id
+                    || selectedOrder.status !== "waiting_payment"
+                  }
+                  onClick={() => {
+                    setCancelReason("choose_another_business");
+                    setCancelPromptOrderId(selectedOrder.id);
+                  }}
+                >
+                  {cancellingOrderId === selectedOrder.id
+                    ? "Cancelando..."
+                    : "Cancelar y buscar otro negocio"}
                 </Button>
                 <Button mode="outline" size="s" disabled={openingChatOrderId === selectedOrder.id || !CHAT_STATUSES.includes(selectedOrder.status)} onClick={() => void openOrderChat(selectedOrder.id)}>
                   {openingChatOrderId === selectedOrder.id ? "Abriendo..." : "Chat"}
                 </Button>
               </div>
+              {cancelPromptOrderId === selectedOrder.id ? (
+                <div className="business-grid" aria-label="Confirmar cancelacion">
+                  <Text>
+                    Cancela solo si no enviaste el pago. Esta orden quedara
+                    registrada como cancelada antes de reportar pago.
+                  </Text>
+                  <label className="business-field">
+                    <span>Motivo</span>
+                    <select
+                      value={cancelReason}
+                      disabled={cancellingOrderId === selectedOrder.id}
+                      onChange={(event) =>
+                        setCancelReason(event.target.value as OrderCancelReason)
+                      }
+                    >
+                      <option value="business_not_responding">
+                        El negocio no responde
+                      </option>
+                      <option value="business_unavailable">
+                        El negocio no puede atender
+                      </option>
+                      <option value="customer_mistake">Me equivoque</option>
+                      <option value="choose_another_business">
+                        Quiero elegir otro negocio
+                      </option>
+                    </select>
+                  </label>
+                  <div className="business-shell__tabs">
+                    <Button
+                      mode="outline"
+                      size="s"
+                      disabled={cancellingOrderId === selectedOrder.id}
+                      onClick={() => setCancelPromptOrderId(null)}
+                    >
+                      Volver
+                    </Button>
+                    <Button
+                      mode="filled"
+                      size="s"
+                      disabled={cancellingOrderId === selectedOrder.id}
+                      onClick={() => {
+                        void cancelOrder(
+                          selectedOrder.id,
+                          cancelReason,
+                          true
+                        ).then((cancelled) => {
+                          if (cancelled) {
+                            setCancelPromptOrderId(null);
+                          }
+                        });
+                      }}
+                    >
+                      {cancellingOrderId === selectedOrder.id
+                        ? "Cancelando..."
+                        : "Confirmar cancelacion"}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               {selectedOrder.rating?.already_rated ? (
                 <div className="business-grid" aria-label="Calificacion enviada">
                   <Text className="business-card__label">Calificacion del negocio</Text>
@@ -159,6 +247,15 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
       {view === "messages" ? (
         <div className="business-card">
           <Text className="business-card__label">Mensajes</Text>
+          <button className="business-row ad-row" type="button" onClick={openClientSupport}>
+            <span>Soporte NODO</span>
+            <span>Ver conversaciones</span>
+            <AttentionBadge
+              count={attentionCounts.support}
+              label="respuestas pendientes"
+              truncated={attentionTruncated.support}
+            />
+          </button>
           <div className="business-list">
             {loadingOrders ? <Text>Cargando conversaciones...</Text> : null}
             {myOrders.length === 0 && !loadingOrders ? <Text>Todavía no tienes conversaciones.</Text> : null}

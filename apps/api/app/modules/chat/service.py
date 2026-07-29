@@ -13,6 +13,7 @@ from app.modules.businesses.access_control import evaluate_business_access
 from app.modules.chat.models import ALLOWED_ATTACHMENT_MIME_TYPES, MAX_ATTACHMENT_SIZE_BYTES, new_id
 from app.modules.chat.policy import require_chat_read, require_chat_write, require_message_state
 from app.modules.chat.schemas import MessageCreateRequest
+from app.modules.notifications.chat_notifications import NoopChatNotificationService
 from app.modules.orders.models import OrderRecord
 from app.modules.users.models import UserRecord
 
@@ -47,7 +48,7 @@ def _attachment_payload(attachment) -> dict[str, Any]:  # type: ignore[no-untype
 
 
 class ChatService:
-    def __init__(self, *, settings: Settings, repository, order_repository, business_repository, audit_writer, rate_limiter, idempotency_store, storage, admin_notifications=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, settings: Settings, repository, order_repository, business_repository, audit_writer, rate_limiter, idempotency_store, storage, admin_notifications=None, notification_service=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
         self._orders = order_repository
@@ -57,6 +58,7 @@ class ChatService:
         self._idempotency = idempotency_store
         self._storage = storage
         self._admin_notifications = admin_notifications
+        self._notifications = notification_service or NoopChatNotificationService()
 
     def _rate_limit(self, action: str, user: UserRecord, order_id: str | None = None) -> None:
         key = f"chat:{action}:{user.id}:{order_id or 'global'}"
@@ -149,6 +151,12 @@ class ChatService:
                 metadata_json={"order_id": order.id, "attachment_count": len(attached)},
             )
             self._inspect_business_message_for_off_platform_solicitation(user=user, order=order, message=message, request_id=request_id)
+            self._notifications.message_created(
+                order=order,
+                message=message,
+                sender_role=user.role,
+                request_id=request_id,
+            )
             return {"message": self._message_public(message, attached), "disclaimer": CHAT_DISCLAIMER}
 
         return self._idempotency.replay_or_store(f"chat:message:{user.id}:{order.id}:{idempotency_key}", payload=request_payload, compute=compute)

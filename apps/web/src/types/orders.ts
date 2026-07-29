@@ -1,5 +1,11 @@
 import type { PaymentEvidence } from "./payments";
 
+export type OrderCancelReason =
+  | "business_not_responding"
+  | "business_unavailable"
+  | "customer_mistake"
+  | "choose_another_business";
+
 export type OrderSummary = {
   id: string;
   public_order_code: string;

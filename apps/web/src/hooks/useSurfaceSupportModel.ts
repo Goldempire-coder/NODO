@@ -181,7 +181,7 @@ export function useSurfaceSupportModel({
 
   const openSupportTicket = useCallback(async (ticketId: string) => {
     if (openingTicketLockRef.current) {
-      return;
+      return false;
     }
     openingTicketLockRef.current = ticketId;
     const startedAt = actionStartedAt();
@@ -193,9 +193,11 @@ export function useSurfaceSupportModel({
       setSupportReply("");
       setNotice("");
       recordActionCompleted("support_ticket_open", "support", startedAt);
+      return true;
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos abrir el ticket.");
       recordActionFailed("support_ticket_open", "support", startedAt, error instanceof Error ? error.name : undefined);
+      return false;
     } finally {
       openingTicketLockRef.current = null;
       setOpeningSupportTicketId(null);

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import Field, StrictInt, model_validator
+from pydantic import Field, StrictBool, StrictInt, model_validator
 
 from app.shared.validation import ResourceId, StrictRequestModel
 
@@ -22,6 +23,16 @@ class OrderCreateRequest(StrictRequestModel):
 
 class OrderActionRequest(StrictRequestModel):
     reason: str | None = Field(default=None, max_length=500)
+
+
+class OrderCancelRequest(StrictRequestModel):
+    reason: Literal[
+        "business_not_responding",
+        "business_unavailable",
+        "customer_mistake",
+        "choose_another_business",
+    ] = "choose_another_business"
+    payment_not_sent_confirmed: StrictBool = False
 
 
 class OrderRatingRequest(StrictRequestModel):

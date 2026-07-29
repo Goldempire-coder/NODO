@@ -287,6 +287,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     credits_model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
     credits_screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     orders_model = _read("apps/web/src/hooks/business-mini-app/useBusinessOrdersModel.ts")
+    attention_model = _read("apps/web/src/hooks/useSurfaceAttentionModel.ts")
     orders_screen = _read("apps/web/src/screens/business-app/BusinessOrdersScreens.tsx")
     chat_screen = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
@@ -373,13 +374,14 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "refreshingCreditPurchase" in credits_model
     assert "verifyingCreditTx" in credits_model
     assert "businessOrderAction" in orders_model
-    assert "pollBusinessOrderUpdates" in orders_model
-    assert "businessOrdersWatchReadyRef" in orders_model
-    assert "Nueva orden ${newOrder.public_order_code}" in orders_model
-    assert "Pago reportado en ${updatedOrder.public_order_code}" in orders_model
-    assert 'notifyTelegram("success")' in orders_model
-    assert "orders.pollBusinessOrderUpdates()" in business_model
-    assert "window.setInterval" in business_model
+    assert "useSurfaceAttentionModel" in business_model
+    assert 'request<SurfaceAttentionSummary>("/api/v1/notifications/attention-summary"' in _read(
+        "apps/web/src/api/notifications.ts"
+    )
+    assert "ATTENTION_REFRESH_INTERVAL_MS = 30_000" in attention_model
+    assert 'document.visibilityState !== "visible"' in attention_model
+    assert "refreshInFlightRef.current" in attention_model
+    assert "window.setInterval" not in business_model
     assert 'recordBusinessActionStarted(telemetryAction, "business-order-detail")' in orders_model
     assert "business_order_confirm_payment" in orders_model
     assert "business_order_reject_payment_report" in orders_model
@@ -582,6 +584,37 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "openingChatOrderId: string | null" in remitter_types
     assert "recordBusinessActionStarted = recordActionStarted" in telemetry_helper
     assert "recordSlowSensitiveAction" in telemetry_helper
+
+
+def test_slice_48a_client_cancel_returns_to_fresh_marketplace_and_admin_shows_evidence() -> None:
+    client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
+    marketplace_model = _read("apps/web/src/hooks/workspace/useClientMarketplaceModel.ts")
+    orders_model = _read("apps/web/src/hooks/workspace/useRemitterOrdersModel.ts")
+    order_screen = _read("apps/web/src/screens/client/ClientOrderScreens.tsx")
+    marketplace_screen = _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx")
+    admin_order_screen = _read("apps/web/src/screens/admin-web/AdminOrderDisputeScreens.tsx")
+
+    assert "searchFreshForAmount" in marketplace_model
+    fresh_search = marketplace_model.split("async function searchFreshForAmount", 1)[1].split("async function loadActiveMarketplace", 1)[0]
+    assert "cacheRef.current = {}" in fresh_search
+    assert "setSearchResults([])" in fresh_search
+    assert "amount_usd: amountUsd" in fresh_search
+    assert "searchMarketplaceAds" in fresh_search
+    assert "searchFreshForAmount: marketplace.searchFreshForAmount" in client_model
+    assert "await searchFreshForAmount(data.order.amount_usd)" in orders_model
+    assert "payment_not_sent_confirmed" in orders_model
+    assert "Cancelar y buscar otro negocio" in order_screen
+    assert "Cancela solo si no enviaste el pago." in order_screen
+    for reason in [
+        "business_not_responding",
+        "business_unavailable",
+        "customer_mistake",
+        "choose_another_business",
+    ]:
+        assert reason in order_screen
+    assert "Orden cancelada. Te mostramos otros negocios disponibles para el mismo monto." in marketplace_model
+    assert "notice" in marketplace_screen
+    assert "Cancelada antes de reportar pago." in admin_order_screen
 
 
 def test_client_mini_app_android_scroll_keyboard_and_cached_loads() -> None:

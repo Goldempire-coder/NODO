@@ -313,6 +313,38 @@ def test_slice_36_immediate_order_notifications_are_enqueued_deduped_and_private
     assert BOT_TOKEN not in combined
 
 
+def test_slice_48a_manual_cancel_notifies_business_once_with_safe_metadata() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    _, business, _, remitter, order = _seed_order(client, owner_id=1110, remitter_id=1111)
+    business_owner_id = client.app.state.business_repository.get_business(business["id"]).owner_user_id
+    payload = {"reason": "business_unavailable", "payment_not_sent_confirmed": True}
+    headers = {**_headers(remitter, "slice48a_cancel"), "Content-Type": "application/json"}
+
+    first = client.post(f"/api/v1/orders/{order['id']}/cancel", headers=headers, json=payload)
+    replay = client.post(f"/api/v1/orders/{order['id']}/cancel", headers=headers, json=payload)
+
+    assert first.status_code == 200, first.text
+    assert replay.status_code == 200, replay.text
+    notifications = _notifications_by_type(client, "order_cancelled_payment_not_reported")
+    assert len(notifications) == 1
+    notification = notifications[0]
+    assert notification.recipient_user_id == business_owner_id
+    assert notification.metadata_json["channel"] == "telegram"
+    assert notification.metadata_json["target_surface"] == "business_mini_app"
+    assert "antes de reportar pago" in notification.metadata_json["message_text"]
+    assert notification.metadata_json["order_status"] == "cancelled"
+    combined = json.dumps(notification.__dict__, default=str)
+    for forbidden in [
+        "owner@example.com",
+        "+584121234567",
+        "V12345678",
+        "account_value",
+        "storage_path",
+        "signed_url",
+    ]:
+        assert forbidden not in combined
+
+
 def test_slice_36_notification_enqueue_logging_does_not_break_success_response(caplog) -> None:  # type: ignore[no-untyped-def]
     caplog.set_level(logging.INFO, logger="app.modules.notifications.order_notifications")
     client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
@@ -448,7 +480,7 @@ def test_slice_36a_sender_scope_guard_only_claims_supported_immediate_telegram_j
             "order_cancelled_payment_not_reported",
             recipient_user_id=remitter["user"]["id"],
             recipient_role=None,
-            metadata_json={"channel": "telegram", "target_surface": "client_mini_app", "message_text": "legacy cancellation"},
+            metadata_json={},
         ),
         enqueue_non_processable(
             "delivered_reminder_12h",
@@ -503,6 +535,53 @@ def test_slice_36a_sender_scope_guard_only_claims_supported_immediate_telegram_j
     }
     for notification in non_processable:
         assert _notification_snapshot(notification) == before[notification.id]
+
+
+def test_slice_48b1_sender_claims_chat_and_support_participant_notifications() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner, business, _, remitter, order = _seed_order(client, owner_id=1128, remitter_id=1129)
+    now = utc_now()
+    expected_types = {
+        "order_message_created_business": (owner["user"]["id"], "business_mini_app"),
+        "order_message_created_client": (remitter["user"]["id"], "client_mini_app"),
+        "support_message_created_participant": (remitter["user"]["id"], "client_mini_app"),
+    }
+    for notification_type, (recipient_user_id, target_surface) in expected_types.items():
+        client.app.state.job_repository.enqueue_notification(
+            notification_type=notification_type,
+            recipient_user_id=recipient_user_id,
+            recipient_role=None,
+            order_id=order["id"] if notification_type.startswith("order_") else None,
+            business_id=business["id"],
+            dispute_id=None,
+            scheduled_for=now - timedelta(seconds=1),
+            dedupe_key=f"slice48b1:{notification_type}:{recipient_user_id}",
+            metadata_json={
+                "channel": "telegram",
+                "target_surface": target_surface,
+                "message_text": "Tienes una actualizacion segura en NODO.",
+                "action_text": "Abrir",
+                "action_url": "https://app.example.test/",
+            },
+        )
+
+    adapter = _FakeTelegramAdapter()
+    worker = NotificationSenderWorker(
+        settings=client.app.state.settings,
+        job_repository=client.app.state.job_repository,
+        user_repository=client.app.state.user_repository,
+        adapter=adapter,
+    )
+    result = worker.run(now=now, request_id="req_slice48b1_sender")
+
+    assert result["counters"]["processed"] == 4
+    assert result["counters"]["sent"] == 4
+    assert len(adapter.sent) == 4
+    assert {
+        job.notification_type
+        for job in client.app.state.job_repository.notification_jobs.values()
+        if job.status == "sent"
+    }.issuperset(expected_types)
 
 
 def test_slice_36a_postgres_claim_filters_telegram_scope_before_update() -> None:
@@ -1099,5 +1178,32 @@ def test_support_status_notification_migration_is_reversible_and_sender_scoped()
         assert existing_type in down
     assert "SUPPORT_NOTIFICATION_TYPES" in notification_types
     assert "| SUPPORT_NOTIFICATION_TYPES" in notification_types
+    assert "drop constraint if exists notification_jobs_type_check" in up
+    assert "drop constraint if exists notification_jobs_type_check" in down
+
+
+def test_slice_48b1_notification_type_migration_is_reversible_and_sender_scoped() -> None:
+    root = Path(__file__).resolve().parents[3]
+    up = (root / "database" / "migrations" / "0037_business_client_message_notifications.up.sql").read_text(encoding="utf-8")
+    down = (root / "database" / "migrations" / "0037_business_client_message_notifications.down.sql").read_text(encoding="utf-8")
+    notification_types = (root / "apps" / "api" / "app" / "modules" / "notifications" / "notification_types.py").read_text(encoding="utf-8")
+
+    for notification_type in [
+        "order_message_created_business",
+        "order_message_created_client",
+        "support_message_created_participant",
+    ]:
+        assert notification_type in up
+        assert notification_type not in down
+        assert notification_type in notification_types
+    for existing_type in [
+        "support_ticket_resolved_participant",
+        "support_ticket_closed_participant",
+        "order_cancelled_payment_not_reported",
+    ]:
+        assert existing_type in up
+        assert existing_type in down
+    assert "CHAT_NOTIFICATION_TYPES" in notification_types
+    assert "| CHAT_NOTIFICATION_TYPES" in notification_types
     assert "drop constraint if exists notification_jobs_type_check" in up
     assert "drop constraint if exists notification_jobs_type_check" in down

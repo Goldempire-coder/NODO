@@ -49,6 +49,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
   const {
     loadActiveMarketplace,
     loadingMarketplace,
+    notice,
     openingMarketplaceAdId,
     searchAds,
     searchForm,
@@ -92,6 +93,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               {searchingMarketplace ? "Buscando..." : `Ver negocios para $${searchForm.amount_usd || "0.00"}`}
             </Button>
           </div>
+          {notice ? <Text className="auth-entry__session-meta">{notice}</Text> : null}
 
           <div className="marketplace-toolbar">
             <Title level="3" className="business-shell__title">Negocios disponibles</Title>

@@ -86,6 +86,7 @@ ERROR_MESSAGES = {
     "RATING_ALREADY_EXISTS": "Esta orden ya fue calificada.",
     "ORDER_EXPIRED": "La orden expiro antes de completar esta accion.",
     "ORDER_EXTENSION_ALREADY_USED": "Ya usaste la extension permitida para esta orden.",
+    "ORDER_PAYMENT_NOT_SENT_CONFIRMATION_REQUIRED": "Confirma que no enviaste el pago antes de cancelar esta orden.",
     "ORDER_PAYMENT_ALREADY_REPORTED": "La orden ya tiene pago reportado.",
     "PAYMENT_REPORT_NOT_ALLOWED": "La orden no permite reportar pago en este estado.",
     "PAYMENT_REPORT_NOT_FOUND": "No encontramos un reporte de pago pendiente para esta orden.",

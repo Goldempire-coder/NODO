@@ -36,12 +36,15 @@ class InMemorySupportRepository:
         assigned_support_user_id: str | None,
         cursor: str | None,
         limit: int,
+        requester_surface: str | None = None,
     ) -> tuple[list[SupportTicketRecord], str | None]:
         items = list(self.tickets.values())
         if requester_user_id:
             items = [item for item in items if item.requester_user_id == requester_user_id]
         if business_id:
             items = [item for item in items if item.business_id == business_id]
+        if requester_surface:
+            items = [item for item in items if item.requester_surface == requester_surface]
         if statuses:
             items = [item for item in items if item.status in statuses]
         if scope:

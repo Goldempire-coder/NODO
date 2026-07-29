@@ -44,6 +44,7 @@ from app.modules.jobs.repository import InMemoryJobRepository, PostgresJobReposi
 from app.modules.jobs.routes import router as jobs_router
 from app.modules.jobs.worker import ExpireAndEscalateOrdersWorker
 from app.modules.notifications.telegram_sender import NotificationSenderWorker
+from app.modules.notifications.attention_routes import router as notification_attention_router
 from app.modules.observability.repository import InMemoryFrontendObservabilityRepository, PostgresFrontendObservabilityRepository
 from app.modules.observability.routes import router as observability_router
 from app.modules.operations import InMemoryEmergencyModeRepository, PostgresEmergencyModeRepository
@@ -397,6 +398,7 @@ def _include_routes(app: FastAPI) -> None:
     app.include_router(disputes_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(admin_notifications_router, prefix="/api/v1")
+    app.include_router(notification_attention_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(observability_router, prefix="/api/v1")
     app.include_router(telegram_bot_router, prefix="/api/v1")

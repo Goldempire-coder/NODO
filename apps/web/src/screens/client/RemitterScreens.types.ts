@@ -3,8 +3,17 @@ import type { ClientView } from "../../constants/clientViews";
 import type { AdSummary } from "../../types/ads";
 import type { PublicUser } from "../../types/auth";
 import type { ClientProfileFormState, SearchFormState } from "../../types/client";
-import type { OrderFormState, OrderSummary } from "../../types/orders";
+import type {
+  OrderCancelReason,
+  OrderFormState,
+  OrderSummary
+} from "../../types/orders";
 import type { PaymentEvidence, PaymentInstructions, PaymentReportFormState } from "../../types/payments";
+import type {
+  SurfaceAttentionCounts,
+  SurfaceAttentionItem,
+  SurfaceAttentionTruncated
+} from "../../types/notifications";
 
 export type RemitterScreensModel = {
   user: PublicUser;
@@ -15,6 +24,11 @@ export type RemitterScreensModel = {
   clientProfileForm: ClientProfileFormState;
   setClientProfileForm: Dispatch<SetStateAction<ClientProfileFormState>>;
   busy: boolean;
+  attentionAlert: SurfaceAttentionItem | null;
+  attentionCounts: SurfaceAttentionCounts;
+  attentionStale: boolean;
+  attentionTruncated: SurfaceAttentionTruncated;
+  notice: string;
   searchingMarketplace: boolean;
   loadingMarketplace: boolean;
   openingMarketplaceAdId: string | null;
@@ -50,11 +64,16 @@ export type RemitterScreensModel = {
   createOrder: () => void | Promise<void>;
   loadMyOrders: (targetView?: "my-orders" | "messages") => void | Promise<void>;
   openOrderDetail: (orderId: string) => void | Promise<void>;
+  openClientSupport: () => void;
   openPaymentInstructions: (orderId: string) => void | Promise<void>;
   uploadPaymentEvidence: (file: File | null) => void | Promise<void>;
   submitPaymentReport: () => void | Promise<void>;
   extendOrder: (orderId: string) => void | Promise<void>;
-  cancelOrder: (orderId: string) => void | Promise<void>;
+  cancelOrder: (
+    orderId: string,
+    reason: OrderCancelReason,
+    paymentNotSentConfirmed: boolean
+  ) => Promise<boolean>;
   submitOrderRating: (orderId: string) => void | Promise<void>;
   openOrderChat: (orderId: string) => void | Promise<void>;
 };

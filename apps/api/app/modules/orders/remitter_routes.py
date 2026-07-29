@@ -6,7 +6,12 @@ from app.auth.dependencies import require_current_user, require_current_user_wit
 from app.modules.operations import require_platform_operational
 from app.modules.orders.helpers import activate_response_profile, reset_response_profile
 from app.modules.orders.routes_support import order_service, request_id
-from app.modules.orders.schemas import OrderActionRequest, OrderCreateRequest, OrderRatingRequest
+from app.modules.orders.schemas import (
+    OrderActionRequest,
+    OrderCancelRequest,
+    OrderCreateRequest,
+    OrderRatingRequest,
+)
 from app.modules.users.models import UserRecord
 from app.shared.profiling import staging_response_profile_enabled
 
@@ -97,7 +102,7 @@ def extend_payment_deadline(
 def cancel_order(
     order_id: str,
     request: Request,
-    payload: OrderActionRequest | None = None,
+    payload: OrderCancelRequest | None = None,
     user: UserRecord = Depends(require_current_user),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:

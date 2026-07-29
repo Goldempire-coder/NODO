@@ -57,12 +57,14 @@ class PostgresSupportRepository:
         assigned_support_user_id: str | None,
         cursor: str | None,
         limit: int,
+        requester_surface: str | None = None,
     ) -> tuple[list[SupportTicketRecord], str | None]:
         sql = "select * from support_tickets where true"
         params: list[Any] = []
         filters = {
             "requester_user_id": requester_user_id,
             "business_id": business_id,
+            "requester_surface": requester_surface,
             "scope": scope,
             "category": category,
             "priority": priority,

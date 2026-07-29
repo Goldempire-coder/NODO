@@ -8,7 +8,13 @@ from app.modules.orders.create_order_flow import OrderCreateFlow
 from app.modules.orders.payment_flow import OrderPaymentFlow
 from app.modules.orders.rating_ops import OrderRatingOps
 from app.modules.orders.remitter_ops import OrderRemitterOps
-from app.modules.orders.schemas import OrderActionRequest, OrderCreateRequest, OrderRatingRequest, PaymentReportRequest
+from app.modules.orders.schemas import (
+    OrderActionRequest,
+    OrderCancelRequest,
+    OrderCreateRequest,
+    OrderRatingRequest,
+    PaymentReportRequest,
+)
 from app.modules.orders.service_support import OrderServiceSupportMixin
 from app.modules.users.models import UserRecord
 
@@ -81,6 +87,7 @@ class OrderService(OrderServiceSupportMixin):
             materialize_order_expiration=self._materialize_order_expiration,
             return_or_expire_ad=self._return_or_expire_ad,
             rating_ops=self._rating_ops,
+            notification_service=self._notification_service,
         )
         self._payment_flow = OrderPaymentFlow(
             repository=self._repository,
@@ -103,7 +110,7 @@ class OrderService(OrderServiceSupportMixin):
     def extend(self, *, user: UserRecord, order_id: str, payload: OrderActionRequest | None, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         return self._remitter_ops.extend(user=user, order_id=order_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
 
-    def cancel(self, *, user: UserRecord, order_id: str, payload: OrderActionRequest | None, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+    def cancel(self, *, user: UserRecord, order_id: str, payload: OrderCancelRequest | None, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         return self._remitter_ops.cancel(user=user, order_id=order_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
 
     def create_rating(self, *, user: UserRecord, order_id: str, payload: OrderRatingRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
