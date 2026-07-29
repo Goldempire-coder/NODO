@@ -124,6 +124,21 @@ Audit:
 - dispute_message_created when order is in disputed context
 - order_chat_off_platform_solicitation_detected when business-owner message matches anti-evasion rules. This event must not include full message body.
 
+Counterparty notification:
+
+- A participant message enqueues exactly one Telegram job for the other party.
+- Client/remitter -> business owner uses `order_message_created_business`.
+- Business owner -> client/remitter uses `order_message_created_client`.
+- Dedupe binds `order_id`, `message_id`, notification type and recipient.
+- Telegram metadata contains the order code and destination route, never message
+  body, attachment IDs, `file_asset_id`, `storage_path`, signed URLs, payment
+  instructions, account data, PINs, tokens or secrets.
+- Business chat link:
+  `/business/?view=business-chat&order_id={order_id}`.
+- Client chat link: `/?view=order-chat&order_id={order_id}`.
+- The destination endpoint revalidates order ownership; a deep link is not
+  authorization.
+
 Internal admin alert:
 
 - business-owner messages may create `admin_notifications.notification_type = order_chat_off_platform_solicitation`.

@@ -17,6 +17,12 @@ API para soporte general cliente, soporte por recursos del negocio y cola Admin 
 - Estados archivados y de solo lectura: `resolved`, `closed`.
 - Archivar o cerrar no elimina tickets, mensajes, eventos ni adjuntos.
 - Resolver o cerrar por Admin genera un `notification_job` seguro para el requester. El job no incluye subject, body, adjuntos, `storage_path`, signed URL, `account_value`, tokens ni secretos.
+- Una respuesta Admin/Soporte con `visibility = participants` encola
+  `support_message_created_participant` para el requester. Respuestas internas
+  no notifican al participante.
+- El aviso de respuesta usa copy generico y deep link al ticket exacto; nunca
+  incluye subject, body, adjuntos, `file_asset_id`, `storage_path`, signed URL,
+  datos bancarios, PINs, tokens ni secretos.
 
 ## Endpoints cliente/negocio
 
@@ -194,6 +200,12 @@ Rules:
 - `admin_internal` solo `admin`/`super_admin`.
 - Audit `support_message_created`.
 - Para staff delegado, requiere `reply_support_ticket` y scope compatible.
+- Si `visibility = participants`, encola un unico
+  `support_message_created_participant`, deduplicado por ticket, mensaje y
+  requester.
+- Cliente: `/?view=support&ticket_id={ticket_id}`.
+- Negocio: `/business/?view=business-support&ticket_id={ticket_id}`.
+- El backend vuelve a validar ownership al abrir el ticket.
 
 ### POST /api/v1/admin/support/tickets/{id}/assign
 

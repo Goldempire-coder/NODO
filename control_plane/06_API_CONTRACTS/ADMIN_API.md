@@ -385,6 +385,8 @@ Rules:
 
 - Admin/super_admin can view operational detail.
 - Support can view masked detail if RBAC allows.
+- Una orden con evento `order_cancelled_by_remitter` se presenta como
+  `Cancelada antes de reportar pago`; no afirma que no hubo transferencia.
 - Evidence files are metadata only unless a signed URL endpoint exists.
 - No full payment instructions or `account_value`.
 

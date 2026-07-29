@@ -346,9 +346,16 @@ Request:
 
 ```json
 {
-  "reason": "No pude realizar el pago"
+  "reason": "business_unavailable",
+  "payment_not_sent_confirmed": true
 }
 ```
+
+`reason` admite `business_not_responding`, `business_unavailable`,
+`customer_mistake` o `choose_another_business`. Omitir el payload conserva
+compatibilidad y usa `choose_another_business`.
+`payment_not_sent_confirmed` debe ser booleano real; texto como `"true"` no
+cuenta como confirmacion.
 
 Response 200:
 
@@ -365,6 +372,10 @@ Rules:
 
 - Solo remitente propietario.
 - Solo `waiting_payment` antes de `payment_reported`.
+- Si `payment_data_revealed_at` existe, requiere confirmacion explicita
+  `payment_not_sent_confirmed = true`.
+- La confirmacion no prueba que no hubo una transferencia; solo registra la
+  declaracion del cliente y la ausencia de reporte de pago en NODO.
 - Setea `order.status = cancelled`.
 - Setea `cancel_reason = remitter_cancelled_before_payment`.
 - Si el anuncio no vencio: `ad.status = active` y el credito permanece bloqueado para la publicacion.
@@ -382,6 +393,7 @@ Errores:
 - ORDER_NOT_OWNED
 - ORDER_STATUS_INVALID
 - ORDER_PAYMENT_ALREADY_REPORTED
+- ORDER_PAYMENT_NOT_SENT_CONFIRMATION_REQUIRED
 - IDEMPOTENCY_KEY_REQUIRED
 - IDEMPOTENCY_CONFLICT
 - RATE_LIMITED

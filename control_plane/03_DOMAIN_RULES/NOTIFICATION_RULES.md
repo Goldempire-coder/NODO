@@ -22,6 +22,8 @@ Todas las notificaciones deben ser idempotentes por orden, tipo y ventana de tie
 - order_completed -> ambos
 - order_cancelled -> ambos segun contexto
 - order_expiring -> remitente
+- order_message_created -> contraparte de la orden
+- support_message_created_participant -> requester cuando Admin/Soporte responde
 - credits_low -> negocio
 - dispute_opened -> admin
 - dispute_resolved -> partes
@@ -52,8 +54,10 @@ Todas las notificaciones deben ser idempotentes por orden, tipo y ventana de tie
 
 ### slice_07_chat_disputes
 
-- `message_created` may notify the other party when enabled by future notification workers.
-- `message_attachment_uploaded` may notify the other party only with metadata.
+- Desde slice 48B1, `message_created` notifica a la contraparte mediante
+  `order_message_created_business` o `order_message_created_client`.
+- Un mensaje con adjuntos usa el mismo aviso generico; no incluye body,
+  attachment IDs, `file_asset_id`, `storage_path` ni signed URLs.
 - `dispute_opened` notifies admin/support queue and both parties.
 - `dispute_resolved` belongs to `slice_09_admin_console`, not slice 07 build.
 - Notification payloads must not include full payment instructions, `account_value`, signed URLs, `storage_path`, tokens or secrets.
@@ -140,7 +144,7 @@ Tipos canonicos:
 | notification_type | destinatario | cuando se programa | copy base seguro |
 | --- | --- | --- | --- |
 | order_payment_deadline_warning | remitente | antes de vencer `waiting_payment` | Tu orden esta por vencer. Reporta el pago antes del limite si ya pagaste. |
-| order_cancelled_payment_not_reported | remitente y negocio | `waiting_payment` vencida | La orden expiro porque el pago no fue reportado a tiempo. |
+| order_cancelled_payment_not_reported | remitente y negocio en expiracion; negocio en cancelacion manual del cliente | `waiting_payment` vencida o cliente cancela antes de reportar pago | La orden expiro o fue cancelada antes de reportar pago, segun el evento registrado. |
 | order_business_response_warning | negocio | 2h despues de `payment_reported` sin respuesta | Hay una orden con pago reportado pendiente de revisar. |
 | order_disputed_business_no_payment_confirmation | remitente, negocio, admin/support | 6h despues de `payment_reported` sin respuesta | La orden paso a disputa por falta de respuesta del negocio. |
 | order_delivery_warning | negocio | 30 min despues de `payment_confirmed` sin entrega | Confirma el envio del pago movil antes del limite. |
