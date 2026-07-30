@@ -117,6 +117,29 @@ class OrderNotificationService:
             operation_id=operation_id,
         )
 
+    def order_cancelled_business_unavailable_client(
+        self,
+        *,
+        order: OrderRecord,
+        request_id: str,
+        correlation_id: str | None = None,
+        operation_id: str | None = None,
+    ) -> None:
+        self._enqueue(
+            notification_type="order_cancelled_business_unavailable",
+            order=order,
+            recipient_user_id=order.remitter_user_id,
+            target_surface="client_mini_app",
+            text=(
+                f"El negocio no puede atender la orden {order.public_order_code}. "
+                "La orden fue cancelada antes de reportar pago."
+            ),
+            action_url=self._client_order_url(order.id),
+            request_id=request_id,
+            correlation_id=correlation_id,
+            operation_id=operation_id,
+        )
+
     def payment_confirmed_client(self, *, order: OrderRecord, request_id: str, correlation_id: str | None = None, operation_id: str | None = None) -> None:
         self._enqueue(
             notification_type="payment_confirmed_client",
@@ -306,6 +329,9 @@ class NoopOrderNotificationService:
         return
 
     def order_cancelled_before_payment_business(self, **_: Any) -> None:
+        return
+
+    def order_cancelled_business_unavailable_client(self, **_: Any) -> None:
         return
 
     def payment_confirmed_client(self, **_: Any) -> None:

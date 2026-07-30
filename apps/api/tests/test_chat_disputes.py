@@ -168,11 +168,12 @@ def _create_order(client: TestClient, remitter: dict, ad_id: str, *, key: str = 
 
 
 def _upload_payment_evidence(client: TestClient, remitter: dict, order_id: str, key: str = "evidence") -> dict:
+    content = f"proof:{order_id}:{key}".encode("utf-8")
     response = client.post(
         f"/api/v1/orders/{order_id}/payment-evidence",
         headers=_headers(remitter, key),
         data={"file_type": "payment_evidence"},
-        files={"file": ("proof.png", b"proof", "image/png")},
+        files={"file": ("proof.png", content, "image/png")},
     )
     assert response.status_code == 201, response.text
     return response.json()["data"]

@@ -53,6 +53,8 @@ class InMemoryOrderPaymentReportsMixin:
         storage_path: str,
         mime_type: str,
         size_bytes: int,
+        content_sha256: str,
+        order_id: str,
     ) -> FileAssetRecord:
         with self._lock:  # type: ignore[attr-defined]
             file = FileAssetRecord(
@@ -64,6 +66,10 @@ class InMemoryOrderPaymentReportsMixin:
                 storage_path=storage_path,
                 mime_type=mime_type,
                 size_bytes=size_bytes,
+                metadata_json={
+                    "content_sha256": content_sha256,
+                    "order_id": order_id,
+                },
             )
             self.files[file.id] = file  # type: ignore[attr-defined]
             return file
@@ -90,10 +96,30 @@ class InMemoryOrderPaymentReportsMixin:
         tx_hash: str | None = None,
         network: str | None = None,
         proof_file_id: str | None = None,
+        proof_content_sha256: str | None = None,
     ) -> PaymentReportRecord:
         with self._lock:  # type: ignore[attr-defined]
             if self.get_submitted_payment_report_for_order(order_id) is not None:
                 raise ApiError("PAYMENT_REPORT_ALREADY_SUBMITTED", status_code=409)
+            if report_id in self.payment_reports or (  # type: ignore[attr-defined]
+                proof_file_id is not None
+                and any(
+                    report.proof_file_id == proof_file_id
+                    for report in self.payment_reports.values()  # type: ignore[attr-defined]
+                )
+            ):
+                raise ApiError(
+                    "PAYMENT_REPORT_PROOF_ALREADY_USED",
+                    status_code=409,
+                )
+            if proof_content_sha256 is not None and any(
+                report.proof_content_sha256 == proof_content_sha256
+                for report in self.payment_reports.values()  # type: ignore[attr-defined]
+            ):
+                raise ApiError(
+                    "PAYMENT_REPORT_PROOF_ALREADY_USED",
+                    status_code=409,
+                )
             now = utc_now()
             report = PaymentReportRecord(
                 id=report_id,
@@ -109,6 +135,7 @@ class InMemoryOrderPaymentReportsMixin:
                 network=network,
                 payment_amount=payment_amount,
                 proof_file_id=proof_file_id,
+                proof_content_sha256=proof_content_sha256,
                 report_payload_hash=report_payload_hash,
                 created_at=now,
                 updated_at=now,

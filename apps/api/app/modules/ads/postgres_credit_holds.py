@@ -99,54 +99,83 @@ class PostgresAdCreditHoldsMixin:
         source: str = "ads",
     ) -> CreditLedgerRecord | None:
         with self._connect() as conn:  # type: ignore[attr-defined]
-            existing = self._expire_hold_already_exists(conn, ad_id=ad.id)
-            if existing is not None:
-                conn.execute(
-                    """
-                    update ads
-                    set status = 'archived', credit_consumed_ledger_id = coalesce(credit_consumed_ledger_id, %s), updated_at = now()
-                    where id = %s
-                    """,
-                    (existing["id"], ad.id),
-                )
-                conn.commit()
-                return None
-            if ad.credit_hold_ledger_id is None:
-                conn.execute("update ads set status = 'archived', updated_at = now() where id = %s", (ad.id,))
-                conn.commit()
-                return None
-            wallet = self._lock_wallet_for_consume(conn, ad=ad)
-            if wallet is None:
-                conn.execute("update ads set status = 'archived', updated_at = now() where id = %s", (ad.id,))
-                conn.commit()
-                return None
-            blocked_after = wallet["blocked_credits"] - ad.required_credits
-            consumed_after = wallet["consumed_credits"] + ad.required_credits
-            conn.execute(
-                """
-                update credit_wallets
-                set blocked_credits = %s, consumed_credits = %s, updated_at = now()
-                where business_id = %s
-                """,
-                (blocked_after, consumed_after, ad.business_id),
-            )
-            row = self._insert_expire_ledger(
+            row = self.expire_hold_in_transaction(
                 conn,
                 ad=ad,
-                wallet=wallet,
-                blocked_after=blocked_after,
-                consumed_after=consumed_after,
                 created_by=created_by,
                 reason=reason,
                 related_order_id=related_order_id,
                 source=source,
             )
-            conn.execute(
-                "update ads set status = 'archived', credit_consumed_ledger_id = %s, updated_at = now() where id = %s",
-                (row["id"], ad.id),
-            )
             conn.commit()
-        return credit_ledger_from_row(row)
+        return credit_ledger_from_row(row) if row is not None else None
+
+    def expire_hold_in_transaction(
+        self,
+        conn,
+        *,
+        ad: AdRecord,
+        created_by: str | None,
+        reason: str = "ad_expired_without_purchase",
+        related_order_id: str | None = None,
+        source: str = "ads",
+    ):  # type: ignore[no-untyped-def]
+        existing = self._expire_hold_already_exists(conn, ad_id=ad.id)
+        if existing is not None:
+            conn.execute(
+                """
+                update ads
+                set status = 'archived',
+                    credit_consumed_ledger_id = coalesce(credit_consumed_ledger_id, %s),
+                    updated_at = now()
+                where id = %s
+                """,
+                (existing["id"], ad.id),
+            )
+            return None
+        if ad.credit_hold_ledger_id is None:
+            conn.execute(
+                "update ads set status = 'archived', updated_at = now() where id = %s",
+                (ad.id,),
+            )
+            return None
+        wallet = self._lock_wallet_for_consume(conn, ad=ad)
+        if wallet is None:
+            conn.execute(
+                "update ads set status = 'archived', updated_at = now() where id = %s",
+                (ad.id,),
+            )
+            return None
+        blocked_after = wallet["blocked_credits"] - ad.required_credits
+        consumed_after = wallet["consumed_credits"] + ad.required_credits
+        conn.execute(
+            """
+            update credit_wallets
+            set blocked_credits = %s, consumed_credits = %s, updated_at = now()
+            where business_id = %s
+            """,
+            (blocked_after, consumed_after, ad.business_id),
+        )
+        row = self._insert_expire_ledger(
+            conn,
+            ad=ad,
+            wallet=wallet,
+            blocked_after=blocked_after,
+            consumed_after=consumed_after,
+            created_by=created_by,
+            reason=reason,
+            related_order_id=related_order_id,
+            source=source,
+        )
+        conn.execute(
+            """
+            update ads
+            set status = 'archived', credit_consumed_ledger_id = %s, updated_at = now()
+            where id = %s
+            """,
+            (row["id"], ad.id),
+        )
+        return row
 
     def _release_hold_already_exists(self, conn, *, ad_id: str) -> bool:  # type: ignore[no-untyped-def]
         row = conn.execute("select 1 from credits_ledger where type = 'release' and related_ad_id = %s limit 1", (ad_id,)).fetchone()

@@ -110,10 +110,12 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
               <Text>Evidencia: {businessOrderDetail.evidence.length}</Text>
             </div>
           ) : <Text>No hay reporte pendiente.</Text>}
-          <label className="business-field">
-            <span>Motivo operativo</span>
-            <textarea value={businessOrderReason} onChange={(event) => setBusinessOrderReason(event.target.value)} />
-          </label>
+          {!businessOrderDetail.order.capabilities.can_decline_before_payment ? (
+            <label className="business-field">
+              <span>Motivo operativo</span>
+              <textarea value={businessOrderReason} onChange={(event) => setBusinessOrderReason(event.target.value)} />
+            </label>
+          ) : null}
           <div className="business-shell__tabs">
             <Button mode="filled" size="s" disabled={businessOrderAction === "confirm-payment" || !businessOrderDetail.order.capabilities.can_confirm_payment} onClick={() => void mutateBusinessOrder("confirm-payment")}>
               {businessOrderAction === "confirm-payment" ? "Confirmando..." : "Confirmar pago"}
@@ -124,7 +126,14 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
             <Button mode="filled" size="s" disabled={businessOrderAction === "mark-delivered" || !businessOrderDetail.order.capabilities.can_mark_delivered} onClick={() => void mutateBusinessOrder("mark-delivered")}>
               {businessOrderAction === "mark-delivered" ? "Marcando..." : "Marcar enviado"}
             </Button>
-            <Button mode="outline" size="s" disabled={busy} onClick={() => void openBusinessChat(businessOrderDetail.order.id)}>Chat</Button>
+            {businessOrderDetail.order.capabilities.can_decline_before_payment ? (
+              <Button mode="outline" size="s" disabled={businessOrderAction === "cannot-attend"} onClick={() => void mutateBusinessOrder("cannot-attend")}>
+                {businessOrderAction === "cannot-attend" ? "Cancelando..." : "No puedo atender"}
+              </Button>
+            ) : null}
+            {businessOrderDetail.order.status !== "waiting_payment" ? (
+              <Button mode="outline" size="s" disabled={busy} onClick={() => void openBusinessChat(businessOrderDetail.order.id)}>Chat</Button>
+            ) : null}
           </div>
         </>
       ) : <Text>Selecciona una orden para ver el detalle.</Text>}

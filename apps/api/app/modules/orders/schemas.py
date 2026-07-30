@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import Field, StrictBool, StrictInt, model_validator
 
+from app.modules.orders.integrity import canonical_network, canonical_transaction_hash
 from app.shared.validation import ResourceId, StrictRequestModel
 
 
@@ -52,6 +53,14 @@ class PaymentReportRequest(StrictRequestModel):
 
     @model_validator(mode="after")
     def validate_by_method(self) -> "PaymentReportRequest":
+        if self.network is not None:
+            object.__setattr__(self, "network", canonical_network(self.network))
+        if self.tx_hash is not None:
+            object.__setattr__(
+                self,
+                "tx_hash",
+                canonical_transaction_hash(self.tx_hash),
+            )
         if self.payment_type == "zelle":
             if not self.payment_reference or not self.payment_sender_name:
                 raise ValueError("zelle report requires reference and sender name")

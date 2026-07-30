@@ -7,6 +7,7 @@ import logging
 import os
 import time
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -172,11 +173,12 @@ def _create_order(client: TestClient, remitter: dict, ad_id: str, *, key: str = 
 
 
 def _upload_payment_evidence(client: TestClient, remitter: dict, order_id: str, key: str = "evidence") -> dict:
+    content = f"proof:{order_id}:{key}".encode("utf-8")
     response = client.post(
         f"/api/v1/orders/{order_id}/payment-evidence",
         headers=_headers(remitter, key),
         data={"file_type": "payment_evidence"},
-        files={"file": ("proof.png", b"proof", "image/png")},
+        files={"file": ("proof.png", content, "image/png")},
     )
     assert response.status_code == 201, response.text
     return response.json()["data"]
@@ -343,6 +345,81 @@ def test_slice_48a_manual_cancel_notifies_business_once_with_safe_metadata() -> 
         "signed_url",
     ]:
         assert forbidden not in combined
+
+
+def test_slice_49a_business_cannot_attend_cancels_releases_and_notifies_client_once() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner, business, ad, remitter, order = _seed_order(
+        client,
+        owner_id=1112,
+        remitter_id=1113,
+    )
+    headers = {
+        **_headers(owner, "slice49a_cannot_attend"),
+        "Content-Type": "application/json",
+    }
+
+    first = client.post(
+        f"/api/v1/business/orders/{order['id']}/cannot-attend",
+        headers=headers,
+    )
+    replay = client.post(
+        f"/api/v1/business/orders/{order['id']}/cannot-attend",
+        headers=headers,
+    )
+
+    assert first.status_code == 200, first.text
+    assert replay.status_code == 200, replay.text
+    assert first.json()["data"]["order"]["status"] == "cancelled"
+    assert first.json()["data"]["order"]["cancel_reason"] == "business_unavailable"
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "active"
+    reservation = client.app.state.capacity_repository.get_reservation(order["id"])
+    assert reservation.status == "released"
+    notifications = _notifications_by_type(
+        client,
+        "order_cancelled_business_unavailable",
+    )
+    assert len(notifications) == 1
+    notification = notifications[0]
+    assert notification.recipient_user_id == remitter["user"]["id"]
+    assert notification.metadata_json["target_surface"] == "client_mini_app"
+    assert notification.metadata_json["order_status"] == "cancelled"
+    combined = json.dumps(notification.__dict__, default=str)
+    for forbidden in [
+        "owner@example.com",
+        "+584121234567",
+        "V12345678",
+        "account_value",
+        "storage_path",
+        "signed_url",
+        "reason_text",
+    ]:
+        assert forbidden not in combined
+    assert client.app.state.capacity_repository.get_snapshot(
+        business=client.app.state.business_repository.get_business(business["id"])
+    ).reserved_capacity_usd == Decimal("0.00")
+
+
+def test_slice_49a_business_cannot_attend_rejects_after_payment_report() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner, _, _, remitter, order = _seed_order(
+        client,
+        owner_id=1114,
+        remitter_id=1115,
+    )
+    _report_payment(client, remitter, order, key="slice49a_report_before_decline")
+
+    response = client.post(
+        f"/api/v1/business/orders/{order['id']}/cannot-attend",
+        headers=_headers(owner, "slice49a_decline_after_report"),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ORDER_STATE_CONFLICT"
+    assert _notifications_by_type(
+        client,
+        "order_cancelled_business_unavailable",
+    ) == []
 
 
 def test_slice_36_notification_enqueue_logging_does_not_break_success_response(caplog) -> None:  # type: ignore[no-untyped-def]

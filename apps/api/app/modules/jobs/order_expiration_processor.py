@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from typing import Any, Callable
 
+from app.core.errors import ApiError
 from app.modules.jobs.models import JOB_TYPE_EXPIRE_AND_ESCALATE
 from app.modules.jobs.order_completion import OrderCompletionMixin
 from app.modules.jobs.order_dispute_escalation import OrderDisputeEscalationMixin
@@ -76,20 +77,35 @@ class OrderExpirationProcessor(OrderCompletionMixin, OrderDisputeEscalationMixin
             counters.changed += 1
             return
         ad = self._ads.get_ad(order.ad_id)
-        previous = order.status
-        self._orders.update_order(
-            order,
-            status="cancelled",
-            cancel_reason="payment_not_reported_in_time",
-            capacity_event_context={
-                "actor_user_id": None,
-                "actor_role": None,
-                "request_id": request_id,
-                "reason": "payment_not_reported_in_time",
-            },
-        )
+        try:
+            result = self._orders.cancel_waiting_payment_atomically(
+                order_id=order.id,
+                expected_remitter_user_id=None,
+                expected_business_id=None,
+                transition_at=now,
+                require_expired=True,
+                enforce_payment_not_sent_confirmation=False,
+                payment_not_sent_confirmed=False,
+                cancel_reason="payment_not_reported_in_time",
+                event_type="order_cancelled_payment_not_reported",
+                actor_user_id=None,
+                actor_role=None,
+                event_reason="payment_not_reported_in_time",
+                request_id=request_id,
+                event_metadata={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE},
+                audit_event_type="order_cancelled_payment_not_reported",
+                audit_metadata={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE},
+            )
+        except ApiError as exc:
+            if exc.code == "ORDER_STATE_CONFLICT":
+                counters.skipped += 1
+                return
+            raise
         business = self._businesses.get_business(order.business_id)
-        if ad is not None:
+        if ad is not None and (
+            not self._orders.moves_ad_on_atomic_cancel
+            or result.ad_requires_expiration
+        ):
             if ad.expires_at and ad.expires_at <= now:
                 ledger = self._ads.expire_hold(ad=ad, created_by=None, reason="ad_expired_after_order_without_purchase", related_order_id=order.id, source="jobs")
                 self._audit.write(
@@ -113,16 +129,6 @@ class OrderExpirationProcessor(OrderCompletionMixin, OrderDisputeEscalationMixin
                     )
             else:
                 self._ads.set_status(ad, "active")
-        self._state_event(order.id, previous, "cancelled", "order_cancelled_payment_not_reported", "payment_not_reported_in_time", request_id)
-        self._audit.write(
-            event_type="order_cancelled_payment_not_reported",
-            actor_user_id=None,
-            actor_role=None,
-            resource_type="order",
-            resource_id=order.id,
-            request_id=request_id,
-            metadata_json={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE},
-        )
         self._notify(
             notification_type="order_cancelled_payment_not_reported",
             dedupe_key=f"order:{order.id}:payment_not_reported:remitter",

@@ -9,6 +9,7 @@ from app.modules.orders.helpers import require_uuid
 from app.modules.orders.state_machine import ensure_aware, is_waiting_payment_expired, now_utc
 from app.modules.users.models import UserRecord
 
+
 class OrderServiceSupportMixin:
     def _clear_marketplace_cache(self) -> None:
         if self._marketplace_cache is not None:  # type: ignore[attr-defined]
@@ -101,51 +102,64 @@ class OrderServiceSupportMixin:
         self._ads.set_status(ad, "active")  # type: ignore[attr-defined]
         self._clear_marketplace_cache()
 
+    def _finalize_cancelled_ad(
+        self,
+        ad: AdRecord,
+        *,
+        actor: UserRecord | None,
+        request_id: str,
+        related_order_id: str | None = None,
+    ) -> None:
+        self._return_or_expire_ad(
+            ad,
+            actor=actor,
+            request_id=request_id,
+            related_order_id=related_order_id,
+        )
+
     def _materialize_order_expiration(self, order, *, actor: UserRecord | None, request_id: str):  # type: ignore[no-untyped-def]
         if not is_waiting_payment_expired(order):
             return order
-        old_status = order.status
-        expired = self._repository.update_order(  # type: ignore[attr-defined]
-            order,
-            status="cancelled",
-            cancel_reason="payment_not_reported_in_time",
-            capacity_event_context={
-                "actor_user_id": actor.id if actor else None,
-                "actor_role": actor.role if actor else None,
-                "request_id": request_id,
-                "reason": "payment_not_reported_in_time",
-            },
-        )
-        ad = self._ads.get_ad(order.ad_id)  # type: ignore[attr-defined]
-        if ad is not None:
-            self._return_or_expire_ad(ad, actor=actor, request_id=request_id, related_order_id=order.id)
-        self._repository.add_state_event(  # type: ignore[attr-defined]
-            order_id=order.id,
-            from_status=old_status,
-            to_status="cancelled",
-            event_type="order_cancelled_by_timeout",
-            actor_user_id=actor.id if actor else None,
-            actor_role=actor.role if actor else None,
-            reason="payment_not_reported_in_time",
-            request_id=request_id,
-            metadata_json={"ad_id": order.ad_id},
-        )
-        self._audit.write(  # type: ignore[attr-defined]
-            event_type="order_expired",
-            actor_user_id=actor.id if actor else None,
-            actor_role=actor.role if actor else None,
-            resource_type="order",
-            resource_id=order.id,
-            request_id=request_id,
-            metadata_json={"from_status": old_status, "to_status": "cancelled"},
-        )
-        self._audit.write(  # type: ignore[attr-defined]
-            event_type="order_cancelled",
-            actor_user_id=actor.id if actor else None,
-            actor_role=actor.role if actor else None,
-            resource_type="order",
-            resource_id=order.id,
-            request_id=request_id,
-            metadata_json={"reason": "payment_not_reported_in_time"},
-        )
-        return expired
+        try:
+            result = self._repository.cancel_waiting_payment_atomically(  # type: ignore[attr-defined]
+                order_id=order.id,
+                expected_remitter_user_id=None,
+                expected_business_id=None,
+                transition_at=now_utc(),
+                require_expired=True,
+                enforce_payment_not_sent_confirmation=False,
+                payment_not_sent_confirmed=False,
+                cancel_reason="payment_not_reported_in_time",
+                event_type="order_cancelled_by_timeout",
+                actor_user_id=actor.id if actor else None,
+                actor_role=actor.role if actor else None,
+                event_reason="payment_not_reported_in_time",
+                request_id=request_id,
+                event_metadata={"ad_id": order.ad_id},
+                audit_event_type="order_expired",
+                audit_metadata={
+                    "from_status": "waiting_payment",
+                    "to_status": "cancelled",
+                    "reason": "payment_not_reported_in_time",
+                },
+            )
+        except ApiError as exc:
+            if exc.code != "ORDER_STATE_CONFLICT":
+                raise
+            current = self._repository.get_by_id(order.id)  # type: ignore[attr-defined]
+            return current or order
+        if (
+            not self._repository.moves_ad_on_atomic_cancel  # type: ignore[attr-defined]
+            or result.ad_requires_expiration
+        ):
+            ad = self._ads.get_ad(order.ad_id)  # type: ignore[attr-defined]
+            if ad is not None:
+                self._finalize_cancelled_ad(
+                    ad,
+                    actor=actor,
+                    request_id=request_id,
+                    related_order_id=order.id,
+                )
+        else:
+            self._clear_marketplace_cache()
+        return result.order

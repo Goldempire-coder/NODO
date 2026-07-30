@@ -22,6 +22,13 @@ def jsonb(value: dict | None) -> Jsonb | None:
     return Jsonb(value, dumps=lambda payload: json.dumps(payload, default=str))
 
 
+def optional_row_value(row, key: str, default=None):  # type: ignore[no-untyped-def]
+    try:
+        return row[key]
+    except (KeyError, IndexError):
+        return default
+
+
 def profile_mark(profile: list[dict[str, Any]] | None, stage: str, started: float) -> None:
     if profile is None:
         return
@@ -110,6 +117,7 @@ def payment_report_from_row(row) -> PaymentReportRecord:  # type: ignore[no-unty
         network=row["network"],
         payment_amount=decimal_from_row_value(row["payment_amount"]),
         proof_file_id=str(row["proof_file_id"]) if row["proof_file_id"] else None,
+        proof_content_sha256=optional_row_value(row, "proof_content_sha256"),
         report_payload_hash=row["report_payload_hash"],
         admin_notes=row["admin_notes"],
         created_at=row["created_at"],
@@ -154,6 +162,7 @@ def file_from_row(row) -> FileAssetRecord:  # type: ignore[no-untyped-def]
         storage_path=row["storage_path"],
         mime_type=row["mime_type"],
         size_bytes=row["size_bytes"],
+        metadata_json=optional_row_value(row, "metadata_json"),
         created_at=row["created_at"],
         deleted_at=row["deleted_at"],
     )

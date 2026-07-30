@@ -62,6 +62,7 @@ class PostgresPaymentReportsMixin(PostgresPaymentEvidenceFilesMixin):
         tx_hash: str | None = None,
         network: str | None = None,
         proof_file_id: str | None = None,
+        proof_content_sha256: str | None = None,
     ) -> PaymentReportRecord:
         with self._connect() as conn:  # type: ignore[attr-defined]
             row = self._insert_payment_report(
@@ -78,6 +79,7 @@ class PostgresPaymentReportsMixin(PostgresPaymentEvidenceFilesMixin):
                 network=network,
                 payment_amount=payment_amount,
                 proof_file_id=proof_file_id,
+                proof_content_sha256=proof_content_sha256,
                 report_payload_hash=report_payload_hash,
             )
             conn.commit()
@@ -99,6 +101,7 @@ class PostgresPaymentReportsMixin(PostgresPaymentEvidenceFilesMixin):
         network: str | None,
         payment_amount: Decimal,
         proof_file_id: str | None,
+        proof_content_sha256: str | None,
         report_payload_hash: str,
     ):  # type: ignore[no-untyped-def]
         return conn.execute(
@@ -107,9 +110,9 @@ class PostgresPaymentReportsMixin(PostgresPaymentEvidenceFilesMixin):
                 id, order_id, reported_by_user_id, status, idempotency_key,
                 payment_type, payment_reference, payment_sender_name,
                 payment_sender_account_masked, tx_hash, network, payment_amount,
-                proof_file_id, report_payload_hash, created_at, updated_at
+                proof_file_id, proof_content_sha256, report_payload_hash, created_at, updated_at
             )
-            values (%s, %s, %s, 'submitted', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
+            values (%s, %s, %s, 'submitted', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
             returning *
             """,
             (
@@ -125,6 +128,7 @@ class PostgresPaymentReportsMixin(PostgresPaymentEvidenceFilesMixin):
                 network,
                 payment_amount,
                 proof_file_id,
+                proof_content_sha256,
                 report_payload_hash,
             ),
         ).fetchone()

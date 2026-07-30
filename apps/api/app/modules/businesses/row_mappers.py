@@ -131,6 +131,7 @@ def file_from_row(row) -> FileAssetRecord:  # type: ignore[no-untyped-def]
         storage_path=row["storage_path"],
         mime_type=row["mime_type"],
         size_bytes=row["size_bytes"],
+        metadata_json=_row_get(row, "metadata_json"),
         created_at=row["created_at"],
         deleted_at=row["deleted_at"],
     )

@@ -70,6 +70,7 @@ export type BusinessOrderSummary = {
   id: string;
   public_order_code: string;
   status: string;
+  cancel_reason?: string | null;
   amount_usd: string;
   amount_bs_calculated: string;
   payment_method_snapshot: string;
@@ -96,6 +97,7 @@ export type BusinessOrderSummary = {
     can_confirm_payment: boolean;
     can_reject_payment_report: boolean;
     can_mark_delivered: boolean;
+    can_decline_before_payment: boolean;
   };
 };
 

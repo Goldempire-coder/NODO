@@ -6,7 +6,11 @@ from typing import Any
 from app.core.errors import ApiError
 from app.modules.orders.helpers import require_uuid
 from app.modules.orders.payment_constants import PAYMENT_REPORT_DISCLAIMER
-from app.modules.orders.payment_report_builder import build_payment_report_plan, payment_report_audit_metadata, payment_report_state_metadata
+from app.modules.orders.payment_report_builder import (
+    build_payment_report_plan,
+    payment_report_plan_audit_metadata,
+    payment_report_plan_state_metadata,
+)
 from app.modules.orders.policy import require_order_owner, require_remitter
 from app.modules.orders.schemas import PaymentReportRequest
 from app.modules.orders.serializers import payment_report_order_payload, payment_report_payload
@@ -62,21 +66,6 @@ class PaymentReportingMixin:
         request_id: str,
     ) -> dict[str, Any]:
         order = self._reportable_order(user=user, order_id=order_id)
-        report = self._create_payment_report(user=user, order=order, payload=payload, payload_hash=payload_hash, idempotency_key=idempotency_key)
-        updated = self._mark_order_payment_reported(order=order)
-        self._record_payment_reported(user=user, order=order, report=report, idempotency_key=idempotency_key, request_id=request_id)
-        self._notifications.payment_reported_business(order=updated, request_id=request_id)  # type: ignore[attr-defined]
-        return {"payment_report": payment_report_payload(report), "order": payment_report_order_payload(updated), "disclaimer": PAYMENT_REPORT_DISCLAIMER}
-
-    def _reportable_order(self, *, user: UserRecord, order_id: str):  # type: ignore[no-untyped-def]
-        order = self._repository.get_by_id(order_id)  # type: ignore[attr-defined]
-        if order is None:
-            raise ApiError("ORDER_NOT_FOUND", status_code=404)
-        require_order_owner(user, order)
-        require_payment_report_allowed(order)
-        return order
-
-    def _create_payment_report(self, *, user: UserRecord, order, payload: PaymentReportRequest, payload_hash: str, idempotency_key: str):  # type: ignore[no-untyped-def]
         plan = build_payment_report_plan(
             user=user,
             order=order,
@@ -85,36 +74,33 @@ class PaymentReportingMixin:
             idempotency_key=idempotency_key,
             proof_lookup=self._repository.get_payment_evidence_file,  # type: ignore[attr-defined]
         )
-        return self._repository.create_payment_report(**plan.create_report_fields)  # type: ignore[attr-defined]
-
-    def _mark_order_payment_reported(self, *, order):  # type: ignore[no-untyped-def]
-        now = now_utc()
-        return self._repository.update_order(  # type: ignore[attr-defined]
-            order,
-            status="payment_reported",
-            paid_reported_at=now,
-            business_response_warning_at=now + timedelta(hours=2),
-            business_response_deadline_at=now + timedelta(hours=6),
-        )
-
-    def _record_payment_reported(self, *, user: UserRecord, order, report, idempotency_key: str, request_id: str) -> None:  # type: ignore[no-untyped-def]
-        self._repository.add_state_event(  # type: ignore[attr-defined]
+        reported_at = now_utc()
+        updated, report = self._repository.report_payment_atomically(  # type: ignore[attr-defined]
             order_id=order.id,
-            from_status="waiting_payment",
-            to_status="payment_reported",
-            event_type="payment_reported",
-            actor_user_id=user.id,
-            actor_role=user.role,
-            reason=None,
+            remitter_user_id=user.id,
+            create_report_fields=plan.create_report_fields,
+            paid_reported_at=reported_at,
+            business_response_warning_at=reported_at + timedelta(hours=2),
+            business_response_deadline_at=reported_at + timedelta(hours=6),
             request_id=request_id,
-            metadata_json=payment_report_state_metadata(report, idempotency_key=idempotency_key),
+            event_metadata=payment_report_plan_state_metadata(
+                plan,
+                idempotency_key=idempotency_key,
+            ),
+            audit_metadata=payment_report_plan_audit_metadata(plan),
         )
-        self._audit.write(  # type: ignore[attr-defined]
-            event_type="payment_reported",
-            actor_user_id=user.id,
-            actor_role=user.role,
-            resource_type="order",
-            resource_id=order.id,
-            request_id=request_id,
-            metadata_json=payment_report_audit_metadata(report),
-        )
+        self._notifications.payment_reported_business(order=updated, request_id=request_id)  # type: ignore[attr-defined]
+        return {"payment_report": payment_report_payload(report), "order": payment_report_order_payload(updated), "disclaimer": PAYMENT_REPORT_DISCLAIMER}
+
+    def _reportable_order(self, *, user: UserRecord, order_id: str):  # type: ignore[no-untyped-def]
+        order = self._repository.get_by_id(order_id)  # type: ignore[attr-defined]
+        if order is None:
+            raise ApiError("ORDER_NOT_FOUND", status_code=404)
+        require_order_owner(user, order)
+        try:
+            require_payment_report_allowed(order)
+        except ApiError as exc:
+            if exc.code == "PAYMENT_REPORT_NOT_ALLOWED":
+                raise ApiError("ORDER_STATE_CONFLICT", status_code=409) from exc
+            raise
+        return order

@@ -156,6 +156,11 @@ class PostgresCreateOrderMixin:
         audit_events = fields.pop("audit_events", None)
         capacity_reservation = fields.pop("capacity_reservation", None)
         with self._connect() as conn:  # type: ignore[attr-defined]
+            if capacity_reservation is not None and self._capacity is not None:  # type: ignore[attr-defined]
+                self._capacity.lock_order_create_capacity_in_transaction(  # type: ignore[attr-defined]
+                    conn,
+                    business_id=fields["business_id"],
+                )
             self._move_ad_to_in_order_or_raise(conn, ad_id=fields["ad_id"])
             row = self._insert_order(conn, fields)
             if capacity_reservation is not None and self._capacity is not None:  # type: ignore[attr-defined]

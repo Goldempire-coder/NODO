@@ -4,6 +4,7 @@ from typing import Any
 
 from app.modules.orders.models import OrderRecord
 from app.modules.orders.postgres_create_order import PostgresCreateOrderMixin
+from app.modules.orders.postgres_integrity import PostgresOrderIntegrityMixin
 from app.modules.orders.postgres_payment_confirmation import PostgresPaymentConfirmationMixin
 from app.modules.orders.postgres_payment_reports import PostgresPaymentReportsMixin
 from app.modules.orders.postgres_queries import PostgresOrderQueriesMixin
@@ -14,6 +15,7 @@ from app.shared.db.connection import pooled_connect
 
 class PostgresOrderRepository(
     PostgresCreateOrderMixin,
+    PostgresOrderIntegrityMixin,
     PostgresPaymentConfirmationMixin,
     PostgresPaymentReportsMixin,
     PostgresOrderQueriesMixin,
@@ -22,9 +24,16 @@ class PostgresOrderRepository(
     moves_ad_on_create_order = True
     creates_initial_state_event_on_create_order = True
 
-    def __init__(self, database_url: str, *, capacity_repository=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(
+        self,
+        database_url: str,
+        *,
+        capacity_repository=None,
+        ad_repository=None,
+    ) -> None:  # type: ignore[no-untyped-def]
         self._database_url = database_url
         self._capacity = capacity_repository
+        self._ads = ad_repository
 
     def _connect(self):  # type: ignore[no-untyped-def]
         return pooled_connect(self._database_url)
@@ -45,7 +54,19 @@ class PostgresOrderRepository(
     def count_active_for_business(self, business_id: str) -> int:
         with self._connect() as conn:
             row = conn.execute(
-                "select count(*) as count from orders where business_id = %s and status = 'waiting_payment'",
+                """
+                select count(*) as count
+                from orders
+                where business_id = %s
+                  and status in (
+                      'waiting_payment',
+                      'payment_reported',
+                      'payment_rejected',
+                      'payment_confirmed',
+                      'delivered',
+                      'disputed'
+                  )
+                """,
                 (business_id,),
             ).fetchone()
         return int(row["count"])

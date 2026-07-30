@@ -289,6 +289,7 @@ class PostgresBusinessCapacityRepository:
                 businesses.min_order_amount_usd,
                 businesses.max_order_amount_usd,
                 businesses.daily_limit_usd,
+                businesses.active_order_limit,
                 businesses.verification_status,
                 businesses.risk_level,
                 businesses.is_accepting_orders
@@ -307,6 +308,28 @@ class PostgresBusinessCapacityRepository:
             or not capacity_row["is_accepting_orders"]
         ):
             raise ApiError("BUSINESS_OFFLINE", status_code=409)
+        active_count_row = conn.execute(
+            """
+            select count(*) as active_count
+            from orders
+            where business_id = %s
+              and status in (
+                  'waiting_payment',
+                  'payment_reported',
+                  'payment_rejected',
+                  'payment_confirmed',
+                  'delivered',
+                  'disputed'
+              )
+            """,
+            (business_id,),
+        ).fetchone()
+        # The order row is inserted earlier in the same transaction, so this
+        # count already includes the order currently reserving capacity.
+        if int(active_count_row["active_count"]) > int(
+            capacity_row["active_order_limit"]
+        ):
+            raise ApiError("AD_NOT_AVAILABLE", status_code=409)
         totals = conn.execute(
             """
             with daily_window as (
@@ -353,6 +376,21 @@ class PostgresBusinessCapacityRepository:
             (order_id, business_id, amount, reason),
         ).fetchone()
         return self._reservation_from_row(row)
+
+    def lock_order_create_capacity_in_transaction(self, conn, *, business_id: str) -> None:  # type: ignore[no-untyped-def]
+        self._ensure_capacity_row(conn, business_id=business_id)
+        row = conn.execute(
+            """
+            select capacity.business_id
+            from business_capacity capacity
+            join businesses on businesses.id = capacity.business_id
+            where capacity.business_id = %s
+            for update of capacity, businesses
+            """,
+            (business_id,),
+        ).fetchone()
+        if row is None:
+            raise ApiError("BUSINESS_NOT_FOUND", status_code=404)
 
     def get_reservation(self, order_id: str) -> BusinessCapacityReservationRecord | None:
         with self._connect() as conn:

@@ -27,6 +27,8 @@ class OrderBusinessOps(OrderBusinessPaymentConfirmationMixin, OrderBusinessActio
         idempotency_store,
         rate_limit: Callable[[str, UserRecord], None],
         approved_business_for_owner: Callable[[UserRecord], BusinessRecord],
+        return_or_expire_ad: Callable[..., None],
+        clear_marketplace_cache: Callable[[], None],
         notification_service=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._repository = repository
@@ -35,6 +37,8 @@ class OrderBusinessOps(OrderBusinessPaymentConfirmationMixin, OrderBusinessActio
         self._idempotency = idempotency_store
         self._rate_limit = rate_limit
         self._approved_business_for_owner = approved_business_for_owner
+        self._return_or_expire_ad = return_or_expire_ad
+        self._clear_marketplace_cache = clear_marketplace_cache
         self._notifications = notification_service or NoopOrderNotificationService()
 
     def business_orders(self, *, user: UserRecord, status: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:

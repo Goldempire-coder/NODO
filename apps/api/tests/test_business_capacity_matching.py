@@ -647,6 +647,58 @@ def test_two_concurrent_reservations_cannot_spend_same_capacity() -> None:
     assert repository.get_snapshot(business=business).reserved_capacity_usd == Decimal("30.00")
 
 
+def test_slice_49a_concurrent_orders_revalidate_active_limit_inside_final_write() -> None:
+    client = _client()
+    owner = _login(client, 45017, "active_limit_race_owner")
+    first_remitter = _login(client, 45018, "active_limit_race_first")
+    second_remitter = _login(client, 45019, "active_limit_race_second")
+    business, payment_method_id = _approved_business(client, owner)
+    business.active_order_limit = 1
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business.id,
+        amount_usd=Decimal("200.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+    first_ad = _create_ad(
+        client,
+        owner,
+        payment_method_id,
+        "active_limit_race_first_ad",
+        amount_min_usd="20.00",
+        amount_max_usd="40.00",
+    )
+    second_ad = _create_ad(
+        client,
+        owner,
+        payment_method_id,
+        "active_limit_race_second_ad",
+        amount_min_usd="50.00",
+        amount_max_usd="70.00",
+    )
+
+    def create(args: tuple[dict, str, str, str]):  # type: ignore[no-untyped-def]
+        remitter, ad_id, amount, key = args
+        response = _create_order(client, remitter, ad_id, amount, key)
+        return response.status_code, response.json()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(
+            executor.map(
+                create,
+                [
+                    (first_remitter, first_ad["id"], "30.00", "active_limit_race_first"),
+                    (second_remitter, second_ad["id"], "60.00", "active_limit_race_second"),
+                ],
+            )
+        )
+
+    assert sorted(status for status, _ in results) == [201, 409]
+    rejected = next(body for status, body in results if status == 409)
+    assert rejected["error"]["code"] == "AD_NOT_AVAILABLE"
+    assert client.app.state.order_repository.count_active_for_business(business.id) == 1
+    assert len(client.app.state.capacity_repository.reservations) == 1
+
+
 def test_daily_limit_caps_gross_order_reservations_not_ad_ranges() -> None:
     repository = InMemoryBusinessCapacityRepository()
     business = BusinessRecord(

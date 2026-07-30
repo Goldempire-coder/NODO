@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from app.core.errors import ApiError
-from app.modules.ads.models import AdRecord
 from app.modules.notifications.order_notifications import NoopOrderNotificationService
 from app.modules.orders.helpers import require_uuid
 from app.modules.orders.order_copy import ORDER_DISCLAIMER
@@ -13,7 +12,6 @@ from app.modules.orders.serializers import public_order_payload
 from app.modules.orders.state_machine import (
     extended_deadline,
     now_utc,
-    require_cancel_allowed,
     require_extend_allowed,
 )
 from app.modules.users.models import UserRecord
@@ -29,6 +27,7 @@ class OrderRemitterOps:
         rate_limit: Callable[[str, UserRecord], None],
         materialize_order_expiration: Callable[..., Any],
         return_or_expire_ad: Callable[..., None],
+        clear_marketplace_cache: Callable[[], None],
         rating_ops,
         notification_service=None,
     ) -> None:  # type: ignore[no-untyped-def]
@@ -39,6 +38,7 @@ class OrderRemitterOps:
         self._rate_limit = rate_limit
         self._materialize_order_expiration = materialize_order_expiration
         self._return_or_expire_ad = return_or_expire_ad
+        self._clear_marketplace_cache = clear_marketplace_cache
         self._rating_ops = rating_ops
         self._notifications = notification_service or NoopOrderNotificationService()
 
@@ -115,47 +115,53 @@ class OrderRemitterOps:
             if order is None:
                 raise ApiError("ORDER_NOT_FOUND", status_code=404)
             require_order_owner(user, order)
-            order = self._materialize_order_expiration(order, actor=user, request_id=request_id)
-            require_cancel_allowed(order)
-            if order.payment_data_revealed_at is not None and not (
-                payload and payload.payment_not_sent_confirmed
-            ):
-                raise ApiError(
-                    "ORDER_PAYMENT_NOT_SENT_CONFIRMATION_REQUIRED",
-                    status_code=409,
-                )
-            updated = self._repository.update_order(
-                order,
-                status="cancelled",
-                cancel_reason="remitter_cancelled_before_payment",
-                capacity_event_context={
-                    "actor_user_id": user.id,
-                    "actor_role": user.role,
-                    "request_id": request_id,
-                    "reason": "remitter_cancelled_before_payment",
-                },
-            )
-            ad: AdRecord | None = self._ads.get_ad(order.ad_id)
-            if ad is not None:
-                self._return_or_expire_ad(ad, actor=user, request_id=request_id, related_order_id=order.id)
             reason = payload.reason if payload else "choose_another_business"
-            self._repository.add_state_event(
+            result = self._repository.cancel_waiting_payment_atomically(
                 order_id=order.id,
-                from_status="waiting_payment",
-                to_status="cancelled",
+                expected_remitter_user_id=user.id,
+                expected_business_id=None,
+                transition_at=now_utc(),
+                require_expired=False,
+                enforce_payment_not_sent_confirmation=True,
+                payment_not_sent_confirmed=(
+                    payload.payment_not_sent_confirmed if payload else False
+                ),
+                cancel_reason="remitter_cancelled_before_payment",
                 event_type="order_cancelled_by_remitter",
                 actor_user_id=user.id,
                 actor_role=user.role,
-                reason=reason,
+                event_reason=reason,
                 request_id=request_id,
-                metadata_json={"cancel_reason": "remitter_cancelled_before_payment"},
+                event_metadata={
+                    "cancel_reason": "remitter_cancelled_before_payment",
+                },
+                audit_event_type="order_cancelled",
+                audit_metadata={
+                    "reason": "remitter_cancelled_before_payment",
+                },
             )
-            self._audit.write(event_type="order_cancelled", actor_user_id=user.id, actor_role=user.role, resource_type="order", resource_id=order.id, request_id=request_id, metadata_json={"reason": "remitter_cancelled_before_payment"})
+            if (
+                not self._repository.moves_ad_on_atomic_cancel
+                or result.ad_requires_expiration
+            ):
+                ad = self._ads.get_ad(order.ad_id)
+                if ad is not None:
+                    self._return_or_expire_ad(
+                        ad,
+                        actor=user,
+                        request_id=request_id,
+                        related_order_id=order.id,
+                    )
+            else:
+                self._clear_marketplace_cache()
             self._notifications.order_cancelled_before_payment_business(
-                order=updated,
+                order=result.order,
                 request_id=request_id,
             )
-            return {"order": public_order_payload(updated), "disclaimer": ORDER_DISCLAIMER}
+            return {
+                "order": public_order_payload(result.order),
+                "disclaimer": ORDER_DISCLAIMER,
+            }
 
         return self._idempotency.replay_or_store(
             f"orders:cancel:{user.id}:{order_id}:{idempotency_key}",

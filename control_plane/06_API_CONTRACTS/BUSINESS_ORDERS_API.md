@@ -9,6 +9,7 @@ Todas las rutas usan prefijo `/api/v1`.
 - `GET /api/v1/business/orders`
 - `GET /api/v1/business/orders/{id}`
 - `POST /api/v1/business/orders/{id}/confirm-payment`
+- `POST /api/v1/business/orders/{id}/cannot-attend`
 - `POST /api/v1/business/orders/{id}/reject-payment-report`
 - `POST /api/v1/business/orders/{id}/mark-delivered`
 
@@ -50,7 +51,7 @@ No expone `storage_path`, tokens, secretos ni instrucciones completas innecesari
 {
   "id": "uuid",
   "public_order_code": "NODO-ABC123",
-  "status": "payment_reported|payment_rejected|payment_confirmed|delivered|disputed",
+  "status": "waiting_payment|payment_reported|payment_rejected|payment_confirmed|delivered|disputed|cancelled",
   "amount_usd": "50.00",
   "amount_bs_calculated": "1825.00",
   "payment_method_snapshot": "zelle|usdt_trc20",
@@ -66,7 +67,8 @@ No expone `storage_path`, tokens, secretos ni instrucciones completas innecesari
   "capabilities": {
     "can_confirm_payment": true,
     "can_reject_payment_report": true,
-    "can_mark_delivered": false
+    "can_mark_delivered": false,
+    "can_decline_before_payment": false
   }
 }
 ```
@@ -110,6 +112,22 @@ Errores:
 - `FORBIDDEN`
 - `RATE_LIMITED`
 - `VALIDATION_ERROR`
+
+## POST /api/v1/business/orders/{id}/cannot-attend
+
+Permite al owner declarar, sin texto libre, que no puede atender una orden
+antes del reporte de pago.
+
+Rules:
+
+- requiere PIN operativo desbloqueado e `Idempotency-Key`
+- solo orden propia en `waiting_payment`, no vencida y sin reporte
+- usa `cancelled` con `cancel_reason = business_unavailable`
+- libera capacidad y restaura o expira el anuncio una sola vez
+- crea evento y audit sin datos privados
+- avisa al cliente con copy generico
+- no habilita chat pre-pago ni permite enviar un motivo libre
+- una transicion concurrente ganadora produce `ORDER_STATE_CONFLICT`
 
 ## GET /api/v1/business/orders/{id}
 

@@ -10,7 +10,6 @@ from app.modules.orders.payment_constants import PAYMENT_INSTRUCTIONS_DISCLAIMER
 from app.modules.orders.payment_evidence import PaymentEvidenceMixin
 from app.modules.orders.payment_reporting import PaymentReportingMixin
 from app.modules.orders.policy import require_order_owner, require_remitter
-from app.modules.orders.state_machine import now_utc, require_payment_reveal_allowed
 from app.modules.users.models import UserRecord
 
 
@@ -41,23 +40,14 @@ class OrderPaymentFlow(PaymentEvidenceMixin, PaymentReportingMixin):
         if order is None:
             raise ApiError("ORDER_NOT_FOUND", status_code=404)
         require_order_owner(user, order)
-        require_payment_reveal_allowed(order)
-        if order.payment_data_revealed_at is None:
-            order = self._repository.update_order(
-                order,
-                payment_data_revealed_at=now_utc(),
-                payment_data_revealed_by=user.id,
-            )
-        elif order.payment_data_revealed_by is None:
-            order = self._repository.update_order(order, payment_data_revealed_by=user.id)
-        self._audit.write(
-            event_type="payment_instructions_viewed",
-            actor_user_id=user.id,
-            actor_role=user.role,
-            resource_type="order",
-            resource_id=order.id,
+        order = self._repository.reveal_payment_instructions_atomically(
+            order_id=order.id,
+            remitter_user_id=user.id,
             request_id=request_id,
-            metadata_json={"public_order_code": order.public_order_code, "payment_method": order.payment_method_snapshot},
+            audit_metadata={
+                "public_order_code": order.public_order_code,
+                "payment_method": order.payment_method_snapshot,
+            },
         )
         payment = order.payment_instructions_snapshot or {}
         return {

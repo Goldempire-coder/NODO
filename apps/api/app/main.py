@@ -286,6 +286,7 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.order_repository = PostgresOrderRepository(
         settings.database_url,
         capacity_repository=app.state.capacity_repository,
+        ad_repository=app.state.ad_repository,
     )
     app.state.chat_repository = PostgresChatRepository(settings.database_url)
     app.state.support_repository = PostgresSupportRepository(settings.database_url)

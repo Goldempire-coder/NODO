@@ -15,7 +15,7 @@ export function getBusinessOrder<T>(request: AuthenticatedRequest, orderId: stri
 export function mutateBusinessOrder<T>(
   request: AuthenticatedRequest,
   orderId: string,
-  action: "confirm-payment" | "reject-payment-report" | "mark-delivered",
+  action: "confirm-payment" | "reject-payment-report" | "mark-delivered" | "cannot-attend",
   reason: string | undefined,
   idempotencyKey: string
 ) {
@@ -26,5 +26,18 @@ export function mutateBusinessOrder<T>(
       "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({ reason })
+  });
+}
+
+export function declineBusinessOrder<T>(
+  request: AuthenticatedRequest,
+  orderId: string,
+  idempotencyKey: string
+) {
+  return request<T>(`/api/v1/business/orders/${orderId}/cannot-attend`, {
+    method: "POST",
+    headers: {
+      "Idempotency-Key": idempotencyKey
+    }
   });
 }

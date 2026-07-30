@@ -8,6 +8,7 @@ ORDER_NOTIFICATION_TYPES = {
     "order_delivered_client",
     "order_disputed_parties_admin",
     "order_cancelled_payment_not_reported",
+    "order_cancelled_business_unavailable",
 }
 
 CHAT_NOTIFICATION_TYPES = {

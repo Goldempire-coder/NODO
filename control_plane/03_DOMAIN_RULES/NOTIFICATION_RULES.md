@@ -145,6 +145,7 @@ Tipos canonicos:
 | --- | --- | --- | --- |
 | order_payment_deadline_warning | remitente | antes de vencer `waiting_payment` | Tu orden esta por vencer. Reporta el pago antes del limite si ya pagaste. |
 | order_cancelled_payment_not_reported | remitente y negocio en expiracion; negocio en cancelacion manual del cliente | `waiting_payment` vencida o cliente cancela antes de reportar pago | La orden expiro o fue cancelada antes de reportar pago, segun el evento registrado. |
+| order_cancelled_business_unavailable | remitente | negocio declara que no puede atender antes del reporte de pago | El negocio no puede atender la orden. La orden fue cancelada antes de reportar pago. |
 | order_business_response_warning | negocio | 2h despues de `payment_reported` sin respuesta | Hay una orden con pago reportado pendiente de revisar. |
 | order_disputed_business_no_payment_confirmation | remitente, negocio, admin/support | 6h despues de `payment_reported` sin respuesta | La orden paso a disputa por falta de respuesta del negocio. |
 | order_delivery_warning | negocio | 30 min despues de `payment_confirmed` sin entrega | Confirma el envio del pago movil antes del limite. |

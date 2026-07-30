@@ -28,6 +28,7 @@ def order_capabilities(order) -> dict[str, bool]:  # type: ignore[no-untyped-def
         "can_confirm_payment": order.status == "payment_reported",
         "can_reject_payment_report": order.status == "payment_reported",
         "can_mark_delivered": order.status == "payment_confirmed",
+        "can_decline_before_payment": order.status == "waiting_payment",
     }
 
 
@@ -37,6 +38,7 @@ def business_order_payload(order, *, list_view: bool = False) -> dict[str, Any]:
         "id": order.id,
         "public_order_code": order.public_order_code,
         "status": order.status,
+        "cancel_reason": order.cancel_reason,
         "amount_usd": decimal_text(order.amount_usd),
         "amount_bs_calculated": decimal_text(order.amount_bs_calculated),
         "payment_method_snapshot": order.payment_method_snapshot,

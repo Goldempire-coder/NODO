@@ -132,6 +132,11 @@ Persistencia:
 - `POST /payment-report` debe crear `payment_reports.id = pending_payment_report_id` cuando use ese proof
 - `file_assets.file_type = payment_evidence`
 - `file_assets.owner_user_id = orders.remitter_user_id`
+- `file_assets.metadata_json.order_id = orders.id` para ligar el comprobante
+  a la orden donde fue subido
+- `file_assets.metadata_json.content_sha256` obligatorio para comprobantes
+  nuevos, hexadecimal minusculo de 64 caracteres, usado solo para
+  deduplicacion interna
 - `storage_path` privado obligatorio y nunca expuesto
 
 Response 201:
@@ -171,15 +176,28 @@ Precondiciones:
 - orden no vencida
 - `Idempotency-Key` obligatorio
 - `payment_type` debe coincidir con `orders.payment_method_snapshot`
+- `payment_amount` debe coincidir exactamente con `orders.amount_usd`
+- para evidencia on-chain, `network` y `tx_hash` se canonicalizan antes de
+  persistir y el par canonico no puede pertenecer a otra orden
+- para USDT TRC20, `tx_hash` debe tener 64 caracteres hexadecimales; el
+  prefijo `0x` se acepta pero se remueve al persistir la forma canonica en
+  minusculas
+- `proof_file_id`, la identidad del reporte pendiente y el hash SHA-256 del
+  contenido del comprobante son de un solo uso entre ordenes
+- `proof_file_id` debe pertenecer a la misma orden del reporte; un
+  comprobante subido en otra orden responde `INVALID_PAYMENT_EVIDENCE`
 
 Efectos:
 
-- crear `payment_reports.status = submitted`
-- setear `orders.status = payment_reported`
+- bloquear la orden y crear `payment_reports.status = submitted`
+- setear `orders.status = payment_reported` de forma condicional desde
+  `waiting_payment`
 - setear `orders.paid_reported_at`
 - setear deadlines de respuesta de negocio segun contrato de orden
 - crear `order_state_events`
 - auditar `payment_reported`
+- reporte, estado, evento y audit se confirman en una sola transaccion
+- si cancelacion o expiracion gano primero, responder `ORDER_STATE_CONFLICT`
 
 Efectos prohibidos:
 
@@ -238,6 +256,9 @@ Reglas:
 - `payment_amount` requerido
 - `proof_file_id` opcional porque `tx_hash` es evidencia primaria
 - `tx_hash` puede guardarse completo internamente, pero UI/listados/audit usan version masked/truncated
+- el mismo hash canonico no puede usarse en dos ordenes
+- el mismo archivo de comprobante o el mismo contenido SHA-256 no puede
+  respaldar dos reportes
 
 Response 201:
 

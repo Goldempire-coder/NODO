@@ -57,7 +57,7 @@ No expone instrucciones completas de pago, `account_value`, storage paths, docum
   "payment_report_extension_used_at": "timestamp|null",
   "extension_used": false,
   "expires_at": "timestamp",
-  "cancel_reason": "payment_not_reported_in_time|remitter_cancelled_before_payment|null",
+  "cancel_reason": "payment_not_reported_in_time|remitter_cancelled_before_payment|business_unavailable|admin_cancelled|null",
   "created_at": "timestamp",
   "updated_at": "timestamp",
   "capabilities": {
@@ -372,8 +372,12 @@ Rules:
 
 - Solo remitente propietario.
 - Solo `waiting_payment` antes de `payment_reported`.
+- La transicion se ejecuta bajo bloqueo de la orden. Si pago, expiracion u otra
+  cancelacion gano primero, responde `ORDER_STATE_CONFLICT`.
 - Si `payment_data_revealed_at` existe, requiere confirmacion explicita
   `payment_not_sent_confirmed = true`.
+- La lectura de instrucciones y la cancelacion se serializan bajo el mismo
+  bloqueo; el check de confirmacion no puede quedar obsoleto.
 - La confirmacion no prueba que no hubo una transferencia; solo registra la
   declaracion del cliente y la ausencia de reporte de pago en NODO.
 - Setea `order.status = cancelled`.
@@ -384,6 +388,9 @@ Rules:
 - Liberar la reserva de capacidad una sola vez.
 - Auditar `order_cancelled` y `business_capacity_released`.
 - No reporta pago ni toca evidencia.
+- Orden, reserva, anuncio, evento y audit cambian en una transaccion. Si el
+  anuncio ya vencio, su hold se consume y queda archivado dentro de esa misma
+  transaccion.
 
 Errores:
 
@@ -392,11 +399,20 @@ Errores:
 - ORDER_NOT_FOUND
 - ORDER_NOT_OWNED
 - ORDER_STATUS_INVALID
+- ORDER_STATE_CONFLICT
 - ORDER_PAYMENT_ALREADY_REPORTED
 - ORDER_PAYMENT_NOT_SENT_CONFIRMATION_REQUIRED
 - IDEMPOTENCY_KEY_REQUIRED
 - IDEMPOTENCY_CONFLICT
 - RATE_LIMITED
+
+## Integridad concurrente de creacion
+
+- La comprobacion de `active_order_limit` se repite dentro de la transaccion
+  final, bajo el mismo bloqueo de negocio usado para reservar capacidad.
+- La orden que hace superar el limite debe abortar junto con su reserva.
+- Las validaciones previas del marketplace son orientativas; la creacion
+  backend es la autoridad final.
 
 ## Lifecycle de capacidad
 

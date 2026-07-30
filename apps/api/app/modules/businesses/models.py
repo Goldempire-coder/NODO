@@ -129,5 +129,6 @@ class FileAssetRecord:
     storage_path: str
     mime_type: str
     size_bytes: int
+    metadata_json: dict | None = None
     created_at: datetime = field(default_factory=utc_now)
     deleted_at: datetime | None = None

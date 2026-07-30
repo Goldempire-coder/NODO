@@ -137,6 +137,7 @@ class PaymentEvidenceMixin:
         payment_report_id: str,
         profile: list[dict[str, Any]] | None,
     ):  # type: ignore[no-untyped-def]
+        content_sha256 = hashlib.sha256(content).hexdigest()
         stage_started = time.perf_counter()
         file_id = new_id()
         stored = self._storage.store_payment_evidence(order_id=order_id, payment_report_id=payment_report_id, file_id=file_id, file_name=file_name, content=content)  # type: ignore[attr-defined]
@@ -149,6 +150,8 @@ class PaymentEvidenceMixin:
             storage_path=stored.storage_path,
             mime_type=mime_type,
             size_bytes=stored.size_bytes,
+            content_sha256=content_sha256,
+            order_id=order_id,
         )
         profile_mark(profile, "repo:create_payment_evidence_file", stage_started)
         return file

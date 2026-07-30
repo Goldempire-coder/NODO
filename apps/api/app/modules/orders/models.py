@@ -24,7 +24,12 @@ ORDER_STATUSES = {
     "cancelled",
     "disputed",
 }
-CANCEL_REASONS = {"remitter_cancelled_before_payment", "payment_not_reported_in_time", "admin_cancelled"}
+CANCEL_REASONS = {
+    "remitter_cancelled_before_payment",
+    "payment_not_reported_in_time",
+    "business_unavailable",
+    "admin_cancelled",
+}
 
 
 @dataclass
@@ -100,6 +105,7 @@ class PaymentReportRecord:
     tx_hash: str | None = None
     network: str | None = None
     proof_file_id: str | None = None
+    proof_content_sha256: str | None = None
     report_payload_hash: str | None = None
     admin_notes: str | None = None
     created_at: datetime = field(default_factory=utc_now)

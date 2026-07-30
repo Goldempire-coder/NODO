@@ -76,6 +76,8 @@ class OrderService(OrderServiceSupportMixin):
             idempotency_store=self._idempotency,
             rate_limit=self._rate_limit,
             approved_business_for_owner=self._approved_business_for_owner,
+            return_or_expire_ad=self._finalize_cancelled_ad,
+            clear_marketplace_cache=self._clear_marketplace_cache,
             notification_service=self._notification_service,
         )
         self._remitter_ops = OrderRemitterOps(
@@ -85,7 +87,8 @@ class OrderService(OrderServiceSupportMixin):
             idempotency_store=self._idempotency,
             rate_limit=self._rate_limit,
             materialize_order_expiration=self._materialize_order_expiration,
-            return_or_expire_ad=self._return_or_expire_ad,
+            return_or_expire_ad=self._finalize_cancelled_ad,
+            clear_marketplace_cache=self._clear_marketplace_cache,
             rating_ops=self._rating_ops,
             notification_service=self._notification_service,
         )
@@ -150,6 +153,21 @@ class OrderService(OrderServiceSupportMixin):
 
     def business_order_detail(self, *, user: UserRecord, order_id: str, request_id: str) -> dict[str, Any]:
         return self._business_ops.business_order_detail(user=user, order_id=order_id, request_id=request_id)
+
+    def business_cannot_attend(
+        self,
+        *,
+        user: UserRecord,
+        order_id: str,
+        request_id: str,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
+        return self._business_ops.business_cannot_attend(
+            user=user,
+            order_id=order_id,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
 
     def confirm_business_payment(self, *, user: UserRecord, order_id: str, payload: OrderActionRequest | None, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         return self._business_ops.confirm_business_payment(user=user, order_id=order_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
