@@ -51,6 +51,7 @@ _set_env()
 from app.main import create_app  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.notifications.telegram_sender import NotificationSenderWorker, TelegramNotificationError  # noqa: E402
+from app.modules.orders.receiver_details import receiver_payload_hash  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -185,6 +186,21 @@ def _upload_payment_evidence(client: TestClient, remitter: dict, order_id: str, 
 
 
 def _report_payment(client: TestClient, remitter: dict, order: dict, *, key: str = "report") -> dict:
+    if not client.app.state.chat_repository.has_business_message_containing(
+        order_id=order["id"],
+        text="owner@example.com",
+    ):
+        stored_order = client.app.state.order_repository.get_by_id(order["id"])
+        business = client.app.state.business_repository.get_business(
+            stored_order.business_id
+        )
+        client.app.state.chat_repository.create_message(
+            order_id=order["id"],
+            sender_user_id=business.owner_user_id,
+            sender_role="business_owner",
+            body="Zelle del negocio: owner@example.com",
+            idempotency_key=f"fixture_share_{order['id']}",
+        )
     evidence = _upload_payment_evidence(client, remitter, order["id"], key=f"{key}_evidence")
     response = client.post(
         f"/api/v1/orders/{order['id']}/payment-report",
@@ -222,6 +238,21 @@ def _confirm_payment(client: TestClient, owner: dict, order_id: str, key: str) -
 
 
 def _mark_delivered(client: TestClient, owner: dict, order_id: str, key: str) -> None:
+    order = client.app.state.order_repository.get_by_id(order_id)
+    payload = {
+        "bank": "0102",
+        "phone": "+584121234567",
+        "document": "V12345678",
+        "holder": "Receptor Test",
+    }
+    client.app.state.order_repository.create_receiver_details_atomically(
+        order_id=order.id,
+        remitter_user_id=order.remitter_user_id,
+        payload=payload,
+        payload_hash=receiver_payload_hash(payload),
+        request_id=f"fixture_receiver_{order_id}",
+        audit_metadata={"schema": "pago_movil_receiver_v1", "fixture": True},
+    )
     response = client.post(
         f"/api/v1/business/orders/{order_id}/mark-delivered",
         headers={**_headers(owner, key), "Content-Type": "application/json"},

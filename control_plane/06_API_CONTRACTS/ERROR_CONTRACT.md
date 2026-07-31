@@ -74,10 +74,19 @@ Todas las APIs deben usar este contrato. Prohibido exponer stack traces, SQL, se
 - ORDER_EXTENSION_ALREADY_USED
 - ORDER_PAYMENT_NOT_SENT_CONFIRMATION_REQUIRED
 - ORDER_PAYMENT_ALREADY_REPORTED
+- ORDER_PAYMENT_DETAILS_NOT_SHARED
+- ORDER_PAYMENT_METHOD_UNAVAILABLE
+- ORDER_RECEIVER_DETAILS_INVALID
+- ORDER_RECEIVER_DETAILS_REQUIRED
+- ORDER_RECEIVER_DETAILS_ALREADY_SHARED
+- ORDER_RECEIVER_DETAILS_NOT_FOUND
+- ORDER_RECEIPT_CONFIRMATION_NOT_ALLOWED
+- ORDER_COMPLETION_BLOCKED_BY_DISPUTE
 - ORDER_ALREADY_REPORTED
 - IDEMPOTENCY_KEY_REQUIRED
 - IDEMPOTENCY_CONFLICT
 - AMOUNT_OUT_OF_RANGE
+- ORDER_QUOTE_CHANGED
 - PAYMENT_REPORT_NOT_ALLOWED
 - PAYMENT_REPORT_NOT_FOUND
 - PAYMENT_EVIDENCE_REQUIRED
@@ -226,6 +235,24 @@ Mensajes seguros:
 - `AUTO_COMPLETE_BLOCKED_BY_DISPUTE`: La orden no puede cerrarse porque hay disputa.
 - `JOB_CONFIG_INVALID`: Configuracion de job invalida.
 - `JOB_NOT_FOUND`: Job no encontrado.
+
+## Codigos Slice 50B
+
+- `ORDER_RECEIVER_DETAILS_INVALID`: HTTP 400; uno o mas campos no cumplen el
+  formato permitido. No devolver el valor rechazado.
+- `ORDER_RECEIVER_DETAILS_REQUIRED`: HTTP 409; el negocio no puede marcar
+  entrega porque no existe payload estructurado valido.
+- `ORDER_RECEIVER_DETAILS_ALREADY_SHARED`: HTTP 409; el recurso inmutable ya
+  existe y el payload canonico nuevo es distinto.
+- `ORDER_RECEIVER_DETAILS_NOT_FOUND`: HTTP 404; el recurso no existe o no es
+  visible para el actor.
+- `ORDER_RECEIPT_CONFIRMATION_NOT_ALLOWED`: HTTP 409; la orden no esta en
+  `delivered` o la accion ya no corresponde.
+- `ORDER_COMPLETION_BLOCKED_BY_DISPUTE`: HTTP 409; existe disputa
+  `open|in_review`.
+
+Los fallos internos de persistencia del audit obligatorio responden
+`INTERNAL_ERROR` sin detalles sensibles.
 
 ## Codigos admin user/access control
 

@@ -53,8 +53,18 @@ class OrderBusinessOps(OrderBusinessPaymentConfirmationMixin, OrderBusinessActio
             items, next_cursor = self._repository.list_for_business_statuses(business_id=business.id, statuses=BUSINESS_HISTORY_ORDER_STATUSES, cursor=cursor, limit=limit)
         else:
             items, next_cursor = self._repository.list_for_business(business_id=business.id, status=status, cursor=cursor, limit=limit)
+        receiver_order_ids = self._repository.receiver_details_order_ids(
+            [order.id for order in items]
+        )
         return {
-            "items": [business_order_payload(order, list_view=True) for order in items],
+            "items": [
+                business_order_payload(
+                    order,
+                    list_view=True,
+                    receiver_details_shared=order.id in receiver_order_ids,
+                )
+                for order in items
+            ],
             "next_cursor": next_cursor,
             "disclaimer": ORDER_DISCLAIMER,
         }
@@ -72,7 +82,10 @@ class OrderBusinessOps(OrderBusinessPaymentConfirmationMixin, OrderBusinessActio
         files = self._repository.list_payment_evidence_for_report(report.id) if report is not None else []
         events = self._repository.list_state_events_for_order(order.id)
         return {
-            "order": business_order_payload(order),
+            "order": business_order_payload(
+                order,
+                receiver_details_shared=self._repository.has_receiver_details(order.id),
+            ),
             "receiver_data": business_receiver_payload(order),
             "payment_report": business_payment_report_payload(report) if report else None,
             "evidence": [file_payload(file) for file in files],

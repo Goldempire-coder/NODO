@@ -6,6 +6,7 @@ Contrato API canonico para mensajes y adjuntos privados de orden.
 
 - GET /api/v1/orders/{id}/messages
 - POST /api/v1/orders/{id}/messages
+- POST /api/v1/orders/{id}/share-zelle
 - POST /api/v1/orders/{id}/message-attachments
 
 ## Reglas comunes
@@ -14,13 +15,23 @@ Contrato API canonico para mensajes y adjuntos privados de orden.
 - Requiere ownership backend.
 - Remitter solo opera orden propia.
 - Business owner solo opera orden de su negocio aprobado.
-- Admin/super_admin pueden leer para revision.
-- Support solo lectura cuando RBAC lo permite.
+- Admin/super_admin pueden leer para revision segun contrato de evidencia
+  explicito, excepto cuerpos de `waiting_payment` mediante este endpoint
+  general.
+- Support solo lectura cuando RBAC lo permite, excepto cuerpos de
+  `waiting_payment` mediante este endpoint general.
 - Guest no accede.
 - No filtrar existencia de ordenes ajenas.
 - Rate limit obligatorio por usuario, orden, IP y ruta.
-- No exponer `storage_path`, signed URLs, full payment instructions, `account_value`, tokens ni secretos.
+- No exponer `storage_path`, signed URLs, tokens ni secretos.
+- El Zelle completo solo puede aparecer dentro de un mensaje privado de la
+  orden despues de que el negocio lo comparta manualmente o con la accion
+  autorizada. No se copia a logs, audit, Telegram o admin notifications.
 - Mensajes deben sanitizarse antes de mostrarse.
+- Los datos estructurados de receptor Pago Movil no son mensajes. No se
+  persisten en `messages.body` ni se devuelven en este endpoint. La UI puede
+  componer una burbuja `chat-style secure receiver payload` usando el endpoint
+  dedicado de `ORDERS_API.md`.
 
 ## GET /api/v1/orders/{id}/messages
 
@@ -28,6 +39,9 @@ Query:
 
 - `cursor` opcional.
 - `limit` opcional, 1..50, default 25.
+- Sin cursor, devuelve la ventana mas reciente.
+- Con `cursor`, devuelve la ventana inmediatamente anterior.
+- `items` siempre se ordena de antiguo a nuevo dentro de cada ventana.
 
 Response:
 
@@ -54,9 +68,29 @@ Response:
       "created_at": "timestamp"
     }
   ],
+  "system_messages": [
+    {
+      "id": "system:negotiation-created:uuid",
+      "sender_role": "system",
+      "body": "Negociacion creada. Coordinen por aqui. No envies Zelle hasta que el negocio comparta sus datos.",
+      "attachments": []
+    }
+  ],
+  "capabilities": {
+    "can_send_message": true,
+    "can_open_dispute": false,
+    "can_share_zelle": false,
+    "payment_details_shared": false,
+    "can_report_payment": false
+  },
   "next_cursor": "opaque-or-null"
 }
 ```
+
+`system_messages` es derivado y no se persiste, audita ni envia por Telegram.
+Solo se devuelve en la primera pagina.
+`next_cursor` apunta a mensajes anteriores; nunca obliga a la UI activa a
+empezar por la pagina mas antigua.
 
 Errors:
 
@@ -90,6 +124,7 @@ Validation:
 
 Allowed order states:
 
+- waiting_payment
 - payment_reported
 - payment_rejected
 - payment_confirmed
@@ -117,6 +152,14 @@ Idempotency:
 
 - Same key + same payload returns same message.
 - Same key + different payload returns IDEMPOTENCY_PAYLOAD_MISMATCH.
+
+En `waiting_payment`, solo cliente y owner del negocio participantes pueden
+leer/escribir. Admin/support no pueden usar este endpoint general para obtener
+cuerpos completos en ese estado. Los terceros reciben `ORDER_NOT_FOUND`.
+
+Ningun texto de chat, incluido `recibido`, `confirmado` o `pago enviado`,
+ejecuta transiciones, consume creditos, consume capacidad o sustituye los
+endpoints oficiales.
 
 Audit:
 
@@ -162,6 +205,33 @@ Errors:
 - RATE_LIMITED
 - UNAUTHENTICATED
 - VALIDATION_ERROR
+
+## POST /api/v1/orders/{id}/share-zelle
+
+Accion compacta exclusiva del owner del negocio.
+
+Rules:
+
+- `Idempotency-Key` requerido.
+- Orden propia del negocio, `waiting_payment`, metodo `zelle`.
+- Inserta una sola vez un mensaje privado con el Zelle configurado congelado en
+  la orden y el titular cuando existe.
+- Un retry con otra key tampoco duplica el mensaje.
+- El cliente queda con `can_report_payment = true`.
+- El Zelle configurado no dispara alerta anti-evasion.
+- Frases para sacar la operacion de NODO u otros contactos externos siguen
+  generando la alerta conservadora.
+- Audit `business_zelle_shared` guarda IDs seguros, nunca el Zelle.
+- Telegram avisa que existe un mensaje nuevo, nunca copia su cuerpo.
+
+Errors:
+
+- ORDER_NOT_FOUND
+- ORDER_STATUS_INVALID
+- ORDER_STATE_CONFLICT
+- ORDER_PAYMENT_METHOD_UNAVAILABLE
+- IDEMPOTENCY_KEY_REQUIRED
+- RATE_LIMITED
 
 ## POST /api/v1/orders/{id}/message-attachments
 

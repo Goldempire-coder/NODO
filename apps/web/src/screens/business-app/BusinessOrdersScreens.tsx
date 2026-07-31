@@ -101,7 +101,15 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
           <Text>{humanizeOrderStatus(businessOrderDetail.order.status)}</Text>
           <Text>{businessOrderDetail.order.amount_usd} USD - {businessOrderDetail.order.amount_bs_calculated} Bs</Text>
           <Text>{formatOrderMethodLine(businessOrderDetail.order.payment_method_snapshot, businessOrderDetail.order.delivery_method_snapshot)}</Text>
-          <Text className="auth-entry__session-meta">Receptor: {businessOrderDetail.receiver_data.bank || "Banco"} - {businessOrderDetail.receiver_data.phone_masked || "enmascarado"} - {businessOrderDetail.receiver_data.holder || "Titular"}</Text>
+          {businessOrderDetail.order.capabilities.receiver_details_shared ? (
+            <Text className="auth-entry__session-meta">
+              Pago Movil listo. Abre el chat para revelarlo de forma segura.
+            </Text>
+          ) : (
+            <Text className="auth-entry__session-meta">
+              Pago Movil pendiente en chat
+            </Text>
+          )}
           {businessOrderDetail.payment_report ? (
             <div className="business-grid">
               <Text>Reporte: {humanizePurchaseStatus(businessOrderDetail.payment_report.status)}</Text>
@@ -131,9 +139,7 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
                 {businessOrderAction === "cannot-attend" ? "Cancelando..." : "No puedo atender"}
               </Button>
             ) : null}
-            {businessOrderDetail.order.status !== "waiting_payment" ? (
-              <Button mode="outline" size="s" disabled={busy} onClick={() => void openBusinessChat(businessOrderDetail.order.id)}>Chat</Button>
-            ) : null}
+            <Button mode="outline" size="s" disabled={busy} onClick={() => void openBusinessChat(businessOrderDetail.order.id)}>Chat</Button>
           </div>
         </>
       ) : <Text>Selecciona una orden para ver el detalle.</Text>}

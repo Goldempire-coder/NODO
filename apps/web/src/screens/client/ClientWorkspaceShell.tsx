@@ -18,7 +18,6 @@ const TITLE_BY_VIEW: Partial<Record<ClientView, string>> = {
   "marketplace-detail": "Negocio verificado",
   "create-order": "Crear orden",
   "order-summary": "Resumen de orden",
-  "payment-instructions": "Instrucciones",
   "report-payment": "Reportar pago",
   "my-orders": "Mis órdenes",
   messages: "Mensajes",
@@ -123,7 +122,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
       setActiveNav("profile");
       return;
     }
-    if (view === "my-orders" || view === "order-summary" || view === "payment-instructions" || view === "report-payment") {
+    if (view === "my-orders" || view === "order-summary" || view === "report-payment") {
       setActiveNav("orders");
       return;
     }

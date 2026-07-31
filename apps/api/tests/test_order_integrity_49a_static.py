@@ -46,7 +46,7 @@ def test_slice_49a_migration_is_reversible_and_checks_existing_hash_duplicates()
     assert "admin_cancelled" in down
 
 
-def test_slice_49a_frontend_exposes_structured_business_action_without_prepayment_chat() -> None:
+def test_slice_49a_frontend_exposes_structured_business_action_and_slice_50a_chat() -> None:
     api = (ROOT / "apps" / "web" / "src" / "api" / "businessOrders.ts").read_text(
         encoding="utf-8"
     )
@@ -73,11 +73,19 @@ def test_slice_49a_frontend_exposes_structured_business_action_without_prepaymen
     assert '"cannot-attend"' in hook
     assert "No puedo atender" in screen
     assert 'can_decline_before_payment' in screen
-    assert 'waiting_payment' not in (
+    assert 'waiting_payment' in (
         ROOT / "apps" / "api" / "app" / "modules" / "chat" / "policy.py"
     ).read_text(encoding="utf-8").split("require_message_state", 1)[1].split(
         "raise ApiError", 1
     )[0]
+    slice_50a_scope = (
+        ROOT
+        / "control_plane"
+        / "09_SLICES"
+        / "slice_50A_simplified_p2p_negotiation_flow"
+        / "SCOPE.md"
+    ).read_text(encoding="utf-8")
+    assert "Immediate participant chat for `waiting_payment`" in slice_50a_scope
 
 
 def test_slice_49a_does_not_enable_expiration_scheduler_implicitly() -> None:

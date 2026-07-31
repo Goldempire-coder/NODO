@@ -4,9 +4,11 @@
 
 Security requirements:
 
-Only parties/admin can see order chat. Attachments are private. Slice 07 does
-not include admin resolution. Slice 09 admin resolution requires reason and
-audit. No public evidence URLs.
+Only order participants can read/write `waiting_payment` chat through the
+general messages endpoint. Admin/support evidence access requires its explicit
+authorized viewer; the general endpoint must not expose waiting-payment bodies.
+Attachments are private. Slice 07 does not include admin resolution. Slice 09
+admin resolution requires reason and audit. No public evidence URLs.
 
 Mandatory controls:
 
@@ -40,7 +42,11 @@ Mandatory controls:
 
 ## Sensitive data
 
-- No full payment instructions in chat/list/dispute responses.
+- Free `messages.body`, chat attachments, list and dispute responses contain no
+  full Pago Movil instructions.
+- Slice 50B may render a separately fetched `chat-style secure receiver
+  payload` for the two participants. It is not a message body and is excluded
+  from this general chat endpoint.
 - No `account_value` in chat/list/dispute responses.
 - No tokens, secrets, storage paths or raw private file keys in logs.
 - Free text must be sanitized before display.

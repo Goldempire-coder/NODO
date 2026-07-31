@@ -3,6 +3,8 @@ import { Text, Title } from "@telegram-apps/telegram-ui";
 import { CHAT_DISPUTE_COPY } from "../../constants/copy";
 import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
 
+const CLIENT_ORDER_CHAT_REFRESH_MS = 5000;
+
 function chatSenderLabel(senderRole: string): string {
   if (senderRole === "remitter" || senderRole === "client") {
     return "Tu";
@@ -12,6 +14,9 @@ function chatSenderLabel(senderRole: string): string {
   }
   if (senderRole === "admin" || senderRole === "support" || senderRole === "super_admin") {
     return "Soporte NODO";
+  }
+  if (senderRole === "system") {
+    return "NODO";
   }
   return senderRole.replaceAll("_", " ");
 }
@@ -75,12 +80,21 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     chatMessages,
     chatOrderId,
     disputeReason,
+    loadingPaymentInstructions,
     openOrderDispute,
     openingOrderDispute,
+    openPaymentReport,
+    confirmOrderReceived,
+    confirmingOrderReceived,
+    receiverDetailsForm,
+    receiverDetailsMasked,
     refreshChat,
     refreshingChat,
     sendChatMessage,
     sendingChatMessage,
+    setReceiverDetailsForm,
+    shareReceiverDetails,
+    sharingReceiverDetails,
     setChatBody,
     setDisputeReason,
     uploadChatAttachment,
@@ -92,6 +106,31 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const canSend = chatCapabilities.can_send_message && !sendingChatMessage && !uploadingChatAttachment;
   const canSubmitMessage = canSend && (chatBody.trim().length > 0 || chatAttachments.length > 0);
+  const selectedChatOrder = model.selectedOrder?.id === chatOrderId ? model.selectedOrder : null;
+  const composerPlaceholder = "Escribir mensaje...";
+
+  useEffect(() => {
+    if (!chatOrderId || model.view !== "order-chat") {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      if (
+        document.visibilityState !== "visible"
+        || sendingChatMessage
+        || uploadingChatAttachment
+      ) {
+        return;
+      }
+      void refreshChat({ silent: true });
+    }, CLIENT_ORDER_CHAT_REFRESH_MS);
+    return () => window.clearInterval(interval);
+  }, [
+    chatOrderId,
+    model.view,
+    refreshChat,
+    sendingChatMessage,
+    uploadingChatAttachment
+  ]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
@@ -132,8 +171,18 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         {chatMessages.length === 0 ? <Text className="business-order-chat-empty">Aun no hay mensajes en esta orden.</Text> : null}
         {chatMessages.map((message) => {
           const isMine = message.sender_role === "remitter" || message.sender_role === "client";
+          const isSystem = message.sender_role === "system";
           return (
-            <article className={isMine ? "business-order-chat-message business-order-chat-message--mine" : "business-order-chat-message"} key={message.id}>
+            <article
+              className={
+                isSystem
+                  ? "business-order-chat-message business-order-chat-message--system"
+                  : isMine
+                    ? "business-order-chat-message business-order-chat-message--mine"
+                    : "business-order-chat-message"
+              }
+              key={message.id}
+            >
               <span className="business-order-chat-message__sender">{chatSenderLabel(message.sender_role)}</span>
               <p>{message.body || "Adjunto privado"}</p>
               {message.attachments.length ? <small>{message.attachments.length} adjunto(s)</small> : null}
@@ -143,6 +192,116 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         })}
         <div ref={messagesEndRef} />
       </div>
+
+      {chatCapabilities.can_share_receiver_details ? (
+        <div className="business-order-chat-actions" aria-label="Compartir Pago Movil">
+          <strong>Comparte Pago Movil</strong>
+          <label>
+            <span>Banco</span>
+            <select
+              value={receiverDetailsForm.bank}
+              onChange={(event) => setReceiverDetailsForm((current) => ({ ...current, bank: event.target.value }))}
+            >
+              <option value="0102">Banco de Venezuela</option>
+              <option value="0105">Mercantil</option>
+              <option value="0108">BBVA Provincial</option>
+              <option value="0114">Bancaribe</option>
+              <option value="0115">Banco Exterior</option>
+              <option value="0128">Banco Caroni</option>
+              <option value="0134">Banesco</option>
+              <option value="0137">Banco Sofitasa</option>
+              <option value="0138">Banco Plaza</option>
+              <option value="0151">Banco Fondo Comun</option>
+              <option value="0156">100% Banco</option>
+              <option value="0157">DelSur</option>
+              <option value="0163">Banco del Tesoro</option>
+              <option value="0166">Banco Agricola</option>
+              <option value="0168">Bancrecer</option>
+              <option value="0169">Mi Banco</option>
+              <option value="0171">Banco Activo</option>
+              <option value="0172">Bancamiga</option>
+              <option value="0174">Banplus</option>
+              <option value="0175">Banco Bicentenario</option>
+              <option value="0177">Banfanb</option>
+              <option value="0191">BNC</option>
+            </select>
+          </label>
+          <label>
+            <span>Telefono</span>
+            <input
+              autoComplete="tel"
+              inputMode="tel"
+              placeholder="+584121234567"
+              value={receiverDetailsForm.phone}
+              onChange={(event) => setReceiverDetailsForm((current) => ({ ...current, phone: event.target.value }))}
+            />
+          </label>
+          <label>
+            <span>Documento</span>
+            <input
+              autoComplete="off"
+              placeholder="V12345678"
+              value={receiverDetailsForm.document}
+              onChange={(event) => setReceiverDetailsForm((current) => ({ ...current, document: event.target.value }))}
+            />
+          </label>
+          <label>
+            <span>Titular</span>
+            <input
+              autoComplete="name"
+              value={receiverDetailsForm.holder}
+              onChange={(event) => setReceiverDetailsForm((current) => ({ ...current, holder: event.target.value }))}
+            />
+          </label>
+          <button
+            className="business-order-chat-payment-action"
+            type="button"
+            disabled={sharingReceiverDetails}
+            onClick={() => void shareReceiverDetails()}
+          >
+            {sharingReceiverDetails ? "Compartiendo..." : "Compartir Pago Movil"}
+          </button>
+        </div>
+      ) : null}
+
+      {receiverDetailsMasked || chatCapabilities.receiver_details_shared ? (
+        <article className="business-order-chat-message business-order-chat-message--mine">
+          <span className="business-order-chat-message__sender">Pago Movil seguro</span>
+          <p>
+            {receiverDetailsMasked
+              ? `${receiverDetailsMasked.bank} · ${receiverDetailsMasked.phone} · ${receiverDetailsMasked.document} · ${receiverDetailsMasked.holder}`
+              : "Datos compartidos de forma segura."}
+          </p>
+        </article>
+      ) : null}
+
+      {chatCapabilities.can_confirm_received ? (
+        <button
+          className="business-order-chat-payment-action"
+          type="button"
+          disabled={confirmingOrderReceived}
+          onClick={() => void confirmOrderReceived()}
+        >
+          {confirmingOrderReceived ? "Confirmando..." : "Recibi el pago"}
+        </button>
+      ) : null}
+
+      {chatCapabilities.can_report_payment && chatOrderId ? (
+        <button
+          className="business-order-chat-payment-action"
+          type="button"
+          disabled={loadingPaymentInstructions}
+          onClick={() => void openPaymentReport(chatOrderId)}
+        >
+          {loadingPaymentInstructions ? "Abriendo pago..." : "Pago enviado"}
+        </button>
+      ) : selectedChatOrder?.status === "waiting_payment"
+        && selectedChatOrder.payment_method_snapshot === "zelle"
+        && !chatCapabilities.payment_details_shared ? (
+          <Text className="auth-entry__session-meta business-order-chat-note">
+            No envíes Zelle hasta que el negocio comparta sus datos.
+          </Text>
+        ) : null}
 
       <form
         ref={composerRef}
@@ -166,7 +325,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
           aria-label="Mensaje para negocio"
           disabled={!chatCapabilities.can_send_message || sendingChatMessage}
           maxLength={2000}
-          placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : "Escribir mensaje..."}
+          placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : composerPlaceholder}
           rows={2}
           value={chatBody}
           onBlur={blurComposer}

@@ -6,7 +6,14 @@ from app.modules.users.models import UserRecord
 
 
 def require_message_state(order: OrderRecord) -> None:
-    if order.status not in {"payment_reported", "payment_rejected", "payment_confirmed", "delivered", "disputed"}:
+    if order.status not in {
+        "waiting_payment",
+        "payment_reported",
+        "payment_rejected",
+        "payment_confirmed",
+        "delivered",
+        "disputed",
+    }:
         raise ApiError("ORDER_STATUS_INVALID", status_code=409)
 
 
@@ -15,6 +22,8 @@ def can_read_chat(user: UserRecord, order: OrderRecord, business_owner_id: str |
         return True
     if user.role == "business_owner" and business_owner_id == user.id:
         return True
+    if order.status == "waiting_payment":
+        return False
     if user.role in {"admin", "super_admin", "support"} and user.status == "active":
         return True
     return False

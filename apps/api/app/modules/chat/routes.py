@@ -62,6 +62,24 @@ def create_message(
     return {"data": _service(request).create_message(user=user, order_id=order_id, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key), "request_id": _request_id(request)}
 
 
+@router.post("/orders/{order_id}/share-zelle", status_code=201)
+def share_configured_zelle(
+    order_id: str,
+    request: Request,
+    user: UserRecord = Depends(require_current_user_with_terms),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": _service(request).share_configured_zelle(
+            user=user,
+            order_id=order_id,
+            request_id=_request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": _request_id(request),
+    }
+
+
 @router.post("/orders/{order_id}/message-attachments", status_code=201)
 async def upload_message_attachment(
     order_id: str,

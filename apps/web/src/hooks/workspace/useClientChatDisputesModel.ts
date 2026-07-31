@@ -1,9 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { listOrderMessages, openOrderDispute as openOrderDisputeRequest, sendOrderMessage, uploadOrderMessageAttachment } from "../../api/chat";
 import type { AuthenticatedRequest } from "../../api/client";
+import { confirmOrderReceived as confirmOrderReceivedRequest, shareOrderReceiverDetails } from "../../api/orders";
 import { CHAT_DISPUTE_COPY } from "../../constants/copy";
+import type { ChatThread } from "../../types/chat";
+import type { OrderSummary, ReceiverDetailsInput, ReceiverDetailsMasked } from "../../types/orders";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
@@ -21,6 +24,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     setChatAttachments,
     setChatBody,
     setNotice,
+    setSelectedOrder,
     setOpeningChatOrderId,
     setOpeningOrderDispute,
     setRefreshingChat,
@@ -32,25 +36,52 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
   const sendingChatMessageRef = useRef(false);
   const uploadingChatAttachmentRef = useRef(false);
   const openingOrderDisputeRef = useRef(false);
+  const sharingReceiverDetailsRef = useRef(false);
+  const confirmingOrderReceivedRef = useRef(false);
+  const refreshingChatRef = useRef(false);
+  const chatOrderIdRef = useRef(chatOrderId);
+  chatOrderIdRef.current = chatOrderId;
+  const [receiverDetailsForm, setReceiverDetailsForm] = useState<ReceiverDetailsInput>({
+    bank: "0102",
+    phone: "",
+    document: "",
+    holder: ""
+  });
+  const [receiverDetailsMasked, setReceiverDetailsMasked] = useState<ReceiverDetailsMasked | null>(null);
+  const [sharingReceiverDetails, setSharingReceiverDetails] = useState(false);
+  const [confirmingOrderReceived, setConfirmingOrderReceived] = useState(false);
 
   async function openOrderChat(orderId: string) {
     const startedAt = actionStartedAt();
     recordActionStarted("client_chat_open", "order-chat");
     setOpeningChatOrderId(orderId);
     try {
-      const data = await listOrderMessages<any>(request, orderId);
+      const data = await listOrderMessages<ChatThread>(request, orderId);
       setChatOrderId(orderId);
-      setChatMessages(data.items);
+      setChatMessages([...data.system_messages, ...data.items]);
       setChatCapabilities(data.capabilities);
       setChatAttachments([]);
       setChatBody("");
+      setReceiverDetailsMasked(null);
       setView("order-chat");
       setNotice(data.disclaimer || CHAT_DISPUTE_COPY);
       recordActionCompleted("client_chat_open", "order-chat", startedAt);
     } catch (error) {
       setChatOrderId(orderId);
       setChatMessages([]);
-      setChatCapabilities({ can_send_message: false, can_open_dispute: false });
+      setReceiverDetailsMasked(null);
+      setChatCapabilities({
+        can_send_message: false,
+        can_open_dispute: false,
+        can_share_zelle: false,
+        payment_details_shared: false,
+        can_report_payment: false,
+        receiver_details_shared: false,
+        can_share_receiver_details: false,
+        can_reveal_receiver_details: false,
+        receiver_details_required: false,
+        can_confirm_received: false
+      });
       setView("order-chat");
       setNotice(error instanceof Error ? error.message : "No logramos abrir el chat de esta orden.");
       recordActionFailed("client_chat_open", "order-chat", startedAt, error instanceof Error ? error.name : undefined);
@@ -59,32 +90,42 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     }
   }
 
-  async function refreshChat(options?: { silent?: boolean }) {
-    if (!chatOrderId) {
-      return;
+  const refreshChat = useCallback(async (options?: { silent?: boolean }) => {
+    const targetOrderId = chatOrderIdRef.current;
+    if (!targetOrderId || refreshingChatRef.current) {
+      return false;
     }
+    refreshingChatRef.current = true;
     const startedAt = actionStartedAt();
     recordActionStarted("client_chat_refresh", "order-chat");
     if (!options?.silent) {
       setRefreshingChat(true);
     }
     try {
-      const data = await listOrderMessages<any>(request, chatOrderId);
-      setChatMessages(data.items);
+      const data = await listOrderMessages<ChatThread>(request, targetOrderId);
+      if (chatOrderIdRef.current !== targetOrderId) {
+        return false;
+      }
+      setChatMessages([...data.system_messages, ...data.items]);
       setChatCapabilities(data.capabilities);
-      setNotice(data.disclaimer || CHAT_DISPUTE_COPY);
+      if (!options?.silent) {
+        setNotice(data.disclaimer || CHAT_DISPUTE_COPY);
+      }
       recordActionCompleted("client_chat_refresh", "order-chat", startedAt);
+      return true;
     } catch (error) {
       if (!options?.silent) {
         setNotice(error instanceof Error ? error.message : "No pudimos actualizar el chat.");
       }
       recordActionFailed("client_chat_refresh", "order-chat", startedAt, error instanceof Error ? error.name : undefined);
+      return false;
     } finally {
+      refreshingChatRef.current = false;
       if (!options?.silent) {
         setRefreshingChat(false);
       }
     }
-  }
+  }, [request, setChatCapabilities, setChatMessages, setNotice, setRefreshingChat]);
 
   async function uploadChatAttachment(file: File | null) {
     if (uploadingChatAttachmentRef.current || !chatOrderId || !file) {
@@ -171,5 +212,71 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     }
   }
 
-  return { openOrderChat, refreshChat, uploadChatAttachment, sendChatMessage, openOrderDispute };
+  async function shareReceiverDetails() {
+    if (sharingReceiverDetailsRef.current || !chatOrderId) {
+      return;
+    }
+    sharingReceiverDetailsRef.current = true;
+    setSharingReceiverDetails(true);
+    const scope = `receiver_details_${chatOrderId}`;
+    try {
+      const data = await shareOrderReceiverDetails<{
+        receiver_details_masked: ReceiverDetailsMasked;
+      }>(
+        request,
+        chatOrderId,
+        receiverDetailsForm,
+        getIdempotencyKey(scope, { orderId: chatOrderId, ...receiverDetailsForm })
+      );
+      clearIdempotencyKey(scope);
+      setReceiverDetailsMasked(data.receiver_details_masked);
+      await refreshChat({ silent: true });
+      setNotice("Pago Movil compartido de forma segura.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos compartir el Pago Movil.");
+    } finally {
+      sharingReceiverDetailsRef.current = false;
+      setSharingReceiverDetails(false);
+    }
+  }
+
+  async function confirmOrderReceived() {
+    if (confirmingOrderReceivedRef.current || !chatOrderId) {
+      return;
+    }
+    confirmingOrderReceivedRef.current = true;
+    setConfirmingOrderReceived(true);
+    const scope = `confirm_received_${chatOrderId}`;
+    try {
+      const data = await confirmOrderReceivedRequest<{ order: OrderSummary }>(
+        request,
+        chatOrderId,
+        getIdempotencyKey(scope, { orderId: chatOrderId, action: "manual_confirmed" })
+      );
+      clearIdempotencyKey(scope);
+      setSelectedOrder(data.order);
+      await refreshChat({ silent: true });
+      setNotice("Recepcion confirmada. La orden quedo completada.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos confirmar la recepcion.");
+    } finally {
+      confirmingOrderReceivedRef.current = false;
+      setConfirmingOrderReceived(false);
+    }
+  }
+
+  return {
+    openOrderChat,
+    refreshChat,
+    uploadChatAttachment,
+    sendChatMessage,
+    openOrderDispute,
+    receiverDetailsForm,
+    setReceiverDetailsForm,
+    receiverDetailsMasked,
+    sharingReceiverDetails,
+    shareReceiverDetails,
+    confirmingOrderReceived,
+    confirmOrderReceived
+  };
 }

@@ -1,10 +1,11 @@
 import type { AuthenticatedRequest } from "./client";
-import type { OrderCancelReason } from "../types/orders";
+import type { OrderCancelReason, ReceiverDetailsInput } from "../types/orders";
 
 export type CreateOrderPayload = {
   ad_id: string;
   amount_usd: string;
-  receiver_data: {
+  expected_rate_bs_per_usd?: string;
+  receiver_data?: {
     bank: string;
     phone: string;
     document: string;
@@ -70,5 +71,40 @@ export function submitOrderRating<T>(request: AuthenticatedRequest, orderId: str
       "Idempotency-Key": idempotencyKey
     },
     body: JSON.stringify({ stars })
+  });
+}
+
+export function shareOrderReceiverDetails<T>(
+  request: AuthenticatedRequest,
+  orderId: string,
+  payload: ReceiverDetailsInput,
+  idempotencyKey: string
+) {
+  return request<T>(`/api/v1/orders/${orderId}/receiver-details`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function revealOrderReceiverDetails<T>(request: AuthenticatedRequest, orderId: string) {
+  return request<T>(`/api/v1/orders/${orderId}/receiver-details`, {
+    cache: "no-store"
+  });
+}
+
+export function confirmOrderReceived<T>(
+  request: AuthenticatedRequest,
+  orderId: string,
+  idempotencyKey: string
+) {
+  return request<T>(`/api/v1/orders/${orderId}/confirm-received`, {
+    method: "POST",
+    headers: {
+      "Idempotency-Key": idempotencyKey
+    }
   });
 }

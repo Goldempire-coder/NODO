@@ -19,6 +19,10 @@ from app.modules.users.models import UserRecord
 
 
 CHAT_DISCLAIMER = "Usa este chat para coordinar la orden y dejar un respaldo claro entre las partes."
+NEGOTIATION_CREATED_MESSAGE = (
+    "Negociación creada. Coordinen por aquí. "
+    "No envíes Zelle hasta que el negocio comparta sus datos."
+)
 logger = get_logger(__name__)
 
 
@@ -98,6 +102,79 @@ class ChatService:
             "created_at": message.created_at.isoformat(),
         }
 
+    @staticmethod
+    def _configured_zelle_account(order: OrderRecord) -> str | None:
+        if order.payment_method_snapshot != "zelle":
+            return None
+        account_value = str((order.payment_instructions_snapshot or {}).get("account_value") or "").strip()
+        return account_value or None
+
+    def _payment_details_shared(self, order: OrderRecord) -> bool:
+        account_value = self._configured_zelle_account(order)
+        if account_value is None:
+            return order.payment_method_snapshot != "zelle"
+        return self._repository.has_business_message_containing(
+            order_id=order.id,
+            text=account_value,
+        )
+
+    @staticmethod
+    def _system_messages(order: OrderRecord, cursor: str | None) -> list[dict[str, Any]]:
+        if cursor is not None:
+            return []
+        return [
+            {
+                "id": f"system:negotiation-created:{order.id}",
+                "order_id": order.id,
+                "sender_role": "system",
+                "body": NEGOTIATION_CREATED_MESSAGE,
+                "visibility": "parties",
+                "status": "visible",
+                "attachments": [],
+                "created_at": order.created_at.isoformat(),
+            }
+        ]
+
+    def _capabilities(self, *, user: UserRecord, order: OrderRecord) -> dict[str, bool]:
+        payment_details_shared = self._payment_details_shared(order)
+        receiver_details_shared = self._orders.has_receiver_details(order.id)
+        waiting_payment = order.status == "waiting_payment"
+        return {
+            "can_send_message": user.role in {"remitter", "business_owner"} and user.status == "active",
+            "can_open_dispute": user.role in {"remitter", "business_owner"}
+            and order.status
+            in {
+                "payment_reported",
+                "payment_rejected",
+                "payment_confirmed",
+                "delivered",
+            },
+            "can_share_zelle": user.role == "business_owner"
+            and user.status == "active"
+            and waiting_payment
+            and self._configured_zelle_account(order) is not None
+            and not payment_details_shared,
+            "payment_details_shared": payment_details_shared,
+            "can_report_payment": user.role == "remitter"
+            and waiting_payment
+            and payment_details_shared,
+            "receiver_details_shared": receiver_details_shared,
+            "can_share_receiver_details": user.role == "remitter"
+            and user.status == "active"
+            and order.status == "payment_confirmed"
+            and not receiver_details_shared,
+            "can_reveal_receiver_details": user.role == "business_owner"
+            and user.status == "active"
+            and order.status in {"payment_confirmed", "delivered", "disputed"}
+            and receiver_details_shared,
+            "receiver_details_required": user.role == "business_owner"
+            and order.status == "payment_confirmed"
+            and not receiver_details_shared,
+            "can_confirm_received": user.role == "remitter"
+            and user.status == "active"
+            and order.status == "delivered",
+        }
+
     def list_messages(self, *, user: UserRecord, order_id: str, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         order = self._order(order_id)
         self._rate_limit("list", user, order.id)
@@ -109,11 +186,9 @@ class ChatService:
         return {
             "order_id": order.id,
             "items": [self._message_public(message, attachments.get(message.id, [])) for message in items],
+            "system_messages": self._system_messages(order, cursor),
             "next_cursor": next_cursor,
-            "capabilities": {
-                "can_send_message": user.role in {"remitter", "business_owner"} and user.status == "active",
-                "can_open_dispute": user.role in {"remitter", "business_owner"} and order.status in {"payment_reported", "payment_rejected", "payment_confirmed", "delivered"},
-            },
+            "capabilities": self._capabilities(user=user, order=order),
             "disclaimer": CHAT_DISCLAIMER,
         }
 
@@ -157,14 +232,96 @@ class ChatService:
                 sender_role=user.role,
                 request_id=request_id,
             )
-            return {"message": self._message_public(message, attached), "disclaimer": CHAT_DISCLAIMER}
+            return {
+                "message": self._message_public(message, attached),
+                "capabilities": self._capabilities(user=user, order=order),
+                "disclaimer": CHAT_DISCLAIMER,
+            }
 
         return self._idempotency.replay_or_store(f"chat:message:{user.id}:{order.id}:{idempotency_key}", payload=request_payload, compute=compute)
+
+    def share_configured_zelle(
+        self,
+        *,
+        user: UserRecord,
+        order_id: str,
+        request_id: str,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
+        if not idempotency_key:
+            raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
+        order = self._order(order_id)
+        self._rate_limit("share_zelle", user, order.id)
+        require_message_state(order)
+        if user.role != "business_owner":
+            raise ApiError("ORDER_NOT_FOUND", status_code=404)
+        require_chat_write(user, order, self._business_owner_id(order))
+        self._require_business_actor_access(user, order)
+        if order.status != "waiting_payment":
+            raise ApiError("ORDER_STATE_CONFLICT", status_code=409)
+        account_value = self._configured_zelle_account(order)
+        if account_value is None:
+            raise ApiError("ORDER_PAYMENT_METHOD_UNAVAILABLE", status_code=409)
+        holder_name = str(
+            (order.payment_instructions_snapshot or {}).get("holder_name") or ""
+        ).strip()
+        body = f"Zelle del negocio: {account_value}"
+        if holder_name:
+            body = f"{body}\nTitular: {holder_name}"
+
+        def compute() -> dict[str, Any]:
+            message, created = self._repository.create_configured_payment_message_once(
+                order_id=order.id,
+                sender_user_id=user.id,
+                body=body,
+                account_value=account_value,
+                idempotency_key=idempotency_key,
+            )
+            if created:
+                self._audit.write(
+                    event_type="business_zelle_shared",
+                    actor_user_id=user.id,
+                    actor_role=user.role,
+                    resource_type="message",
+                    resource_id=message.id,
+                    request_id=request_id,
+                    metadata_json={
+                        "order_id": order.id,
+                        "business_id": order.business_id,
+                    },
+                )
+                self._inspect_business_message_for_off_platform_solicitation(
+                    user=user,
+                    order=order,
+                    message=message,
+                    request_id=request_id,
+                )
+                self._notifications.message_created(
+                    order=order,
+                    message=message,
+                    sender_role=user.role,
+                    request_id=request_id,
+                )
+            return {
+                "message": self._message_public(message),
+                "capabilities": self._capabilities(user=user, order=order),
+                "disclaimer": CHAT_DISCLAIMER,
+            }
+
+        return self._idempotency.replay_or_store(
+            f"chat:share_zelle:{user.id}:{order.id}:{idempotency_key}",
+            payload={"order_id": order.id, "action": "share_configured_zelle"},
+            compute=compute,
+        )
 
     def _inspect_business_message_for_off_platform_solicitation(self, *, user: UserRecord, order: OrderRecord, message, request_id: str) -> None:  # type: ignore[no-untyped-def]
         if user.role != "business_owner":
             return
-        match = detect_off_platform_solicitation(message.body)
+        account_value = self._configured_zelle_account(order)
+        match = detect_off_platform_solicitation(
+            message.body,
+            allowed_contact_values=(account_value,) if account_value else (),
+        )
         if match is None:
             return
         self._audit.write(

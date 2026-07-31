@@ -123,11 +123,13 @@ Post-MVP:
 | remitter | upload_payment_evidence | own order | waiting_payment/payment_reported | payment_evidence_uploaded | yes |
 | remitter | view_payment_instructions | own order | waiting_payment and not expired | payment_instructions_viewed | yes |
 | remitter | confirm_received | own order | delivered | order_completed | yes |
-| remitter | open_dispute | own order | payment_reported/payment_confirmed/delivered | dispute_opened | yes |
-| remitter | view_order_messages | own order | payment_reported/payment_rejected/payment_confirmed/delivered/disputed | no | yes |
-| remitter | create_order_message | own order | payment_reported/payment_rejected/payment_confirmed/delivered/disputed | message_created/dispute_message_created | yes |
-| remitter | upload_message_attachment | own order | payment_reported/payment_rejected/payment_confirmed/delivered/disputed | message_attachment_uploaded | yes |
-| remitter | rate_business | own completed order | completed, not previously rated | rating_created | yes |
+| remitter | open_dispute | own order | payment_reported/payment_rejected/payment_confirmed/delivered | dispute_opened | yes |
+| remitter | view_order_messages | own order | waiting_payment/payment_reported/payment_rejected/payment_confirmed/delivered/disputed | no | yes |
+| remitter | create_order_message | own order | waiting_payment/payment_reported/payment_rejected/payment_confirmed/delivered/disputed | message_created/dispute_message_created | yes |
+| remitter | upload_message_attachment | own order | waiting_payment/payment_reported/payment_rejected/payment_confirmed/delivered/disputed | message_attachment_uploaded | yes |
+| remitter | share_receiver_details | own order | payment_confirmed | order_receiver_details_shared without values | yes |
+| remitter | view_receiver_details | own order | payment_confirmed/delivered/disputed | order_receiver_details_viewed without values | yes |
+| remitter | rate_business | own completed order | completed with manual_confirmed/auto_completed_after_24h, or admin_resolved with dispute closed; not previously rated | rating_created | yes |
 | remitter | cancel_order | own order | waiting_payment before payment report | order_cancelled | yes |
 | remitter | modify_rate_snapshot | own order | any | no | no |
 
@@ -150,11 +152,13 @@ Post-MVP:
 | business_owner | view_incoming_orders | own business | approved | no | yes |
 | business_owner | confirm_payment | own business order | payment_reported + payment_report submitted + approved business | payment_confirmed/credits_consumed | yes |
 | business_owner | reject_payment_report | own business order | payment_reported + payment_report submitted + approved business + reason required | payment_report_rejected | yes |
-| business_owner | mark_delivered | own business order | payment_confirmed + approved business | order_delivered | yes |
+| business_owner | mark_delivered | own business order | payment_confirmed + valid receiver details + approved business | order_delivered | yes |
+| business_owner | open_dispute | own business order | payment_reported/payment_rejected/payment_confirmed/delivered + approved business | dispute_opened | yes |
 | business_owner | respond_dispute | own order/dispute | dispute open | dispute_message_created | yes |
-| business_owner | view_order_messages | own business order | payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | no | yes |
-| business_owner | create_order_message | own business order | payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | message_created/dispute_message_created | yes |
-| business_owner | upload_message_attachment | own business order | payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | message_attachment_uploaded | yes |
+| business_owner | view_order_messages | own business order | waiting_payment/payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | no | yes |
+| business_owner | create_order_message | own business order | waiting_payment/payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | message_created/dispute_message_created | yes |
+| business_owner | upload_message_attachment | own business order | waiting_payment/payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | message_attachment_uploaded | yes |
+| business_owner | view_receiver_details | own business order | payment_confirmed/delivered/disputed + approved business | order_receiver_details_viewed without values | yes |
 | business_owner | buy_credits_stripe | own business | approved | credit_checkout_created | yes |
 | business_owner | buy_credits_base_usdc | own business | approved, active business access link | onchain_credit_purchase_created | yes |
 | business_owner | submit_onchain_credit_tx_hash | own credit purchase | approved, active business access link, purchase own and non-terminal | onchain_tx_hash_submitted | yes |
@@ -167,6 +171,21 @@ Post-MVP:
 | business_operator | reject_payment_report | assigned business | approved, operator active | payment_report_rejected | post-MVP |
 | business_operator | mark_delivered | assigned business | approved, operator active | order_delivered | post-MVP |
 | business_operator | adjust_credits | business | any | no | no |
+
+## Order chat and sensitive receiver evidence
+
+| Actor | Accion | Recurso | Estado requerido | Audit | Permitido |
+| --- | --- | --- | --- | --- | --- |
+| admin | view_waiting_payment_message_body_via_general_messages | order messages | waiting_payment | no | no |
+| super_admin | view_waiting_payment_message_body_via_general_messages | order messages | waiting_payment | no | no |
+| support | view_waiting_payment_message_body_via_general_messages | order messages | waiting_payment | no | no |
+| admin | view_full_receiver_details_via_general_order_or_messages | order/receiver details | any | no | no |
+| super_admin | view_full_receiver_details_via_general_order_or_messages | order/receiver details | any | no | no |
+| support | view_full_receiver_details_via_general_order_or_messages | order/receiver details | any | no | no |
+
+Admin/support evidence access must use a separately contracted purpose-bound
+viewer with explicit permission, reason and audit. This matrix does not grant
+that future reveal.
 
 ## Business access links
 

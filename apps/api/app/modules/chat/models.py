@@ -13,7 +13,14 @@ def new_id() -> str:
     return str(uuid4())
 
 
-ALLOWED_MESSAGE_STATES = {"payment_reported", "payment_rejected", "payment_confirmed", "delivered", "disputed"}
+ALLOWED_MESSAGE_STATES = {
+    "waiting_payment",
+    "payment_reported",
+    "payment_rejected",
+    "payment_confirmed",
+    "delivered",
+    "disputed",
+}
 ALLOWED_ATTACHMENT_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 MAX_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024
 

@@ -109,7 +109,14 @@ class DisputeService(AdminDisputeResolutionMixin):
     ):  # type: ignore[no-untyped-def]
         self._validate_open_dispute(user=user, order=order, payload=payload, normalized_evidence=normalized_evidence)
         previous_status = order.status
-        updated = self._orders.update_order(order, status="disputed", dispute_reason=payload.reason)
+        updated = self._orders.update_order_if_status(
+            order.id,
+            expected_status=previous_status,
+            status="disputed",
+            dispute_reason=payload.reason,
+        )
+        if updated is None:
+            raise ApiError("ORDER_STATE_CONFLICT", status_code=409)
         dispute = self._repository.create_dispute(
             order_id=order.id,
             opened_by_user_id=user.id,

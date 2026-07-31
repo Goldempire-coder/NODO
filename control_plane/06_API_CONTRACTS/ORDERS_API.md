@@ -8,6 +8,13 @@ Las operaciones del negocio sobre ordenes despues de reporte de pago quedan gobe
 control_plane/06_API_CONTRACTS/BUSINESS_ORDERS_API.md
 ```
 
+La reconciliacion final de completion, capacidad y payload seguro de receptor
+queda gobernada por:
+
+```txt
+control_plane/09_SLICES/slice_50B_p2p_completion_contract_reconciliation/
+```
+
 Todas las rutas usan prefijo:
 
 ```txt
@@ -25,7 +32,13 @@ Quedan prohibidas las rutas legacy sin prefijo como `POST /orders`, `GET /orders
 - Crear orden no reporta pago.
 - Crear orden no confirma pago del negocio.
 - Crear orden no entrega pago movil.
-- Crear orden no abre chat ni disputa.
+- Crear orden habilita el chat privado inmediato para los dos participantes.
+- Crear orden no abre disputa.
+- Reportar pago no consume creditos.
+- Solo la confirmacion oficial del negocio
+  `payment_reported -> payment_confirmed` consume el credito publicitario.
+- Completar la orden no consume credito otra vez; consume la capacidad
+  operativa reservada.
 - Crear orden mueve el anuncio `active -> in_order`.
 - Una orden creada por `POST /api/v1/orders` persiste directamente como `waiting_payment`.
 - `created` puede registrarse solo como evento/audit/state event de creacion; no es el estado persistente final del endpoint.
@@ -43,7 +56,7 @@ No expone instrucciones completas de pago, `account_value`, storage paths, docum
   "ad_id": "uuid",
   "business_id": "uuid",
   "business_name": "Casa Cambio Centro",
-  "status": "waiting_payment|cancelled",
+  "status": "waiting_payment|payment_reported|payment_rejected|payment_confirmed|delivered|disputed|completed|cancelled",
   "amount_usd": "50.00",
   "rate_snapshot": "36.500000",
   "amount_bs_calculated": "1825.00",
@@ -82,6 +95,12 @@ GET /api/v1/orders/{id}/payment-instructions
 
 Slice 05 debe setear `payment_data_revealed_at` y `payment_data_revealed_by` al revelar instrucciones, auditar `payment_instructions_viewed` y no crear reporte de pago desde este endpoint.
 
+Para ordenes Zelle, este endpoint y el reporte de pago requieren que un mensaje
+visible del `business_owner` en el chat privado contenga exactamente el Zelle
+configurado congelado en la orden. Un saludo u otro mensaje del negocio no
+habilita el pago. Si el Zelle no fue compartido, responde
+`ORDER_PAYMENT_DETAILS_NOT_SHARED` sin marcar instrucciones como vistas.
+
 ## POST /api/v1/orders
 
 Crea una orden desde un anuncio activo.
@@ -100,6 +119,17 @@ Request:
 {
   "ad_id": "uuid",
   "amount_usd": "50.00",
+  "expected_rate_bs_per_usd": "39.500000"
+}
+```
+
+`receiver_data` es una entrada legacy temporal de 50A, no el contrato final de
+50B. Clientes nuevos deben omitirla:
+
+```json
+{
+  "ad_id": "uuid",
+  "amount_usd": "50.00",
   "receiver_data": {
     "bank": "Banco",
     "phone": "+584121234567",
@@ -108,6 +138,15 @@ Request:
   }
 }
 ```
+
+Antes de activar 50B1:
+
+- el runtime debe dejar de aceptar/persistir este payload legacy mediante un
+  plan de deprecacion compatible;
+- un `receiver_data` legacy nunca satisface
+  `ORDER_RECEIVER_DETAILS_REQUIRED`;
+- full receiver data entra al flujo 50B solo por
+  `PUT /api/v1/orders/{id}/receiver-details`.
 
 Response 201:
 
@@ -127,6 +166,8 @@ Rules:
 - Validar anuncio `active`, no vencido y disponible.
 - Si el anuncio vencio, materializar expiracion y responder `AD_EXPIRED` o `AD_NOT_AVAILABLE`.
 - Validar negocio `approved` y no `restricted/high_risk`.
+- Si se envia `expected_rate_bs_per_usd`, debe coincidir con la tasa vigente
+  del anuncio. Si cambio, responder `ORDER_QUOTE_CHANGED` sin crear la orden.
 - Validar `amount_usd >= 20`.
 - Validar `amount_min_usd <= amount_usd <= amount_max_usd`.
 - Validar limites del negocio, incluyendo `business.max_order_amount_usd` y `active_order_limit` cuando aplique.
@@ -137,6 +178,7 @@ Rules:
 - Crear una reserva unica ligada a `order_id` dentro de la misma transaccion
   que crea la orden.
 - Crear orden persistida como `waiting_payment`.
+- `receiver_data` no es requisito para crear la orden ni abrir el chat.
 - Guardar snapshot inmutable de tasa, monto, negocio, metodo, delivery, limites usados e instrucciones privadas.
 - Calcular `amount_bs_calculated = amount_usd * rate_snapshot`.
 - Setear `payment_report_deadline_at = now() + 30 minutes`.
@@ -148,6 +190,9 @@ Rules:
   `business_capacity_reserved`.
 - Retry con misma idempotency key y mismo payload debe devolver la misma orden.
 - Retry con misma idempotency key y payload distinto debe devolver `IDEMPOTENCY_CONFLICT`.
+- El frontend debe abrir el chat despues de recibir la orden creada. Cerrar o
+  volver desde la confirmacion previa no llama este endpoint y no crea orden,
+  reserva ni consumo de credito.
 
 Errores:
 
@@ -178,6 +223,9 @@ Rules:
 - `Idempotency-Key` obligatorio;
 - una calificacion por orden;
 - una disputa debe estar cerrada;
+- `completion_reason` debe ser `manual_confirmed`,
+  `auto_completed_after_24h` o `admin_resolved`; para `admin_resolved`, la
+  disputa asociada debe estar cerrada/resuelta;
 - sin comentarios ni campos extra;
 - insercion y recalculo de reputacion ocurren en una sola operacion segura;
 - la respuesta publica no expone controles internos.
@@ -192,6 +240,143 @@ Errores:
 - RATING_NOT_ALLOWED
 - RATING_ALREADY_EXISTS
 - VALIDATION_ERROR
+
+## PUT /api/v1/orders/{id}/receiver-details
+
+Crea los datos estructurados del receptor de Pago Movil. Aunque la
+UI los represente como una burbuja de chat, no son `messages.body`.
+
+Request:
+
+```json
+{
+  "bank": "allowlisted bank code or normalized label",
+  "phone": "+584121234567",
+  "document": "V12345678",
+  "holder": "Receiver name"
+}
+```
+
+Rules:
+
+- Solo remitente owner activo.
+- La primera creacion requiere `payment_confirmed`.
+- `Idempotency-Key` obligatorio.
+- Validacion y normalizacion backend:
+  - `bank`: codigo del catalogo backend de bancos Pago Movil;
+  - `phone`: `+58` seguido por diez digitos;
+  - `document`: `V|E|J|G|P` mayuscula seguida por 6..10 digitos;
+  - `holder`: espacios normalizados, 2..120 caracteres, sin markup de control.
+- Campos extra o metadata libre son rechazados.
+- El backend liga el recurso a la orden; el request no puede elegir
+  `order_id`, actor, visibilidad o receptor.
+- No crea mensaje, adjunto, audit con valores, telemetry ni notificacion con
+  datos de receptor.
+- El recurso protegido y su audit seguro se persisten atomicamente; si el audit
+  falla, la escritura falla cerrada.
+- El response normal devuelve estado y resumen enmascarado.
+- El primer payload valido queda inmutable. Un payload diferente, incluso con
+  otra key, responde `ORDER_RECEIVER_DETAILS_ALREADY_SHARED`.
+- El mismo payload canonico con otra key devuelve el recurso existente sin
+  duplicar audit ni notificacion.
+- Lookup de idempotencia/recurso existente ocurre antes del guard de primera
+  creacion. Un replay valido puede responder despues de que la orden avance;
+  solo una creacion inicial evalua el estado `payment_confirmed`.
+- Una correccion requiere contrato futuro; no se hace por chat ni reemplazo
+  silencioso.
+- Contrato completo y seguridad:
+  `slice_50B_p2p_completion_contract_reconciliation/API_CONTRACT.md`.
+
+Errores:
+
+- ORDER_NOT_FOUND
+- ORDER_NOT_OWNED
+- ORDER_STATUS_INVALID
+- ORDER_RECEIVER_DETAILS_INVALID
+- ORDER_RECEIVER_DETAILS_ALREADY_SHARED
+- IDEMPOTENCY_KEY_REQUIRED
+- IDEMPOTENCY_PAYLOAD_MISMATCH
+- RATE_LIMITED
+
+## GET /api/v1/orders/{id}/receiver-details
+
+Reveal explicito solo para remitente y negocio participantes.
+
+Rules:
+
+- Permitido en `payment_confirmed`, `delivered` o `disputed`.
+- `Cache-Control: private, no-store`.
+- Cada reveal completo genera audit sin copiar valores.
+- Si no puede persistirse el audit del reveal, no se devuelven valores completos.
+- Admin/support no usan este endpoint. Un reveal interno futuro requiere ruta,
+  permiso, motivo y audit propios.
+- No se incluye en detail/list, mensajes, busqueda ni metadata libre.
+- Si no fue compartido, responde `404 ORDER_RECEIVER_DETAILS_NOT_FOUND`.
+
+Errores:
+
+- UNAUTHENTICATED
+- FORBIDDEN
+- ORDER_NOT_FOUND
+- ORDER_NOT_OWNED
+- ORDER_STATUS_INVALID
+- ORDER_RECEIVER_DETAILS_NOT_FOUND
+- RATE_LIMITED
+- INTERNAL_ERROR si falla el audit obligatorio del reveal
+
+## POST /api/v1/orders/{id}/confirm-received
+
+Confirmacion oficial del remitente owner de que el receptor recibio Pago Movil.
+
+Headers:
+
+```txt
+Authorization: Bearer <session_jwt>
+Idempotency-Key: requerido
+X-Request-Id: requerido o generado por backend
+```
+
+Request body: vacio.
+
+Rules:
+
+- Solo remitente owner activo.
+- Requiere `orders.status = delivered`.
+- Requiere ausencia de disputa `open|in_review`.
+- Ejecuta `delivered -> completed` bajo bloqueo transaccional.
+- Setea `completion_reason = manual_confirmed` y `completed_at`.
+- Consume capacidad operativa reservada exactamente una vez.
+- No consume credito publicitario; ya se consumio en `payment_confirmed`.
+- Crea un state event y audit `order_completed` sin datos privados.
+- Notifica al negocio con copy generico.
+- Habilita rating solo cuando el contrato de rating lo permite.
+- Replay con misma key no duplica capacidad, evento, audit ni notificacion.
+- Una carrera contra apertura de disputa tiene un solo ganador.
+
+Errores:
+
+- UNAUTHENTICATED
+- FORBIDDEN
+- ORDER_NOT_FOUND
+- ORDER_NOT_OWNED
+- ORDER_RECEIPT_CONFIRMATION_NOT_ALLOWED
+- ORDER_COMPLETION_BLOCKED_BY_DISPUTE
+- ORDER_STATE_CONFLICT
+- IDEMPOTENCY_KEY_REQUIRED
+- IDEMPOTENCY_PAYLOAD_MISMATCH
+- RATE_LIMITED
+
+## Auto-complete de respaldo
+
+- Puede ejecutar `delivered -> completed` solo cuando
+  `auto_complete_at <= now()` y no existe disputa `open|in_review`.
+- Usa el mismo caso de uso atomico de `confirm-received`, con
+  `completion_reason = auto_completed_after_24h`.
+- Consume capacidad una vez y no consume credito otra vez.
+- Habilita rating si el contrato de rating lo permite y no hay disputa.
+- Recordatorios de 12h/23h y aviso final son seguros e idempotentes.
+- Scheduler, singleton, batch, metricas y activacion operativa pertenecen a un
+  slice posterior; 50B0 solo define el contrato.
 
 ## GET /api/v1/orders/{id}
 
@@ -241,7 +426,7 @@ Auth:
 Query:
 
 ```txt
-status=waiting_payment|cancelled|null
+status=waiting_payment|payment_reported|payment_rejected|payment_confirmed|delivered|disputed|completed|cancelled|null
 cursor=opaque|null
 limit=1..50
 ```

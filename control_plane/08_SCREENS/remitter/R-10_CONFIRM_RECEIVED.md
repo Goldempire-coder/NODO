@@ -2,8 +2,8 @@
 
 SCREEN_ID: R-10_CONFIRM_RECEIVED
 actor: remitter
-slice: slice_09_or_slice_10_future_contract
-status: DRAFT_CONTROLLED
+slice: slice_50B1_future_runtime
+status: CONTRACTED_NOT_IMPLEMENTED
 
 purpose:
 Confirm receptor received pago movil.
@@ -19,7 +19,9 @@ R-11_RATING
 
 data required:
 - authenticated user/session
-- data defined by future API contract for this screen
+- own order in `delivered`
+- no dispute in `open|in_review`
+- backend capabilities for receipt confirmation and rating
 
 read strategy:
 - Read only data needed for this screen.
@@ -28,7 +30,8 @@ read strategy:
 - Use empty state when list is empty.
 
 write strategy:
-- Writes only through approved API endpoints.
+- `POST /api/v1/orders/{id}/confirm-received`
+- `Idempotency-Key` required.
 - No direct state transitions outside backend state machine.
 
 Telegram UI rules:
@@ -41,21 +44,23 @@ MainButton behavior:
 Confirmar recibido
 
 validation:
-checklist confirmed
+- show a short confirmation that the receiver actually received Pago Movil
+- never infer receipt from chat text
+- disable only the confirmation action while its request is in flight
 
 permissions:
-own order delivered
+- active remitter owner
+- own order in `delivered`
+- no dispute `open|in_review`
 
 slice boundary:
 - This screen is outside slice 06.
 - This screen is outside slice 07.
-- This screen is outside slice 10 unless a future contract explicitly assigns
-  manual remitter confirmation to slice 10.
 - Slice 06 may set order `delivered`, but must not build remitter confirmation.
 - Slice 07 may link to chat/dispute, but must not build remitter confirmation, completion, rating or auto-complete.
-- Slice 10 may auto-complete `delivered` orders by timer, but must not build
-  this manual confirmation screen.
-- Exact owner slice must be defined by future contract before build.
+- Slice 50B0 defines the contract only.
+- Slice 50B1 may implement this manual confirmation screen and endpoint.
+- Auto-complete scheduler activation remains a separate operational slice.
 
 states:
 - loading
@@ -65,7 +70,21 @@ states:
 - success where applicable
 
 audit events:
-order_completed
+- `order_completed` with IDs, actor, `completion_reason` and request context
+- never receiver details, message bodies or payment instructions
+
+effects:
+- `delivered -> completed`
+- `completion_reason = manual_confirmed`
+- consume operational capacity exactly once
+- do not consume publication credit again
+- enable rating only when the rating contract permits it
+- notify the business with generic copy
 
 QA checklist:
-Shows bank-reflected warning
+- Shows bank-reflected warning.
+- Cannot confirm another user's order.
+- Cannot confirm before `delivered`.
+- Open/in-review dispute blocks confirmation.
+- Double tap/replay does not duplicate capacity, event, audit or notification.
+- Failure preserves the current screen and offers a safe retry.

@@ -19,6 +19,7 @@ class OrderPaymentFlow(PaymentEvidenceMixin, PaymentReportingMixin):
         self,
         *,
         repository,
+        chat_repository,
         audit_writer,
         idempotency_store,
         storage,
@@ -26,6 +27,7 @@ class OrderPaymentFlow(PaymentEvidenceMixin, PaymentReportingMixin):
         notification_service=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._repository = repository
+        self._chat = chat_repository
         self._audit = audit_writer
         self._idempotency = idempotency_store
         self._storage = storage
@@ -40,6 +42,7 @@ class OrderPaymentFlow(PaymentEvidenceMixin, PaymentReportingMixin):
         if order is None:
             raise ApiError("ORDER_NOT_FOUND", status_code=404)
         require_order_owner(user, order)
+        self._require_payment_details_shared(order)
         order = self._repository.reveal_payment_instructions_atomically(
             order_id=order.id,
             remitter_user_id=user.id,
@@ -69,3 +72,15 @@ class OrderPaymentFlow(PaymentEvidenceMixin, PaymentReportingMixin):
             },
             "disclaimer": PAYMENT_INSTRUCTIONS_DISCLAIMER,
         }
+
+    def _require_payment_details_shared(self, order) -> None:  # type: ignore[no-untyped-def]
+        if order.payment_method_snapshot != "zelle":
+            return
+        account_value = str(
+            (order.payment_instructions_snapshot or {}).get("account_value") or ""
+        ).strip()
+        if not account_value or not self._chat.has_business_message_containing(
+            order_id=order.id,
+            text=account_value,
+        ):
+            raise ApiError("ORDER_PAYMENT_DETAILS_NOT_SHARED", status_code=409)

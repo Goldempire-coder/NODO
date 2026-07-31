@@ -34,6 +34,7 @@ Este documento gobierna estados, tiempos, cancelaciones, disputas, creditos y an
 
 - payment_not_reported_in_time
 - remitter_cancelled_before_payment
+- business_unavailable
 - admin_cancelled
 
 ## dispute_reason
@@ -57,6 +58,23 @@ Este documento gobierna estados, tiempos, cancelaciones, disputas, creditos y an
 - Los creditos del anuncio ya estan bloqueados desde publicacion.
 - Los creditos se consumen cuando el negocio confirma pago recibido o cuando el anuncio llega a 7 dias sin venta confirmada.
 - Si la orden expira o se cancela antes de pago confirmado y el anuncio aun no vencio, el anuncio vuelve activo con el credito original bloqueado.
+
+## Reconciliacion Slice 50B
+
+Credito publicitario y capacidad operativa son conceptos distintos:
+
+- el credito publicitario se consume exactamente una vez cuando el negocio
+  ejecuta la confirmacion oficial `payment_reported -> payment_confirmed`;
+- reportar pago y escribir `recibido` en chat no consumen credito;
+- la capacidad operativa se reserva al crear la orden;
+- cancelacion/expiracion antes de reporte libera capacidad una vez;
+- `payment_reported`, `payment_rejected`, `payment_confirmed`, `delivered` y
+  `disputed` mantienen la reserva;
+- `completed` consume la capacidad una vez y no consume credito otra vez.
+
+Pago Movil se comparte como payload estructurado sensible. Puede verse como
+burbuja en la UX, pero no es `messages.body`. El negocio solo puede marcar
+`payment_confirmed -> delivered` cuando existen datos de receptor validos.
 
 ## 1. Cliente crea orden pero no marca Ya pague
 
@@ -248,7 +266,21 @@ Nota de scope:
 
 - Slice 07 permite abrir disputa desde `delivered`.
 - Slice 07 no construye confirmacion de recibido del remitente, completion, rating ni auto-complete.
-- La confirmacion del remitente y el auto-complete pertenecen a slice futuro.
+- Slice 50B0 contrata `POST /api/v1/orders/{id}/confirm-received`; 50B1 puede
+  implementarlo.
+- Auto-complete es respaldo a las 24h, usa la misma transicion atomica y queda
+  pendiente de activacion operativa en un slice posterior.
+
+Confirmacion manual:
+
+```txt
+delivered -> completed
+completion_reason = manual_confirmed
+```
+
+Requiere remitente owner y ausencia de disputa `open|in_review`. Consume
+capacidad una vez, no consume credito otra vez y habilita rating si las reglas
+de rating se cumplen.
 
 ## Tabla final de tiempos
 
@@ -288,6 +320,10 @@ expire_and_escalate_orders
 ```
 
 Este job revisa cada pocos minutos que ordenes vencieron, cuales deben recordarse y cuales deben pasar a disputa.
+
+Esta es una obligacion de contrato, no evidencia de que exista un scheduler
+activo. Slice 50B0 exige validar singleton, frecuencia, metricas y despliegue en
+un slice operativo posterior antes de depender del auto-complete.
 
 ## Slice 07 manual dispute opening
 

@@ -25,7 +25,7 @@ function fallbackClientViewFor(view: ClientView): ClientView {
   if (view === "marketplace-detail" || view === "create-order" || view === "order-summary") {
     return "marketplace-search";
   }
-  if (view === "payment-instructions" || view === "report-payment") {
+  if (view === "report-payment") {
     return "my-orders";
   }
   if (view === "order-chat") {

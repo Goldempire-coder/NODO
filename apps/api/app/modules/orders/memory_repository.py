@@ -8,25 +8,28 @@ from typing import Any
 from app.core.errors import ApiError
 from app.modules.businesses.models import FileAssetRecord
 from app.modules.orders.integrity import AtomicCancellationResult
+from app.modules.orders.memory_receiver_completion import InMemoryOrderReceiverCompletionMixin
 from app.modules.orders.memory_payment_reports import InMemoryOrderPaymentReportsMixin
 from app.modules.orders.memory_queries import InMemoryOrderQueriesMixin
 from app.modules.orders.memory_state_events import InMemoryOrderStateEventsMixin
 from app.modules.orders.models import OrderRecord, OrderStateEventRecord, PaymentReportRecord, new_id, new_public_order_code, utc_now
 
 
-class InMemoryOrderRepository(InMemoryOrderPaymentReportsMixin, InMemoryOrderQueriesMixin, InMemoryOrderStateEventsMixin):
+class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrderPaymentReportsMixin, InMemoryOrderQueriesMixin, InMemoryOrderStateEventsMixin):
     moves_ad_on_create_order = False
     moves_ad_on_atomic_cancel = False
     creates_initial_state_event_on_create_order = False
 
-    def __init__(self, *, capacity_repository=None, audit_writer=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, capacity_repository=None, audit_writer=None, dispute_repository=None) -> None:  # type: ignore[no-untyped-def]
         self._lock = RLock()
         self._capacity = capacity_repository
         self._audit = audit_writer
+        self._disputes = dispute_repository
         self.orders: dict[str, OrderRecord] = {}
         self.events: list[OrderStateEventRecord] = []
         self.payment_reports: dict[str, PaymentReportRecord] = {}
         self.files: dict[str, FileAssetRecord] = {}
+        self.receiver_details = {}
 
     def get_by_id(self, order_id: str) -> OrderRecord | None:
         return self.orders.get(order_id)

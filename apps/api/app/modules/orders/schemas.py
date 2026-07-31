@@ -3,9 +3,15 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import Field, StrictBool, StrictInt, model_validator
+from pydantic import Field, StrictBool, StrictInt, field_validator, model_validator
 
 from app.modules.orders.integrity import canonical_network, canonical_transaction_hash
+from app.modules.orders.receiver_details import (
+    normalize_bank,
+    normalize_document,
+    normalize_holder,
+    normalize_phone,
+)
 from app.shared.validation import ResourceId, StrictRequestModel
 
 
@@ -16,10 +22,43 @@ class ReceiverData(StrictRequestModel):
     holder: str = Field(min_length=2, max_length=120)
 
 
+class ReceiverDetailsRequest(StrictRequestModel):
+    bank: str = Field(min_length=4, max_length=4)
+    phone: str = Field(min_length=13, max_length=24)
+    document: str = Field(min_length=7, max_length=16)
+    holder: str = Field(min_length=2, max_length=120)
+
+    @field_validator("bank")
+    @classmethod
+    def validate_bank(cls, value: str) -> str:
+        return normalize_bank(value)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        return normalize_phone(value)
+
+    @field_validator("document")
+    @classmethod
+    def validate_document(cls, value: str) -> str:
+        return normalize_document(value)
+
+    @field_validator("holder")
+    @classmethod
+    def validate_holder(cls, value: str) -> str:
+        return normalize_holder(value)
+
+
 class OrderCreateRequest(StrictRequestModel):
     ad_id: ResourceId
     amount_usd: Decimal = Field(ge=20, max_digits=12, decimal_places=2)
-    receiver_data: ReceiverData
+    expected_rate_bs_per_usd: Decimal | None = Field(
+        default=None,
+        gt=0,
+        max_digits=18,
+        decimal_places=6,
+    )
+    receiver_data: ReceiverData | None = None
 
 
 class OrderActionRequest(StrictRequestModel):

@@ -568,8 +568,8 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "disabled={busy" not in chat_screen
     assert "disabled={busy" not in support_screen
     assert "Buscando..." in marketplace_screen
-    assert "Creando..." in order_screen
-    assert "Cargando instrucciones..." in order_screen
+    assert "Confirmando..." in order_screen
+    assert "Abriendo pago..." in chat_screen
     assert "Subiendo comprobante..." in payment_screen
     assert "Enviando reporte..." in payment_screen
     assert 'sendingChatMessage ? "..." : "Enviar"' in chat_screen

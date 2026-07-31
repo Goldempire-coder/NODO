@@ -77,12 +77,13 @@ export function useClientWorkspaceModel({
 
   const context = { ...state, request, user: currentUser };
   const marketplace = useClientMarketplaceModel(context);
+  const chatDisputes = useClientChatDisputesModel(context);
   const remitterOrders = useRemitterOrdersModel({
     ...context,
+    openOrderChat: chatDisputes.openOrderChat,
     searchFreshForAmount: marketplace.searchFreshForAmount
   });
   const paymentReport = usePaymentReportModel({ ...context, loadMyOrders: remitterOrders.loadMyOrders });
-  const chatDisputes = useClientChatDisputesModel(context);
   const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice, initialScope: "client_general" });
   const awareness = useSurfaceAttentionModel({
     enabled: !["welcome", "terms", "client-profile-setup"].includes(view),
@@ -265,7 +266,7 @@ export function useClientWorkspaceModel({
     openAttentionAlert,
     openClientSupport,
     openOrderDetail: openClientOrderWithAttention,
-    openPaymentInstructions: paymentReport.openPaymentInstructions,
+    openPaymentReport: paymentReport.openPaymentReport,
     uploadPaymentEvidence: paymentReport.uploadPaymentEvidence,
     submitPaymentReport: paymentReport.submitPaymentReport,
     extendOrder: remitterOrders.extendOrder,
@@ -276,6 +277,13 @@ export function useClientWorkspaceModel({
     uploadChatAttachment: chatDisputes.uploadChatAttachment,
     sendChatMessage: chatDisputes.sendChatMessage,
     openOrderDispute: chatDisputes.openOrderDispute,
+    receiverDetailsForm: chatDisputes.receiverDetailsForm,
+    setReceiverDetailsForm: chatDisputes.setReceiverDetailsForm,
+    receiverDetailsMasked: chatDisputes.receiverDetailsMasked,
+    sharingReceiverDetails: chatDisputes.sharingReceiverDetails,
+    shareReceiverDetails: chatDisputes.shareReceiverDetails,
+    confirmingOrderReceived: chatDisputes.confirmingOrderReceived,
+    confirmOrderReceived: chatDisputes.confirmOrderReceived,
     supportTickets: support.supportTickets,
     supportFilter: support.supportFilter,
     creatingSupportTicket: support.creatingSupportTicket,

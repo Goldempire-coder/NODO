@@ -99,11 +99,20 @@ account/payment_ref: mostrar ultimos 4 cuando aplique
 - Evitar HTML crudo.
 - Bloquear links o patrones prohibidos si violan reglas de evasion.
 - No permitir scripts ni markup ejecutable.
-- Chat y disputas no deben exponer instrucciones completas de pago.
+- `messages.body`, adjuntos de chat y disputas no deben exponer instrucciones
+  completas de Pago Movil.
+- Excepcion controlada: una UI de chat puede renderizar un
+  `chat-style secure receiver payload` obtenido del recurso estructurado
+  dedicado de Slice 50B. Ese payload no es mensaje libre, no aparece en
+  `messages.body` y solo se revela a los dos participantes con ownership,
+  estado y audit validados.
 - Chat y disputas no deben exponer `account_value`.
 - Adjuntos de chat usan storage privado mediante `file_assets`.
 - `storage_path` nunca aparece en respuestas de mensajes, disputas, frontend, logs o audit metadata.
 - Las respuestas de slice 07 devuelven metadata de adjunto; signed URL de lectura completa requiere contrato futuro explicito.
+- Admin/support no reciben el payload completo desde detail/list, mensajes,
+  busqueda o evidencia amplia. Un reveal futuro requiere endpoint explicito,
+  RBAC, motivo y audit sin valores.
 
 ## Uploads/evidencias
 

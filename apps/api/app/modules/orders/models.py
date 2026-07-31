@@ -113,6 +113,19 @@ class PaymentReportRecord:
 
 
 @dataclass(frozen=True)
+class OrderReceiverDetailsRecord:
+    id: str
+    order_id: str
+    bank_code: str
+    phone: str
+    document: str
+    holder: str
+    payload_hash: str
+    shared_by_user_id: str
+    shared_at: datetime = field(default_factory=utc_now)
+
+
+@dataclass(frozen=True)
 class RatingRecord:
     id: str
     order_id: str

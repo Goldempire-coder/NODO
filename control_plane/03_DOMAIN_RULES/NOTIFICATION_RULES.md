@@ -19,7 +19,8 @@ Todas las notificaciones deben ser idempotentes por orden, tipo y ventana de tie
 - payment_confirmed -> remitente
 - payment_rejected -> remitente
 - delivered -> remitente
-- order_completed -> ambos
+- order_completed manual -> negocio
+- order_auto_completed_after_24h -> remitente y negocio
 - order_cancelled -> ambos segun contexto
 - order_expiring -> remitente
 - order_message_created -> contraparte de la orden
@@ -93,7 +94,10 @@ Todas las notificaciones deben ser idempotentes por orden, tipo y ventana de tie
 
 ### payment_confirmed
 
-- Al confirmar pago recibido: notificar al remitente que el negocio debe enviar pago movil.
+- Al confirmar pago recibido: notificar al remitente que debe compartir los
+  datos del receptor mediante la accion segura de la orden.
+- Al compartir receptor: notificar al negocio que ya puede revisar los datos en
+  la orden. El aviso no incluye banco, telefono, documento ni titular.
 - A los 30 minutos sin entrega: recordar al negocio.
 - A las 2 horas sin entrega: abrir disputa y notificar a partes/admin.
 
@@ -150,10 +154,12 @@ Tipos canonicos:
 | order_disputed_business_no_payment_confirmation | remitente, negocio, admin/support | 6h despues de `payment_reported` sin respuesta | La orden paso a disputa por falta de respuesta del negocio. |
 | order_delivery_warning | negocio | 30 min despues de `payment_confirmed` sin entrega | Confirma el envio del pago movil antes del limite. |
 | order_disputed_business_confirmed_payment_but_not_delivered | remitente, negocio, admin/support | 2h despues de `payment_confirmed` sin entrega | La orden paso a disputa porque el pago movil no fue marcado como enviado a tiempo. |
+| order_receiver_details_shared_business | negocio | remitente comparte receptor estructurado en `payment_confirmed` | El cliente compartio los datos del receptor. Abre la orden para revisarlos. |
 | delivered_reminder_immediate | remitente | al pasar a `delivered` | El negocio marco el pago movil como enviado. Si tu receptor no recibio, abre disputa antes de que la orden cierre automaticamente. |
 | delivered_reminder_12h | remitente | 12h despues de `delivered` | Si el receptor no recibio el pago movil, abre disputa antes del cierre automatico. |
 | delivered_reminder_23h | remitente | 23h despues de `delivered` | Ultimo aviso antes del cierre automatico de la orden. |
 | order_auto_completed_after_24h | remitente y negocio | 24h despues de `delivered` sin disputa | La orden se cerro automaticamente porque no se abrio disputa dentro del plazo. |
+| order_completed | negocio | remitente confirma recibido; dedupe separado del auto-complete | El cliente confirmo la recepcion y la orden fue completada. |
 | ad_expired | negocio | anuncio vence por edad | Tu anuncio cumplio 7 dias, se archivo y el credito fue consumido. |
 | founder_access_expired | negocio | `founder_expires_at <= now` | Tu periodo fundador expiro; nuevas publicaciones requieren creditos disponibles. |
 
@@ -168,5 +174,7 @@ Reglas:
 - `dedupe_key` debe ser unico por recurso, notification_type y ventana.
 - No incluir instrucciones completas, `account_value`, `storage_path`, signed
   URLs, evidencia privada, tokens, secretos ni datos bancarios completos.
+- Las notificaciones de receiver details, delivery y completion nunca incluyen
+  banco, telefono, documento, titular ni payload de Pago Movil.
 - No prometer escrow, fondos protegidos, garantia de entrega, recuperacion de
   fondos ni que NODO recibe/retiene/transfiere dinero.

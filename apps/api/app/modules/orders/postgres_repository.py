@@ -8,6 +8,7 @@ from app.modules.orders.postgres_integrity import PostgresOrderIntegrityMixin
 from app.modules.orders.postgres_payment_confirmation import PostgresPaymentConfirmationMixin
 from app.modules.orders.postgres_payment_reports import PostgresPaymentReportsMixin
 from app.modules.orders.postgres_queries import PostgresOrderQueriesMixin
+from app.modules.orders.postgres_receiver_completion import PostgresOrderReceiverCompletionMixin
 from app.modules.orders.postgres_state_events import PostgresOrderStateEventsMixin
 from app.modules.orders.row_mappers import jsonb, order_from_row
 from app.shared.db.connection import pooled_connect
@@ -18,6 +19,7 @@ class PostgresOrderRepository(
     PostgresOrderIntegrityMixin,
     PostgresPaymentConfirmationMixin,
     PostgresPaymentReportsMixin,
+    PostgresOrderReceiverCompletionMixin,
     PostgresOrderQueriesMixin,
     PostgresOrderStateEventsMixin,
 ):
@@ -110,6 +112,33 @@ class PostgresOrderRepository(
                 )
             conn.commit()
         return order_from_row(row)
+
+    def update_order_if_status(
+        self,
+        order_id: str,
+        *,
+        expected_status: str,
+        **fields: Any,
+    ) -> OrderRecord | None:
+        assignments: list[str] = []
+        params: list[Any] = []
+        for key, value in fields.items():
+            assignments.append(f"{key} = %s")
+            params.append(value)
+        assignments.append("updated_at = now()")
+        params.extend([order_id, expected_status])
+        with self._connect() as conn:
+            row = conn.execute(
+                f"""
+                update orders
+                set {', '.join(assignments)}
+                where id = %s and status = %s
+                returning *
+                """,
+                params,
+            ).fetchone()
+            conn.commit()
+        return order_from_row(row) if row else None
 
     def _insert_capacity_transition_audit(
         self,

@@ -16,6 +16,9 @@ function chatSenderLabel(senderRole: string): string {
   if (senderRole === "admin" || senderRole === "support" || senderRole === "super_admin") {
     return "Soporte NODO";
   }
+  if (senderRole === "system") {
+    return "NODO";
+  }
   return humanizeSenderRole(senderRole);
 }
 
@@ -70,8 +73,13 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     openingOrderDispute,
     refreshChat,
     refreshingChat,
+    receiverDetails,
+    revealReceiverDetails,
+    revealingReceiverDetails,
     sendChatMessage,
     sendingChatMessage,
+    shareConfiguredZelle,
+    sharingZelle,
     setChatBody,
     setDisputeReason,
     uploadingChatAttachment,
@@ -85,16 +93,27 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
   const canSubmitMessage = canSend && (chatBody.trim().length > 0 || chatAttachments.length > 0);
 
   useEffect(() => {
-    if (!chatOrderId) {
+    if (!chatOrderId || model.view !== "business-chat") {
       return;
     }
     const interval = window.setInterval(() => {
-      if (!sendingChatMessage && !uploadingChatAttachment) {
-        void refreshChat({ silent: true });
+      if (
+        document.visibilityState !== "visible"
+        || sendingChatMessage
+        || uploadingChatAttachment
+      ) {
+        return;
       }
+      void refreshChat({ silent: true });
     }, BUSINESS_ORDER_CHAT_REFRESH_MS);
     return () => window.clearInterval(interval);
-  }, [chatOrderId, refreshChat, sendingChatMessage, uploadingChatAttachment]);
+  }, [
+    chatOrderId,
+    model.view,
+    refreshChat,
+    sendingChatMessage,
+    uploadingChatAttachment
+  ]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
@@ -135,8 +154,18 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
         {chatMessages.length === 0 ? <Text className="business-order-chat-empty">Aun no hay mensajes en esta orden.</Text> : null}
         {chatMessages.map((message) => {
           const isMine = message.sender_role === "business_owner";
+          const isSystem = message.sender_role === "system";
           return (
-            <article className={isMine ? "business-order-chat-message business-order-chat-message--mine" : "business-order-chat-message"} key={message.id}>
+            <article
+              className={
+                isSystem
+                  ? "business-order-chat-message business-order-chat-message--system"
+                  : isMine
+                    ? "business-order-chat-message business-order-chat-message--mine"
+                    : "business-order-chat-message"
+              }
+              key={message.id}
+            >
               <span className="business-order-chat-message__sender">{chatSenderLabel(message.sender_role)}</span>
               <p>{message.body || "Adjunto privado"}</p>
               {message.attachments.length ? <small>{message.attachments.length} adjunto(s)</small> : null}
@@ -146,6 +175,44 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
         })}
         <div ref={messagesEndRef} />
       </div>
+
+      {chatCapabilities.can_share_zelle ? (
+        <button
+          className="business-order-chat-payment-action"
+          type="button"
+          disabled={sharingZelle}
+          onClick={() => void shareConfiguredZelle()}
+        >
+          {sharingZelle ? "Enviando..." : "Enviar Zelle"}
+        </button>
+      ) : null}
+
+      {chatCapabilities.receiver_details_required ? (
+        <Text className="auth-entry__session-meta business-order-chat-note">
+          Pago Movil pendiente. El cliente debe compartirlo desde esta orden.
+        </Text>
+      ) : null}
+
+      {chatCapabilities.receiver_details_shared ? (
+        <article className="business-order-chat-message">
+          <span className="business-order-chat-message__sender">Pago Movil seguro</span>
+          {receiverDetails ? (
+            <p>{receiverDetails.bank} · {receiverDetails.phone} · {receiverDetails.document} · {receiverDetails.holder}</p>
+          ) : (
+            <p>Datos disponibles para esta orden.</p>
+          )}
+          {!receiverDetails && chatCapabilities.can_reveal_receiver_details ? (
+            <button
+              className="business-order-chat-payment-action"
+              type="button"
+              disabled={revealingReceiverDetails}
+              onClick={() => void revealReceiverDetails()}
+            >
+              {revealingReceiverDetails ? "Revelando..." : "Ver Pago Movil"}
+            </button>
+          ) : null}
+        </article>
+      ) : null}
 
       <form
         ref={composerRef}

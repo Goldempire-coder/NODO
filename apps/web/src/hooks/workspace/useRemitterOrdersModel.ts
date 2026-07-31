@@ -36,11 +36,13 @@ type RemitterOrdersState = Pick<
 export function useRemitterOrdersModel(
   state: RemitterOrdersState & {
     request: AuthenticatedRequest;
+    openOrderChat: (orderId: string) => Promise<void>;
     searchFreshForAmount: (amountUsd: string) => Promise<void>;
   }
 ) {
   const {
     request,
+    openOrderChat,
     searchFreshForAmount,
     selectedAd,
     setSelectedAd,
@@ -85,20 +87,18 @@ export function useRemitterOrdersModel(
         {
           ad_id: selectedAd.id,
           amount_usd: orderForm.amount_usd,
-          receiver_data: {
-            bank: orderForm.bank,
-            phone: orderForm.phone,
-            document: orderForm.document,
-            holder: orderForm.holder
-          }
+          expected_rate_bs_per_usd: selectedAd.rate_bs_per_usd
         },
-        getIdempotencyKey(idempotencyScope, { ad_id: selectedAd.id, ...orderForm })
+        getIdempotencyKey(idempotencyScope, {
+          ad_id: selectedAd.id,
+          amount_usd: orderForm.amount_usd,
+          expected_rate_bs_per_usd: selectedAd.rate_bs_per_usd
+        })
       );
       clearIdempotencyKey(idempotencyScope);
       setSelectedOrder(data.order);
       rememberOrder(data.order);
-      setView("order-summary");
-      setNotice("");
+      await openOrderChat(data.order.id);
       recordActionCompleted("client_order_create", "create-order", startedAt);
     } catch (error) {
       if (

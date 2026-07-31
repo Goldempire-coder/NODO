@@ -61,13 +61,25 @@ def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations
 
     assert "BUSINESS_ORDER_CHAT_REFRESH_MS = 5000" in chat_screen
     assert "void refreshChat({ silent: true });" in chat_screen
+    assert 'model.view !== "business-chat"' in chat_screen
+    assert 'document.visibilityState !== "visible"' in chat_screen
     assert "const refreshChat = useCallback(async (options?: { silent?: boolean })" in chat_model
     assert "if (!options?.silent)" in chat_model
-    assert "listOrderMessages<{ items: ChatMessage[]; capabilities: ChatCapabilities; disclaimer?: string }>(request, orderId, 50)" in chat_model
-    assert "listOrderMessages<{ items: ChatMessage[]; capabilities: ChatCapabilities; disclaimer?: string }>(request, chatOrderId, 50)" in chat_model
+    assert "listOrderMessages<ChatThread>(request, orderId, 50)" in chat_model
+    assert "listOrderMessages<ChatThread>(request, targetOrderId, 50)" in chat_model
+    assert "refreshingChatRef.current" in chat_model
+    assert "chatOrderIdRef.current !== targetOrderId" in chat_model
     assert "sendingChatMessageRef.current" in chat_model
     assert "uploadingChatAttachmentRef.current" in chat_model
     assert "openingOrderDisputeRef.current" in chat_model
     assert "const body = chatBody.trim();" in chat_model
     assert "(!body && chatAttachments.length === 0)" in chat_model
     assert 'setChatBody("")' in chat_model
+    refresh_source = chat_model.split("const refreshChat", 1)[1].split(
+        "const uploadChatAttachment", 1
+    )[0]
+    refresh_catch = refresh_source.split("catch (error)", 1)[1].split(
+        "} finally", 1
+    )[0]
+    assert "setChatMessages(" not in refresh_catch
+    assert "setChatCapabilities(" not in refresh_catch

@@ -192,6 +192,87 @@ def _create_order(client: TestClient, remitter: dict, ad_id: str, *, key: str = 
     return response.json()["data"]["order"]
 
 
+def test_slice_50a_create_order_allows_chat_first_flow_without_receiver_data() -> None:
+    client = _client()
+    owner = _login(client, 9851, "slice50a_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="slice50a_ad")
+    remitter = _login(client, 9852, "slice50a_client")
+
+    response = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "slice50a_create"), "Content-Type": "application/json"},
+        json={"ad_id": ad["id"], "amount_usd": "50.00"},
+    )
+
+    assert response.status_code == 201, response.text
+    order = response.json()["data"]["order"]
+    assert order["status"] == "waiting_payment"
+    assert order["receiver_data_masked"] == {
+        "bank": None,
+        "phone": None,
+        "document": None,
+        "holder": None,
+    }
+    stored = client.app.state.order_repository.get_by_id(order["id"])
+    assert stored.receiver_data_json == {}
+    reservation = client.app.state.capacity_repository.get_reservation(order["id"])
+    assert reservation is not None
+    assert reservation.status == "reserved"
+    assert business["id"] == stored.business_id
+
+
+def test_slice_50a_chat_first_order_replays_without_receiver_data() -> None:
+    client = _client()
+    owner = _login(client, 9853, "slice50a_replay_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="slice50a_replay_ad")
+    remitter = _login(client, 9854, "slice50a_replay_client")
+    payload = {
+        "ad_id": ad["id"],
+        "amount_usd": "50.00",
+        "expected_rate_bs_per_usd": ad["rate_bs_per_usd"],
+    }
+
+    first = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "slice50a_replay"), "Content-Type": "application/json"},
+        json=payload,
+    )
+    replay = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "slice50a_replay"), "Content-Type": "application/json"},
+        json=payload,
+    )
+
+    assert first.status_code == 201, first.text
+    assert replay.status_code in {200, 201}, replay.text
+    assert replay.json()["data"]["order"]["id"] == first.json()["data"]["order"]["id"]
+
+
+def test_slice_50a_create_order_rejects_a_changed_quote() -> None:
+    client = _client()
+    owner = _login(client, 9855, "slice50a_quote_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="slice50a_quote_ad")
+    remitter = _login(client, 9856, "slice50a_quote_client")
+
+    response = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "slice50a_stale_quote"), "Content-Type": "application/json"},
+        json={
+            "ad_id": ad["id"],
+            "amount_usd": "50.00",
+            "expected_rate_bs_per_usd": "1.000000",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ORDER_QUOTE_CHANGED"
+    assert client.app.state.order_repository.orders == {}
+    assert client.app.state.capacity_repository.reservations == {}
+
+
 def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
 
@@ -854,6 +935,11 @@ def test_slice_48a_cancel_after_instructions_requires_no_payment_confirmation() 
     ad = _create_ad(client, owner, method_id, key="cancel_confirm_ad")
     remitter = _login(client, 946, "remitter")
     order = _create_order(client, remitter, ad["id"], key="cancel_confirm_order")
+    shared = client.post(
+        f"/api/v1/orders/{order['id']}/share-zelle",
+        headers=_headers(owner, "cancel_confirm_share_zelle"),
+    )
+    assert shared.status_code == 201, shared.text
     reveal = client.get(
         f"/api/v1/orders/{order['id']}/payment-instructions",
         headers=_bearer(remitter, "req_cancel_confirm_reveal"),

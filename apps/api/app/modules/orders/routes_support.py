@@ -28,6 +28,7 @@ def order_service(request: Request) -> OrderService:
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,
         idempotency_store=request.app.state.idempotency_store,
+        chat_repository=request.app.state.chat_repository,
         storage=request.app.state.private_storage,
         marketplace_cache=request.app.state.marketplace_cache,
         notification_service=notifications,

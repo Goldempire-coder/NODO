@@ -9,6 +9,8 @@ ORDER_NOTIFICATION_TYPES = {
     "order_disputed_parties_admin",
     "order_cancelled_payment_not_reported",
     "order_cancelled_business_unavailable",
+    "order_receiver_details_shared_business",
+    "order_completed_business",
 }
 
 CHAT_NOTIFICATION_TYPES = {

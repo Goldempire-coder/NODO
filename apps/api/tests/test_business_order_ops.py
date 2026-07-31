@@ -46,11 +46,30 @@ _set_env()
 from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.orders.receiver_details import receiver_payload_hash  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
     _set_env(**env_overrides)
     return TestClient(create_app())
+
+
+def _seed_receiver_details(client: TestClient, order_id: str) -> None:
+    order = client.app.state.order_repository.get_by_id(order_id)
+    payload = {
+        "bank": "0102",
+        "phone": "+584121234567",
+        "document": "V12345678",
+        "holder": "Receptor Test",
+    }
+    client.app.state.order_repository.create_receiver_details_atomically(
+        order_id=order.id,
+        remitter_user_id=order.remitter_user_id,
+        payload=payload,
+        payload_hash=receiver_payload_hash(payload),
+        request_id=f"fixture_receiver_{order_id}",
+        audit_metadata={"schema": "pago_movil_receiver_v1", "fixture": True},
+    )
 
 
 def _signed_init_data(telegram_id: int, username: str) -> str:
@@ -180,6 +199,21 @@ def _upload_evidence(client: TestClient, remitter: dict, order_id: str, key: str
 
 
 def _report_payment(client: TestClient, remitter: dict, order: dict, *, key: str = "report") -> dict:
+    if not client.app.state.chat_repository.has_business_message_containing(
+        order_id=order["id"],
+        text="owner@example.com",
+    ):
+        stored_order = client.app.state.order_repository.get_by_id(order["id"])
+        business = client.app.state.business_repository.get_business(
+            stored_order.business_id
+        )
+        client.app.state.chat_repository.create_message(
+            order_id=order["id"],
+            sender_user_id=business.owner_user_id,
+            sender_role="business_owner",
+            body="Zelle del negocio: owner@example.com",
+            idempotency_key=f"fixture_share_{order['id']}",
+        )
     evidence = _upload_evidence(client, remitter, order["id"], key=f"{key}_evidence")
     response = client.post(
         f"/api/v1/orders/{order['id']}/payment-report",
@@ -248,6 +282,7 @@ def test_business_orders_history_filter_and_public_order_code_for_claims() -> No
         json={"reason": "Pago recibido"},
     )
     assert confirm.status_code == 200, confirm.text
+    _seed_receiver_details(client, order["id"])
     delivered = client.post(
         f"/api/v1/business/orders/{order['id']}/mark-delivered",
         headers={**_headers(owner, "deliver_for_history"), "Content-Type": "application/json"},
@@ -429,6 +464,7 @@ def test_mark_delivered_requires_confirmed_sets_timers_and_does_not_complete_or_
         json={"reason": "Pago recibido"},
     )
     assert confirm.status_code == 200, confirm.text
+    _seed_receiver_details(client, order["id"])
     wallet_before_delivery = client.app.state.ad_repository.get_wallet(business["id"])
     blocked_before_delivery = wallet_before_delivery.blocked_credits
     consumed_before_delivery = wallet_before_delivery.consumed_credits

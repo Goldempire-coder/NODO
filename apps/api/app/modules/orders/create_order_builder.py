@@ -103,7 +103,7 @@ def build_create_order_fields(
         "min_amount_snapshot": ad.amount_min_usd,
         "max_amount_snapshot": ad.amount_max_usd,
         "payment_instructions_snapshot": payment_snapshot(payment),
-        "receiver_data_json": payload.receiver_data.model_dump(),
+        "receiver_data_json": payload.receiver_data.model_dump() if payload.receiver_data else {},
         "payment_report_deadline_at": deadline,
         "expires_at": deadline,
     }

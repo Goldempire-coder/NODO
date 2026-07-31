@@ -48,8 +48,10 @@ Estados que liberan capacidad:
 Estados que consumen capacidad:
 
 - orden completada;
-- pago entregado por el negocio;
 - resolucion donde el negocio efectivamente uso la liquidez.
+
+`delivered` mantiene capacidad reservada hasta `completed` o resolucion
+terminal. Marcar Pago Movil enviado no consume capacidad por si solo.
 
 Cuando se consume capacidad, no se devuelve automaticamente al disponible. El negocio debe subir su disponible si quiere seguir operando.
 

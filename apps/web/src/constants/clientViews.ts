@@ -8,7 +8,6 @@ export const CLIENT_VIEWS = [
   "marketplace-detail",
   "create-order",
   "order-summary",
-  "payment-instructions",
   "report-payment",
   "my-orders",
   "messages",

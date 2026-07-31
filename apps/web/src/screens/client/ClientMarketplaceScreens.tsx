@@ -172,13 +172,12 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               <Title level="3" className="business-shell__title">{displayBusinessName(selectedAd)}</Title>
               <Text>{formatExchangeRoute(selectedAd.payment_method, selectedAd.delivery_method)}</Text>
               <Text>Rango ${selectedAd.amount_min_usd} - ${selectedAd.amount_max_usd} - tasa {selectedAd.rate_bs_per_usd} Bs/USD</Text>
-              <Text className="auth-entry__session-meta">Cuenta: {selectedAd.payment_method_details?.account_masked || "masked"}</Text>
               <Text className="auth-entry__session-meta">{ORDER_DISCLAIMER}</Text>
               <Button mode="filled" stretched onClick={() => {
-                setOrderForm((current) => ({ ...current, amount_usd: selectedAd.amount_min_usd }));
+                setOrderForm({ amount_usd: searchForm.amount_usd });
                 setView("create-order");
               }}>
-                Crear orden con este negocio
+                Continuar con este negocio
               </Button>
             </>
           ) : (

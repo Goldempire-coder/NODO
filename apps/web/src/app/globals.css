@@ -711,6 +711,15 @@ textarea {
   background: linear-gradient(145deg, rgb(13 70 88 / 94%), rgb(8 95 108 / 82%));
 }
 
+.business-order-chat-message--system {
+  width: min(92%, 420px);
+  align-self: center;
+  border-color: rgb(16 185 129 / 22%);
+  border-radius: 10px;
+  background: rgb(6 78 59 / 22%);
+  text-align: center;
+}
+
 .business-order-chat-message__sender {
   color: var(--nodo-text);
   font-size: 11px;
@@ -798,6 +807,23 @@ textarea {
 }
 
 .business-order-chat-dispute:disabled {
+  opacity: 0.48;
+}
+
+.business-order-chat-payment-action {
+  min-height: 34px;
+  justify-self: end;
+  padding: 0 13px;
+  border: 1px solid rgb(16 185 129 / 36%);
+  border-radius: 999px;
+  background: rgb(16 185 129 / 12%);
+  color: var(--nodo-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.business-order-chat-payment-action:disabled {
   opacity: 0.48;
 }
 

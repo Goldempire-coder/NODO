@@ -51,7 +51,7 @@ No expone `storage_path`, tokens, secretos ni instrucciones completas innecesari
 {
   "id": "uuid",
   "public_order_code": "NODO-ABC123",
-  "status": "waiting_payment|payment_reported|payment_rejected|payment_confirmed|delivered|disputed|cancelled",
+  "status": "waiting_payment|payment_reported|payment_rejected|payment_confirmed|delivered|disputed|completed|cancelled",
   "amount_usd": "50.00",
   "amount_bs_calculated": "1825.00",
   "payment_method_snapshot": "zelle|usdt_trc20",
@@ -68,6 +68,7 @@ No expone `storage_path`, tokens, secretos ni instrucciones completas innecesari
     "can_confirm_payment": true,
     "can_reject_payment_report": true,
     "can_mark_delivered": false,
+    "receiver_details_shared": false,
     "can_decline_before_payment": false
   }
 }
@@ -80,7 +81,7 @@ Lista solo ordenes del negocio propio.
 Query:
 
 ```txt
-status=payment_reported|payment_rejected|payment_confirmed|delivered|disputed|null
+status=waiting_payment|payment_reported|payment_rejected|payment_confirmed|delivered|disputed|completed|cancelled|null
 cursor=opaque|null
 limit=1..50
 ```
@@ -155,11 +156,15 @@ Response 200:
         "created_at": "timestamp"
       }
     },
-    "receiver_data": {
-      "bank": "Banco",
-      "phone_masked": "+58*******123",
-      "document_masked": "V***678",
-      "holder": "Nombre Receptor"
+    "receiver_details": {
+      "status": "not_shared|shared",
+      "shared_at": "timestamp|null",
+      "masked_summary": {
+        "bank": "Banco",
+        "phone_masked": "+58*******123",
+        "document_masked": "V***678",
+        "holder_masked": "N*** R***"
+      }
     },
     "timeline": []
   },
@@ -176,6 +181,9 @@ Rules:
 - Listados, audit y logs deben usar `tx_hash_masked`.
 - No expone `account_value` del negocio si no es necesario para operar.
 - Puede incluir timeline basico de `order_state_events`.
+- General detail no devuelve full receiver details. El negocio usa el reveal
+  explicito y auditado `GET /api/v1/orders/{id}/receiver-details`.
+- `receiver_data` legacy de create-order no satisface el requisito de entrega.
 
 Errores:
 
@@ -230,6 +238,8 @@ Rules:
 - Solo negocio dueno.
 - Requiere `orders.status = payment_reported`.
 - Requiere `payment_reports.status = submitted` existente.
+- Solo este endpoint oficial confirma recepcion y consume credito. Un mensaje de
+  chat como `recibido` no cambia estado, reporte, credito ni capacidad.
 - Cambia `orders.status = payment_confirmed`.
 - Setea `orders.payment_confirmed_at`.
 - Setea `delivery_warning_at = now + 30 minutes`.
@@ -386,7 +396,7 @@ Response 200:
       "auto_complete_warning_23h_at": "timestamp",
       "auto_complete_at": "timestamp"
     },
-    "disclaimer": "Marcar entregado no completa la orden. El remitente debe confirmar recibido o el cierre automatico queda para un slice futuro."
+    "disclaimer": "Marcar entregado no completa la orden. El remitente puede confirmar recibido; el cierre automatico de respaldo requiere su slice operativo."
   },
   "request_id": "req_..."
 }
@@ -397,6 +407,12 @@ Rules:
 - `Idempotency-Key` obligatorio.
 - Solo negocio dueno.
 - Requiere `orders.status = payment_confirmed`.
+- Requiere datos estructurados de receptor validos y compartidos mediante el
+  contrato `PUT /api/v1/orders/{id}/receiver-details`.
+- La transicion bloquea la orden y verifica el recurso inmutable dentro de la
+  misma operacion; no acepta una copia enviada por el negocio.
+- No se aceptan datos de receptor tomados de `messages.body`, metadata libre,
+  logs, telemetry o un payload enviado por el negocio.
 - Cambia `orders.status = delivered`.
 - Setea `orders.delivered_at`.
 - Setea `auto_complete_warning_12h_at = now + 12 hours`.
@@ -408,6 +424,7 @@ Rules:
 - No confirma recepcion del cliente.
 - No abre chat/disputa.
 - No consume creditos aqui.
+- Mantiene la reserva de capacidad; completion la consume.
 
 Errores:
 
@@ -417,6 +434,7 @@ Errores:
 - `ORDER_NOT_OWNED`
 - `ORDER_STATUS_INVALID`
 - `DELIVERY_NOT_ALLOWED`
+- `ORDER_RECEIVER_DETAILS_REQUIRED`
 - `IDEMPOTENCY_KEY_REQUIRED`
 - `IDEMPOTENCY_CONFLICT`
 - `IDEMPOTENCY_PAYLOAD_MISMATCH`
@@ -452,15 +470,17 @@ Para `confirm-payment`, `reject-payment-report` y `mark-delivered`:
 - Preferido: usar idempotency store existente para acciones mutantes.
 - Confirm-payment tambien debe protegerse con ledger `consume` existente para evitar doble consumo aunque falle un retry.
 
-## Scope prohibido en slice 06
+## Scope y asignacion posterior
 
 - chat
 - disputas
-- confirmacion de recibido por remitente
-- auto-complete
+- confirmacion de recibido por remitente pertenece a 50B1 bajo
+  `POST /api/v1/orders/{id}/confirm-received`
+- auto-complete pertenece a un slice operativo posterior y debe reutilizar la
+  misma transicion atomica de completion
 - jobs masivos
 - admin override
 - compra/acreditacion real de creditos
 - B-13 business chat salvo link/estado hacia slice 07
 - R-09 order tracking/chat
-- R-10 confirm received
+- R-10 confirm received no se implementa en slice 06

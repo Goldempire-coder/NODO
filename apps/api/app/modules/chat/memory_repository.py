@@ -4,6 +4,7 @@ from threading import RLock
 
 from app.modules.businesses.models import FileAssetRecord
 from app.modules.chat.models import MessageAttachmentRecord, MessageRecord, new_id, utc_now
+from app.modules.chat.payment_sharing import contains_configured_payment_account
 
 
 class InMemoryChatRepository:
@@ -15,11 +16,11 @@ class InMemoryChatRepository:
 
     def list_messages(self, *, order_id: str, cursor: str | None, limit: int) -> tuple[list[MessageRecord], str | None]:
         items = [message for message in self.messages.values() if message.order_id == order_id and message.deleted_at is None]
-        items.sort(key=lambda message: message.created_at)
+        items.sort(key=lambda message: (message.created_at, message.id))
         if cursor:
-            items = [message for message in items if message.created_at.isoformat() > cursor]
-        page = items[:limit]
-        next_cursor = page[-1].created_at.isoformat() if len(page) == limit else None
+            items = [message for message in items if message.created_at.isoformat() < cursor]
+        page = items[-limit:]
+        next_cursor = page[0].created_at.isoformat() if len(items) > len(page) else None
         return page, next_cursor
 
     def get_message(self, message_id: str) -> MessageRecord | None:
@@ -89,6 +90,56 @@ class InMemoryChatRepository:
             if message.sender_user_id == sender_user_id and message.idempotency_key == idempotency_key:
                 return message
         return None
+
+    def has_business_message_containing(self, *, order_id: str, text: str) -> bool:
+        if not text.strip():
+            return False
+        return any(
+            message.order_id == order_id
+            and message.sender_role == "business_owner"
+            and message.visibility == "parties"
+            and message.deleted_at is None
+            and message.status == "visible"
+            and contains_configured_payment_account(message.body, text)
+            for message in self.messages.values()
+        )
+
+    def create_configured_payment_message_once(
+        self,
+        *,
+        order_id: str,
+        sender_user_id: str,
+        body: str,
+        account_value: str,
+        idempotency_key: str,
+    ) -> tuple[MessageRecord, bool]:
+        with self._lock:
+            existing = next(
+                (
+                    message
+                    for message in self.messages.values()
+                    if message.order_id == order_id
+                    and message.sender_role == "business_owner"
+                    and message.visibility == "parties"
+                    and message.deleted_at is None
+                    and message.status == "visible"
+                    and contains_configured_payment_account(
+                        message.body,
+                        account_value,
+                    )
+                ),
+                None,
+            )
+            if existing is not None:
+                return existing, False
+            message = self.create_message(
+                order_id=order_id,
+                sender_user_id=sender_user_id,
+                sender_role="business_owner",
+                body=body,
+                idempotency_key=idempotency_key,
+            )
+            return message, True
 
     def create_message(self, *, order_id: str, sender_user_id: str, sender_role: str, body: str | None, idempotency_key: str) -> MessageRecord:
         with self._lock:

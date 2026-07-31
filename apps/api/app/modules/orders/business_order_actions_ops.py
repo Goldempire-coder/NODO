@@ -16,7 +16,7 @@ from app.modules.orders.helpers import require_uuid
 from app.modules.orders.order_copy import ORDER_DISCLAIMER
 from app.modules.orders.schemas import OrderActionRequest
 from app.modules.orders.serializers import business_order_payload
-from app.modules.orders.state_machine import now_utc, require_business_delivery_allowed, require_business_payment_rejection_allowed
+from app.modules.orders.state_machine import now_utc, require_business_payment_rejection_allowed
 from app.modules.users.models import UserRecord
 
 
@@ -141,29 +141,28 @@ class OrderBusinessActionsMixin:
             order = self._repository.get_by_id_for_business(order_id=order_id, business_id=business.id)  # type: ignore[attr-defined]
             if order is None:
                 raise ApiError("ORDER_NOT_FOUND", status_code=404)
-            require_business_delivery_allowed(order)
             now = now_utc()
-            updated = self._repository.update_order(  # type: ignore[attr-defined]
-                order,
-                status="delivered",
-                delivered_at=now,
-                auto_complete_warning_12h_at=now + timedelta(hours=12),
-                auto_complete_warning_23h_at=now + timedelta(hours=23),
-                auto_complete_at=now + timedelta(hours=24),
-            )
             reason = payload.reason if payload else None
-            self._repository.add_state_event(  # type: ignore[attr-defined]
-                order_id=order.id,
-                from_status="payment_confirmed",
-                to_status="delivered",
-                event_type="order_delivered",
-                actor_user_id=user.id,
-                actor_role=user.role,
+            audit_event = delivered_audit_event(
+                user=user,
+                order=order,
                 reason=reason,
                 request_id=request_id,
-                metadata_json=delivered_state_metadata(idempotency_key=idempotency_key),
             )
-            self._audit.write(**delivered_audit_event(user=user, order=order, reason=reason, request_id=request_id))  # type: ignore[attr-defined]
+            updated = self._repository.mark_delivered_atomically(  # type: ignore[attr-defined]
+                order_id=order.id,
+                business_id=business.id,
+                actor_user_id=user.id,
+                actor_role=user.role,
+                delivered_at=now,
+                warning_12h_at=now + timedelta(hours=12),
+                warning_23h_at=now + timedelta(hours=23),
+                auto_complete_at=now + timedelta(hours=24),
+                reason=reason,
+                request_id=request_id,
+                event_metadata=delivered_state_metadata(idempotency_key=idempotency_key),
+                audit_metadata=audit_event["metadata_json"],
+            )
             self._notifications.order_delivered_client(order=updated, request_id=request_id)  # type: ignore[attr-defined]
             return delivered_response(order=updated, disclaimer=ORDER_DISCLAIMER)
 

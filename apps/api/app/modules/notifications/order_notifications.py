@@ -146,7 +146,7 @@ class OrderNotificationService:
             order=order,
             recipient_user_id=order.remitter_user_id,
             target_surface="client_mini_app",
-            text=f"Pago confirmado en la orden {order.public_order_code}. El negocio debe marcar el envio cuando complete la entrega.",
+            text=f"Pago confirmado en la orden {order.public_order_code}. Comparte los datos de Pago Movil desde la orden para continuar.",
             action_url=self._client_order_url(order.id),
             request_id=request_id,
             correlation_id=correlation_id,
@@ -174,9 +174,67 @@ class OrderNotificationService:
             target_surface="client_mini_app",
             text=(
                 f"El negocio marco el pago movil como enviado en la orden {order.public_order_code}. "
-                "Si tu receptor no recibio, abre disputa antes de que la orden cierre automaticamente."
+                "Confirma la recepcion desde NODO o abre una disputa si corresponde."
             ),
             action_url=self._client_order_url(order.id),
+            request_id=request_id,
+            correlation_id=correlation_id,
+            operation_id=operation_id,
+        )
+
+    def order_receiver_details_shared_business(
+        self,
+        *,
+        order: OrderRecord,
+        request_id: str,
+        correlation_id: str | None = None,
+        operation_id: str | None = None,
+    ) -> None:
+        business = self._businesses.get_business(order.business_id)
+        if business is None:
+            self._log_enqueue_skipped(
+                "order_receiver_details_shared_business",
+                order,
+                "BUSINESS_NOT_FOUND",
+                request_id,
+            )
+            return
+        self._enqueue(
+            notification_type="order_receiver_details_shared_business",
+            order=order,
+            recipient_user_id=business.owner_user_id,
+            target_surface="business_mini_app",
+            text=f"El cliente compartio los datos de Pago Movil para la orden {order.public_order_code}. Abre la orden para continuar.",
+            action_url=self._business_order_url(order.id),
+            request_id=request_id,
+            correlation_id=correlation_id,
+            operation_id=operation_id,
+        )
+
+    def order_completed_business(
+        self,
+        *,
+        order: OrderRecord,
+        request_id: str,
+        correlation_id: str | None = None,
+        operation_id: str | None = None,
+    ) -> None:
+        business = self._businesses.get_business(order.business_id)
+        if business is None:
+            self._log_enqueue_skipped(
+                "order_completed_business",
+                order,
+                "BUSINESS_NOT_FOUND",
+                request_id,
+            )
+            return
+        self._enqueue(
+            notification_type="order_completed_business",
+            order=order,
+            recipient_user_id=business.owner_user_id,
+            target_surface="business_mini_app",
+            text=f"El cliente confirmo la recepcion en la orden {order.public_order_code}. La orden esta completada.",
+            action_url=self._business_order_url(order.id),
             request_id=request_id,
             correlation_id=correlation_id,
             operation_id=operation_id,
@@ -341,6 +399,12 @@ class NoopOrderNotificationService:
         return
 
     def order_delivered_client(self, **_: Any) -> None:
+        return
+
+    def order_receiver_details_shared_business(self, **_: Any) -> None:
+        return
+
+    def order_completed_business(self, **_: Any) -> None:
         return
 
     def order_disputed_parties_admin(self, **_: Any) -> None:

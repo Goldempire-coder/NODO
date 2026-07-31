@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef } from "react";
 import type { AuthenticatedRequest } from "../../api/client";
 import { getPaymentInstructions, submitOrderPaymentReport, uploadPaymentEvidence as uploadOrderPaymentEvidence } from "../../api/paymentReports";
 import { PAYMENT_COPY } from "../../constants/copy";
+import type { PaymentInstructions } from "../../types/payments";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
@@ -10,6 +12,10 @@ import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 type PaymentReportState = Pick<
   ClientWorkspaceState,
   | "selectedOrder"
+  | "chatOrderId"
+  | "openingChatOrderId"
+  | "view"
+  | "paymentInstructions"
   | "paymentEvidence"
   | "pendingPaymentReportId"
   | "paymentReportForm"
@@ -30,6 +36,10 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
     request,
     loadMyOrders,
     selectedOrder,
+    chatOrderId,
+    openingChatOrderId,
+    view,
+    paymentInstructions,
     paymentEvidence,
     pendingPaymentReportId,
     paymentReportForm,
@@ -45,40 +55,79 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
     setView
   } = state;
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
+  const openingPaymentReportRef = useRef(false);
+  const paymentReportTargetOrderIdRef = useRef<string | null>(null);
+  const activeChatOrderIdRef = useRef(chatOrderId);
+  const openingChatOrderIdRef = useRef(openingChatOrderId);
+  const activeViewRef = useRef(view);
+  activeChatOrderIdRef.current = chatOrderId;
+  openingChatOrderIdRef.current = openingChatOrderId;
+  activeViewRef.current = view;
 
-  async function openPaymentInstructions(orderId: string) {
+  function paymentReportTargetIsCurrent(orderId: string) {
+    return (
+      paymentReportTargetOrderIdRef.current === orderId
+      && activeChatOrderIdRef.current === orderId
+      && openingChatOrderIdRef.current === null
+      && activeViewRef.current === "order-chat"
+    );
+  }
+
+  async function openPaymentReport(orderId: string) {
+    if (openingPaymentReportRef.current) {
+      return false;
+    }
+    openingPaymentReportRef.current = true;
+    paymentReportTargetOrderIdRef.current = orderId;
     const startedAt = actionStartedAt();
-    recordActionStarted("client_payment_instructions_open", "payment-instructions");
-    setView("payment-instructions");
+    recordActionStarted("client_payment_instructions_open", "report-payment");
     setNotice("");
     setLoadingPaymentInstructions(true);
     try {
-      const data = await getPaymentInstructions<any>(request, orderId);
+      const data = await getPaymentInstructions<PaymentInstructions>(request, orderId);
+      if (!paymentReportTargetIsCurrent(orderId)) {
+        return false;
+      }
       setPaymentInstructions(data);
       setPaymentEvidence(null);
       setPendingPaymentReportId(null);
-      setPaymentReportForm((current) => ({ ...current, payment_amount: data.order.amount_usd }));
-      setView("payment-instructions");
+      setPaymentReportForm({
+        payment_reference: "",
+        payment_sender_name: "",
+        payment_sender_account_masked: "",
+        payment_amount: data.order.amount_usd,
+        tx_hash: ""
+      });
+      setView("report-payment");
       setNotice(data.disclaimer || PAYMENT_COPY);
-      recordActionCompleted("client_payment_instructions_open", "payment-instructions", startedAt);
+      recordActionCompleted("client_payment_instructions_open", "report-payment", startedAt);
+      return true;
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Las instrucciones no estan disponibles para esta orden.");
-      recordActionFailed("client_payment_instructions_open", "payment-instructions", startedAt, error instanceof Error ? error.name : undefined);
+      if (paymentReportTargetIsCurrent(orderId)) {
+        setNotice(error instanceof Error ? error.message : "Las instrucciones no estan disponibles para esta orden.");
+      }
+      recordActionFailed("client_payment_instructions_open", "report-payment", startedAt, error instanceof Error ? error.name : undefined);
+      return false;
     } finally {
+      if (paymentReportTargetOrderIdRef.current === orderId) {
+        paymentReportTargetOrderIdRef.current = null;
+      }
+      openingPaymentReportRef.current = false;
       setLoadingPaymentInstructions(false);
     }
   }
 
   async function uploadPaymentEvidence(file: File | null) {
-    if (!selectedOrder || !file) {
+    const orderId = paymentInstructions?.order.id || selectedOrder?.id;
+    if (!orderId || !file) {
       return;
     }
     const startedAt = actionStartedAt();
     recordActionStarted("client_payment_evidence_upload", "report-payment");
     setUploadingPaymentEvidence(true);
-    const idempotencyScope = `payment_evidence_${selectedOrder.id}`;
+    const idempotencyScope = `payment_evidence_${orderId}`;
     try {
-      const data = await uploadOrderPaymentEvidence<any>(request, selectedOrder.id, file, pendingPaymentReportId, getIdempotencyKey(idempotencyScope, { orderId: selectedOrder.id, pendingPaymentReportId, name: file.name, size: file.size }));
+      const data = await uploadOrderPaymentEvidence<any>(request, orderId, file, pendingPaymentReportId, getIdempotencyKey(idempotencyScope, { orderId, pendingPaymentReportId, name: file.name, size: file.size }));
       clearIdempotencyKey(idempotencyScope);
       setPaymentEvidence(data.file);
       setPendingPaymentReportId(data.pending_payment_report_id);
@@ -93,11 +142,14 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
   }
 
   async function submitPaymentReport() {
-    if (!selectedOrder) {
+    const orderId = paymentInstructions?.order.id || selectedOrder?.id;
+    const paymentMethod = paymentInstructions?.payment_instructions.method_type || selectedOrder?.payment_method_snapshot;
+    const lockedPaymentAmount = paymentInstructions?.order.amount_usd || selectedOrder?.amount_usd;
+    if (!orderId || !paymentMethod || !lockedPaymentAmount) {
       setNotice("Selecciona una orden.");
       return;
     }
-    const isZelle = selectedOrder.payment_method_snapshot === "zelle";
+    const isZelle = paymentMethod === "zelle";
     if (isZelle && (!paymentEvidence || !pendingPaymentReportId || !paymentReportForm.payment_reference || !paymentReportForm.payment_sender_name)) {
       setNotice("Zelle requiere referencia, nombre y comprobante.");
       return;
@@ -109,18 +161,18 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
     const startedAt = actionStartedAt();
     recordActionStarted("client_payment_report_submit", "report-payment");
     setSubmittingPaymentReport(true);
-    const idempotencyScope = `payment_report_${selectedOrder.id}`;
+    const idempotencyScope = `payment_report_${orderId}`;
     try {
       const data = await submitOrderPaymentReport<any>(
         request,
-        selectedOrder.id,
+        orderId,
         isZelle
           ? {
               payment_type: "zelle",
               payment_reference: paymentReportForm.payment_reference,
               payment_sender_name: paymentReportForm.payment_sender_name,
               payment_sender_account_masked: paymentReportForm.payment_sender_account_masked || undefined,
-              payment_amount: paymentReportForm.payment_amount,
+              payment_amount: lockedPaymentAmount,
               proof_file_id: paymentEvidence?.id,
               pending_payment_report_id: pendingPaymentReportId
             }
@@ -128,14 +180,25 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
               payment_type: "usdt_trc20",
               tx_hash: paymentReportForm.tx_hash,
               network: "TRC20",
-              payment_amount: paymentReportForm.payment_amount,
+              payment_amount: lockedPaymentAmount,
               proof_file_id: paymentEvidence?.id || undefined,
               pending_payment_report_id: pendingPaymentReportId || undefined
             },
-        getIdempotencyKey(idempotencyScope, { orderId: selectedOrder.id, isZelle, paymentReportForm, pendingPaymentReportId, proofFileId: paymentEvidence?.id })
+        getIdempotencyKey(idempotencyScope, {
+          orderId,
+          isZelle,
+          paymentReportForm: {
+            ...paymentReportForm,
+            payment_amount: lockedPaymentAmount
+          },
+          pendingPaymentReportId,
+          proofFileId: paymentEvidence?.id
+        })
       );
       clearIdempotencyKey(idempotencyScope);
-      setSelectedOrder((current) => (current ? { ...current, status: data.order.status } : current));
+      setSelectedOrder((current) => (
+        current?.id === orderId ? { ...current, status: data.order.status } : current
+      ));
       setView("my-orders");
       setNotice(`${data.disclaimer} Estado: ${data.order.status}.`);
       void loadMyOrders();
@@ -148,5 +211,5 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
     }
   }
 
-  return { openPaymentInstructions, uploadPaymentEvidence, submitPaymentReport };
+  return { openPaymentReport, uploadPaymentEvidence, submitPaymentReport };
 }

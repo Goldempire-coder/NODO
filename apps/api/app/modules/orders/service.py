@@ -7,6 +7,7 @@ from app.modules.orders.business_ops import OrderBusinessOps
 from app.modules.orders.create_order_flow import OrderCreateFlow
 from app.modules.orders.payment_flow import OrderPaymentFlow
 from app.modules.orders.rating_ops import OrderRatingOps
+from app.modules.orders.receiver_completion_ops import OrderReceiverCompletionOps
 from app.modules.orders.remitter_ops import OrderRemitterOps
 from app.modules.orders.schemas import (
     OrderActionRequest,
@@ -14,6 +15,7 @@ from app.modules.orders.schemas import (
     OrderCreateRequest,
     OrderRatingRequest,
     PaymentReportRequest,
+    ReceiverDetailsRequest,
 )
 from app.modules.orders.service_support import OrderServiceSupportMixin
 from app.modules.users.models import UserRecord
@@ -31,6 +33,7 @@ class OrderService(OrderServiceSupportMixin):
         audit_writer,
         rate_limiter,
         idempotency_store,
+        chat_repository=None,
         storage=None,
         marketplace_cache=None,
         notification_service=None,
@@ -94,11 +97,20 @@ class OrderService(OrderServiceSupportMixin):
         )
         self._payment_flow = OrderPaymentFlow(
             repository=self._repository,
+            chat_repository=chat_repository,
             audit_writer=self._audit,
             idempotency_store=self._idempotency,
             storage=self._storage,
             rate_limit=self._rate_limit,
             notification_service=self._notification_service,
+        )
+        self._receiver_completion = OrderReceiverCompletionOps(
+            repository=self._repository,
+            business_repository=self._businesses,
+            idempotency_store=self._idempotency,
+            rate_limit=self._rate_limit,
+            notification_service=self._notification_service,
+            rating_ops=self._rating_ops,
         )
 
     def create_order(self, *, user: UserRecord, payload: OrderCreateRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
@@ -147,6 +159,15 @@ class OrderService(OrderServiceSupportMixin):
 
     def report_payment(self, *, user: UserRecord, order_id: str, payload: PaymentReportRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         return self._payment_flow.report_payment(user=user, order_id=order_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
+
+    def share_receiver_details(self, *, user: UserRecord, order_id: str, payload: ReceiverDetailsRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        return self._receiver_completion.share_receiver_details(user=user, order_id=order_id, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
+
+    def reveal_receiver_details(self, *, user: UserRecord, order_id: str, request_id: str) -> dict[str, Any]:
+        return self._receiver_completion.reveal_receiver_details(user=user, order_id=order_id, request_id=request_id)
+
+    def confirm_received(self, *, user: UserRecord, order_id: str, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        return self._receiver_completion.confirm_received(user=user, order_id=order_id, request_id=request_id, idempotency_key=idempotency_key)
 
     def business_orders(self, *, user: UserRecord, status: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         return self._business_ops.business_orders(user=user, status=status, cursor=cursor, limit=limit, request_id=request_id)

@@ -186,6 +186,21 @@ def _upload_payment_evidence(client: TestClient, remitter: dict, order_id: str, 
 
 
 def _report_payment(client: TestClient, remitter: dict, order: dict, *, key: str = "report") -> dict:
+    if not client.app.state.chat_repository.has_business_message_containing(
+        order_id=order["id"],
+        text="owner@example.com",
+    ):
+        stored_order = client.app.state.order_repository.get_by_id(order["id"])
+        business = client.app.state.business_repository.get_business(
+            stored_order.business_id
+        )
+        client.app.state.chat_repository.create_message(
+            order_id=order["id"],
+            sender_user_id=business.owner_user_id,
+            sender_role="business_owner",
+            body="Zelle del negocio: owner@example.com",
+            idempotency_key=f"fixture_share_{order['id']}",
+        )
     evidence = _upload_payment_evidence(client, remitter, order["id"], key=f"{key}_evidence")
     response = client.post(
         f"/api/v1/orders/{order['id']}/payment-report",

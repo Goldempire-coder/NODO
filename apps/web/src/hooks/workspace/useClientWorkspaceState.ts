@@ -31,16 +31,23 @@ export function useClientWorkspaceState(user: PublicUser) {
   const [myOrders, setMyOrders] = useState<OrderSummary[]>([]);
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatCapabilities, setChatCapabilities] = useState<ChatCapabilities>({ can_send_message: false, can_open_dispute: false });
+  const [chatCapabilities, setChatCapabilities] = useState<ChatCapabilities>({
+    can_send_message: false,
+    can_open_dispute: false,
+    can_share_zelle: false,
+    payment_details_shared: false,
+    can_report_payment: false,
+    receiver_details_shared: false,
+    can_share_receiver_details: false,
+    can_reveal_receiver_details: false,
+    receiver_details_required: false,
+    can_confirm_received: false
+  });
   const [chatBody, setChatBody] = useState("");
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
   const [disputeReason, setDisputeReason] = useState("business_no_payment_confirmation");
   const [orderForm, setOrderForm] = useState<OrderFormState>({
-    amount_usd: "50.00",
-    bank: "",
-    phone: "",
-    document: "",
-    holder: ""
+    amount_usd: "50.00"
   });
   const [paymentInstructions, setPaymentInstructions] = useState<PaymentInstructions | null>(null);
   const [paymentEvidence, setPaymentEvidence] = useState<PaymentEvidence | null>(null);

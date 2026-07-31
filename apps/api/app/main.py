@@ -221,15 +221,16 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.capacity_repository = InMemoryBusinessCapacityRepository()
     app.state.business_intake_repository = InMemoryBusinessIntakeRepository()
     app.state.ad_repository = InMemoryAdRepository()
+    app.state.dispute_repository = InMemoryDisputeRepository()
     app.state.order_repository = InMemoryOrderRepository(
         capacity_repository=app.state.capacity_repository,
         audit_writer=app.state.audit_writer,
+        dispute_repository=app.state.dispute_repository,
     )
     app.state.chat_repository = InMemoryChatRepository()
     app.state.support_repository = InMemorySupportRepository()
     app.state.surface_attention_read_repository = InMemorySurfaceAttentionReadRepository()
     app.state.credit_repository = InMemoryCreditRepository(app.state.ad_repository, app.state.business_repository)
-    app.state.dispute_repository = InMemoryDisputeRepository()
     app.state.rating_repository = InMemoryOrderRatingRepository(
         order_repository=app.state.order_repository,
         business_repository=app.state.business_repository,

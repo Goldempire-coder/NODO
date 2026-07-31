@@ -173,7 +173,14 @@ def _create_order(client: TestClient, remitter: dict, ad_id: str, *, key: str = 
     return response.json()["data"]["order"]
 
 
-def _seed_order(client: TestClient, *, method: str = "zelle", owner_id: int = 600, remitter_id: int = 601) -> tuple[dict, dict, dict, dict]:
+def _seed_order_context(
+    client: TestClient,
+    *,
+    method: str = "zelle",
+    owner_id: int = 600,
+    remitter_id: int = 601,
+    share_zelle: bool = True,
+) -> tuple[dict, dict, dict, dict, dict]:
     owner = _login(client, owner_id, f"owner_{owner_id}")
     business, method_id = _approved_business_with_method(client, owner, method=method, credits=1)
     ad = _create_ad(client, owner, method_id, method=method, key=f"ad_{method}_{owner_id}")
@@ -183,6 +190,22 @@ def _seed_order(client: TestClient, *, method: str = "zelle", owner_id: int = 60
         remitter,
         ad["id"],
         key=f"order_{method}_{owner_id}_{remitter_id}",
+    )
+    if method == "zelle" and share_zelle:
+        shared = client.post(
+            f"/api/v1/orders/{order['id']}/share-zelle",
+            headers=_headers(owner, f"share_zelle_{owner_id}_{remitter_id}"),
+        )
+        assert shared.status_code == 201, shared.text
+    return owner, business, ad, remitter, order
+
+
+def _seed_order(client: TestClient, *, method: str = "zelle", owner_id: int = 600, remitter_id: int = 601) -> tuple[dict, dict, dict, dict]:
+    _, business, ad, remitter, order = _seed_order_context(
+        client,
+        method=method,
+        owner_id=owner_id,
+        remitter_id=remitter_id,
     )
     return business, ad, remitter, order
 
@@ -213,6 +236,62 @@ def _replace_evidence_content_hash(client: TestClient, evidence: dict, value: st
 
 def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
+
+
+def test_slice_50a_zelle_payment_is_blocked_until_business_shares_configured_account() -> None:
+    client = _client()
+    owner, _, _, remitter, order = _seed_order_context(
+        client,
+        owner_id=605,
+        remitter_id=606,
+        share_zelle=False,
+    )
+
+    reveal_before = client.get(
+        f"/api/v1/orders/{order['id']}/payment-instructions",
+        headers=_bearer(remitter, "req_slice50a_reveal_before"),
+    )
+    evidence = _upload_evidence(
+        client,
+        remitter,
+        order["id"],
+        key="slice50a_evidence_before_share",
+        content=b"slice50a-proof",
+    )
+    report_before = client.post(
+        f"/api/v1/orders/{order['id']}/payment-report",
+        headers={**_headers(remitter, "slice50a_report_before_share"), "Content-Type": "application/json"},
+        json={
+            "payment_type": "zelle",
+            "payment_reference": "SLICE50A123",
+            "payment_sender_name": "Remitter Test",
+            "payment_amount": "50.00",
+            "proof_file_id": evidence["file"]["id"],
+            "pending_payment_report_id": evidence["pending_payment_report_id"],
+        },
+    )
+
+    assert reveal_before.status_code == 409
+    assert reveal_before.json()["error"]["code"] == "ORDER_PAYMENT_DETAILS_NOT_SHARED"
+    assert report_before.status_code == 409
+    assert report_before.json()["error"]["code"] == "ORDER_PAYMENT_DETAILS_NOT_SHARED"
+    stored_before = client.app.state.order_repository.get_by_id(order["id"])
+    assert stored_before.status == "waiting_payment"
+    assert stored_before.payment_data_revealed_at is None
+    assert client.app.state.order_repository.payment_reports == {}
+
+    shared = client.post(
+        f"/api/v1/orders/{order['id']}/share-zelle",
+        headers=_headers(owner, "slice50a_share_then_pay"),
+    )
+    reveal_after = client.get(
+        f"/api/v1/orders/{order['id']}/payment-instructions",
+        headers=_bearer(remitter, "req_slice50a_reveal_after"),
+    )
+
+    assert shared.status_code == 201, shared.text
+    assert reveal_after.status_code == 200, reveal_after.text
+    assert reveal_after.json()["data"]["payment_instructions"]["account_value"] == "owner@example.com"
 
 
 def test_reveal_own_waiting_payment_sets_tracking_audit_and_only_endpoint_exposes_full_account() -> None:

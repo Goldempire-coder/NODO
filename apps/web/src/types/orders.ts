@@ -60,10 +60,25 @@ export type OrderRatingResult = {
 
 export type OrderFormState = {
   amount_usd: string;
+};
+
+export type ReceiverDetailsInput = {
   bank: string;
   phone: string;
   document: string;
   holder: string;
+};
+
+export type ReceiverDetailsMasked = {
+  bank: string;
+  phone: string;
+  document: string;
+  holder: string;
+};
+
+export type ReceiverDetails = ReceiverDetailsInput & {
+  order_id: string;
+  shared_at: string;
 };
 
 export type BusinessOrderSummary = {
@@ -98,6 +113,7 @@ export type BusinessOrderSummary = {
     can_reject_payment_report: boolean;
     can_mark_delivered: boolean;
     can_decline_before_payment: boolean;
+    receiver_details_shared: boolean;
   };
 };
 

@@ -63,8 +63,10 @@ Liberar no cuenta contra el limite diario.
 Una orden consume cupo diario si el negocio efectivamente cumplio:
 
 - orden completada;
-- pago entregado por el negocio;
 - resolucion donde el negocio uso liquidez.
+
+`delivered` sigue en `daily_reserved_usd`; solo `completed` o una resolucion
+terminal de consumo mueve el monto a `daily_consumed_usd`.
 
 Una orden consumida no vuelve a abrir cupo hasta el siguiente dia operativo.
 

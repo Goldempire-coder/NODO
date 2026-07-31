@@ -4,6 +4,7 @@ from typing import Any
 
 from app.modules.businesses.models import FileAssetRecord
 from app.modules.chat.models import MessageAttachmentRecord, MessageRecord
+from app.modules.chat.payment_sharing import contains_configured_payment_account
 from app.modules.chat.row_mappers import attachment_from_row, file_from_row, message_from_row
 from app.shared.db.connection import pooled_connect
 
@@ -19,14 +20,16 @@ class PostgresChatRepository:
         sql = "select * from messages where order_id = %s and deleted_at is null"
         params: list[Any] = [order_id]
         if cursor:
-            sql += " and created_at > %s"
+            sql += " and created_at < %s"
             params.append(cursor)
-        sql += " order by created_at asc limit %s"
-        params.append(limit)
+        sql += " order by created_at desc, id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
+        has_older = len(rows) > limit
+        rows = list(reversed(rows[:limit]))
         items = [message_from_row(row) for row in rows]
-        return items, items[-1].created_at.isoformat() if len(items) == limit else None
+        return items, items[0].created_at.isoformat() if has_older else None
 
     def get_message(self, message_id: str) -> MessageRecord | None:
         with self._connect() as conn:
@@ -107,6 +110,81 @@ class PostgresChatRepository:
                 (sender_user_id, idempotency_key),
             ).fetchone()
         return message_from_row(row) if row else None
+
+    def has_business_message_containing(self, *, order_id: str, text: str) -> bool:
+        if not text.strip():
+            return False
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                select body
+                from messages
+                where order_id = %s
+                  and sender_role = 'business_owner'
+                  and visibility = 'parties'
+                  and status = 'visible'
+                  and deleted_at is null
+                  and position(lower(%s) in lower(coalesce(body, ''))) > 0
+                """,
+                (order_id, text.strip()),
+            ).fetchall()
+        return any(
+            contains_configured_payment_account(row["body"], text)
+            for row in rows
+        )
+
+    def create_configured_payment_message_once(
+        self,
+        *,
+        order_id: str,
+        sender_user_id: str,
+        body: str,
+        account_value: str,
+        idempotency_key: str,
+    ) -> tuple[MessageRecord, bool]:
+        with self._connect() as conn:
+            conn.execute("select id from orders where id = %s for update", (order_id,)).fetchone()
+            candidates = conn.execute(
+                """
+                select *
+                from messages
+                where order_id = %s
+                  and sender_role = 'business_owner'
+                  and visibility = 'parties'
+                  and status = 'visible'
+                  and deleted_at is null
+                  and position(lower(%s) in lower(coalesce(body, ''))) > 0
+                order by created_at asc
+                """,
+                (order_id, account_value.strip()),
+            ).fetchall()
+            existing = next(
+                (
+                    row
+                    for row in candidates
+                    if contains_configured_payment_account(
+                        row["body"],
+                        account_value,
+                    )
+                ),
+                None,
+            )
+            if existing is not None:
+                conn.commit()
+                return message_from_row(existing), False
+            row = conn.execute(
+                """
+                insert into messages (
+                    order_id, sender_user_id, sender_role, body, visibility, status,
+                    idempotency_key, created_at, updated_at
+                )
+                values (%s, %s, 'business_owner', %s, 'parties', 'visible', %s, now(), now())
+                returning *
+                """,
+                (order_id, sender_user_id, body, idempotency_key),
+            ).fetchone()
+            conn.commit()
+        return message_from_row(row), True
 
     def create_message(self, *, order_id: str, sender_user_id: str, sender_role: str, body: str | None, idempotency_key: str) -> MessageRecord:
         with self._connect() as conn:

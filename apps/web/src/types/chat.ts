@@ -21,4 +21,20 @@ export type ChatMessage = {
 export type ChatCapabilities = {
   can_send_message: boolean;
   can_open_dispute: boolean;
+  can_share_zelle: boolean;
+  payment_details_shared: boolean;
+  can_report_payment: boolean;
+  receiver_details_shared: boolean;
+  can_share_receiver_details: boolean;
+  can_reveal_receiver_details: boolean;
+  receiver_details_required: boolean;
+  can_confirm_received: boolean;
+};
+
+export type ChatThread = {
+  items: ChatMessage[];
+  system_messages: ChatMessage[];
+  capabilities: ChatCapabilities;
+  disclaimer?: string;
+  next_cursor?: string | null;
 };

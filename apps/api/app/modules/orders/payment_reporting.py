@@ -103,4 +103,5 @@ class PaymentReportingMixin:
             if exc.code == "PAYMENT_REPORT_NOT_ALLOWED":
                 raise ApiError("ORDER_STATE_CONFLICT", status_code=409) from exc
             raise
+        self._require_payment_details_shared(order)  # type: ignore[attr-defined]
         return order

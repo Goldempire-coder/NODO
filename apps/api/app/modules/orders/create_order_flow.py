@@ -261,6 +261,8 @@ class OrderCreateFlow:
         return business
 
     def _validate_order_amount(self, *, payload: OrderCreateRequest, ad: AdRecord, business: BusinessRecord) -> None:
+        if payload.expected_rate_bs_per_usd is not None and payload.expected_rate_bs_per_usd != ad.rate_bs_per_usd:
+            raise ApiError("ORDER_QUOTE_CHANGED", status_code=409)
         if payload.amount_usd < ad.amount_min_usd or payload.amount_usd > ad.amount_max_usd:
             raise ApiError("AMOUNT_OUT_OF_RANGE", status_code=400)
         if payload.amount_usd < business.min_order_amount_usd:
@@ -323,5 +325,11 @@ class OrderCreateFlow:
         return (
             order.ad_id == payload.ad_id
             and order.amount_usd == payload.amount_usd
-            and order.receiver_data_json == payload.receiver_data.model_dump()
+            and (
+                payload.expected_rate_bs_per_usd is None
+                or order.rate_snapshot == payload.expected_rate_bs_per_usd
+            )
+            and order.receiver_data_json == (
+                payload.receiver_data.model_dump() if payload.receiver_data is not None else {}
+            )
         )

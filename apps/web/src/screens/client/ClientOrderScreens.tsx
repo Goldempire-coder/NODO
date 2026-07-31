@@ -2,11 +2,19 @@ import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import { useEffect, useState } from "react";
 import { AttentionBadge } from "../../components/nodo/SurfaceAttention";
 import { formatOrderMethodLine } from "../../constants/paymentLabels";
-import { sanitizeDecimalInput } from "../../lib/numericInput";
 import type { OrderCancelReason } from "../../types/orders";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
 
-const CHAT_STATUSES = ["payment_reported", "payment_rejected", "payment_confirmed", "delivered", "disputed"];
+const CHAT_STATUSES = ["waiting_payment", "payment_reported", "payment_rejected", "payment_confirmed", "delivered", "disputed"];
+
+function quotedAmountBs(amountUsd: string, rateBsPerUsd: string): string {
+  const amount = Number(amountUsd);
+  const rate = Number(rateBsPerUsd);
+  if (!Number.isFinite(amount) || !Number.isFinite(rate)) {
+    return "0.00";
+  }
+  return (amount * rate).toFixed(2);
+}
 
 export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
   const {
@@ -19,19 +27,17 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
     extendOrder,
     extendingOrderId,
     loadingOrders,
-    loadingPaymentInstructions,
     myOrders,
     openingChatOrderId,
     openingOrderId,
     openOrderChat,
     openOrderDetail,
     openClientSupport,
-    openPaymentInstructions,
     orderForm,
     selectedAd,
     selectedOrder,
     selectedRatingStars,
-    setOrderForm,
+    setView,
     setSelectedRatingStars,
     submitOrderRating,
     submittingRatingOrderId,
@@ -52,35 +58,24 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
     <>
       {view === "create-order" ? (
         <div className="business-card">
-          <Text className="business-card__label">Datos del receptor</Text>
+          <Text className="business-card__label">Confirmar negociacion</Text>
           {selectedAd ? (
             <>
-              <Text>{displayBusinessName(selectedAd)}</Text>
-              <Text>Rango {selectedAd.amount_min_usd}-{selectedAd.amount_max_usd} USD</Text>
-              <Text>Tasa {selectedAd.rate_bs_per_usd} Bs/USD</Text>
-              <label className="business-field">
-                <span>Monto USD</span>
-                <input value={orderForm.amount_usd} onChange={(event) => setOrderForm((current) => ({ ...current, amount_usd: sanitizeDecimalInput(event.target.value, { maxDecimals: 2, maxIntegerDigits: 6 }) }))} inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" />
-              </label>
-              <label className="business-field">
-                <span>Banco receptor</span>
-                <input value={orderForm.bank} onChange={(event) => setOrderForm((current) => ({ ...current, bank: event.target.value }))} />
-              </label>
-              <label className="business-field">
-                <span>Telefono receptor</span>
-                <input value={orderForm.phone} onChange={(event) => setOrderForm((current) => ({ ...current, phone: event.target.value }))} />
-              </label>
-              <label className="business-field">
-                <span>Documento receptor</span>
-                <input value={orderForm.document} onChange={(event) => setOrderForm((current) => ({ ...current, document: event.target.value }))} />
-              </label>
-              <label className="business-field">
-                <span>Titular receptor</span>
-                <input value={orderForm.holder} onChange={(event) => setOrderForm((current) => ({ ...current, holder: event.target.value }))} />
-              </label>
-              <Button mode="filled" stretched disabled={creatingOrder || !orderForm.amount_usd || !orderForm.bank || !orderForm.phone || !orderForm.document || !orderForm.holder} onClick={() => void createOrder()}>
-                {creatingOrder ? "Creando..." : "Crear orden"}
-              </Button>
+              <Title level="3" className="business-shell__title">{displayBusinessName(selectedAd)}</Title>
+              <div className="business-grid marketplace-confirmation">
+                <Text>Tasa: {selectedAd.rate_bs_per_usd} Bs/USD</Text>
+                <Text>Monto que entregas: {orderForm.amount_usd} USD</Text>
+                <Text>Monto que recibe: {quotedAmountBs(orderForm.amount_usd, selectedAd.rate_bs_per_usd)} Bs</Text>
+                <Text>Metodo: {formatOrderMethodLine(selectedAd.payment_method, selectedAd.delivery_method)}</Text>
+              </div>
+              <div className="business-shell__tabs">
+                <Button mode="outline" size="s" disabled={creatingOrder} onClick={() => setView("marketplace-detail")}>
+                  Volver
+                </Button>
+                <Button mode="filled" size="s" disabled={creatingOrder || !orderForm.amount_usd} onClick={() => void createOrder()}>
+                  {creatingOrder ? "Confirmando..." : "Confirmar negociacion"}
+                </Button>
+              </div>
             </>
           ) : (
             <Text>Selecciona un negocio disponible para crear una orden.</Text>
@@ -99,12 +94,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
               <Text>{selectedOrder.amount_usd} USD - {selectedOrder.amount_bs_calculated} Bs</Text>
               <Text>Tasa {selectedOrder.rate_snapshot} Bs/USD</Text>
               <Text>{formatOrderMethodLine(selectedOrder.payment_method_snapshot, selectedOrder.delivery_method_snapshot)}</Text>
-              <Text className="auth-entry__session-meta">Cuenta: {selectedOrder.payment_instructions_masked.account_masked || "masked"}</Text>
-              <Text className="auth-entry__session-meta">Receptor: {selectedOrder.receiver_data_masked.bank || "Banco"} - {selectedOrder.receiver_data_masked.phone || "masked"}</Text>
               <Text>Límite: {new Date(selectedOrder.payment_report_deadline_at).toLocaleString()}</Text>
-              <Button mode="filled" stretched disabled={loadingPaymentInstructions || selectedOrder.status !== "waiting_payment"} onClick={() => void openPaymentInstructions(selectedOrder.id)}>
-                {loadingPaymentInstructions ? "Cargando instrucciones..." : "Ver instrucciones de pago"}
-              </Button>
               <div className="business-shell__tabs">
                 <Button mode="outline" size="s" disabled={extendingOrderId === selectedOrder.id || selectedOrder.status !== "waiting_payment" || selectedOrder.extension_used} onClick={() => void extendOrder(selectedOrder.id)}>
                   {extendingOrderId === selectedOrder.id ? "Extendiendo..." : "Extender"}
@@ -270,7 +260,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
               );
             })}
           </div>
-          <Text className="auth-entry__session-meta">El chat se activa cuando la orden avanza a una etapa operativa.</Text>
+          <Text className="auth-entry__session-meta">El chat se abre desde que confirmas la negociacion.</Text>
         </div>
       ) : null}
     </>

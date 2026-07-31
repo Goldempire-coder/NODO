@@ -51,7 +51,8 @@ Request:
 Allowed actors:
 
 - Remitter owner.
-- Business owner only for own business order and only when state policy allows future correction/dispute flow.
+- Business owner for its own business order.
+- Both participants may open from each allowed previous order state below.
 
 Allowed previous order statuses:
 
@@ -75,6 +76,13 @@ Credit/ad effects:
 - From `payment_rejected`: credits stay blocked, `ad.status = in_order`.
 - From `payment_confirmed`: credits already consumed, `ad.status = archived`.
 - From `delivered`: credits already consumed, `ad.status = archived`.
+
+Capacity/completion effects:
+
+- Operational capacity remains reserved while `orders.status = disputed`.
+- A dispute in `open|in_review` blocks manual and automatic completion.
+- Terminal admin resolution consumes capacity for `completed` or releases it
+  for `cancelled`, exactly once.
 
 Response:
 

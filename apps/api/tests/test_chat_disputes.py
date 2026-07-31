@@ -8,6 +8,7 @@ import time
 from datetime import timedelta
 from urllib.parse import urlencode
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -46,6 +47,7 @@ _set_env()
 from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.orders.receiver_details import receiver_payload_hash  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -198,12 +200,22 @@ def _report_payment(client: TestClient, remitter: dict, order: dict, *, key: str
     return response.json()["data"]
 
 
+def _share_zelle(client: TestClient, owner: dict, order_id: str, *, key: str = "share_zelle") -> dict:
+    response = client.post(
+        f"/api/v1/orders/{order_id}/share-zelle",
+        headers=_headers(owner, key),
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["data"]
+
+
 def _seed_reported_order(client: TestClient, *, owner_id: int = 800, remitter_id: int = 801) -> tuple[dict, dict, dict, dict, dict]:
     owner = _login(client, owner_id, f"owner_{owner_id}")
     business, method_id = _approved_business_with_method(client, owner, credits=2)
     ad = _create_ad(client, owner, method_id, key=f"ad_{owner_id}")
     remitter = _login(client, remitter_id, f"remitter_{remitter_id}")
     order = _create_order(client, remitter, ad["id"], key=f"order_{remitter_id}")
+    _share_zelle(client, owner, order["id"], key=f"share_zelle_{owner_id}_{remitter_id}")
     _report_payment(client, remitter, order, key=f"report_{remitter_id}")
     return owner, business, ad, remitter, order
 
@@ -229,6 +241,21 @@ def _reject_payment(client: TestClient, owner: dict, order_id: str, key: str) ->
 
 
 def _mark_delivered(client: TestClient, owner: dict, order_id: str, key: str) -> dict:
+    order = client.app.state.order_repository.get_by_id(order_id)
+    payload = {
+        "bank": "0102",
+        "phone": "+584121234567",
+        "document": "V12345678",
+        "holder": "Receptor Test",
+    }
+    client.app.state.order_repository.create_receiver_details_atomically(
+        order_id=order.id,
+        remitter_user_id=order.remitter_user_id,
+        payload=payload,
+        payload_hash=receiver_payload_hash(payload),
+        request_id=f"fixture_receiver_{order_id}",
+        audit_metadata={"schema": "pago_movil_receiver_v1", "fixture": True},
+    )
     response = client.post(
         f"/api/v1/business/orders/{order_id}/mark-delivered",
         headers={**_headers(owner, key), "Content-Type": "application/json"},
@@ -244,6 +271,338 @@ def _event_types(client: TestClient) -> list[str]:
 
 def _admin_notifications(client: TestClient) -> list:
     return list(client.app.state.admin_notification_repository.notifications.values())
+
+
+def test_slice_50a_waiting_payment_chat_is_immediate_virtual_and_private() -> None:
+    client = _client()
+    owner = _login(client, 7801, "slice50a_chat_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="slice50a_chat_ad")
+    remitter = _login(client, 7802, "slice50a_chat_client")
+    other = _login(client, 7803, "slice50a_chat_other")
+    order = _create_order(client, remitter, ad["id"], key="slice50a_chat_order")
+
+    client_chat = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_slice50a_client_chat"),
+    )
+    business_chat = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(owner, "req_slice50a_business_chat"),
+    )
+    foreign_read = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(other, "req_slice50a_foreign_chat"),
+    )
+    foreign_write = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(other, "slice50a_foreign_write"), "Content-Type": "application/json"},
+        json={"body": "No pertenezco a esta orden", "attachment_ids": []},
+    )
+
+    assert client_chat.status_code == 200, client_chat.text
+    assert business_chat.status_code == 200, business_chat.text
+    assert foreign_read.status_code == 404
+    assert foreign_write.status_code == 404
+    client_data = client_chat.json()["data"]
+    business_data = business_chat.json()["data"]
+    assert client_data["items"] == []
+    assert client_data["system_messages"] == [
+        {
+            "id": f"system:negotiation-created:{order['id']}",
+            "order_id": order["id"],
+            "sender_role": "system",
+            "body": (
+                "Negociación creada. Coordinen por aquí. "
+                "No envíes Zelle hasta que el negocio comparta sus datos."
+            ),
+            "visibility": "parties",
+            "status": "visible",
+            "attachments": [],
+            "created_at": order["created_at"],
+        }
+    ]
+    assert client_data["capabilities"]["can_send_message"] is True
+    assert client_data["capabilities"]["payment_details_shared"] is False
+    assert client_data["capabilities"]["can_report_payment"] is False
+    assert business_data["capabilities"]["can_send_message"] is True
+    assert business_data["capabilities"]["can_share_zelle"] is True
+    assert not any(
+        event.event_type == "message_created"
+        and event.resource_id == f"system:negotiation-created:{order['id']}"
+        for event in client.app.state.audit_writer.events
+    )
+
+
+@pytest.mark.parametrize(
+    ("role", "telegram_id"),
+    [("admin", 7804), ("super_admin", 7805), ("support", 7806)],
+)
+def test_waiting_payment_chat_body_is_hidden_from_internal_roles(role: str, telegram_id: int) -> None:
+    client = _client()
+    owner = _login(client, telegram_id + 100, f"private_chat_owner_{role}")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key=f"private_chat_ad_{role}")
+    remitter = _login(client, telegram_id + 200, f"private_chat_client_{role}")
+    order = _create_order(client, remitter, ad["id"], key=f"private_chat_order_{role}")
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, f"private_chat_message_{role}"), "Content-Type": "application/json"},
+        json={"body": "Mensaje privado previo al pago", "attachment_ids": []},
+    )
+    internal_user = _login(client, telegram_id, f"private_chat_{role}")
+    client.app.state.user_repository.set_user_role(internal_user["user"]["id"], role)
+
+    response = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(internal_user, f"req_private_chat_{role}"),
+    )
+
+    assert created.status_code == 201, created.text
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "ORDER_NOT_FOUND"
+
+
+def test_waiting_payment_chat_body_remains_available_to_direct_participants() -> None:
+    client = _client()
+    owner = _login(client, 7810, "private_chat_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="private_chat_participant_ad")
+    remitter = _login(client, 7811, "private_chat_client")
+    order = _create_order(client, remitter, ad["id"], key="private_chat_participant_order")
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "private_chat_participant_message"), "Content-Type": "application/json"},
+        json={"body": "Mensaje visible solo a participantes", "attachment_ids": []},
+    )
+
+    client_read = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_private_chat_client_read"),
+    )
+    business_read = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(owner, "req_private_chat_business_read"),
+    )
+
+    assert created.status_code == 201, created.text
+    assert client_read.status_code == 200, client_read.text
+    assert business_read.status_code == 200, business_read.text
+    assert client_read.json()["data"]["items"][0]["body"] == "Mensaje visible solo a participantes"
+    assert business_read.json()["data"]["items"][0]["body"] == "Mensaje visible solo a participantes"
+
+
+@pytest.mark.parametrize(
+    ("role", "telegram_id"),
+    [("admin", 7820), ("super_admin", 7821), ("support", 7822)],
+)
+def test_internal_roles_keep_existing_chat_read_access_after_payment_report(
+    role: str,
+    telegram_id: int,
+) -> None:
+    client = _client()
+    owner = _login(client, telegram_id + 100, f"reported_chat_owner_{role}")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key=f"reported_chat_ad_{role}")
+    remitter = _login(client, telegram_id + 200, f"reported_chat_client_{role}")
+    order = _create_order(client, remitter, ad["id"], key=f"reported_chat_order_{role}")
+    _share_zelle(client, owner, order["id"], key=f"reported_chat_share_{role}")
+    _report_payment(client, remitter, order, key=f"reported_chat_payment_{role}")
+    internal_user = _login(client, telegram_id, f"reported_chat_{role}")
+    client.app.state.user_repository.set_user_role(internal_user["user"]["id"], role)
+
+    response = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(internal_user, f"req_reported_chat_{role}"),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["items"]
+
+
+def test_slice_50a_business_share_zelle_is_owner_only_deduped_and_safe() -> None:
+    client = _client()
+    owner = _login(client, 7811, "slice50a_share_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="slice50a_share_ad")
+    remitter = _login(client, 7812, "slice50a_share_client")
+    other_owner = _login(client, 7813, "slice50a_other_owner")
+    _approved_business_with_method(client, other_owner, credits=0)
+    order = _create_order(client, remitter, ad["id"], key="slice50a_share_order")
+
+    client_attempt = client.post(
+        f"/api/v1/orders/{order['id']}/share-zelle",
+        headers=_headers(remitter, "slice50a_share_client_attempt"),
+    )
+    foreign_attempt = client.post(
+        f"/api/v1/orders/{order['id']}/share-zelle",
+        headers=_headers(other_owner, "slice50a_share_foreign_attempt"),
+    )
+    first = client.post(
+        f"/api/v1/orders/{order['id']}/share-zelle",
+        headers=_headers(owner, "slice50a_share_once"),
+    )
+    replay = client.post(
+        f"/api/v1/orders/{order['id']}/share-zelle",
+        headers=_headers(owner, "slice50a_share_once"),
+    )
+    second_key = client.post(
+        f"/api/v1/orders/{order['id']}/share-zelle",
+        headers=_headers(owner, "slice50a_share_second_key"),
+    )
+    client_chat = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_slice50a_shared_chat"),
+    )
+
+    assert client_attempt.status_code == 404
+    assert foreign_attempt.status_code == 404
+    assert first.status_code == 201, first.text
+    assert replay.status_code == 201, replay.text
+    assert second_key.status_code == 201, second_key.text
+    message_id = first.json()["data"]["message"]["id"]
+    assert replay.json()["data"]["message"]["id"] == message_id
+    assert second_key.json()["data"]["message"]["id"] == message_id
+    assert "owner@example.com" in first.json()["data"]["message"]["body"]
+    actual_messages = [
+        message
+        for message in client.app.state.chat_repository.messages.values()
+        if message.order_id == order["id"]
+    ]
+    assert len(actual_messages) == 1
+    capabilities = client_chat.json()["data"]["capabilities"]
+    assert capabilities["payment_details_shared"] is True
+    assert capabilities["can_report_payment"] is True
+    assert _admin_notifications(client) == []
+    audit_text = json.dumps(
+        [event.__dict__ for event in client.app.state.audit_writer.events],
+        default=str,
+    )
+    assert "owner@example.com" not in audit_text
+    assert business["id"] in audit_text
+
+
+def test_slice_50a_active_chat_lists_latest_window_with_shared_zelle_visible() -> None:
+    client = _client()
+    owner = _login(client, 7814, "slice50a_latest_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="slice50a_latest_ad")
+    remitter = _login(client, 7815, "slice50a_latest_client")
+    order = _create_order(client, remitter, ad["id"], key="slice50a_latest_order")
+
+    repository = client.app.state.chat_repository
+    created_ids: list[str] = []
+    for index in range(51):
+        sender = remitter if index % 2 == 0 else owner
+        message = repository.create_message(
+            order_id=order["id"],
+            sender_user_id=sender["user"]["id"],
+            sender_role="remitter" if index % 2 == 0 else "business_owner",
+            body=f"Mensaje previo {index + 1}",
+            idempotency_key=f"slice50a_latest_message_{index + 1}",
+        )
+        created_ids.append(message.id)
+
+    shared = _share_zelle(
+        client,
+        owner,
+        order["id"],
+        key="slice50a_latest_share_zelle",
+    )
+    shared_message_id = shared["message"]["id"]
+    client_chat = client.get(
+        f"/api/v1/orders/{order['id']}/messages?limit=25",
+        headers=_bearer(remitter, "req_slice50a_latest_client"),
+    )
+    business_chat = client.get(
+        f"/api/v1/orders/{order['id']}/messages?limit=50",
+        headers=_bearer(owner, "req_slice50a_latest_business"),
+    )
+
+    assert client_chat.status_code == 200, client_chat.text
+    assert business_chat.status_code == 200, business_chat.text
+    client_data = client_chat.json()["data"]
+    business_data = business_chat.json()["data"]
+    assert len(client_data["items"]) == 25
+    assert len(business_data["items"]) == 50
+    assert client_data["items"][-1]["id"] == shared_message_id
+    assert business_data["items"][-1]["id"] == shared_message_id
+    assert shared_message_id in {item["id"] for item in client_data["items"]}
+    assert shared_message_id in {item["id"] for item in business_data["items"]}
+    assert client_data["capabilities"]["can_report_payment"] is True
+    assert client_data["next_cursor"] is not None
+    assert [item["created_at"] for item in client_data["items"]] == sorted(
+        item["created_at"] for item in client_data["items"]
+    )
+
+    older_chat = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        params={"limit": 25, "cursor": client_data["next_cursor"]},
+        headers=_bearer(remitter, "req_slice50a_older_client"),
+    )
+    assert older_chat.status_code == 200, older_chat.text
+    older_ids = {item["id"] for item in older_chat.json()["data"]["items"]}
+    assert shared_message_id not in older_ids
+    assert created_ids[-1] not in older_ids
+
+
+def test_slice_50a_manual_configured_zelle_unlocks_payment_without_evasion_alert() -> None:
+    client = _client()
+    owner = _login(client, 7821, "slice50a_manual_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="slice50a_manual_ad")
+    remitter = _login(client, 7822, "slice50a_manual_client")
+    order = _create_order(client, remitter, ad["id"], key="slice50a_manual_order")
+
+    message = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(owner, "slice50a_manual_zelle"), "Content-Type": "application/json"},
+        json={
+            "body": "Puedes enviar al Zelle owner@example.com. Titular Owner Test.",
+            "attachment_ids": [],
+        },
+    )
+    client_chat = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_slice50a_manual_list"),
+    )
+
+    assert message.status_code == 201, message.text
+    assert client_chat.json()["data"]["capabilities"]["can_report_payment"] is True
+    assert _admin_notifications(client) == []
+    assert "order_chat_off_platform_solicitation_detected" not in _event_types(client)
+
+
+def test_slice_50a_similar_external_contact_does_not_unlock_or_bypass_moderation() -> None:
+    client = _client()
+    owner = _login(client, 7831, "slice50a_similar_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="slice50a_similar_ad")
+    remitter = _login(client, 7832, "slice50a_similar_client")
+    order = _create_order(client, remitter, ad["id"], key="slice50a_similar_order")
+
+    message = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(owner, "slice50a_similar_contact"), "Content-Type": "application/json"},
+        json={
+            "body": "Te paso notowner@example.com para coordinar.",
+            "attachment_ids": [],
+        },
+    )
+    client_chat = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_slice50a_similar_list"),
+    )
+
+    assert message.status_code == 201, message.text
+    assert client_chat.json()["data"]["capabilities"]["can_report_payment"] is False
+    notifications = _admin_notifications(client)
+    assert len(notifications) == 1
+    assert notifications[0].notification_type == "order_chat_off_platform_solicitation"
+    assert "notowner@example.com" not in json.dumps(
+        notifications[0].metadata_json,
+        default=str,
+    )
 
 
 def test_messages_are_order_scoped_idempotent_and_audited() -> None:
@@ -276,19 +635,25 @@ def test_messages_are_order_scoped_idempotent_and_audited() -> None:
     assert replay.json()["data"]["message"]["id"] == created.json()["data"]["message"]["id"]
     assert mismatch.status_code == 409
     assert business_list.status_code == 200, business_list.text
-    assert len(business_list.json()["data"]["items"]) == 1
+    assert any(
+        item["id"] == created.json()["data"]["message"]["id"]
+        for item in business_list.json()["data"]["items"]
+    )
     assert business_list.json()["data"]["capabilities"]["can_send_message"] is True
     assert foreign.status_code == 404
     assert unauthenticated.status_code in {401, 403}
     assert "message_created" in _event_types(client)
     assert "message_sent" not in _event_types(client)
-    combined = created.text + business_list.text + json.dumps([event.__dict__ for event in client.app.state.audit_writer.events], default=str)
-    assert "owner@example.com" not in combined
-    assert "account_value" not in combined
-    assert "storage_path" not in combined
-    assert BOT_TOKEN not in combined
-    assert JWT_SECRET not in combined
-    assert JWT_REFRESH_SECRET not in combined
+    audit_text = json.dumps(
+        [event.__dict__ for event in client.app.state.audit_writer.events],
+        default=str,
+    )
+    assert "owner@example.com" not in audit_text
+    assert "account_value" not in audit_text
+    assert "storage_path" not in audit_text
+    assert BOT_TOKEN not in audit_text
+    assert JWT_SECRET not in audit_text
+    assert JWT_REFRESH_SECRET not in audit_text
 
 
 def test_order_chat_messages_notify_only_the_counterparty_once_without_private_content() -> None:
@@ -351,6 +716,7 @@ def test_order_chat_messages_notify_only_the_counterparty_once_without_private_c
         job
         for job in client.app.state.job_repository.notification_jobs.values()
         if job.notification_type == "order_message_created_client"
+        and job.metadata_json.get("request_id") == "req_slice48b1_business_message"
     ]
     assert len(client_jobs) == 1
     client_job = client_jobs[0]
@@ -398,7 +764,10 @@ def test_business_chat_off_platform_phrase_is_allowed_but_alerts_admin_without_l
     assert notification.metadata_json["severity"] == "high"
     assert "fuera de la app" in notification.metadata_json["matched_phrase"]
     assert remitter_list.status_code == 200
-    assert remitter_list.json()["data"]["items"][0]["body"] == "La proxima vez por fuera te doy mejor tasa fuera de la app."
+    assert any(
+        item["body"] == "La proxima vez por fuera te doy mejor tasa fuera de la app."
+        for item in remitter_list.json()["data"]["items"]
+    )
     assert "order_chat_off_platform_solicitation_detected" in _event_types(client)
     detection_events = [event for event in audit_events if event.event_type == "order_chat_off_platform_solicitation_detected"]
     assert detection_events
@@ -507,7 +876,10 @@ def test_business_chat_alert_failure_does_not_block_saved_message(monkeypatch, c
 
     assert created.status_code == 201, created.text
     assert listed.status_code == 200, listed.text
-    assert listed.json()["data"]["items"][0]["body"] == "Hagamos directo conmigo."
+    assert any(
+        item["body"] == "Hagamos directo conmigo."
+        for item in listed.json()["data"]["items"]
+    )
     assert _admin_notifications(client) == []
     failure_record = next(record for record in caplog.records if record.message == "order_chat_off_platform_alert_failed")
     assert failure_record.order_id == order["id"]
@@ -527,7 +899,7 @@ def test_message_validation_and_state_rules_are_safe() -> None:
         json={"body": "", "attachment_ids": []},
     )
     stored = client.app.state.order_repository.get_by_id(order["id"])
-    client.app.state.order_repository.update_order(stored, status="waiting_payment")
+    client.app.state.order_repository.update_order(stored, status="cancelled")
     invalid_state = client.post(
         f"/api/v1/orders/{order['id']}/messages",
         headers={**_headers(owner, "state_msg"), "Content-Type": "application/json"},

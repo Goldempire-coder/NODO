@@ -29,6 +29,13 @@ contratos API y las pantallas a estas reglas antes de construir UI.
 - Slice 42B implementa `POST /api/v1/orders/{order_id}/rating` y una UI minima
   de 1 a 5 estrellas en la Mini App Cliente.
 - Rating y agregados de reputacion se guardan en una sola operacion segura.
+- `completion_reason = manual_confirmed` y
+  `completion_reason = auto_completed_after_24h` habilitan rating bajo las
+  mismas reglas, siempre que no exista disputa `open|in_review`.
+- `completion_reason = admin_resolved` puede habilitar rating solo cuando la
+  disputa asociada esta cerrada/resuelta y el contrato de rating lo permite.
+- Completion no crea rating automaticamente; el cliente conserva la accion
+  explicita de 1 a 5 estrellas.
 
 ## Metricas canonicas
 

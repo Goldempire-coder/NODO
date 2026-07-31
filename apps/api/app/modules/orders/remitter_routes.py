@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from pydantic import ValidationError
 
 from app.auth.dependencies import require_current_user, require_current_user_with_terms
+from app.core.errors import ApiError
 from app.modules.operations import require_platform_operational
 from app.modules.orders.helpers import activate_response_profile, reset_response_profile
 from app.modules.orders.routes_support import order_service, request_id
@@ -11,6 +13,7 @@ from app.modules.orders.schemas import (
     OrderCancelRequest,
     OrderCreateRequest,
     OrderRatingRequest,
+    ReceiverDetailsRequest,
 )
 from app.modules.users.models import UserRecord
 from app.shared.profiling import staging_response_profile_enabled
@@ -62,6 +65,66 @@ def my_orders(
 @router.get("/orders/{order_id}")
 def order_detail(order_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
     return {"data": order_service(request).detail(user=user, order_id=order_id, request_id=request_id(request)), "request_id": request_id(request)}
+
+
+@router.put("/orders/{order_id}/receiver-details")
+def share_receiver_details(
+    order_id: str,
+    payload: dict[str, object],
+    request: Request,
+    user: UserRecord = Depends(require_current_user_with_terms),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    try:
+        receiver_details = ReceiverDetailsRequest.model_validate(payload)
+    except ValidationError as exc:
+        raise ApiError("ORDER_RECEIVER_DETAILS_INVALID", status_code=400) from exc
+    return {
+        "data": order_service(request).share_receiver_details(
+            user=user,
+            order_id=order_id,
+            payload=receiver_details,
+            request_id=request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": request_id(request),
+    }
+
+
+@router.get("/orders/{order_id}/receiver-details")
+def reveal_receiver_details(
+    order_id: str,
+    request: Request,
+    response: Response,
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": order_service(request).reveal_receiver_details(
+            user=user,
+            order_id=order_id,
+            request_id=request_id(request),
+        ),
+        "request_id": request_id(request),
+    }
+
+
+@router.post("/orders/{order_id}/confirm-received")
+def confirm_order_received(
+    order_id: str,
+    request: Request,
+    user: UserRecord = Depends(require_current_user_with_terms),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": order_service(request).confirm_received(
+            user=user,
+            order_id=order_id,
+            request_id=request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": request_id(request),
+    }
 
 
 @router.post("/orders/{order_id}/rating", status_code=201)
