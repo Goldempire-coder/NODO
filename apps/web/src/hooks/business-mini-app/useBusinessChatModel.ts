@@ -1,5 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import {
+  mutateBusinessOrder as mutateBusinessOrderRequest
+} from "../../api/businessOrders";
+import {
   listOrderMessages,
   openOrderDispute as openOrderDisputeRequest,
   openOrderMessageAttachment,
@@ -38,6 +41,16 @@ function openTemporaryAttachmentUrl(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+function sortChatMessages(messages: ChatMessage[]) {
+  return [...messages].sort((left, right) => {
+    const timeDelta = new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+    if (timeDelta !== 0) {
+      return timeDelta;
+    }
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export function useBusinessChatModel({
   request,
   setBusy,
@@ -61,7 +74,9 @@ export function useBusinessChatModel({
     can_share_receiver_details: false,
     can_reveal_receiver_details: false,
     receiver_details_required: false,
-    can_confirm_received: false
+    can_confirm_received: false,
+    can_confirm_payment: false,
+    can_mark_delivered: false
   });
   const [chatBody, setChatBody] = useState("");
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
@@ -74,11 +89,13 @@ export function useBusinessChatModel({
   const [receiverDetails, setReceiverDetails] = useState<ReceiverDetails | null>(null);
   const [revealingReceiverDetails, setRevealingReceiverDetails] = useState(false);
   const [chatAttachmentLink, setChatAttachmentLink] = useState<ChatAttachmentLink | null>(null);
+  const [businessChatAction, setBusinessChatAction] = useState<"confirm-payment" | "mark-delivered" | null>(null);
   const sendingChatMessageRef = useRef(false);
   const uploadingChatAttachmentRef = useRef(false);
   const openingOrderDisputeRef = useRef(false);
   const sharingZelleRef = useRef(false);
   const revealingReceiverDetailsRef = useRef(false);
+  const businessChatActionRef = useRef(false);
   const refreshingChatRef = useRef(false);
   const chatOrderIdRef = useRef(chatOrderId);
   chatOrderIdRef.current = chatOrderId;
@@ -90,7 +107,7 @@ export function useBusinessChatModel({
     try {
       const data = await listOrderMessages<ChatThread>(request, orderId, 50);
       setChatOrderId(orderId);
-      setChatMessages([...data.system_messages, ...data.items]);
+      setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       setChatAttachments([]);
       setChatAttachmentLink(null);
@@ -111,7 +128,9 @@ export function useBusinessChatModel({
         can_share_receiver_details: false,
         can_reveal_receiver_details: false,
         receiver_details_required: false,
-        can_confirm_received: false
+        can_confirm_received: false,
+        can_confirm_payment: false,
+        can_mark_delivered: false
       });
       setReceiverDetails(null);
       setChatAttachmentLink(null);
@@ -136,7 +155,7 @@ export function useBusinessChatModel({
       if (chatOrderIdRef.current !== targetOrderId) {
         return false;
       }
-      setChatMessages([...data.system_messages, ...data.items]);
+      setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       return true;
     } catch (error) {
@@ -302,7 +321,56 @@ export function useBusinessChatModel({
     }
   }, [chatCapabilities.can_reveal_receiver_details, chatOrderId, request, setNotice]);
 
+  const mutateBusinessChatOrder = useCallback(async (action: "confirm-payment" | "mark-delivered") => {
+    const targetOrderId = chatOrderIdRef.current;
+    if (!targetOrderId || businessChatActionRef.current) {
+      return;
+    }
+    if (action === "confirm-payment" && !chatCapabilities.can_confirm_payment) {
+      return;
+    }
+    if (action === "mark-delivered" && !chatCapabilities.can_mark_delivered) {
+      return;
+    }
+    businessChatActionRef.current = true;
+    setBusinessChatAction(action);
+    const idempotencyScope = `business_chat_${action}_${targetOrderId}`;
+    try {
+      await mutateBusinessOrderRequest(
+        request,
+        targetOrderId,
+        action,
+        undefined,
+        getIdempotencyKey(idempotencyScope, { orderId: targetOrderId, action })
+      );
+      clearIdempotencyKey(idempotencyScope);
+      await refreshChat({ silent: true });
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos operar la orden.");
+    } finally {
+      businessChatActionRef.current = false;
+      setBusinessChatAction(null);
+    }
+  }, [
+    chatCapabilities.can_confirm_payment,
+    chatCapabilities.can_mark_delivered,
+    clearIdempotencyKey,
+    getIdempotencyKey,
+    refreshChat,
+    request,
+    setNotice
+  ]);
+
+  const confirmBusinessPaymentInChat = useCallback(async () => {
+    await mutateBusinessChatOrder("confirm-payment");
+  }, [mutateBusinessChatOrder]);
+
+  const markBusinessDeliveredInChat = useCallback(async () => {
+    await mutateBusinessChatOrder("mark-delivered");
+  }, [mutateBusinessChatOrder]);
+
   return {
+    businessChatAction,
     chatAttachments,
     chatBody,
     chatCapabilities,
@@ -320,6 +388,8 @@ export function useBusinessChatModel({
     receiverDetails,
     revealReceiverDetails,
     revealingReceiverDetails,
+    confirmBusinessPaymentInChat,
+    markBusinessDeliveredInChat,
     sendChatMessage,
     sendingChatMessage,
     shareConfiguredZelle,

@@ -90,6 +90,8 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     chatCapabilities,
     chatMessages,
     chatOrderId,
+    businessChatAction,
+    confirmBusinessPaymentInChat,
     disputeReason,
     dismissChatAttachmentLink,
     openChatAttachment,
@@ -100,6 +102,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     receiverDetails,
     revealReceiverDetails,
     revealingReceiverDetails,
+    markBusinessDeliveredInChat,
     sendChatMessage,
     sendingChatMessage,
     shareConfiguredZelle,
@@ -245,6 +248,19 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
         </button>
       ) : null}
 
+      {chatCapabilities.can_confirm_payment ? (
+        <div className="business-order-chat-inline-actions" aria-label="Confirmar Zelle recibido">
+          <button
+            className="business-order-chat-payment-action"
+            type="button"
+            disabled={businessChatAction === "confirm-payment"}
+            onClick={() => void confirmBusinessPaymentInChat()}
+          >
+            {businessChatAction === "confirm-payment" ? "Confirmando..." : "Zelle recibido"}
+          </button>
+        </div>
+      ) : null}
+
       {chatCapabilities.receiver_details_required ? (
         <Text className="auth-entry__session-meta business-order-chat-note">
           Pago Movil pendiente. El cliente debe compartirlo desde esta orden.
@@ -270,6 +286,19 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
             </button>
           ) : null}
         </article>
+      ) : null}
+
+      {chatCapabilities.can_mark_delivered ? (
+        <div className="business-order-chat-inline-actions" aria-label="Marcar Pago Movil enviado">
+          <button
+            className="business-order-chat-payment-action"
+            type="button"
+            disabled={businessChatAction === "mark-delivered"}
+            onClick={() => void markBusinessDeliveredInChat()}
+          >
+            {businessChatAction === "mark-delivered" ? "Marcando..." : "Pago Movil enviado"}
+          </button>
+        </div>
       ) : null}
 
       <form

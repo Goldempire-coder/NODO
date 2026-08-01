@@ -417,6 +417,42 @@ def test_report_zelle_valid_changes_state_without_consuming_credits_or_changing_
     assert JWT_REFRESH_SECRET not in combined
 
 
+def test_slice_50c_zelle_report_accepts_only_locked_amount_and_proof() -> None:
+    client = _client()
+    business, ad, remitter, order = _seed_order(client, owner_id=632, remitter_id=633)
+    wallet_before = client.app.state.ad_repository.get_wallet(business["id"])
+    evidence = _upload_evidence(
+        client,
+        remitter,
+        order["id"],
+        key="slice50c_zelle_evidence_only",
+        content=b"slice50c-zelle-proof",
+    )
+
+    report = client.post(
+        f"/api/v1/orders/{order['id']}/payment-report",
+        headers={**_headers(remitter, "slice50c_zelle_report_minimal"), "Content-Type": "application/json"},
+        json={
+            "payment_type": "zelle",
+            "payment_amount": "50.00",
+            "proof_file_id": evidence["file"]["id"],
+            "pending_payment_report_id": evidence["pending_payment_report_id"],
+        },
+    )
+
+    assert report.status_code == 201, report.text
+    assert report.json()["data"]["order"]["status"] == "payment_reported"
+    assert report.json()["data"]["payment_report"]["payment_reference_masked"] is None
+    stored = client.app.state.order_repository.get_by_id(order["id"])
+    assert stored.status == "payment_reported"
+    assert stored.paid_reported_at is not None
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "in_order"
+    wallet_after = client.app.state.ad_repository.get_wallet(business["id"])
+    assert wallet_after.available_credits == wallet_before.available_credits
+    assert wallet_after.blocked_credits == wallet_before.blocked_credits
+    assert wallet_after.consumed_credits == wallet_before.consumed_credits
+
+
 def test_report_usdt_valid_invalid_method_missing_evidence_expired_and_foreign_failures() -> None:
     client = _client()
     _, _, remitter, usdt_order = _seed_order(client, method="usdt_trc20", owner_id=640, remitter_id=641)

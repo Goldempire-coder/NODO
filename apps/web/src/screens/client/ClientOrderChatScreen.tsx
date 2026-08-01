@@ -107,6 +107,9 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     openingOrderDispute,
     openChatAttachment,
     openPaymentReport,
+    paymentEvidence,
+    paymentInstructions,
+    paymentReportForm,
     confirmOrderReceived,
     confirmingOrderReceived,
     dismissChatAttachmentLink,
@@ -119,18 +122,27 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     setReceiverDetailsForm,
     shareReceiverDetails,
     sharingReceiverDetails,
+    submitPaymentReport,
+    submittingPaymentReport,
     setChatBody,
     setDisputeReason,
+    setPaymentReportForm,
+    uploadPaymentEvidence,
+    uploadingPaymentEvidence,
     uploadChatAttachment,
     uploadingChatAttachment
   } = model;
   const [composerFocused, setComposerFocused] = useState(false);
   const composerRef = useRef<HTMLFormElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const paymentEvidenceInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const canSend = chatCapabilities.can_send_message && !sendingChatMessage && !uploadingChatAttachment;
   const canSubmitMessage = canSend && (chatBody.trim().length > 0 || chatAttachments.length > 0);
   const selectedChatOrder = model.selectedOrder?.id === chatOrderId ? model.selectedOrder : null;
+  const paymentReportInChat = chatOrderId && paymentInstructions?.order.id === chatOrderId;
+  const paymentReportMethod = paymentInstructions?.payment_instructions.method_type || selectedChatOrder?.payment_method_snapshot;
+  const paymentReportAmount = paymentInstructions?.order.amount_usd || selectedChatOrder?.amount_usd;
   const composerPlaceholder = "Escribir mensaje...";
 
   useEffect(() => {
@@ -345,14 +357,65 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
       ) : null}
 
       {chatCapabilities.can_report_payment && chatOrderId ? (
-        <button
-          className="business-order-chat-payment-action"
-          type="button"
-          disabled={loadingPaymentInstructions}
-          onClick={() => void openPaymentReport(chatOrderId)}
-        >
-          {loadingPaymentInstructions ? "Abriendo pago..." : "Pago enviado"}
-        </button>
+        paymentReportInChat ? (
+          <div className="business-order-chat-actions" aria-label="Reportar pago enviado">
+            <strong>Pago enviado</strong>
+            <small>
+              Adjunta el comprobante. El monto bloqueado es {paymentReportAmount} USD.
+            </small>
+            {paymentReportMethod === "usdt_trc20" ? (
+              <label>
+                <span>Tx hash</span>
+                <input
+                  value={paymentReportForm.tx_hash}
+                  onChange={(event) => setPaymentReportForm((current) => ({ ...current, tx_hash: event.target.value }))}
+                />
+              </label>
+            ) : null}
+            <input
+              ref={paymentEvidenceInputRef}
+              className="business-support-file-input"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              disabled={uploadingPaymentEvidence || submittingPaymentReport}
+              type="file"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0] || null;
+                event.currentTarget.value = "";
+                void uploadPaymentEvidence(file);
+              }}
+            />
+            <div className="business-order-chat-inline-actions">
+              <button
+                className="business-order-chat-payment-action"
+                type="button"
+                disabled={uploadingPaymentEvidence || submittingPaymentReport}
+                onClick={() => paymentEvidenceInputRef.current?.click()}
+              >
+                {uploadingPaymentEvidence ? "Subiendo..." : paymentEvidence ? "Cambiar comprobante" : "Adjuntar imagen"}
+              </button>
+              <button
+                className="business-order-chat-payment-action"
+                type="button"
+                disabled={submittingPaymentReport || uploadingPaymentEvidence || !paymentEvidence}
+                onClick={() => void submitPaymentReport()}
+              >
+                {submittingPaymentReport ? "Enviando..." : "Enviar pago"}
+              </button>
+            </div>
+            {paymentEvidence ? (
+              <small>{paymentEvidence.mime_type} - {Math.max(1, Math.round(paymentEvidence.size_bytes / 1024))} KB</small>
+            ) : null}
+          </div>
+        ) : (
+          <button
+            className="business-order-chat-payment-action"
+            type="button"
+            disabled={loadingPaymentInstructions}
+            onClick={() => void openPaymentReport(chatOrderId)}
+          >
+            {loadingPaymentInstructions ? "Abriendo pago..." : "Pago enviado"}
+          </button>
+        )
       ) : selectedChatOrder?.status === "waiting_payment"
         && selectedChatOrder.payment_method_snapshot === "zelle"
         && !chatCapabilities.payment_details_shared ? (

@@ -1012,6 +1012,65 @@ def test_message_attachment_view_url_is_participant_only_and_does_not_expose_sto
     assert "message_attachment_viewed" in _event_types(client)
 
 
+def test_slice_50c_payment_report_appears_in_order_chat_with_proof_for_business() -> None:
+    client = _client()
+    owner = _login(client, 826, "owner_826")
+    _, method_id = _approved_business_with_method(client, owner, credits=2)
+    ad = _create_ad(client, owner, method_id, key="slice50c_chat_ad")
+    remitter = _login(client, 827, "remitter_827")
+    order = _create_order(client, remitter, ad["id"], key="slice50c_chat_order")
+    _share_zelle(client, owner, order["id"], key="slice50c_chat_share_zelle")
+    evidence = client.post(
+        f"/api/v1/orders/{order['id']}/payment-evidence",
+        headers=_headers(remitter, "slice50c_chat_payment_evidence"),
+        data={"file_type": "payment_evidence"},
+        files={"file": ("proof.png", b"slice50c-proof", "image/png")},
+    )
+    assert evidence.status_code == 201, evidence.text
+    evidence_data = evidence.json()["data"]
+    report = client.post(
+        f"/api/v1/orders/{order['id']}/payment-report",
+        headers={**_headers(remitter, "slice50c_chat_payment_report"), "Content-Type": "application/json"},
+        json={
+            "payment_type": "zelle",
+            "payment_amount": "50.00",
+            "proof_file_id": evidence_data["file"]["id"],
+            "pending_payment_report_id": evidence_data["pending_payment_report_id"],
+        },
+    )
+    assert report.status_code == 201, report.text
+
+    thread = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(owner, "req_slice50c_business_chat_after_report"),
+    )
+
+    assert thread.status_code == 200, thread.text
+    data = thread.json()["data"]
+    assert data["capabilities"]["can_confirm_payment"] is True
+    report_messages = [
+        message
+        for message in data["system_messages"]
+        if message["id"].startswith("system:payment-reported:")
+    ]
+    assert len(report_messages) == 1
+    assert "Cliente marco Pago enviado" in report_messages[0]["body"]
+    assert report_messages[0]["attachments"][0]["id"] == evidence_data["file"]["id"]
+    assert report_messages[0]["attachments"][0]["mime_type"] == "image/png"
+
+    view = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments/{evidence_data['file']['id']}/view-url",
+        headers=_headers(owner, "slice50c_business_view_payment_proof"),
+    )
+    assert view.status_code == 200, view.text
+    assert view.headers["Cache-Control"] == "private, no-store"
+    assert view.json()["data"]["download_filename"].endswith(".png")
+    serialized = thread.text + view.text + json.dumps([event.__dict__ for event in client.app.state.audit_writer.events], default=str)
+    assert "storage_path" not in serialized
+    assert "private/payment_evidence" not in serialized
+    assert "payment_evidence_viewed_from_chat" in _event_types(client)
+
+
 def test_open_dispute_from_payment_reported_keeps_credits_and_ad_state_and_enables_dispute_messages() -> None:
     client = _client()
     owner, business, ad, remitter, order = _seed_reported_order(client, owner_id=830, remitter_id=831)

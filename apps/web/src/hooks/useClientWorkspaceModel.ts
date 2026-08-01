@@ -83,7 +83,11 @@ export function useClientWorkspaceModel({
     openOrderChat: chatDisputes.openOrderChat,
     searchFreshForAmount: marketplace.searchFreshForAmount
   });
-  const paymentReport = usePaymentReportModel({ ...context, loadMyOrders: remitterOrders.loadMyOrders });
+  const paymentReport = usePaymentReportModel({
+    ...context,
+    loadMyOrders: remitterOrders.loadMyOrders,
+    refreshChatAfterPaymentReport: chatDisputes.refreshChat
+  });
   const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice, initialScope: "client_general" });
   const awareness = useSurfaceAttentionModel({
     enabled: !["welcome", "terms", "client-profile-setup"].includes(view),

@@ -9,9 +9,7 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
     openingChatOrderId,
     paymentEvidence,
     paymentInstructions,
-    paymentReportForm,
     selectedOrder,
-    setPaymentReportForm,
     submittingPaymentReport,
     submitPaymentReport,
     uploadingPaymentEvidence,
@@ -43,16 +41,8 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
               </label>
               {reportPaymentMethod === "zelle" ? (
                 <>
-                  <label className="business-field">
-                    <span>Referencia Zelle</span>
-                    <input value={paymentReportForm.payment_reference} onChange={(event) => setPaymentReportForm((current) => ({ ...current, payment_reference: event.target.value }))} />
-                  </label>
-                  <label className="business-field">
-                    <span>Nombre del remitente</span>
-                    <input value={paymentReportForm.payment_sender_name} onChange={(event) => setPaymentReportForm((current) => ({ ...current, payment_sender_name: event.target.value }))} />
-                  </label>
                   <label className="business-upload">
-                    <span>Comprobante privado</span>
+                    <span>Comprobante</span>
                     <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingPaymentEvidence} type="file" onChange={(event) => void uploadPaymentEvidence(event.target.files?.[0] || null)} />
                     {uploadingPaymentEvidence ? <small>Subiendo comprobante...</small> : paymentEvidence ? <small>{paymentEvidence.mime_type} - {paymentEvidence.size_bytes} bytes</small> : null}
                   </label>
@@ -61,7 +51,7 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
                 <>
                   <label className="business-field">
                     <span>Tx hash USDT TRC20</span>
-                    <input value={paymentReportForm.tx_hash} onChange={(event) => setPaymentReportForm((current) => ({ ...current, tx_hash: event.target.value }))} />
+                    <input value={model.paymentReportForm.tx_hash} onChange={(event) => model.setPaymentReportForm((current) => ({ ...current, tx_hash: event.target.value }))} />
                   </label>
                   <label className="business-upload">
                     <span>Comprobante opcional</span>

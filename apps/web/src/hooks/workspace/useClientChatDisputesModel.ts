@@ -10,7 +10,7 @@ import {
 } from "../../api/chat";
 import type { AuthenticatedRequest } from "../../api/client";
 import { confirmOrderReceived as confirmOrderReceivedRequest, shareOrderReceiverDetails } from "../../api/orders";
-import type { ChatAttachmentViewUrl, ChatThread } from "../../types/chat";
+import type { ChatAttachmentViewUrl, ChatMessage, ChatThread } from "../../types/chat";
 import type { OrderSummary, ReceiverDetailsInput, ReceiverDetailsMasked } from "../../types/orders";
 import { getTelegramWebApp } from "../../theme/telegramTheme";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
@@ -32,6 +32,16 @@ function openTemporaryAttachmentUrl(url: string) {
     // Telegram native link opening is best-effort; the visible fallback remains available.
   }
   window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function sortChatMessages(messages: ChatMessage[]) {
+  return [...messages].sort((left, right) => {
+    const timeDelta = new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+    if (timeDelta !== 0) {
+      return timeDelta;
+    }
+    return left.id.localeCompare(right.id);
+  });
 }
 
 export function useClientChatDisputesModel(state: ClientWorkspaceState & { request: AuthenticatedRequest }) {
@@ -82,7 +92,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     try {
       const data = await listOrderMessages<ChatThread>(request, orderId);
       setChatOrderId(orderId);
-      setChatMessages([...data.system_messages, ...data.items]);
+      setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       setChatAttachments([]);
       setChatBody("");
@@ -106,7 +116,9 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
         can_share_receiver_details: false,
         can_reveal_receiver_details: false,
         receiver_details_required: false,
-        can_confirm_received: false
+        can_confirm_received: false,
+        can_confirm_payment: false,
+        can_mark_delivered: false
       });
       setView("order-chat");
       setNotice(error instanceof Error ? error.message : "No logramos abrir el chat de esta orden.");
@@ -132,7 +144,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       if (chatOrderIdRef.current !== targetOrderId) {
         return false;
       }
-      setChatMessages([...data.system_messages, ...data.items]);
+      setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       recordActionCompleted("client_chat_refresh", "order-chat", startedAt);
       return true;

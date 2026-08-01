@@ -41,7 +41,9 @@ export function useClientWorkspaceState(user: PublicUser) {
     can_share_receiver_details: false,
     can_reveal_receiver_details: false,
     receiver_details_required: false,
-    can_confirm_received: false
+    can_confirm_received: false,
+    can_confirm_payment: false,
+    can_mark_delivered: false
   });
   const [chatBody, setChatBody] = useState("");
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);

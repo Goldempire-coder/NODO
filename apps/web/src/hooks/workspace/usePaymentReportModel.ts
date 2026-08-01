@@ -3,7 +3,6 @@
 import { useRef } from "react";
 import type { AuthenticatedRequest } from "../../api/client";
 import { getPaymentInstructions, submitOrderPaymentReport, uploadPaymentEvidence as uploadOrderPaymentEvidence } from "../../api/paymentReports";
-import { PAYMENT_COPY } from "../../constants/copy";
 import type { PaymentInstructions } from "../../types/payments";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
@@ -31,10 +30,19 @@ type PaymentReportState = Pick<
   | "setView"
 >;
 
-export function usePaymentReportModel(state: PaymentReportState & { request: AuthenticatedRequest; loadMyOrders: () => Promise<void> }) {
+type RefreshChatAfterPaymentReport = (options?: { silent?: boolean }) => Promise<boolean>;
+
+export function usePaymentReportModel(
+  state: PaymentReportState & {
+    request: AuthenticatedRequest;
+    loadMyOrders: () => Promise<void>;
+    refreshChatAfterPaymentReport: RefreshChatAfterPaymentReport;
+  }
+) {
   const {
     request,
     loadMyOrders,
+    refreshChatAfterPaymentReport,
     selectedOrder,
     chatOrderId,
     openingChatOrderId,
@@ -98,8 +106,7 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
         payment_amount: data.order.amount_usd,
         tx_hash: ""
       });
-      setView("report-payment");
-      setNotice(data.disclaimer || PAYMENT_COPY);
+      setNotice("");
       recordActionCompleted("client_payment_instructions_open", "report-payment", startedAt);
       return true;
     } catch (error) {
@@ -150,8 +157,8 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
       return;
     }
     const isZelle = paymentMethod === "zelle";
-    if (isZelle && (!paymentEvidence || !pendingPaymentReportId || !paymentReportForm.payment_reference || !paymentReportForm.payment_sender_name)) {
-      setNotice("Zelle requiere referencia, nombre y comprobante.");
+    if (isZelle && (!paymentEvidence || !pendingPaymentReportId)) {
+      setNotice("Zelle requiere comprobante.");
       return;
     }
     if (!isZelle && !paymentReportForm.tx_hash) {
@@ -169,9 +176,6 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
         isZelle
           ? {
               payment_type: "zelle",
-              payment_reference: paymentReportForm.payment_reference,
-              payment_sender_name: paymentReportForm.payment_sender_name,
-              payment_sender_account_masked: paymentReportForm.payment_sender_account_masked || undefined,
               payment_amount: lockedPaymentAmount,
               proof_file_id: paymentEvidence?.id,
               pending_payment_report_id: pendingPaymentReportId
@@ -199,8 +203,19 @@ export function usePaymentReportModel(state: PaymentReportState & { request: Aut
       setSelectedOrder((current) => (
         current?.id === orderId ? { ...current, status: data.order.status } : current
       ));
-      setView("my-orders");
-      setNotice(`${data.disclaimer} Estado: ${data.order.status}.`);
+      setPaymentInstructions(null);
+      setPaymentEvidence(null);
+      setPendingPaymentReportId(null);
+      setPaymentReportForm((current) => ({
+        ...current,
+        payment_reference: "",
+        payment_sender_name: "",
+        payment_sender_account_masked: "",
+        tx_hash: ""
+      }));
+      setView("order-chat");
+      setNotice("");
+      await refreshChatAfterPaymentReport({ silent: true });
       void loadMyOrders();
       recordActionCompleted("client_payment_report_submit", "report-payment", startedAt);
     } catch (error) {

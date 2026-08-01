@@ -100,9 +100,6 @@ class PaymentReportRequest(StrictRequestModel):
                 "tx_hash",
                 canonical_transaction_hash(self.tx_hash),
             )
-        if self.payment_type == "zelle":
-            if not self.payment_reference or not self.payment_sender_name:
-                raise ValueError("zelle report requires reference and sender name")
         if self.payment_type == "usdt_trc20":
             if not self.tx_hash or self.network != "TRC20":
                 raise ValueError("usdt_trc20 report requires tx_hash and TRC20 network")

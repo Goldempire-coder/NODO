@@ -62,6 +62,28 @@ def _message_attachment_filename(*, attachment) -> str:  # type: ignore[no-untyp
     return f"nodo-message-attachment-{attachment.id[:8]}{extension}"
 
 
+def _payment_evidence_attachment_payload(file) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    return {
+        "id": file.id,
+        "file_asset_id": file.id,
+        "file_type": file.file_type,
+        "mime_type": file.mime_type,
+        "size_bytes": file.size_bytes,
+        "created_at": file.created_at.isoformat(),
+    }
+
+
+def _payment_evidence_filename(*, file) -> str:  # type: ignore[no-untyped-def]
+    extension_by_mime = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "application/pdf": ".pdf",
+    }
+    extension = extension_by_mime.get(file.mime_type, "")
+    return f"nodo-payment-evidence-{file.id[:8]}{extension}"
+
+
 class ChatService:
     def __init__(self, *, settings: Settings, repository, order_repository, business_repository, audit_writer, rate_limiter, idempotency_store, storage, admin_notifications=None, notification_service=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
@@ -134,11 +156,10 @@ class ChatService:
             text=account_value,
         )
 
-    @staticmethod
-    def _system_messages(order: OrderRecord, cursor: str | None) -> list[dict[str, Any]]:
+    def _system_messages(self, order: OrderRecord, cursor: str | None) -> list[dict[str, Any]]:
         if cursor is not None:
             return []
-        return [
+        messages = [
             {
                 "id": f"system:negotiation-created:{order.id}",
                 "order_id": order.id,
@@ -150,6 +171,75 @@ class ChatService:
                 "created_at": order.created_at.isoformat(),
             }
         ]
+        report = self._orders.get_latest_payment_report_for_order(order.id)
+        if report is not None:
+            evidence = self._orders.list_payment_evidence_for_report(report.id)
+            messages.append(
+                {
+                    "id": f"system:payment-reported:{report.id}",
+                    "order_id": order.id,
+                    "sender_role": "system",
+                    "body": "Cliente marco Pago enviado. Revisa el comprobante adjunto.",
+                    "visibility": "parties",
+                    "status": "visible",
+                    "attachments": [_payment_evidence_attachment_payload(file) for file in evidence],
+                    "created_at": report.created_at.isoformat(),
+                }
+            )
+        if order.payment_confirmed_at is not None:
+            messages.append(
+                {
+                    "id": f"system:payment-confirmed:{order.id}",
+                    "order_id": order.id,
+                    "sender_role": "system",
+                    "body": "Negocio confirmo Zelle recibido. Sigue el Pago Movil dentro de este chat.",
+                    "visibility": "parties",
+                    "status": "visible",
+                    "attachments": [],
+                    "created_at": order.payment_confirmed_at.isoformat(),
+                }
+            )
+        receiver_details = self._orders.get_receiver_details(order.id)
+        if receiver_details is not None:
+            messages.append(
+                {
+                    "id": f"system:receiver-details-shared:{receiver_details.id}",
+                    "order_id": order.id,
+                    "sender_role": "system",
+                    "body": "Cliente compartio Pago Movil seguro.",
+                    "visibility": "parties",
+                    "status": "visible",
+                    "attachments": [],
+                    "created_at": receiver_details.shared_at.isoformat(),
+                }
+            )
+        if order.delivered_at is not None:
+            messages.append(
+                {
+                    "id": f"system:order-delivered:{order.id}",
+                    "order_id": order.id,
+                    "sender_role": "system",
+                    "body": "Negocio marco Pago Movil enviado. Cliente debe confirmar recepcion o abrir caso.",
+                    "visibility": "parties",
+                    "status": "visible",
+                    "attachments": [],
+                    "created_at": order.delivered_at.isoformat(),
+                }
+            )
+        if order.completed_at is not None:
+            messages.append(
+                {
+                    "id": f"system:order-completed:{order.id}",
+                    "order_id": order.id,
+                    "sender_role": "system",
+                    "body": "Negociacion completada.",
+                    "visibility": "parties",
+                    "status": "visible",
+                    "attachments": [],
+                    "created_at": order.completed_at.isoformat(),
+                }
+            )
+        return messages
 
     def _capabilities(self, *, user: UserRecord, order: OrderRecord) -> dict[str, bool]:
         payment_details_shared = self._payment_details_shared(order)
@@ -189,6 +279,13 @@ class ChatService:
             "can_confirm_received": user.role == "remitter"
             and user.status == "active"
             and order.status == "delivered",
+            "can_confirm_payment": user.role == "business_owner"
+            and user.status == "active"
+            and order.status == "payment_reported",
+            "can_mark_delivered": user.role == "business_owner"
+            and user.status == "active"
+            and order.status == "payment_confirmed"
+            and receiver_details_shared,
         }
 
     def list_messages(self, *, user: UserRecord, order_id: str, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
@@ -217,14 +314,20 @@ class ChatService:
         self._require_direct_participant(user, order)
         require_chat_read(user, order, self._business_owner_id(order))
         self._require_business_actor_access(user, order)
-        attachment = self._repository.get_attachment(_require_uuid(attachment_id, "MESSAGE_ATTACHMENT_NOT_FOUND"))
+        normalized_attachment_id = _require_uuid(attachment_id, "MESSAGE_ATTACHMENT_NOT_FOUND")
+        attachment = self._repository.get_attachment(normalized_attachment_id)
         if (
             attachment is None
             or attachment.order_id != order.id
             or attachment.message_id is None
             or attachment.status != "active"
         ):
-            raise ApiError("MESSAGE_ATTACHMENT_NOT_FOUND", status_code=404)
+            return self._payment_evidence_view_url(
+                user=user,
+                order=order,
+                file_id=normalized_attachment_id,
+                request_id=request_id,
+            )
         file = self._repository.get_file_asset(attachment.file_asset_id)
         if (
             file is None
@@ -253,6 +356,39 @@ class ChatService:
             "url": url,
             "expires_in_seconds": expires_in,
             "download_filename": _message_attachment_filename(attachment=attachment),
+        }
+
+    def _payment_evidence_view_url(self, *, user: UserRecord, order: OrderRecord, file_id: str, request_id: str) -> dict[str, Any]:
+        self._require_direct_participant(user, order)
+        file = self._orders.get_payment_evidence_file(file_id)
+        report = self._orders.get_latest_payment_report_for_order(order.id)
+        if (
+            file is None
+            or report is None
+            or file.resource_id != report.id
+            or (file.metadata_json or {}).get("order_id") != order.id
+        ):
+            raise ApiError("MESSAGE_ATTACHMENT_NOT_FOUND", status_code=404)
+        expires_in = min(self._settings.storage_signed_url_ttl_seconds, 300)
+        url = self._storage.signed_view_url(storage_path=file.storage_path, expires_in=expires_in)
+        self._audit.write(
+            event_type="payment_evidence_viewed_from_chat",
+            actor_user_id=user.id,
+            actor_role=user.role,
+            resource_type="payment_evidence",
+            resource_id=file.id,
+            request_id=request_id,
+            metadata_json={
+                "order_id": order.id,
+                "payment_report_id": report.id,
+                "mime_type": file.mime_type,
+                "size_bytes": file.size_bytes,
+            },
+        )
+        return {
+            "url": url,
+            "expires_in_seconds": expires_in,
+            "download_filename": _payment_evidence_filename(file=file),
         }
 
     def create_message(self, *, user: UserRecord, order_id: str, payload: MessageCreateRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:

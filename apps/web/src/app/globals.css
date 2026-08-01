@@ -866,6 +866,27 @@ textarea {
   background: rgb(6 18 34 / 64%);
 }
 
+.business-order-chat-actions > strong {
+  min-width: 0;
+  color: var(--nodo-text);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.business-order-chat-actions > small {
+  min-width: 0;
+  color: var(--nodo-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.business-order-chat-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
 .business-order-chat-actions label {
   min-width: 0;
   display: grid;
@@ -877,6 +898,17 @@ textarea {
 
 .business-order-chat-actions select {
   min-height: 34px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 10px;
+  background: rgb(3 12 24 / 78%);
+  color: var(--nodo-text);
+  font: inherit;
+  font-weight: 800;
+}
+
+.business-order-chat-actions input {
+  min-height: 34px;
+  min-width: 0;
   border: 1px solid var(--nodo-line);
   border-radius: 10px;
   background: rgb(3 12 24 / 78%);
@@ -922,6 +954,7 @@ textarea {
 .business-order-chat--typing .business-order-chat__summary small,
 .business-order-chat--typing > .business-order-chat-note,
 .business-order-chat--typing > .business-order-chat-actions,
+.business-order-chat--typing > .business-order-chat-inline-actions,
 .business-order-chat--typing > .business-order-chat-payment-action,
 .business-order-chat--typing > .business-order-chat-attachment-preview,
 .business-order-chat--typing > .business-order-chat-attachment-ready,

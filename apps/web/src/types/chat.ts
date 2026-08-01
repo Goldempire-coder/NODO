@@ -35,6 +35,8 @@ export type ChatCapabilities = {
   can_reveal_receiver_details: boolean;
   receiver_details_required: boolean;
   can_confirm_received: boolean;
+  can_confirm_payment: boolean;
+  can_mark_delivered: boolean;
 };
 
 export type ChatThread = {
