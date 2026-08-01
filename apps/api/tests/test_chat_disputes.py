@@ -392,6 +392,70 @@ def test_waiting_payment_chat_body_remains_available_to_direct_participants() ->
     assert business_read.json()["data"]["items"][0]["body"] == "Mensaje visible solo a participantes"
 
 
+def test_client_cancelled_order_keeps_chat_readable_closed_and_private_to_participants() -> None:
+    client = _client()
+    owner = _login(client, 7814, "cancelled_chat_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="cancelled_chat_ad")
+    remitter = _login(client, 7815, "cancelled_chat_client")
+    other = _login(client, 7816, "cancelled_chat_other")
+    admin = _login(client, 7817, "cancelled_chat_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    order = _create_order(client, remitter, ad["id"], key="cancelled_chat_order")
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "cancelled_chat_message"), "Content-Type": "application/json"},
+        json={"body": "Hola, voy a revisar esta cotizacion.", "attachment_ids": []},
+    )
+    cancelled = client.post(
+        f"/api/v1/orders/{order['id']}/cancel",
+        headers={**_headers(remitter, "cancelled_chat_order"), "Content-Type": "application/json"},
+        json={"reason": "choose_another_business", "payment_not_sent_confirmed": True},
+    )
+
+    business_read = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(owner, "req_cancelled_chat_business_read"),
+    )
+    client_read = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_cancelled_chat_client_read"),
+    )
+    admin_read = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(admin, "req_cancelled_chat_admin_read"),
+    )
+    foreign_read = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(other, "req_cancelled_chat_foreign_read"),
+    )
+    write_after_cancel = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(owner, "cancelled_chat_write"), "Content-Type": "application/json"},
+        json={"body": "Sigo escribiendo despues del cierre", "attachment_ids": []},
+    )
+
+    assert created.status_code == 201, created.text
+    assert cancelled.status_code == 200, cancelled.text
+    assert business_read.status_code == 200, business_read.text
+    assert client_read.status_code == 200, client_read.text
+    assert admin_read.status_code == 404
+    assert foreign_read.status_code == 404
+    assert write_after_cancel.status_code == 409
+    data = business_read.json()["data"]
+    assert data["order"]["status"] == "cancelled"
+    assert data["capabilities"]["can_send_message"] is False
+    assert data["capabilities"]["can_open_dispute"] is False
+    assert any(
+        message["id"] == f"system:order-cancelled:{order['id']}"
+        and "Cliente cancelo la negociacion" in message["body"]
+        for message in data["system_messages"]
+    )
+    combined = business_read.text + client_read.text
+    assert "storage_path" not in combined
+    assert "signed_url" not in combined
+
+
 @pytest.mark.parametrize(
     ("role", "telegram_id"),
     [("admin", 7820), ("super_admin", 7821), ("support", 7822)],

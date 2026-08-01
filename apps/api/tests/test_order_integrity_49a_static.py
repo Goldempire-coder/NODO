@@ -73,11 +73,10 @@ def test_slice_49a_frontend_exposes_structured_business_action_and_slice_50a_cha
     assert '"cannot-attend"' in hook
     assert "No puedo atender" in screen
     assert 'can_decline_before_payment' in screen
-    assert 'waiting_payment' in (
-        ROOT / "apps" / "api" / "app" / "modules" / "chat" / "policy.py"
-    ).read_text(encoding="utf-8").split("require_message_state", 1)[1].split(
-        "raise ApiError", 1
-    )[0]
+    chat_policy = (ROOT / "apps" / "api" / "app" / "modules" / "chat" / "policy.py").read_text(encoding="utf-8")
+    writable_states = chat_policy.split("WRITABLE_MESSAGE_STATES", 1)[1].split("}", 1)[0]
+    assert '"waiting_payment"' in writable_states
+    assert "require_message_write_state(order)" in chat_policy
     slice_50a_scope = (
         ROOT
         / "control_plane"

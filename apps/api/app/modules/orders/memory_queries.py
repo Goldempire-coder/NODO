@@ -20,11 +20,26 @@ class InMemoryOrderQueriesMixin:
         items = [order for order in self.orders.values() if order.remitter_user_id == remitter_user_id and order.status in statuses]  # type: ignore[attr-defined]
         return self._order_page(items=items, status=None, cursor=cursor, limit=limit)
 
-    def list_attention_for_business(self, *, business_id: str, statuses: set[str], limit: int) -> tuple[list[OrderRecord], bool]:
+    def list_attention_for_business(
+        self,
+        *,
+        business_id: str,
+        statuses: set[str],
+        limit: int,
+        cancel_reasons: set[str] | None = None,
+    ) -> tuple[list[OrderRecord], bool]:
         items = [
             order
             for order in self.orders.values()  # type: ignore[attr-defined]
-            if order.business_id == business_id and order.status in statuses
+            if order.business_id == business_id
+            and (
+                order.status in statuses
+                or (
+                    order.status == "cancelled"
+                    and cancel_reasons is not None
+                    and order.cancel_reason in cancel_reasons
+                )
+            )
         ]
         return self._attention_order_page(items=items, limit=limit)
 

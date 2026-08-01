@@ -136,6 +136,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
   const selectedChatOrder = model.selectedOrder?.id === chatOrderId ? model.selectedOrder : null;
   const paymentReportMethod = paymentInstructions?.payment_instructions.method_type || selectedChatOrder?.payment_method_snapshot;
   const paymentReportAmount = paymentInstructions?.order.amount_usd || selectedChatOrder?.amount_usd;
+  const chatIsTerminal = selectedChatOrder?.status === "cancelled" || selectedChatOrder?.status === "completed";
 
   useEffect(() => {
     if (!chatOrderId || model.view !== "order-chat") {
@@ -324,51 +325,57 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
           </Text>
         ) : null}
 
-      <form
-        ref={composerRef}
-        className="business-order-chat-composer"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void sendChatMessage();
-        }}
-      >
-        <button
-          className="business-support-clip"
-          type="button"
-          aria-label="Adjuntar comprobante o soporte"
-          disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <PaperclipIcon />
-        </button>
-        <textarea
-          className="business-order-chat-composer__input"
-          aria-label="Mensaje para negocio"
-          disabled={!chatCapabilities.can_send_message || sendingChatMessage}
-          maxLength={2000}
-          placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : "Escribir mensaje..."}
-          rows={2}
-          value={chatBody}
-          onBlur={blurComposer}
-          onChange={(event) => setChatBody(event.target.value)}
-          onFocus={focusComposer}
-        />
-        <input
-          ref={fileInputRef}
-          className="business-support-file-input"
-          accept="image/*,application/pdf"
-          disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
-          type="file"
-          onChange={(event) => {
-            const file = event.currentTarget.files?.[0] || null;
-            event.currentTarget.value = "";
-            void uploadChatAttachment(file);
+      {chatIsTerminal ? (
+        <Text className="auth-entry__session-meta business-order-chat-note">
+          Esta negociacion esta cerrada. El historial queda disponible como respaldo.
+        </Text>
+      ) : (
+        <form
+          ref={composerRef}
+          className="business-order-chat-composer"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void sendChatMessage();
           }}
-        />
-        <button className="business-support-send" type="submit" disabled={!canSubmitMessage}>
-          {sendingChatMessage ? "..." : "Enviar"}
-        </button>
-      </form>
+        >
+          <button
+            className="business-support-clip"
+            type="button"
+            aria-label="Adjuntar comprobante o soporte"
+            disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <PaperclipIcon />
+          </button>
+          <textarea
+            className="business-order-chat-composer__input"
+            aria-label="Mensaje para negocio"
+            disabled={!chatCapabilities.can_send_message || sendingChatMessage}
+            maxLength={2000}
+            placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : "Escribir mensaje..."}
+            rows={2}
+            value={chatBody}
+            onBlur={blurComposer}
+            onChange={(event) => setChatBody(event.target.value)}
+            onFocus={focusComposer}
+          />
+          <input
+            ref={fileInputRef}
+            className="business-support-file-input"
+            accept="image/*,application/pdf"
+            disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
+            type="file"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0] || null;
+              event.currentTarget.value = "";
+              void uploadChatAttachment(file);
+            }}
+          />
+          <button className="business-support-send" type="submit" disabled={!canSubmitMessage}>
+            {sendingChatMessage ? "..." : "Enviar"}
+          </button>
+        </form>
+      )}
 
       {chatAttachments.length || uploadingChatAttachment ? (
         <small className="business-order-chat-attachment-ready">
@@ -393,9 +400,9 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
             {openingOrderDispute ? "Abriendo..." : "Abrir caso"}
           </button>
         </div>
-      ) : (
+      ) : !chatIsTerminal ? (
         <Text className="auth-entry__session-meta business-order-chat-note">{CHAT_DISPUTE_COPY}</Text>
-      )}
+      ) : null}
     </section>
   );
 }

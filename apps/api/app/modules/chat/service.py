@@ -11,7 +11,7 @@ from app.core.logging import get_logger
 from app.modules.chat.moderation import detect_off_platform_solicitation
 from app.modules.businesses.access_control import evaluate_business_access
 from app.modules.chat.models import ALLOWED_ATTACHMENT_MIME_TYPES, MAX_ATTACHMENT_SIZE_BYTES, new_id
-from app.modules.chat.policy import require_chat_read, require_chat_write, require_message_state
+from app.modules.chat.policy import require_chat_read, require_chat_write, require_message_read_state, require_message_state
 from app.modules.chat.schemas import MessageCreateRequest
 from app.modules.notifications.chat_notifications import NoopChatNotificationService
 from app.modules.orders.models import OrderRecord
@@ -240,14 +240,47 @@ class ChatService:
                     "created_at": order.completed_at.isoformat(),
                 }
             )
+        if order.status == "cancelled":
+            body = "Negociacion cerrada antes de reportar pago."
+            if order.cancel_reason == "remitter_cancelled_before_payment":
+                body = "Cliente cancelo la negociacion antes de reportar pago. Esta orden esta cerrada."
+            elif order.cancel_reason == "payment_not_reported_in_time":
+                body = "La negociacion se cerro porque se acabo el tiempo para reportar pago."
+            elif order.cancel_reason == "business_unavailable":
+                body = "El negocio no pudo atender esta negociacion. Esta orden esta cerrada."
+            messages.append(
+                {
+                    "id": f"system:order-cancelled:{order.id}",
+                    "order_id": order.id,
+                    "sender_role": "system",
+                    "body": body,
+                    "visibility": "parties",
+                    "status": "visible",
+                    "attachments": [],
+                    "created_at": order.updated_at.isoformat(),
+                }
+            )
         return messages
 
     def _capabilities(self, *, user: UserRecord, order: OrderRecord) -> dict[str, bool]:
         payment_details_shared = self._payment_details_shared(order)
         receiver_details_shared = self._orders.has_receiver_details(order.id)
         waiting_payment = order.status == "waiting_payment"
+        can_message = (
+            user.role in {"remitter", "business_owner"}
+            and user.status == "active"
+            and order.status
+            in {
+                "waiting_payment",
+                "payment_reported",
+                "payment_rejected",
+                "payment_confirmed",
+                "delivered",
+                "disputed",
+            }
+        )
         return {
-            "can_send_message": user.role in {"remitter", "business_owner"} and user.status == "active",
+            "can_send_message": can_message,
             "can_open_dispute": user.role in {"remitter", "business_owner"}
             and order.status
             in {
@@ -295,7 +328,7 @@ class ChatService:
     def list_messages(self, *, user: UserRecord, order_id: str, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         order = self._order(order_id)
         self._rate_limit("list", user, order.id)
-        require_message_state(order)
+        require_message_read_state(order)
         require_chat_read(user, order, self._business_owner_id(order))
         self._require_business_actor_access(user, order)
         items, next_cursor = self._repository.list_messages(order_id=order.id, cursor=cursor, limit=limit)
@@ -315,7 +348,7 @@ class ChatService:
             raise ApiError("STORAGE_UNAVAILABLE", status_code=503)
         order = self._order(order_id)
         self._rate_limit("attachment_view", user, order.id)
-        require_message_state(order)
+        require_message_read_state(order)
         self._require_direct_participant(user, order)
         require_chat_read(user, order, self._business_owner_id(order))
         self._require_business_actor_access(user, order)

@@ -17,6 +17,9 @@ BUSINESS_ORDER_ATTENTION_STATUSES = {
     "payment_confirmed",
     "disputed",
 }
+BUSINESS_ORDER_CANCEL_ATTENTION_REASONS = {
+    "remitter_cancelled_before_payment",
+}
 CLIENT_ORDER_ATTENTION_STATUSES = {
     "waiting_payment",
     "payment_reported",
@@ -117,6 +120,7 @@ class SurfaceAttentionService:
             orders, orders_truncated = self._orders.list_attention_for_business(
                 business_id=business.id,
                 statuses=BUSINESS_ORDER_ATTENTION_STATUSES,
+                cancel_reasons=BUSINESS_ORDER_CANCEL_ATTENTION_REASONS,
                 limit=ATTENTION_PAGE_LIMIT,
             )
             support_requester_user_id = None
@@ -166,11 +170,7 @@ class SurfaceAttentionService:
                     order.status,
                     latest_order_messages[order.id].id if order.id in latest_order_messages else "no-message",
                 ),
-                "message": (
-                    f"La orden {order.public_order_code} requiere atencion."
-                    if surface == "business_mini_app"
-                    else f"Tu orden {order.public_order_code} tiene una actualizacion pendiente."
-                ),
+                "message": _order_attention_message(order=order, surface=surface),
                 "occurred_at": _max_iso(
                     order.updated_at,
                     latest_order_messages[order.id].created_at if order.id in latest_order_messages else None,
@@ -219,6 +219,14 @@ class SurfaceAttentionService:
 def _signature(*parts: str) -> str:
     payload = "\x1f".join(parts).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()[:32]
+
+
+def _order_attention_message(*, order, surface: str) -> str:  # type: ignore[no-untyped-def]
+    if surface == "business_mini_app":
+        if order.status == "cancelled" and order.cancel_reason == "remitter_cancelled_before_payment":
+            return f"La orden {order.public_order_code} fue cancelada por el cliente."
+        return f"La orden {order.public_order_code} requiere atencion."
+    return f"Tu orden {order.public_order_code} tiene una actualizacion pendiente."
 
 
 def _max_iso(first, second=None) -> str:  # type: ignore[no-untyped-def]

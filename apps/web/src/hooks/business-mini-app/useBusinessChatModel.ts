@@ -69,6 +69,7 @@ export function useBusinessChatModel({
   setView: (view: BusinessMiniAppView) => void;
 }) {
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
+  const [chatOrder, setChatOrder] = useState<BusinessOrderSummary | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatCapabilities, setChatCapabilities] = useState<ChatCapabilities>({
     can_send_message: false,
@@ -113,6 +114,7 @@ export function useBusinessChatModel({
     try {
       const data = await listOrderMessages<ChatThread<BusinessOrderSummary>>(request, orderId, 50);
       setChatOrderId(orderId);
+      setChatOrder(data.order);
       syncBusinessOrderFromChat(data.order);
       setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
@@ -124,6 +126,7 @@ export function useBusinessChatModel({
       setNotice("");
     } catch (error) {
       setChatOrderId(orderId);
+      setChatOrder(null);
       setChatMessages([]);
       setChatCapabilities({
         can_send_message: false,
@@ -163,6 +166,7 @@ export function useBusinessChatModel({
         return false;
       }
       syncBusinessOrderFromChat(data.order);
+      setChatOrder(data.order);
       setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       return true;
@@ -358,6 +362,7 @@ export function useBusinessChatModel({
       clearIdempotencyKey(idempotencyScope);
       const data = await listOrderMessages<ChatThread<BusinessOrderSummary>>(request, targetOrderId, 50);
       if (chatOrderIdRef.current === targetOrderId) {
+        setChatOrder(data.order);
         syncBusinessOrderFromChat(data.order);
         setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
         setChatCapabilities(data.capabilities);
@@ -397,6 +402,7 @@ export function useBusinessChatModel({
     chatCapabilities,
     chatAttachmentLink,
     chatMessages,
+    chatOrder,
     chatOrderId,
     disputeReason,
     dismissChatAttachmentLink,

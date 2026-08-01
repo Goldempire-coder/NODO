@@ -28,7 +28,8 @@ La respuesta contiene solo:
 - items con `kind`, `resource_id`, firma opaca de estado, copy generico y fecha;
 - flags `truncated.orders` y `truncated.support`.
 
-- Negocio: ordenes abiertas que requieren atencion y tickets `waiting_user`.
+- Negocio: ordenes abiertas que requieren atencion, cancelaciones hechas por el
+  cliente antes del reporte de pago y tickets `waiting_user`.
 - Cliente: ordenes que requieren accion y tickets `waiting_user`.
 - Las ordenes se filtran por ownership/estado y se limitan por
   `updated_at DESC, id DESC`, el mismo criterio operativo de `occurred_at`.

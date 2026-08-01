@@ -27,7 +27,29 @@ class PostgresOrderQueriesMixin:
         params: list[Any] = [remitter_user_id, list(statuses)]
         return self._query_order_page(sql=sql, params=params, status=None, cursor=cursor, limit=limit)
 
-    def list_attention_for_business(self, *, business_id: str, statuses: set[str], limit: int) -> tuple[list[OrderRecord], bool]:
+    def list_attention_for_business(
+        self,
+        *,
+        business_id: str,
+        statuses: set[str],
+        limit: int,
+        cancel_reasons: set[str] | None = None,
+    ) -> tuple[list[OrderRecord], bool]:
+        if cancel_reasons:
+            return self._query_attention_orders(
+                sql="""
+                    select * from orders
+                    where business_id = %s
+                      and (
+                          status = any(%s)
+                          or (status = 'cancelled' and cancel_reason = any(%s))
+                      )
+                    order by updated_at desc, id desc
+                    limit %s
+                """,
+                params=[business_id, sorted(statuses), sorted(cancel_reasons)],
+                limit=limit,
+            )
         return self._query_attention_orders(
             sql="""
                 select * from orders

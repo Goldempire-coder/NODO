@@ -48,6 +48,9 @@ function attachmentMeta(mimeType: string, sizeBytes: number): string {
 }
 
 function orderCode(model: BusinessMiniAppModel): string {
+  if (model.chatOrder?.id === model.chatOrderId && model.chatOrder.public_order_code) {
+    return model.chatOrder.public_order_code;
+  }
   const order = model.businessOrderDetail?.order;
   if (order?.id === model.chatOrderId && order.public_order_code) {
     return order.public_order_code;
@@ -56,6 +59,9 @@ function orderCode(model: BusinessMiniAppModel): string {
 }
 
 function orderStatus(model: BusinessMiniAppModel): string {
+  if (model.chatOrder?.id === model.chatOrderId) {
+    return humanizeOrderStatus(model.chatOrder.status);
+  }
   const order = model.businessOrderDetail?.order;
   if (order?.id === model.chatOrderId) {
     return humanizeOrderStatus(order.status);
@@ -89,6 +95,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     chatBody,
     chatCapabilities,
     chatMessages,
+    chatOrder,
     chatOrderId,
     businessChatAction,
     confirmBusinessPaymentInChat,
@@ -118,6 +125,10 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const canSend = chatCapabilities.can_send_message && !sendingChatMessage && !uploadingChatAttachment;
   const canSubmitMessage = canSend && (chatBody.trim().length > 0 || chatAttachments.length > 0);
+  const chatIsTerminal = chatOrder?.id === chatOrderId && (
+    chatOrder.status === "cancelled"
+    || chatOrder.status === "completed"
+  );
 
   useEffect(() => {
     if (!chatOrderId || model.view !== "business-chat") {
@@ -301,51 +312,57 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
         </div>
       ) : null}
 
-      <form
-        ref={composerRef}
-        className="business-order-chat-composer"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void sendChatMessage();
-        }}
-      >
-        <button
-          className="business-support-clip"
-          type="button"
-          aria-label="Adjuntar comprobante o soporte"
-          disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <PaperclipIcon />
-        </button>
-        <textarea
-          className="business-order-chat-composer__input"
-          aria-label="Mensaje para cliente"
-          disabled={!chatCapabilities.can_send_message || sendingChatMessage}
-          maxLength={2000}
-          placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : "Escribir mensaje..."}
-          rows={2}
-          value={chatBody}
-          onBlur={blurComposer}
-          onChange={(event) => setChatBody(event.target.value)}
-          onFocus={focusComposer}
-        />
-        <input
-          ref={fileInputRef}
-          className="business-support-file-input"
-          accept="image/*,application/pdf"
-          disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
-          type="file"
-          onChange={(event) => {
-            const file = event.currentTarget.files?.[0] || null;
-            event.currentTarget.value = "";
-            void uploadChatAttachment(file);
+      {chatIsTerminal ? (
+        <Text className="auth-entry__session-meta business-order-chat-note">
+          Esta negociacion esta cerrada. El historial queda disponible como respaldo.
+        </Text>
+      ) : (
+        <form
+          ref={composerRef}
+          className="business-order-chat-composer"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void sendChatMessage();
           }}
-        />
-        <button className="business-support-send" type="submit" disabled={!canSubmitMessage}>
-          {sendingChatMessage ? "..." : "Enviar"}
-        </button>
-      </form>
+        >
+          <button
+            className="business-support-clip"
+            type="button"
+            aria-label="Adjuntar comprobante o soporte"
+            disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <PaperclipIcon />
+          </button>
+          <textarea
+            className="business-order-chat-composer__input"
+            aria-label="Mensaje para cliente"
+            disabled={!chatCapabilities.can_send_message || sendingChatMessage}
+            maxLength={2000}
+            placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : "Escribir mensaje..."}
+            rows={2}
+            value={chatBody}
+            onBlur={blurComposer}
+            onChange={(event) => setChatBody(event.target.value)}
+            onFocus={focusComposer}
+          />
+          <input
+            ref={fileInputRef}
+            className="business-support-file-input"
+            accept="image/*,application/pdf"
+            disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
+            type="file"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0] || null;
+              event.currentTarget.value = "";
+              void uploadChatAttachment(file);
+            }}
+          />
+          <button className="business-support-send" type="submit" disabled={!canSubmitMessage}>
+            {sendingChatMessage ? "..." : "Enviar"}
+          </button>
+        </form>
+      )}
 
       {chatAttachments.length || uploadingChatAttachment ? (
         <small className="business-order-chat-attachment-ready">
@@ -370,9 +387,9 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
             {openingOrderDispute ? "Abriendo..." : "Abrir caso"}
           </button>
         </div>
-      ) : (
+      ) : !chatIsTerminal ? (
         <Text className="auth-entry__session-meta business-order-chat-note">{CHAT_DISPUTE_COPY}</Text>
-      )}
+      ) : null}
     </section>
   );
 }

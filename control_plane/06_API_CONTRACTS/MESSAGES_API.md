@@ -96,6 +96,10 @@ Response:
 
 `system_messages` es derivado y no se persiste, audita ni envia por Telegram.
 Solo se devuelve en la primera pagina.
+Si la orden queda `cancelled` o `completed`, los participantes directos pueden
+seguir leyendo el chat como historial cerrado. El backend devuelve un mensaje de
+sistema terminal, pero `can_send_message = false`; no se permiten mensajes,
+adjuntos ni acciones nuevas desde el composer.
 `order` es un resumen allowlist de la orden actual para que el chat sincronice
 estado y acciones sin navegar fuera del chat. Cliente recibe el payload publico;
 Negocio recibe el payload operacional enmascarado. No incluye `storage_path`,
@@ -168,6 +172,10 @@ Idempotency:
 En `waiting_payment`, solo cliente y owner del negocio participantes pueden
 leer/escribir. Admin/support no pueden usar este endpoint general para obtener
 cuerpos completos en ese estado. Los terceros reciben `ORDER_NOT_FOUND`.
+En `cancelled` por cancelacion previa al reporte de pago, solo los dos
+participantes pueden leer el historial por este endpoint general. Admin,
+Support, Super Admin y terceros reciben `ORDER_NOT_FOUND`; la revision interna
+debe usar superficies dedicadas y auditadas.
 
 Ningun texto de chat, incluido `recibido`, `confirmado` o `pago enviado`,
 ejecuta transiciones, consume creditos, consume capacidad o sustituye los

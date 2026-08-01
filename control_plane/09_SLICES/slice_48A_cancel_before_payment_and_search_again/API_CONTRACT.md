@@ -66,3 +66,12 @@ canal Telegram inmediato y superficie `business_mini_app`.
 
 El mensaje no contiene instrucciones de pago, cuenta, receptor, documentos,
 evidencia ni payload privado.
+
+La Mini App Negocio tambien debe recibir un pendiente liviano en
+`attention-summary` cuando `cancel_reason = remitter_cancelled_before_payment`.
+Al abrir la orden o el chat, ese pendiente se reconoce con el mecanismo normal.
+
+El chat de la orden permanece legible solo como historial para cliente y
+negocio participantes. Debe mostrar un mensaje de sistema indicando que el
+cliente cancelo antes de reportar pago y no debe permitir nuevos mensajes,
+adjuntos, disputa simple ni acciones de pago.

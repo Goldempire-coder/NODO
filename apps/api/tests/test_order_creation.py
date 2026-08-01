@@ -469,6 +469,52 @@ def test_surface_attention_acknowledgement_is_durable_and_reopens_on_new_order_m
     assert message.json()["data"]["message"]["id"] not in serialized
 
 
+def test_surface_attention_tells_business_when_client_cancelled_order() -> None:
+    client = _client()
+    owner = _login(client, 8925, "attention_cancel_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="attention_cancel_ad")
+    remitter = _login(client, 8926, "attention_cancel_client")
+    order = _create_order(client, remitter, ad["id"], key="attention_cancel_order")
+
+    cancelled = client.post(
+        f"/api/v1/orders/{order['id']}/cancel",
+        headers={**_headers(remitter, "attention_cancel"), "Content-Type": "application/json"},
+        json={"reason": "choose_another_business", "payment_not_sent_confirmed": True},
+    )
+    summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(owner, "attention_cancel_business_summary"),
+            "X-NODO-Surface": "business_mini_app",
+        },
+    )
+    client_summary = client.get(
+        "/api/v1/notifications/attention-summary",
+        headers={
+            **_bearer(remitter, "attention_cancel_client_summary"),
+            "X-NODO-Surface": "client_mini_app",
+        },
+    )
+
+    assert cancelled.status_code == 200, cancelled.text
+    assert summary.status_code == 200, summary.text
+    data = summary.json()["data"]
+    assert data["counts"]["orders"] == 1
+    item = next(item for item in data["items"] if item["kind"] == "order")
+    assert item["resource_id"] == order["id"]
+    assert "cancelada por el cliente" in item["message"]
+    assert client_summary.status_code == 200, client_summary.text
+    assert order["id"] not in [
+        item["resource_id"] for item in client_summary.json()["data"]["items"]
+    ]
+    serialized = json.dumps(data).lower()
+    assert business["id"] not in serialized
+    assert "owner@example.com" not in serialized
+    assert "account_value" not in serialized
+    assert "storage_path" not in serialized
+
+
 def test_surface_attention_acknowledgement_is_durable_for_support_updates() -> None:
     client = _client()
     remitter = _login(client, 8931, "attention_support_ack_client")

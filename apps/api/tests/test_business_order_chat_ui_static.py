@@ -152,3 +152,19 @@ def test_business_order_list_marks_new_and_actionable_orders_green() -> None:
     assert "Abrir chat" in business_orders
     assert ".order-row--attention {" in global_css
     assert ".order-row__badge {" in global_css
+
+
+def test_order_chat_terminal_state_keeps_history_without_composer_or_dispute_copy() -> None:
+    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
+    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    business_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
+
+    assert "const [chatOrder, setChatOrder]" in business_model
+    assert "setChatOrder(data.order)" in business_model
+    assert "chatOrder?.id === chatOrderId" in business_chat
+    for source in [business_chat, client_chat]:
+        assert 'status === "cancelled"' in source
+        assert 'status === "completed"' in source
+        assert "Esta negociacion esta cerrada." in source
+        assert "!chatIsTerminal ? (" in source
+        assert "business-order-chat-composer" in source
