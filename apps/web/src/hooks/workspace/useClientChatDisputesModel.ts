@@ -12,9 +12,27 @@ import type { AuthenticatedRequest } from "../../api/client";
 import { confirmOrderReceived as confirmOrderReceivedRequest, shareOrderReceiverDetails } from "../../api/orders";
 import type { ChatAttachmentViewUrl, ChatThread } from "../../types/chat";
 import type { OrderSummary, ReceiverDetailsInput, ReceiverDetailsMasked } from "../../types/orders";
+import { getTelegramWebApp } from "../../theme/telegramTheme";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
+
+type ChatAttachmentLink = {
+  url: string;
+  downloadFilename: string;
+  expiresInSeconds: number;
+  mimeType: string;
+};
+
+function openTemporaryAttachmentUrl(url: string) {
+  try {
+    getTelegramWebApp()?.openLink?.(url);
+    return;
+  } catch {
+    // Telegram native link opening is best-effort; the visible fallback remains available.
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
 
 export function useClientChatDisputesModel(state: ClientWorkspaceState & { request: AuthenticatedRequest }) {
   const {
@@ -55,6 +73,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
   const [receiverDetailsMasked, setReceiverDetailsMasked] = useState<ReceiverDetailsMasked | null>(null);
   const [sharingReceiverDetails, setSharingReceiverDetails] = useState(false);
   const [confirmingOrderReceived, setConfirmingOrderReceived] = useState(false);
+  const [chatAttachmentLink, setChatAttachmentLink] = useState<ChatAttachmentLink | null>(null);
 
   async function openOrderChat(orderId: string) {
     const startedAt = actionStartedAt();
@@ -68,6 +87,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setChatAttachments([]);
       setChatBody("");
       setReceiverDetailsMasked(null);
+      setChatAttachmentLink(null);
       setView("order-chat");
       setNotice("");
       recordActionCompleted("client_chat_open", "order-chat", startedAt);
@@ -75,6 +95,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setChatOrderId(orderId);
       setChatMessages([]);
       setReceiverDetailsMasked(null);
+      setChatAttachmentLink(null);
       setChatCapabilities({
         can_send_message: false,
         can_open_dispute: false,
@@ -184,7 +205,11 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     }
   }
 
-  async function openChatAttachment(attachmentId: string) {
+  function dismissChatAttachmentLink() {
+    setChatAttachmentLink(null);
+  }
+
+  async function openChatAttachment(attachmentId: string, mimeType = "application/octet-stream") {
     const targetOrderId = chatOrderIdRef.current;
     if (!targetOrderId) {
       return;
@@ -194,7 +219,13 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       if (chatOrderIdRef.current !== targetOrderId || typeof window === "undefined") {
         return;
       }
-      window.open(data.url, "_blank", "noopener,noreferrer");
+      setChatAttachmentLink({
+        url: data.url,
+        downloadFilename: data.download_filename,
+        expiresInSeconds: data.expires_in_seconds,
+        mimeType
+      });
+      openTemporaryAttachmentUrl(data.url);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos abrir la imagen.");
     }
@@ -285,6 +316,8 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     openOrderChat,
     refreshChat,
     uploadChatAttachment,
+    chatAttachmentLink,
+    dismissChatAttachmentLink,
     openChatAttachment,
     sendChatMessage,
     openOrderDispute,

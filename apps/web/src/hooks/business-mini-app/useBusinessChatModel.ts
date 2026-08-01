@@ -18,7 +18,25 @@ import type {
   ChatThread
 } from "../../types/chat";
 import type { ReceiverDetails } from "../../types/orders";
+import { getTelegramWebApp } from "../../theme/telegramTheme";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
+
+type ChatAttachmentLink = {
+  url: string;
+  downloadFilename: string;
+  expiresInSeconds: number;
+  mimeType: string;
+};
+
+function openTemporaryAttachmentUrl(url: string) {
+  try {
+    getTelegramWebApp()?.openLink?.(url);
+    return;
+  } catch {
+    // Telegram native link opening is best-effort; the visible fallback remains available.
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
 
 export function useBusinessChatModel({
   request,
@@ -55,6 +73,7 @@ export function useBusinessChatModel({
   const [sharingZelle, setSharingZelle] = useState(false);
   const [receiverDetails, setReceiverDetails] = useState<ReceiverDetails | null>(null);
   const [revealingReceiverDetails, setRevealingReceiverDetails] = useState(false);
+  const [chatAttachmentLink, setChatAttachmentLink] = useState<ChatAttachmentLink | null>(null);
   const sendingChatMessageRef = useRef(false);
   const uploadingChatAttachmentRef = useRef(false);
   const openingOrderDisputeRef = useRef(false);
@@ -74,6 +93,7 @@ export function useBusinessChatModel({
       setChatMessages([...data.system_messages, ...data.items]);
       setChatCapabilities(data.capabilities);
       setChatAttachments([]);
+      setChatAttachmentLink(null);
       setChatBody("");
       setReceiverDetails(null);
       setView("business-chat");
@@ -94,6 +114,7 @@ export function useBusinessChatModel({
         can_confirm_received: false
       });
       setReceiverDetails(null);
+      setChatAttachmentLink(null);
       setView("business-chat");
       setNotice(error instanceof Error ? error.message : "No logramos abrir el chat de esta orden.");
     } finally {
@@ -175,7 +196,11 @@ export function useBusinessChatModel({
     }
   }, [chatAttachments, chatBody, chatOrderId, clearIdempotencyKey, getIdempotencyKey, refreshChat, request, setNotice]);
 
-  const openChatAttachment = useCallback(async (attachmentId: string) => {
+  const dismissChatAttachmentLink = useCallback(() => {
+    setChatAttachmentLink(null);
+  }, []);
+
+  const openChatAttachment = useCallback(async (attachmentId: string, mimeType = "application/octet-stream") => {
     const targetOrderId = chatOrderIdRef.current;
     if (!targetOrderId) {
       return;
@@ -185,7 +210,13 @@ export function useBusinessChatModel({
       if (chatOrderIdRef.current !== targetOrderId || typeof window === "undefined") {
         return;
       }
-      window.open(data.url, "_blank", "noopener,noreferrer");
+      setChatAttachmentLink({
+        url: data.url,
+        downloadFilename: data.download_filename,
+        expiresInSeconds: data.expires_in_seconds,
+        mimeType
+      });
+      openTemporaryAttachmentUrl(data.url);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos abrir la imagen.");
     }
@@ -275,9 +306,11 @@ export function useBusinessChatModel({
     chatAttachments,
     chatBody,
     chatCapabilities,
+    chatAttachmentLink,
     chatMessages,
     chatOrderId,
     disputeReason,
+    dismissChatAttachmentLink,
     openBusinessChat,
     openChatAttachment,
     openOrderDispute,

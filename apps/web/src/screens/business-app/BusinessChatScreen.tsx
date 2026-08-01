@@ -85,11 +85,13 @@ function RefreshIcon() {
 export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
     chatAttachments,
+    chatAttachmentLink,
     chatBody,
     chatCapabilities,
     chatMessages,
     chatOrderId,
     disputeReason,
+    dismissChatAttachmentLink,
     openChatAttachment,
     openOrderDispute,
     openingOrderDispute,
@@ -197,7 +199,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
                       className="business-order-chat-attachment__button"
                       type="button"
                       key={attachment.id}
-                      onClick={() => void openChatAttachment(attachment.id)}
+                      onClick={() => void openChatAttachment(attachment.id, attachment.mime_type)}
                     >
                       <span>{attachmentLabel(attachment.mime_type)}</span>
                       <small>{attachmentMeta(attachment.mime_type, attachment.size_bytes)}</small>
@@ -211,6 +213,26 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
         })}
         <div ref={messagesEndRef} />
       </div>
+
+      {chatAttachmentLink ? (
+        <div className="business-order-chat-attachment-preview" role="status">
+          <div className="business-order-chat-attachment-preview__copy">
+            <strong>{chatAttachmentLink.mimeType.startsWith("image/") ? "Imagen lista" : "Adjunto listo"}</strong>
+            <small>Disponible por {chatAttachmentLink.expiresInSeconds}s.</small>
+          </div>
+          {chatAttachmentLink.mimeType.startsWith("image/") ? (
+            <a href={chatAttachmentLink.url} target="_blank" rel="noopener noreferrer" aria-label="Abrir imagen">
+              <img src={chatAttachmentLink.url} alt="Vista previa del adjunto" referrerPolicy="no-referrer" />
+            </a>
+          ) : null}
+          <div className="business-order-chat-attachment-preview__actions">
+            <a href={chatAttachmentLink.url} target="_blank" rel="noopener noreferrer">
+              {chatAttachmentLink.mimeType.startsWith("image/") ? "Abrir imagen" : "Abrir adjunto"}
+            </a>
+            <button type="button" onClick={dismissChatAttachmentLink}>Cerrar</button>
+          </div>
+        </div>
+      ) : null}
 
       {chatCapabilities.can_share_zelle ? (
         <button

@@ -108,3 +108,28 @@ def test_order_chat_suppresses_global_attention_and_success_toasts_while_open() 
     assert "business-order-chat-attachment__button" in client_chat
     assert "openChatAttachment" in client_chat
     assert "Adjunto privado" not in client_chat
+
+
+def test_order_chat_keeps_visible_attachment_fallback_for_telegram_webview() -> None:
+    business_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
+    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
+    client_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    telegram_theme = _read("apps/web/src/theme/telegramTheme.ts")
+    global_css = _read("apps/web/src/app/globals.css")
+
+    for source in [business_model, client_model]:
+        assert "chatAttachmentLink" in source
+        assert "setChatAttachmentLink" in source
+        assert "getTelegramWebApp()?.openLink" in source
+        assert "window.open" in source
+
+    for source in [business_chat, client_chat]:
+        assert "business-order-chat-attachment-preview" in source
+        assert "<img" in source
+        assert "Abrir imagen" in source
+        assert "Cerrar" in source
+
+    assert "openLink?: (url: string" in telegram_theme
+    assert ".business-order-chat-attachment-preview {" in global_css
+    assert ".business-order-chat-attachment-preview img {" in global_css

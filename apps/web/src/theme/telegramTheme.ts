@@ -10,6 +10,7 @@ declare global {
         enableVerticalSwipes?: () => void;
         enableClosingConfirmation?: () => void;
         disableClosingConfirmation?: () => void;
+        openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
         onEvent?: (eventType: string, callback: () => void) => void;
         offEvent?: (eventType: string, callback: () => void) => void;
         HapticFeedback?: {
