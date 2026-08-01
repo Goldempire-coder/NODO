@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Text, Title } from "@telegram-apps/telegram-ui";
+import { Text } from "@telegram-apps/telegram-ui";
 import { CHAT_DISPUTE_COPY } from "../../constants/copy";
 import { humanizeOrderStatus, humanizeSenderRole } from "../../hooks/business-mini-app/helpers";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
@@ -24,6 +24,27 @@ function chatSenderLabel(senderRole: string): string {
 
 function chatTimestamp(value: string): string {
   return new Date(value).toLocaleString();
+}
+
+function attachmentLabel(mimeType: string): string {
+  if (mimeType.startsWith("image/")) {
+    return "Ver imagen";
+  }
+  if (mimeType === "application/pdf") {
+    return "Abrir PDF";
+  }
+  return "Abrir adjunto";
+}
+
+function attachmentMeta(mimeType: string, sizeBytes: number): string {
+  const sizeKb = Math.max(1, Math.round(sizeBytes / 1024));
+  if (mimeType.startsWith("image/")) {
+    return `Imagen PNG/JPG - ${sizeKb} KB`;
+  }
+  if (mimeType === "application/pdf") {
+    return `PDF - ${sizeKb} KB`;
+  }
+  return `${sizeKb} KB`;
 }
 
 function orderCode(model: BusinessMiniAppModel): string {
@@ -69,6 +90,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     chatMessages,
     chatOrderId,
     disputeReason,
+    openChatAttachment,
     openOrderDispute,
     openingOrderDispute,
     refreshChat,
@@ -140,9 +162,9 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
   return (
     <section className={composerFocused ? "business-order-chat business-order-chat--typing" : "business-order-chat"} aria-label="Chat con cliente">
       <div className="business-order-chat__summary">
-        <div>
+        <div className="business-order-chat__compact-heading">
           <Text className="business-card__label">Chat con cliente</Text>
-          <Title level="3" className="business-shell__title business-order-chat__title">{orderCode(model)}</Title>
+          <strong className="business-order-chat__compact-code">{orderCode(model)}</strong>
           <small>{orderStatus(model)}</small>
         </div>
         <button className="business-support-icon-button" type="button" aria-label="Actualizar chat" disabled={refreshingChat || !chatOrderId} onClick={() => void refreshChat()}>
@@ -167,8 +189,22 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
               key={message.id}
             >
               <span className="business-order-chat-message__sender">{chatSenderLabel(message.sender_role)}</span>
-              <p>{message.body || "Adjunto privado"}</p>
-              {message.attachments.length ? <small>{message.attachments.length} adjunto(s)</small> : null}
+              {message.body ? <p>{message.body}</p> : null}
+              {message.attachments.length ? (
+                <div className="business-order-chat-attachments" aria-label="Adjuntos del mensaje">
+                  {message.attachments.map((attachment) => (
+                    <button
+                      className="business-order-chat-attachment__button"
+                      type="button"
+                      key={attachment.id}
+                      onClick={() => void openChatAttachment(attachment.id)}
+                    >
+                      <span>{attachmentLabel(attachment.mime_type)}</span>
+                      <small>{attachmentMeta(attachment.mime_type, attachment.size_bytes)}</small>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <small>{chatTimestamp(message.created_at)}</small>
             </article>
           );

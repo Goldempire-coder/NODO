@@ -25,7 +25,7 @@ def test_business_order_chat_uses_native_chat_surface_not_table_rows() -> None:
     assert ".business-order-chat-messages {" in global_css
     assert ".business-order-chat-composer {" in global_css
     assert "overflow-y: auto;" in global_css
-    assert "grid-template-rows: auto minmax(0, 1fr) auto auto auto;" in global_css
+    assert "grid-template-rows: auto minmax(0, 1fr) auto;" in global_css
 
 
 def test_business_order_chat_has_compact_attachment_and_keyboard_safe_typing_mode() -> None:
@@ -48,11 +48,15 @@ def test_business_order_chat_has_compact_attachment_and_keyboard_safe_typing_mod
     assert ".business-shell--keyboard-active .primary-nav" in global_css
     assert ".primary-nav--hidden" in global_css
     assert ".business-order-chat--typing {" in global_css
-    assert ".business-order-chat--typing .business-order-chat-actions" in global_css
+    assert ".business-order-chat--typing > .business-order-chat-actions" in global_css
     assert ".business-order-chat--typing .business-order-chat-composer" in global_css
     assert "grid-template-columns: 34px minmax(0, 1fr) 74px;" in global_css
     assert "-webkit-overflow-scrolling: touch;" in global_css
     assert "touch-action: pan-y;" in global_css
+    assert "business-order-chat__compact-code" in chat_screen
+    assert "business-order-chat-attachment__button" in chat_screen
+    assert "openChatAttachment" in chat_screen
+    assert "Adjunto privado" not in chat_screen
 
 
 def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations() -> None:
@@ -83,3 +87,24 @@ def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations
     )[0]
     assert "setChatMessages(" not in refresh_catch
     assert "setChatCapabilities(" not in refresh_catch
+
+
+def test_order_chat_suppresses_global_attention_and_success_toasts_while_open() -> None:
+    business_shell = _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
+    client_shell = _read("apps/web/src/screens/client/ClientWorkspaceShell.tsx")
+    business_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
+    client_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+
+    assert 'view === "business-chat"' in business_shell
+    assert "attentionBannerItem" in business_shell
+    assert "item={attentionBannerItem}" in business_shell
+    assert 'view === "order-chat"' in client_shell
+    assert "attentionBannerItem" in client_shell
+    assert "item={attentionBannerItem}" in client_shell
+    assert 'setNotice("Mensaje enviado.")' not in business_model
+    assert 'setNotice("Mensaje registrado.")' not in client_model
+    assert "business-order-chat__compact-code" in client_chat
+    assert "business-order-chat-attachment__button" in client_chat
+    assert "openChatAttachment" in client_chat
+    assert "Adjunto privado" not in client_chat

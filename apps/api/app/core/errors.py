@@ -140,6 +140,7 @@ ERROR_MESSAGES = {
     "DISPUTE_RESOLUTION_NOT_ALLOWED": "La disputa no permite esta resolucion.",
     "DISPUTE_RESOLUTION_REASON_REQUIRED": "Debes indicar una razon para resolver la disputa.",
     "MESSAGE_ATTACHMENT_INVALID": "El adjunto no cumple los requisitos.",
+    "MESSAGE_ATTACHMENT_NOT_FOUND": "No encontramos ese adjunto.",
     "MESSAGE_BODY_REQUIRED": "Debes escribir un mensaje.",
     "MESSAGE_ATTACHMENT_TYPE_NOT_ALLOWED": "El tipo de adjunto no esta permitido.",
     "MESSAGE_ATTACHMENT_TOO_LARGE": "El adjunto supera el tamano permitido.",

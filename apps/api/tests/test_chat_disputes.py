@@ -958,6 +958,60 @@ def test_message_attachments_are_private_limited_and_never_expose_storage_path()
     assert "private/message_attachments" not in combined
 
 
+def test_message_attachment_view_url_is_participant_only_and_does_not_expose_storage() -> None:
+    client = _client()
+    owner, _, _, remitter, order = _seed_reported_order(client, owner_id=822, remitter_id=823)
+    other = _login(client, 824, "message_attachment_other")
+    admin = _login(client, 825, "message_attachment_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    uploaded = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments",
+        headers=_headers(remitter, "attach_view_url"),
+        files={"file": ("chat-proof.png", b"proof", "image/png")},
+    )
+    attachment_id = uploaded.json()["data"]["attachment"]["id"]
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "msg_attach_view_url"), "Content-Type": "application/json"},
+        json={"body": "", "attachment_ids": [attachment_id]},
+    )
+
+    business_view = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments/{attachment_id}/view-url",
+        headers=_bearer(owner, "req_business_attachment_view"),
+    )
+    client_view = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments/{attachment_id}/view-url",
+        headers=_bearer(remitter, "req_client_attachment_view"),
+    )
+    other_view = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments/{attachment_id}/view-url",
+        headers=_bearer(other, "req_other_attachment_view"),
+    )
+    admin_view = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments/{attachment_id}/view-url",
+        headers=_bearer(admin, "req_admin_attachment_view"),
+    )
+
+    assert uploaded.status_code == 201, uploaded.text
+    assert created.status_code == 201, created.text
+    assert business_view.status_code == 200, business_view.text
+    assert client_view.status_code == 200, client_view.text
+    assert other_view.status_code == 404
+    assert admin_view.status_code == 404
+    assert business_view.headers["Cache-Control"] == "private, no-store"
+    payload = business_view.json()["data"]
+    assert payload["url"]
+    assert payload["expires_in_seconds"] <= 300
+    assert payload["download_filename"].endswith(".png")
+    serialized = business_view.text + client_view.text + json.dumps([event.__dict__ for event in client.app.state.audit_writer.events], default=str)
+    assert "storage_path" not in serialized
+    assert "private/message_attachments" not in serialized
+    assert "signed_url" not in serialized
+    assert "message_attachment_viewed" in _event_types(client)
+
+
 def test_open_dispute_from_payment_reported_keeps_credits_and_ad_state_and_enables_dispute_messages() -> None:
     client = _client()
     owner, business, ad, remitter, order = _seed_reported_order(client, owner_id=830, remitter_id=831)

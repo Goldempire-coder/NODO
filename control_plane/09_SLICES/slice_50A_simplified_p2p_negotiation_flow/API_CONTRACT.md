@@ -21,6 +21,10 @@ Slice additions:
    visible business-owner message.
 7. The initial chat page is the latest bounded window, ordered oldest-to-newest
    within that window. Its cursor loads older messages.
+8. `POST /api/v1/orders/{id}/message-attachments/{attachment_id}/view-url`
+   opens a temporary URL only for the two order participants. It returns
+   `Cache-Control: private, no-store` and never returns storage paths or
+   permanent URLs.
 
 No quote endpoint was added. The confirmation screen is read-only and has no
 backend side effects. The existing order endpoint remains the authoritative
@@ -37,3 +41,6 @@ Client UI behavior:
 - A late instructions response is discarded if the client changed chat or
   started opening another order.
 - The removed `payment-instructions` client view is not part of the flow.
+- Success toasts and attention banners are suppressed while the participant is
+  already inside the order chat.
+- Image/PDF chat attachments render as compact open actions inside the chat.

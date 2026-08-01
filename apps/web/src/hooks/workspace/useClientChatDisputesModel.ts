@@ -1,11 +1,16 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { listOrderMessages, openOrderDispute as openOrderDisputeRequest, sendOrderMessage, uploadOrderMessageAttachment } from "../../api/chat";
+import {
+  listOrderMessages,
+  openOrderDispute as openOrderDisputeRequest,
+  openOrderMessageAttachment,
+  sendOrderMessage,
+  uploadOrderMessageAttachment
+} from "../../api/chat";
 import type { AuthenticatedRequest } from "../../api/client";
 import { confirmOrderReceived as confirmOrderReceivedRequest, shareOrderReceiverDetails } from "../../api/orders";
-import { CHAT_DISPUTE_COPY } from "../../constants/copy";
-import type { ChatThread } from "../../types/chat";
+import type { ChatAttachmentViewUrl, ChatThread } from "../../types/chat";
 import type { OrderSummary, ReceiverDetailsInput, ReceiverDetailsMasked } from "../../types/orders";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
@@ -64,7 +69,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setChatBody("");
       setReceiverDetailsMasked(null);
       setView("order-chat");
-      setNotice(data.disclaimer || CHAT_DISPUTE_COPY);
+      setNotice("");
       recordActionCompleted("client_chat_open", "order-chat", startedAt);
     } catch (error) {
       setChatOrderId(orderId);
@@ -108,9 +113,6 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       }
       setChatMessages([...data.system_messages, ...data.items]);
       setChatCapabilities(data.capabilities);
-      if (!options?.silent) {
-        setNotice(data.disclaimer || CHAT_DISPUTE_COPY);
-      }
       recordActionCompleted("client_chat_refresh", "order-chat", startedAt);
       return true;
     } catch (error) {
@@ -140,7 +142,6 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       const data = await uploadOrderMessageAttachment<any>(request, chatOrderId, file, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, name: file.name, size: file.size }));
       clearIdempotencyKey(idempotencyScope);
       setChatAttachments((current) => [...current, data.attachment]);
-      setNotice("Archivo privado agregado al mensaje. No se muestra ruta interna.");
       recordActionCompleted("client_chat_attachment_upload", "order-chat", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos adjuntar el archivo.");
@@ -173,7 +174,6 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setChatBody("");
       setChatAttachments([]);
       await refreshChat({ silent: true });
-      setNotice("Mensaje registrado.");
       recordActionCompleted("client_chat_message_send", "order-chat", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos enviar el mensaje.");
@@ -181,6 +181,22 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     } finally {
       sendingChatMessageRef.current = false;
       setSendingChatMessage(false);
+    }
+  }
+
+  async function openChatAttachment(attachmentId: string) {
+    const targetOrderId = chatOrderIdRef.current;
+    if (!targetOrderId) {
+      return;
+    }
+    try {
+      const data = await openOrderMessageAttachment<ChatAttachmentViewUrl>(request, targetOrderId, attachmentId);
+      if (chatOrderIdRef.current !== targetOrderId || typeof window === "undefined") {
+        return;
+      }
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos abrir la imagen.");
     }
   }
 
@@ -269,6 +285,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     openOrderChat,
     refreshChat,
     uploadChatAttachment,
+    openChatAttachment,
     sendChatMessage,
     openOrderDispute,
     receiverDetailsForm,

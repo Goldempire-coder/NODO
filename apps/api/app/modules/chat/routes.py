@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Header, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Header, Query, Request, Response, UploadFile
 
 from app.auth.dependencies import require_current_user, require_current_user_with_terms
 from app.modules.chat.models import MAX_ATTACHMENT_SIZE_BYTES
@@ -102,6 +102,26 @@ async def upload_message_attachment(
             content=content,
             request_id=_request_id(request),
             idempotency_key=idempotency_key,
+        ),
+        "request_id": _request_id(request),
+    }
+
+
+@router.post("/orders/{order_id}/message-attachments/{attachment_id}/view-url")
+def message_attachment_view_url(
+    order_id: str,
+    attachment_id: str,
+    request: Request,
+    response: Response,
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": _service(request).attachment_view_url(
+            user=user,
+            order_id=order_id,
+            attachment_id=attachment_id,
+            request_id=_request_id(request),
         ),
         "request_id": _request_id(request),
     }

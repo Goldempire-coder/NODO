@@ -296,3 +296,56 @@ Errors:
 - FORBIDDEN
 - RATE_LIMITED
 - UNAUTHENTICATED
+
+## POST /api/v1/orders/{id}/message-attachments/{attachment_id}/view-url
+
+Purpose:
+
+- Allows a direct order participant to explicitly open an image/PDF shared in
+  the order chat.
+- Intended for Cliente and Negocio chat surfaces only.
+
+Authorization:
+
+- Only the remitter owner of the order or the participating business owner may
+  open the attachment.
+- Admin, Super Admin, Support and unrelated users receive generic
+  `ORDER_NOT_FOUND` through this endpoint. Internal review must use the
+  dedicated audited Admin evidence surface.
+- The attachment must belong to the same order, must already be attached to a
+  visible message, and must be active.
+
+Response:
+
+```json
+{
+  "url": "temporary-signed-url",
+  "expires_in_seconds": 300,
+  "download_filename": "nodo-message-attachment-12345678.png"
+}
+```
+
+Headers:
+
+- `Cache-Control: private, no-store`
+
+Privacy:
+
+- Response never includes `storage_path`, `file_asset_id`, message body,
+  account values or permanent URLs.
+- Message list responses continue to expose only attachment metadata needed to
+  render an explicit open action.
+
+Audit:
+
+- `message_attachment_viewed`
+- Metadata allowlist: `order_id`, `message_id`, `mime_type`, `size_bytes`.
+
+Errors:
+
+- ORDER_NOT_FOUND
+- ORDER_STATUS_INVALID
+- MESSAGE_ATTACHMENT_NOT_FOUND
+- STORAGE_UNAVAILABLE
+- RATE_LIMITED
+- UNAUTHENTICATED

@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import {
   listOrderMessages,
   openOrderDispute as openOrderDisputeRequest,
+  openOrderMessageAttachment,
   sendOrderMessage,
   shareConfiguredZelle as shareConfiguredZelleRequest,
   uploadOrderMessageAttachment
@@ -11,6 +12,7 @@ import { revealOrderReceiverDetails } from "../../api/orders";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
 import type {
   ChatAttachment,
+  ChatAttachmentViewUrl,
   ChatCapabilities,
   ChatMessage,
   ChatThread
@@ -75,7 +77,7 @@ export function useBusinessChatModel({
       setChatBody("");
       setReceiverDetails(null);
       setView("business-chat");
-      setNotice(data.disclaimer || "Chat operativo de la orden.");
+      setNotice("");
     } catch (error) {
       setChatOrderId(orderId);
       setChatMessages([]);
@@ -115,9 +117,6 @@ export function useBusinessChatModel({
       }
       setChatMessages([...data.system_messages, ...data.items]);
       setChatCapabilities(data.capabilities);
-      if (!options?.silent) {
-        setNotice(data.disclaimer || "Chat actualizado.");
-      }
       return true;
     } catch (error) {
       if (!options?.silent) {
@@ -143,7 +142,6 @@ export function useBusinessChatModel({
       const data = await uploadOrderMessageAttachment<{ attachment: ChatAttachment }>(request, chatOrderId, file, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, name: file.name, size: file.size }));
       clearIdempotencyKey(idempotencyScope);
       setChatAttachments((current) => [...current, data.attachment]);
-      setNotice("Archivo privado agregado al mensaje.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos adjuntar el archivo.");
     } finally {
@@ -169,7 +167,6 @@ export function useBusinessChatModel({
       setChatBody("");
       setChatAttachments([]);
       await refreshChat({ silent: true });
-      setNotice("Mensaje enviado.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos enviar el mensaje.");
     } finally {
@@ -177,6 +174,22 @@ export function useBusinessChatModel({
       setSendingChatMessage(false);
     }
   }, [chatAttachments, chatBody, chatOrderId, clearIdempotencyKey, getIdempotencyKey, refreshChat, request, setNotice]);
+
+  const openChatAttachment = useCallback(async (attachmentId: string) => {
+    const targetOrderId = chatOrderIdRef.current;
+    if (!targetOrderId) {
+      return;
+    }
+    try {
+      const data = await openOrderMessageAttachment<ChatAttachmentViewUrl>(request, targetOrderId, attachmentId);
+      if (chatOrderIdRef.current !== targetOrderId || typeof window === "undefined") {
+        return;
+      }
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos abrir la imagen.");
+    }
+  }, [request, setNotice]);
 
   const shareConfiguredZelle = useCallback(async () => {
     if (!chatOrderId || sharingZelleRef.current || !chatCapabilities.can_share_zelle) {
@@ -266,6 +279,7 @@ export function useBusinessChatModel({
     chatOrderId,
     disputeReason,
     openBusinessChat,
+    openChatAttachment,
     openOrderDispute,
     openingOrderDispute,
     refreshChat,

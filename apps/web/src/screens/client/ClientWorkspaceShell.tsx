@@ -96,6 +96,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
   const viewStartedAtRef = useRef<number | null>(null);
   const isOnboardingView = view === "welcome" || view === "terms" || view === "client-profile-setup";
   const shouldShowNotice = Boolean(notice) && !["welcome", "terms", "client-profile-setup", "marketplace-search", "create-order", "marketplace-detail"].includes(view);
+  const attentionBannerItem = view === "order-chat" ? null : attentionAlert;
 
   useEffect(() => {
     const previousView = previousViewRef.current;
@@ -229,7 +230,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
       {shouldShowNotice ? <Text className="auth-entry__message">{notice}</Text> : null}
 
       <AttentionBanner
-        item={attentionAlert}
+        item={attentionBannerItem}
         stale={attentionStale}
         onDismiss={dismissAttention}
         onOpen={() => void openAttentionAlert()}

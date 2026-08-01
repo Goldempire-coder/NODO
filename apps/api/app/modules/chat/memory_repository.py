@@ -203,6 +203,12 @@ class InMemoryChatRepository:
             return None
         return attachment
 
+    def get_file_asset(self, file_id: str) -> FileAssetRecord | None:
+        file = self.files.get(file_id)
+        if file is None or file.deleted_at is not None:
+            return None
+        return file
+
     def attach_to_message(self, *, attachment_ids: list[str], message_id: str) -> list[MessageAttachmentRecord]:
         attached: list[MessageAttachmentRecord] = []
         with self._lock:

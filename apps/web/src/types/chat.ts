@@ -7,6 +7,12 @@ export type ChatAttachment = {
   created_at: string;
 };
 
+export type ChatAttachmentViewUrl = {
+  url: string;
+  expires_in_seconds: number;
+  download_filename: string;
+};
+
 export type ChatMessage = {
   id: string;
   order_id: string;

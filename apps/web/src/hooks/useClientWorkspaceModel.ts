@@ -275,6 +275,7 @@ export function useClientWorkspaceModel({
     openOrderChat: chatDisputes.openOrderChat,
     refreshChat: chatDisputes.refreshChat,
     uploadChatAttachment: chatDisputes.uploadChatAttachment,
+    openChatAttachment: chatDisputes.openChatAttachment,
     sendChatMessage: chatDisputes.sendChatMessage,
     openOrderDispute: chatDisputes.openOrderDispute,
     receiverDetailsForm: chatDisputes.receiverDetailsForm,

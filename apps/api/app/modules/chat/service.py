@@ -51,6 +51,17 @@ def _attachment_payload(attachment) -> dict[str, Any]:  # type: ignore[no-untype
     }
 
 
+def _message_attachment_filename(*, attachment) -> str:  # type: ignore[no-untyped-def]
+    extension_by_mime = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "application/pdf": ".pdf",
+    }
+    extension = extension_by_mime.get(attachment.mime_type, "")
+    return f"nodo-message-attachment-{attachment.id[:8]}{extension}"
+
+
 class ChatService:
     def __init__(self, *, settings: Settings, repository, order_repository, business_repository, audit_writer, rate_limiter, idempotency_store, storage, admin_notifications=None, notification_service=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
@@ -89,6 +100,11 @@ class ChatService:
             return
         business = self._businesses.get_business(order.business_id)
         evaluate_business_access(user=user, business=business, business_repository=self._businesses)
+
+    def _require_direct_participant(self, user: UserRecord, order: OrderRecord) -> None:
+        business_owner_id = self._business_owner_id(order)
+        if user.id not in {order.remitter_user_id, business_owner_id}:
+            raise ApiError("ORDER_NOT_FOUND", status_code=404)
 
     def _message_public(self, message, attachments: list | None = None) -> dict[str, Any]:  # type: ignore[no-untyped-def]
         return {
@@ -190,6 +206,53 @@ class ChatService:
             "next_cursor": next_cursor,
             "capabilities": self._capabilities(user=user, order=order),
             "disclaimer": CHAT_DISCLAIMER,
+        }
+
+    def attachment_view_url(self, *, user: UserRecord, order_id: str, attachment_id: str, request_id: str) -> dict[str, Any]:
+        if self._storage is None:
+            raise ApiError("STORAGE_UNAVAILABLE", status_code=503)
+        order = self._order(order_id)
+        self._rate_limit("attachment_view", user, order.id)
+        require_message_state(order)
+        self._require_direct_participant(user, order)
+        require_chat_read(user, order, self._business_owner_id(order))
+        self._require_business_actor_access(user, order)
+        attachment = self._repository.get_attachment(_require_uuid(attachment_id, "MESSAGE_ATTACHMENT_NOT_FOUND"))
+        if (
+            attachment is None
+            or attachment.order_id != order.id
+            or attachment.message_id is None
+            or attachment.status != "active"
+        ):
+            raise ApiError("MESSAGE_ATTACHMENT_NOT_FOUND", status_code=404)
+        file = self._repository.get_file_asset(attachment.file_asset_id)
+        if (
+            file is None
+            or file.file_type != "message_attachment"
+            or file.resource_type != "message"
+            or file.resource_id != attachment.message_id
+        ):
+            raise ApiError("MESSAGE_ATTACHMENT_NOT_FOUND", status_code=404)
+        expires_in = min(self._settings.storage_signed_url_ttl_seconds, 300)
+        url = self._storage.signed_view_url(storage_path=file.storage_path, expires_in=expires_in)
+        self._audit.write(
+            event_type="message_attachment_viewed",
+            actor_user_id=user.id,
+            actor_role=user.role,
+            resource_type="message_attachment",
+            resource_id=attachment.id,
+            request_id=request_id,
+            metadata_json={
+                "order_id": order.id,
+                "message_id": attachment.message_id,
+                "mime_type": attachment.mime_type,
+                "size_bytes": attachment.size_bytes,
+            },
+        )
+        return {
+            "url": url,
+            "expires_in_seconds": expires_in,
+            "download_filename": _message_attachment_filename(attachment=attachment),
         }
 
     def create_message(self, *, user: UserRecord, order_id: str, payload: MessageCreateRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:

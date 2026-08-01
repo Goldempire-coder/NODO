@@ -25,6 +25,16 @@ export function uploadOrderMessageAttachment<T>(request: AuthenticatedRequest, o
   });
 }
 
+export function openOrderMessageAttachment<T>(
+  request: AuthenticatedRequest,
+  orderId: string,
+  attachmentId: string
+) {
+  return request<T>(`/api/v1/orders/${orderId}/message-attachments/${attachmentId}/view-url`, {
+    method: "POST"
+  });
+}
+
 export function sendOrderMessage<T>(request: AuthenticatedRequest, orderId: string, payload: { body: string; attachment_ids: string[] }, idempotencyKey: string) {
   return request<T>(`/api/v1/orders/${orderId}/messages`, {
     method: "POST",

@@ -32,6 +32,12 @@ Required regression coverage:
 - Payment amount is read-only and submitted from the order snapshot.
 - Empty receiver data renders `Pago Movil pendiente en chat`; legacy values
   remain masked and no fallback values are invented.
+- Chat attachments can be opened by Cliente and Negocio participants through an
+  explicit temporary URL action, without exposing storage paths.
+- While a participant is inside the order chat, success toasts and global
+  attention banners do not cover the conversation.
+- Chat headers remain compact and typing mode keeps the message composer
+  visible on mobile.
 
 Commands:
 

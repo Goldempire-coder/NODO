@@ -633,41 +633,43 @@ textarea {
 }
 
 .business-order-chat {
-  height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);
-  max-height: calc(var(--nodo-viewport-height, 100dvh) - 174px);
-  min-height: min(430px, calc(var(--nodo-viewport-height, 100dvh) - 174px));
+  height: min(74dvh, calc(var(--nodo-viewport-height, 100dvh) - 132px), 680px);
+  max-height: calc(var(--nodo-viewport-height, 100dvh) - 132px);
+  min-height: min(450px, calc(var(--nodo-viewport-height, 100dvh) - 132px));
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 8px;
   overflow: hidden;
 }
 
 .business-order-chat--typing {
-  height: min(72dvh, calc(var(--nodo-viewport-height, 100dvh) - 96px), 640px);
-  max-height: calc(var(--nodo-viewport-height, 100dvh) - 96px);
-  min-height: min(320px, calc(var(--nodo-viewport-height, 100dvh) - 96px));
+  height: min(80dvh, calc(var(--nodo-viewport-height, 100dvh) - 52px), 700px);
+  max-height: calc(var(--nodo-viewport-height, 100dvh) - 52px);
+  min-height: min(300px, calc(var(--nodo-viewport-height, 100dvh) - 52px));
   gap: 6px;
 }
 
 .business-order-chat__summary {
   min-width: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 2px 6px;
+  padding: 2px 2px 5px;
   border-bottom: 1px solid rgb(148 163 184 / 12%);
 }
 
-.business-order-chat__summary > div {
+.business-order-chat__compact-heading {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
-.business-order-chat__title {
-  font-size: clamp(18px, 4.8vw, 22px);
-  line-height: 1.12;
+.business-order-chat__compact-code {
+  color: var(--nodo-text);
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.1;
   overflow-wrap: anywhere;
 }
 
@@ -738,6 +740,35 @@ textarea {
   color: rgb(226 232 240 / 66%);
   font-size: 10px;
   justify-self: end;
+}
+
+.business-order-chat-attachments {
+  display: grid;
+  gap: 6px;
+}
+
+.business-order-chat-attachment__button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  padding: 7px 9px;
+  border: 1px solid rgb(125 211 252 / 28%);
+  border-radius: 9px;
+  background: rgb(14 116 144 / 18%);
+  color: var(--nodo-text);
+  font: inherit;
+  text-align: left;
+}
+
+.business-order-chat-attachment__button span {
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.business-order-chat-attachment__button small {
+  justify-self: start;
+  color: var(--nodo-muted);
 }
 
 .business-order-chat-composer {
@@ -829,9 +860,11 @@ textarea {
 
 .business-order-chat--typing .business-order-chat__summary .business-card__label,
 .business-order-chat--typing .business-order-chat__summary small,
-.business-order-chat--typing .business-order-chat-note,
-.business-order-chat--typing .business-order-chat-actions,
-.business-order-chat--typing .business-order-chat-attachment-ready {
+.business-order-chat--typing > .business-order-chat-note,
+.business-order-chat--typing > .business-order-chat-actions,
+.business-order-chat--typing > .business-order-chat-payment-action,
+.business-order-chat--typing > .business-order-chat-attachment-ready,
+.business-order-chat--typing > article.business-order-chat-message {
   display: none;
 }
 
@@ -840,8 +873,8 @@ textarea {
   padding-bottom: 4px;
 }
 
-.business-order-chat--typing .business-order-chat__title {
-  font-size: clamp(16px, 4.2vw, 18px);
+.business-order-chat--typing .business-order-chat__compact-code {
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -877,16 +910,16 @@ textarea {
 @media (max-width: 420px) {
   .business-support,
   .business-order-chat {
-    height: min(66dvh, calc(var(--nodo-viewport-height, 100dvh) - 150px), 560px);
-    max-height: calc(var(--nodo-viewport-height, 100dvh) - 150px);
-    min-height: min(360px, calc(var(--nodo-viewport-height, 100dvh) - 150px));
+    height: min(74dvh, calc(var(--nodo-viewport-height, 100dvh) - 118px), 600px);
+    max-height: calc(var(--nodo-viewport-height, 100dvh) - 118px);
+    min-height: min(360px, calc(var(--nodo-viewport-height, 100dvh) - 118px));
   }
 
   .business-support--typing,
   .business-order-chat--typing {
-    height: min(74dvh, calc(var(--nodo-viewport-height, 100dvh) - 64px), 600px);
-    max-height: calc(var(--nodo-viewport-height, 100dvh) - 64px);
-    min-height: min(280px, calc(var(--nodo-viewport-height, 100dvh) - 64px));
+    height: min(82dvh, calc(var(--nodo-viewport-height, 100dvh) - 44px), 640px);
+    max-height: calc(var(--nodo-viewport-height, 100dvh) - 44px);
+    min-height: min(280px, calc(var(--nodo-viewport-height, 100dvh) - 44px));
   }
 
   .business-support-composer,

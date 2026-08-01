@@ -244,6 +244,20 @@ class PostgresChatRepository:
             row = conn.execute("select * from message_attachments where id = %s and deleted_at is null", (attachment_id,)).fetchone()
         return attachment_from_row(row) if row else None
 
+    def get_file_asset(self, file_id: str) -> FileAssetRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                select *
+                from file_assets
+                where id = %s
+                  and file_type = 'message_attachment'
+                  and deleted_at is null
+                """,
+                (file_id,),
+            ).fetchone()
+        return file_from_row(row) if row else None
+
     def attach_to_message(self, *, attachment_ids: list[str], message_id: str) -> list[MessageAttachmentRecord]:
         if not attachment_ids:
             return []

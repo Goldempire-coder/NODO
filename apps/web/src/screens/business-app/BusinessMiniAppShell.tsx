@@ -105,6 +105,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
   const previousViewRef = useRef<BusinessMiniAppView | null>(null);
   const termsRequired = view === "business-terms";
   const canUseBusinessNav = accessState === "ready" && !termsRequired;
+  const attentionBannerItem = view === "business-chat" ? null : attentionAlert;
 
   const openHome = () => {
     void loadHomeSummary();
@@ -249,7 +250,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
       {notice ? <Text className="auth-entry__message">{notice}</Text> : null}
 
       <AttentionBanner
-        item={attentionAlert}
+        item={attentionBannerItem}
         stale={attentionStale}
         onDismiss={dismissAttention}
         onOpen={() => void openAttentionAlert()}
