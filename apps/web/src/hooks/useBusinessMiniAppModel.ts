@@ -107,7 +107,7 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     setView
   });
   const orders = useBusinessOrdersModel({ request, setBusy, setNotice, setView });
-  const chat = useBusinessChatModel({ request, setBusy, setNotice, setView });
+  const chat = useBusinessChatModel({ business: access.business, request, setBusy, setNotice, setView });
   const support = useSurfaceSupportModel({ request, setBusy, setNotice, initialScope: "business_general" });
   const awareness = useSurfaceAttentionModel({
     enabled: access.accessState === "ready" && hasAcceptedCurrentClientTerms(currentUser),

@@ -20,9 +20,11 @@ import type {
   ChatMessage,
   ChatThread
 } from "../../types/chat";
+import type { BusinessSummary } from "../../types/business";
 import type { ReceiverDetails } from "../../types/orders";
 import { getTelegramWebApp } from "../../theme/telegramTheme";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
+import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 
 type ChatAttachmentLink = {
   url: string;
@@ -52,11 +54,13 @@ function sortChatMessages(messages: ChatMessage[]) {
 }
 
 export function useBusinessChatModel({
+  business,
   request,
   setBusy,
   setNotice,
   setView
 }: {
+  business: BusinessSummary | null;
   request: AuthenticatedRequest;
   setBusy: (busy: boolean) => void;
   setNotice: (notice: string) => void;
@@ -326,6 +330,10 @@ export function useBusinessChatModel({
     if (!targetOrderId || businessChatActionRef.current) {
       return;
     }
+    const actionLabel = action === "confirm-payment" ? "confirmar Zelle recibido" : "marcar Pago Movil enviado";
+    if (!requireUnlockedBusinessPin({ action: actionLabel, business, setNotice, setView })) {
+      return;
+    }
     if (action === "confirm-payment" && !chatCapabilities.can_confirm_payment) {
       return;
     }
@@ -344,21 +352,29 @@ export function useBusinessChatModel({
         getIdempotencyKey(idempotencyScope, { orderId: targetOrderId, action })
       );
       clearIdempotencyKey(idempotencyScope);
-      await refreshChat({ silent: true });
+      const data = await listOrderMessages<ChatThread>(request, targetOrderId, 50);
+      if (chatOrderIdRef.current === targetOrderId) {
+        setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
+        setChatCapabilities(data.capabilities);
+      }
     } catch (error) {
+      if (routeBusinessPinError({ action: actionLabel, error, setNotice, setView })) {
+        return;
+      }
       setNotice(error instanceof Error ? error.message : "No pudimos operar la orden.");
     } finally {
       businessChatActionRef.current = false;
       setBusinessChatAction(null);
     }
   }, [
+    business?.access_link,
     chatCapabilities.can_confirm_payment,
     chatCapabilities.can_mark_delivered,
     clearIdempotencyKey,
     getIdempotencyKey,
-    refreshChat,
     request,
-    setNotice
+    setNotice,
+    setView
   ]);
 
   const confirmBusinessPaymentInChat = useCallback(async () => {
