@@ -13,8 +13,12 @@ function requiresBusinessAction(order: BusinessOrderSummary) {
   );
 }
 
+function requiresBusinessAttention(order: BusinessOrderSummary) {
+  return order.status === "waiting_payment" || requiresBusinessAction(order);
+}
+
 function operationBucket(order: BusinessOrderSummary) {
-  if (requiresBusinessAction(order)) {
+  if (requiresBusinessAttention(order)) {
     return "Requiere accion";
   }
   if (order.status === "completed" || order.status === "cancelled" || order.status === "delivered") {
@@ -34,14 +38,14 @@ function nextBusinessAction(order: BusinessOrderSummary) {
     return "Responder soporte";
   }
   if (order.status === "waiting_payment") {
-    return "Esperar pago";
+    return "Abrir chat";
   }
   return "Revisar";
 }
 
 export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel }) {
   const { businessOrderFilter, businessOrders, loadBusinessOrders, openBusinessOrder } = model;
-  const actionCount = businessOrders.filter(requiresBusinessAction).length;
+  const actionCount = businessOrders.filter(requiresBusinessAttention).length;
   const verificationCount = businessOrders.filter((order) => order.status === "payment_reported").length;
   const inProgressCount = businessOrders.filter((order) => operationBucket(order) === "En curso").length;
   const historyCount = businessOrders.filter((order) => operationBucket(order) === "Historial").length;
@@ -71,9 +75,14 @@ export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel })
       <div className="business-list business-list--scrollable">
         {businessOrders.length === 0 ? <Text>{businessOrderFilter === "history" ? "No hay ordenes completadas todavia." : "No hay ordenes abiertas por ahora."}</Text> : null}
         {businessOrders.map((order) => (
-          <button className="business-row order-row" key={order.id} type="button" onClick={() => void openBusinessOrder(order.id)}>
+          <button className={`business-row order-row${requiresBusinessAttention(order) ? " order-row--attention" : ""}`} key={order.id} type="button" onClick={() => void openBusinessOrder(order.id)}>
             <span>
-              <strong>Orden {order.public_order_code}</strong>
+              <strong>
+                Orden {order.public_order_code}
+                {requiresBusinessAttention(order) ? (
+                  <small className="order-row__badge">{order.status === "waiting_payment" ? "Nueva" : "Accion"}</small>
+                ) : null}
+              </strong>
               <small>{humanizeOrderStatus(order.status)}</small>
             </span>
             <span>{nextBusinessAction(order)}</span>

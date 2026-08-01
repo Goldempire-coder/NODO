@@ -1,3 +1,5 @@
+import type { BusinessOrderSummary, OrderSummary } from "./orders";
+
 export type ChatAttachment = {
   id: string;
   file_asset_id: string;
@@ -39,7 +41,8 @@ export type ChatCapabilities = {
   can_mark_delivered: boolean;
 };
 
-export type ChatThread = {
+export type ChatThread<TOrder = OrderSummary | BusinessOrderSummary> = {
+  order: TOrder;
   items: ChatMessage[];
   system_messages: ChatMessage[];
   capabilities: ChatCapabilities;

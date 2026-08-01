@@ -1224,15 +1224,36 @@ textarea {
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
 }
 
+.order-row--attention {
+  border-color: rgb(0 230 118 / 44%);
+  background: linear-gradient(90deg, rgb(0 230 118 / 14%), rgb(3 12 24 / 40%));
+}
+
 .order-row span:first-child {
   display: grid;
   gap: 2px;
 }
 
 .order-row strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.order-row__badge {
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid rgb(0 230 118 / 44%);
+  border-radius: 999px;
+  background: var(--nodo-green);
+  color: #04111f;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .order-row small {

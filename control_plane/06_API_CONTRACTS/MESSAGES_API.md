@@ -48,6 +48,13 @@ Response:
 ```json
 {
   "order_id": "uuid",
+  "order": {
+    "id": "uuid",
+    "public_order_code": "NODO-A1234567",
+    "status": "payment_reported",
+    "amount_usd": "50.00",
+    "amount_bs_calculated": "1975.00"
+  },
   "items": [
     {
       "id": "uuid",
@@ -89,6 +96,11 @@ Response:
 
 `system_messages` es derivado y no se persiste, audita ni envia por Telegram.
 Solo se devuelve en la primera pagina.
+`order` es un resumen allowlist de la orden actual para que el chat sincronice
+estado y acciones sin navegar fuera del chat. Cliente recibe el payload publico;
+Negocio recibe el payload operacional enmascarado. No incluye `storage_path`,
+URLs firmadas, `account_value`, cuerpos privados adicionales ni datos sensibles
+no autorizados.
 `next_cursor` apunta a mensajes anteriores; nunca obliga a la UI activa a
 empezar por la pagina mas antigua.
 

@@ -90,8 +90,9 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     recordActionStarted("client_chat_open", "order-chat");
     setOpeningChatOrderId(orderId);
     try {
-      const data = await listOrderMessages<ChatThread>(request, orderId);
+      const data = await listOrderMessages<ChatThread<OrderSummary>>(request, orderId);
       setChatOrderId(orderId);
+      setSelectedOrder(data.order);
       setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       setChatAttachments([]);
@@ -140,10 +141,11 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setRefreshingChat(true);
     }
     try {
-      const data = await listOrderMessages<ChatThread>(request, targetOrderId);
+      const data = await listOrderMessages<ChatThread<OrderSummary>>(request, targetOrderId);
       if (chatOrderIdRef.current !== targetOrderId) {
         return false;
       }
+      setSelectedOrder(data.order);
       setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       recordActionCompleted("client_chat_refresh", "order-chat", startedAt);

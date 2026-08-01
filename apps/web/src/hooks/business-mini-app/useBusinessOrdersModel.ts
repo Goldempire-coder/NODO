@@ -52,6 +52,16 @@ export function useBusinessOrdersModel({
     }
   }, [request]);
 
+  const syncBusinessOrderFromChat = useCallback((order: BusinessOrderSummary) => {
+    setBusinessOrders((current) => current.map((item) => (item.id === order.id ? order : item)));
+    setBusinessOrderDetail((current) => {
+      if (!current || current.order.id !== order.id) {
+        return current;
+      }
+      return { ...current, order };
+    });
+  }, []);
+
   const openBusinessOrder = useCallback(async (orderId: string) => {
     setBusinessOrderDetail(null);
     setBusinessOrderReason("");
@@ -147,6 +157,7 @@ export function useBusinessOrdersModel({
     mutateBusinessOrder,
     openBusinessOrder,
     refreshBusinessOrders,
+    syncBusinessOrderFromChat,
     setBusinessOrderReason
   };
 }

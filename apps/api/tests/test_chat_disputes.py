@@ -1047,6 +1047,8 @@ def test_slice_50c_payment_report_appears_in_order_chat_with_proof_for_business(
 
     assert thread.status_code == 200, thread.text
     data = thread.json()["data"]
+    assert data["order"]["id"] == order["id"]
+    assert data["order"]["status"] == "payment_reported"
     assert data["capabilities"]["can_confirm_payment"] is True
     report_messages = [
         message

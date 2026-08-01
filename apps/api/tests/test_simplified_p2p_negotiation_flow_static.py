@@ -167,7 +167,8 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
     assert "routeBusinessPinError" in business_chat_model
     assert "business: access.business" in _read("apps/web/src/hooks/useBusinessMiniAppModel.ts")
     chat_action_source = business_chat_model.split("await mutateBusinessOrderRequest", 1)[1].split("} catch", 1)[0]
-    assert "listOrderMessages<ChatThread>(request, targetOrderId, 50)" in chat_action_source
+    assert "listOrderMessages<ChatThread<BusinessOrderSummary>>(request, targetOrderId, 50)" in chat_action_source
+    assert "syncBusinessOrderFromChat(data.order)" in chat_action_source
     assert "refreshChat({ silent: true })" not in chat_action_source
     assert "Zelle recibido" in business_chat
     assert "Pago Movil enviado" in business_chat

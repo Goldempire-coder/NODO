@@ -15,6 +15,7 @@ from app.modules.chat.policy import require_chat_read, require_chat_write, requi
 from app.modules.chat.schemas import MessageCreateRequest
 from app.modules.notifications.chat_notifications import NoopChatNotificationService
 from app.modules.orders.models import OrderRecord
+from app.modules.orders.serializers import business_order_payload, public_order_payload
 from app.modules.users.models import UserRecord
 
 
@@ -282,6 +283,15 @@ class ChatService:
             and order.status == "payment_confirmed",
         }
 
+    def _order_payload(self, *, user: UserRecord, order: OrderRecord) -> dict[str, Any]:
+        receiver_details_shared = self._orders.has_receiver_details(order.id)
+        if user.role == "business_owner":
+            return business_order_payload(
+                order,
+                receiver_details_shared=receiver_details_shared,
+            )
+        return public_order_payload(order)
+
     def list_messages(self, *, user: UserRecord, order_id: str, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         order = self._order(order_id)
         self._rate_limit("list", user, order.id)
@@ -292,6 +302,7 @@ class ChatService:
         attachments = self._repository.list_attachments_for_messages([message.id for message in items])
         return {
             "order_id": order.id,
+            "order": self._order_payload(user=user, order=order),
             "items": [self._message_public(message, attachments.get(message.id, [])) for message in items],
             "system_messages": self._system_messages(order, cursor),
             "next_cursor": next_cursor,

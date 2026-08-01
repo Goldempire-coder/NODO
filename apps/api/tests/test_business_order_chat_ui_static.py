@@ -62,6 +62,8 @@ def test_business_order_chat_has_compact_attachment_and_keyboard_safe_typing_mod
 def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations() -> None:
     chat_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
     chat_screen = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
+    chat_types = _read("apps/web/src/types/chat.ts")
+    app_model = _read("apps/web/src/hooks/useBusinessMiniAppModel.ts")
 
     assert "BUSINESS_ORDER_CHAT_REFRESH_MS = 5000" in chat_screen
     assert "void refreshChat({ silent: true });" in chat_screen
@@ -69,13 +71,17 @@ def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations
     assert 'document.visibilityState !== "visible"' in chat_screen
     assert "const refreshChat = useCallback(async (options?: { silent?: boolean })" in chat_model
     assert "if (!options?.silent)" in chat_model
-    assert "listOrderMessages<ChatThread>(request, orderId, 50)" in chat_model
-    assert "listOrderMessages<ChatThread>(request, targetOrderId, 50)" in chat_model
+    assert "listOrderMessages<ChatThread<BusinessOrderSummary>>(request, orderId, 50)" in chat_model
+    assert "listOrderMessages<ChatThread<BusinessOrderSummary>>(request, targetOrderId, 50)" in chat_model
     assert "refreshingChatRef.current" in chat_model
     assert "chatOrderIdRef.current !== targetOrderId" in chat_model
     assert "sendingChatMessageRef.current" in chat_model
     assert "uploadingChatAttachmentRef.current" in chat_model
     assert "openingOrderDisputeRef.current" in chat_model
+    assert "syncBusinessOrderFromChat(data.order)" in chat_model
+    assert "ChatThread<BusinessOrderSummary>" in chat_model
+    assert "order: TOrder" in chat_types
+    assert "syncBusinessOrderFromChat: orders.syncBusinessOrderFromChat" in app_model
     assert "const body = chatBody.trim();" in chat_model
     assert "(!body && chatAttachments.length === 0)" in chat_model
     assert 'setChatBody("")' in chat_model
@@ -133,3 +139,16 @@ def test_order_chat_keeps_visible_attachment_fallback_for_telegram_webview() -> 
     assert "openLink?: (url: string" in telegram_theme
     assert ".business-order-chat-attachment-preview {" in global_css
     assert ".business-order-chat-attachment-preview img {" in global_css
+
+
+def test_business_order_list_marks_new_and_actionable_orders_green() -> None:
+    business_orders = _read("apps/web/src/screens/business-app/BusinessOrdersScreens.tsx")
+    global_css = _read("apps/web/src/app/globals.css")
+
+    assert "requiresBusinessAttention(order)" in business_orders
+    assert 'order.status === "waiting_payment"' in business_orders
+    assert 'order.status === "waiting_payment" ? "Nueva"' in business_orders
+    assert 'order-row--attention' in business_orders
+    assert "Abrir chat" in business_orders
+    assert ".order-row--attention {" in global_css
+    assert ".order-row__badge {" in global_css

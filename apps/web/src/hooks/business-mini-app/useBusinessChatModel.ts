@@ -21,7 +21,7 @@ import type {
   ChatThread
 } from "../../types/chat";
 import type { BusinessSummary } from "../../types/business";
-import type { ReceiverDetails } from "../../types/orders";
+import type { BusinessOrderSummary, ReceiverDetails } from "../../types/orders";
 import { getTelegramWebApp } from "../../theme/telegramTheme";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
@@ -56,12 +56,14 @@ function sortChatMessages(messages: ChatMessage[]) {
 export function useBusinessChatModel({
   business,
   request,
+  syncBusinessOrderFromChat,
   setBusy,
   setNotice,
   setView
 }: {
   business: BusinessSummary | null;
   request: AuthenticatedRequest;
+  syncBusinessOrderFromChat: (order: BusinessOrderSummary) => void;
   setBusy: (busy: boolean) => void;
   setNotice: (notice: string) => void;
   setView: (view: BusinessMiniAppView) => void;
@@ -109,8 +111,9 @@ export function useBusinessChatModel({
     chatOrderIdRef.current = orderId;
     setBusy(true);
     try {
-      const data = await listOrderMessages<ChatThread>(request, orderId, 50);
+      const data = await listOrderMessages<ChatThread<BusinessOrderSummary>>(request, orderId, 50);
       setChatOrderId(orderId);
+      syncBusinessOrderFromChat(data.order);
       setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       setChatAttachments([]);
@@ -143,7 +146,7 @@ export function useBusinessChatModel({
     } finally {
       setBusy(false);
     }
-  }, [request, setBusy, setNotice, setView]);
+  }, [request, setBusy, setNotice, setView, syncBusinessOrderFromChat]);
 
   const refreshChat = useCallback(async (options?: { silent?: boolean }) => {
     const targetOrderId = chatOrderIdRef.current;
@@ -155,10 +158,11 @@ export function useBusinessChatModel({
       setRefreshingChat(true);
     }
     try {
-      const data = await listOrderMessages<ChatThread>(request, targetOrderId, 50);
+      const data = await listOrderMessages<ChatThread<BusinessOrderSummary>>(request, targetOrderId, 50);
       if (chatOrderIdRef.current !== targetOrderId) {
         return false;
       }
+      syncBusinessOrderFromChat(data.order);
       setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       return true;
@@ -173,7 +177,7 @@ export function useBusinessChatModel({
         setRefreshingChat(false);
       }
     }
-  }, [request, setNotice]);
+  }, [request, setNotice, syncBusinessOrderFromChat]);
 
   const uploadChatAttachment = useCallback(async (file: File | null) => {
     if (!chatOrderId || !file || uploadingChatAttachmentRef.current) {
@@ -352,8 +356,9 @@ export function useBusinessChatModel({
         getIdempotencyKey(idempotencyScope, { orderId: targetOrderId, action })
       );
       clearIdempotencyKey(idempotencyScope);
-      const data = await listOrderMessages<ChatThread>(request, targetOrderId, 50);
+      const data = await listOrderMessages<ChatThread<BusinessOrderSummary>>(request, targetOrderId, 50);
       if (chatOrderIdRef.current === targetOrderId) {
+        syncBusinessOrderFromChat(data.order);
         setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
         setChatCapabilities(data.capabilities);
       }
