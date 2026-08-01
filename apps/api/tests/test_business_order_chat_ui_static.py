@@ -76,6 +76,8 @@ def test_client_and_business_support_keep_stable_layout_when_keyboard_opens() ->
 
     form_control_css = global_css.split("input,", 1)[1].split("}", 1)[0]
     assert "font-size: 16px;" in form_control_css
+    support_composer_css = global_css.split(".business-support-composer__input", 1)[1].split("}", 1)[0]
+    assert "font-size: 16px;" in support_composer_css
     assert ".business-support--typing" not in global_css
     assert "visualViewport?.addEventListener(\"scroll\"" not in keyboard_hook
     assert "window.setTimeout" not in keyboard_hook
