@@ -81,7 +81,7 @@ export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel
         </Button>
       </div>
       <div className="business-priority-list">
-        <button type="button" onClick={() => void loadBusinessOrders("payment_reported")}>
+        <button type="button" onClick={() => void loadBusinessOrders("open")}>
           <span>Requieren accion</span>
           <strong>{actionableOrders || businessOrders.filter((order) => order.status === "payment_reported").length}</strong>
         </button>
@@ -145,8 +145,8 @@ export function BusinessDashboardScreen({ model }: { model: BusinessMiniAppModel
         <Button mode="outline" size="s" onClick={() => void loadMyAds()}>
           Mis anuncios
         </Button>
-        <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("payment_reported")}>
-          Ordenes por revisar
+        <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("open")}>
+          Operaciones abiertas
         </Button>
         <Button mode="outline" size="s" onClick={() => void loadCreditDashboard()}>
           Creditos

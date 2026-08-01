@@ -205,3 +205,30 @@ def test_48b2_contract_does_not_claim_durable_message_unread_without_persistence
     assert "pendientes operativos" in api_contract.lower()
     assert "firma opaca" in api_contract.lower()
     assert "cuerpo del mensaje" not in api_contract.lower().split("## restricciones de privacidad")[0]
+
+
+def test_business_disputed_attention_opens_a_bucket_that_contains_disputes() -> None:
+    dashboard = (
+        ROOT
+        / "apps"
+        / "web"
+        / "src"
+        / "screens"
+        / "business-app"
+        / "BusinessDashboardScreen.tsx"
+    ).read_text(encoding="utf-8")
+    orders_screen = (
+        ROOT
+        / "apps"
+        / "web"
+        / "src"
+        / "screens"
+        / "business-app"
+        / "BusinessOrdersScreens.tsx"
+    ).read_text(encoding="utf-8")
+
+    assert 'order.status === "disputed"' in dashboard
+    assert '<span>Requieren accion</span>' in dashboard
+    assert 'onClick={() => void loadBusinessOrders("open")}' in dashboard
+    assert 'const verificationCount = businessOrders.filter((order) => order.status === "payment_reported").length;' in orders_screen
+    assert '<strong>{verificationCount}</strong>' in orders_screen

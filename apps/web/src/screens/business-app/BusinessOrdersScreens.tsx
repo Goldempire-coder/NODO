@@ -42,6 +42,7 @@ function nextBusinessAction(order: BusinessOrderSummary) {
 export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel }) {
   const { businessOrderFilter, businessOrders, loadBusinessOrders, openBusinessOrder } = model;
   const actionCount = businessOrders.filter(requiresBusinessAction).length;
+  const verificationCount = businessOrders.filter((order) => order.status === "payment_reported").length;
   const inProgressCount = businessOrders.filter((order) => operationBucket(order) === "En curso").length;
   const historyCount = businessOrders.filter((order) => operationBucket(order) === "Historial").length;
   return (
@@ -55,7 +56,7 @@ export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel })
         </button>
         <button className={businessOrderFilter === "payment_reported" ? "is-selected" : ""} type="button" onClick={() => void loadBusinessOrders("payment_reported")}>
           <span>Por verificar</span>
-          <strong>{actionCount}</strong>
+          <strong>{verificationCount}</strong>
         </button>
         <button className={businessOrderFilter === "history" ? "is-selected" : ""} type="button" onClick={() => void loadBusinessOrders("history")}>
           <span>Historial</span>
