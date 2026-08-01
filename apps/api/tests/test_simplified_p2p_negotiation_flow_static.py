@@ -178,7 +178,24 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
     assert "El cliente escribe el Pago Movil por chat" in business_chat
     assert "businessChatAction" in business_chat
     assert "sortChatMessages" in chat_model
-    assert "sortChatMessages" in business_chat_model
+
+
+def test_payment_evidence_upload_prepares_mobile_images_and_hides_raw_fetch_error() -> None:
+    payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
+    payment_file = _read("apps/web/src/utils/paymentEvidenceFiles.ts")
+    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+
+    assert "preparePaymentEvidenceFile(file)" in payment_model
+    assert "paymentEvidenceUploadErrorMessage(error)" in payment_model
+    assert '"Failed to fetch"' not in payment_model
+    assert "No pudimos subir el comprobante." in payment_model
+    assert "MAX_PAYMENT_EVIDENCE_UPLOAD_BYTES" in payment_file
+    assert "MAX_PAYMENT_EVIDENCE_IMAGE_DIMENSION" in payment_file
+    assert "canvas.toBlob" in payment_file
+    assert "image/jpeg" in payment_file
+    assert "application/pdf" in payment_file
+    assert "Adjunta una imagen PNG/JPG/WebP o PDF." in payment_file
+    assert 'accept="image/jpeg,image/png,image/webp,application/pdf"' in client_chat
 
 
 def test_slice_50b1_business_order_detail_ignores_legacy_receiver_data() -> None:

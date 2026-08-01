@@ -648,7 +648,8 @@ def test_client_mini_app_android_scroll_keyboard_and_cached_loads() -> None:
     assert "business-order-chat-messages" in client_chat_screen
     assert "business-order-chat-composer" in client_chat_screen
     assert "business-row ad-row" not in client_chat_screen
-    assert "window.setTimeout(scrollMessagesToEnd, 260);" in client_chat_screen
+    assert "business-order-chat--typing" not in client_chat_screen
+    assert "window.setTimeout(scrollMessagesToEnd, 260);" not in client_chat_screen
     assert "refreshChat({ silent: true })" in client_chat_model
     assert "sendingChatMessageRef.current" in client_chat_model
     assert "CLIENT_MARKETPLACE_CACHE_TTL_MS" in marketplace_model

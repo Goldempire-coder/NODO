@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Text } from "@telegram-apps/telegram-ui";
 import { CHAT_DISPUTE_COPY } from "../../constants/copy";
 import { humanizeOrderStatus, humanizeSenderRole } from "../../hooks/business-mini-app/helpers";
@@ -119,8 +119,6 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     uploadingChatAttachment,
     uploadChatAttachment
   } = model;
-  const [composerFocused, setComposerFocused] = useState(false);
-  const composerRef = useRef<HTMLFormElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const canSend = chatCapabilities.can_send_message && !sendingChatMessage && !uploadingChatAttachment;
@@ -157,26 +155,8 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [chatOrderId, chatMessages.length, chatAttachments.length]);
 
-  const scrollMessagesToEnd = () => {
-    messagesEndRef.current?.scrollIntoView({ block: "end" });
-  };
-
-  const focusComposer = () => {
-    setComposerFocused(true);
-    window.requestAnimationFrame(scrollMessagesToEnd);
-    window.setTimeout(scrollMessagesToEnd, 260);
-  };
-
-  const blurComposer = () => {
-    window.setTimeout(() => {
-      if (!composerRef.current?.contains(document.activeElement)) {
-        setComposerFocused(false);
-      }
-    }, 120);
-  };
-
   return (
-    <section className={composerFocused ? "business-order-chat business-order-chat--typing" : "business-order-chat"} aria-label="Chat con cliente">
+    <section className="business-order-chat" aria-label="Chat con cliente">
       <div className="business-order-chat__summary">
         <div className="business-order-chat__compact-heading">
           <Text className="business-card__label">Chat con cliente</Text>
@@ -318,7 +298,6 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
         </Text>
       ) : (
         <form
-          ref={composerRef}
           className="business-order-chat-composer"
           onSubmit={(event) => {
             event.preventDefault();
@@ -342,9 +321,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
             placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : "Escribir mensaje..."}
             rows={2}
             value={chatBody}
-            onBlur={blurComposer}
             onChange={(event) => setChatBody(event.target.value)}
-            onFocus={focusComposer}
           />
           <input
             ref={fileInputRef}

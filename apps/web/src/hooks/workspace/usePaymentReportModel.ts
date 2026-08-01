@@ -4,6 +4,7 @@ import { useRef } from "react";
 import type { AuthenticatedRequest } from "../../api/client";
 import { getPaymentInstructions, submitOrderPaymentReport, uploadPaymentEvidence as uploadOrderPaymentEvidence } from "../../api/paymentReports";
 import type { PaymentInstructions } from "../../types/payments";
+import { preparePaymentEvidenceFile } from "../../utils/paymentEvidenceFiles";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
@@ -31,6 +32,17 @@ type PaymentReportState = Pick<
 >;
 
 type RefreshChatAfterPaymentReport = (options?: { silent?: boolean }) => Promise<boolean>;
+
+function paymentEvidenceUploadErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    const normalizedMessage = error.message.toLowerCase();
+    if (error.name === "TypeError" || normalizedMessage.includes("fetch")) {
+      return "No pudimos subir el comprobante. Revisa tu conexion y que la imagen no sea demasiado pesada.";
+    }
+    return error.message;
+  }
+  return "No pudimos subir el comprobante.";
+}
 
 export function usePaymentReportModel(
   state: PaymentReportState & {
@@ -134,14 +146,27 @@ export function usePaymentReportModel(
     setUploadingPaymentEvidence(true);
     const idempotencyScope = `payment_evidence_${orderId}`;
     try {
-      const data = await uploadOrderPaymentEvidence<any>(request, orderId, file, pendingPaymentReportId, getIdempotencyKey(idempotencyScope, { orderId, pendingPaymentReportId, name: file.name, size: file.size }));
+      const preparedFile = await preparePaymentEvidenceFile(file);
+      const data = await uploadOrderPaymentEvidence<any>(
+        request,
+        orderId,
+        preparedFile,
+        pendingPaymentReportId,
+        getIdempotencyKey(idempotencyScope, {
+          orderId,
+          pendingPaymentReportId,
+          name: preparedFile.name,
+          size: preparedFile.size,
+          type: preparedFile.type
+        })
+      );
       clearIdempotencyKey(idempotencyScope);
       setPaymentEvidence(data.file);
       setPendingPaymentReportId(data.pending_payment_report_id);
       setNotice("");
       recordActionCompleted("client_payment_evidence_upload", "report-payment", startedAt);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No logramos cargar el comprobante.");
+      setNotice(paymentEvidenceUploadErrorMessage(error));
       recordActionFailed("client_payment_evidence_upload", "report-payment", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setUploadingPaymentEvidence(false);

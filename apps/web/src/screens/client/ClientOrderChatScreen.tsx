@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Text } from "@telegram-apps/telegram-ui";
 import { CHAT_DISPUTE_COPY } from "../../constants/copy";
 import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
@@ -126,8 +126,6 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     uploadChatAttachment,
     uploadingChatAttachment
   } = model;
-  const [composerFocused, setComposerFocused] = useState(false);
-  const composerRef = useRef<HTMLFormElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const paymentEvidenceInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -165,26 +163,8 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [chatOrderId, chatMessages.length, chatAttachments.length]);
 
-  const scrollMessagesToEnd = () => {
-    messagesEndRef.current?.scrollIntoView({ block: "end" });
-  };
-
-  const focusComposer = () => {
-    setComposerFocused(true);
-    window.requestAnimationFrame(scrollMessagesToEnd);
-    window.setTimeout(scrollMessagesToEnd, 260);
-  };
-
-  const blurComposer = () => {
-    window.setTimeout(() => {
-      if (!composerRef.current?.contains(document.activeElement)) {
-        setComposerFocused(false);
-      }
-    }, 120);
-  };
-
   return (
-    <section className={composerFocused ? "business-order-chat business-order-chat--typing" : "business-order-chat"} aria-label="Chat con negocio">
+    <section className="business-order-chat" aria-label="Chat con negocio">
       <div className="business-order-chat__summary">
         <div className="business-order-chat__compact-heading">
           <Text className="business-card__label">Chat con negocio</Text>
@@ -331,7 +311,6 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         </Text>
       ) : (
         <form
-          ref={composerRef}
           className="business-order-chat-composer"
           onSubmit={(event) => {
             event.preventDefault();
@@ -355,9 +334,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
             placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : "Escribir mensaje..."}
             rows={2}
             value={chatBody}
-            onBlur={blurComposer}
             onChange={(event) => setChatBody(event.target.value)}
-            onFocus={focusComposer}
           />
           <input
             ref={fileInputRef}

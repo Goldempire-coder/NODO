@@ -124,19 +124,16 @@ textarea {
 }
 
 .app-shell:has(.business-shell--keyboard-active),
-.app-shell:has(.business-support--typing),
-.app-shell:has(.business-order-chat--typing) {
+.app-shell:has(.business-support--typing) {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
 .business-shell:has(.business-support--typing),
-.business-shell:has(.business-order-chat--typing),
 .business-shell--keyboard-active {
   gap: 10px;
 }
 
 .app-shell:has(.business-support--typing) .primary-nav,
-.app-shell:has(.business-order-chat--typing) .primary-nav,
 .business-shell--keyboard-active .primary-nav,
 .primary-nav--hidden {
   pointer-events: none;
@@ -642,13 +639,6 @@ textarea {
   overflow: hidden;
 }
 
-.business-order-chat--typing {
-  height: min(80dvh, calc(var(--nodo-viewport-height, 100dvh) - 52px), 700px);
-  max-height: calc(var(--nodo-viewport-height, 100dvh) - 52px);
-  min-height: min(300px, calc(var(--nodo-viewport-height, 100dvh) - 52px));
-  gap: 6px;
-}
-
 .business-order-chat__summary {
   min-width: 0;
   display: flex;
@@ -836,7 +826,7 @@ textarea {
   bottom: 0;
   z-index: 2;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr) 74px;
   align-items: end;
   gap: 6px;
   padding: 7px;
@@ -851,7 +841,8 @@ textarea {
   max-height: 92px;
   resize: none;
   border-radius: 11px;
-  font-size: 14px;
+  font-size: 16px;
+  line-height: 1.25;
 }
 
 .business-order-chat-actions {
@@ -915,7 +906,7 @@ textarea {
   background: rgb(3 12 24 / 78%);
   color: var(--nodo-text);
   font: inherit;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
   padding: 0 10px;
 }
@@ -983,58 +974,6 @@ textarea {
   opacity: 0.48;
 }
 
-.business-order-chat--typing .business-order-chat__summary .business-card__label,
-.business-order-chat--typing .business-order-chat__summary small,
-.business-order-chat--typing > .business-order-chat-note,
-.business-order-chat--typing > .business-order-chat-actions,
-.business-order-chat--typing > .business-order-chat-inline-actions,
-.business-order-chat--typing > .business-order-chat-payment-bar,
-.business-order-chat--typing > .business-order-chat-payment-action,
-.business-order-chat--typing > .business-order-chat-attachment-preview,
-.business-order-chat--typing > .business-order-chat-attachment-ready,
-.business-order-chat--typing > article.business-order-chat-message {
-  display: none;
-}
-
-.business-order-chat--typing .business-order-chat__summary {
-  align-items: center;
-  padding-bottom: 4px;
-}
-
-.business-order-chat--typing .business-order-chat__compact-code {
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.business-order-chat--typing .business-order-chat-messages {
-  gap: 6px;
-  padding: 6px 2px;
-}
-
-.business-order-chat--typing .business-order-chat-message {
-  padding: 8px 10px;
-}
-
-.business-order-chat--typing .business-order-chat-message p {
-  font-size: clamp(13px, 3.6vw, 15px);
-}
-
-.business-order-chat--typing .business-order-chat-message small {
-  display: none;
-}
-
-.business-order-chat--typing .business-order-chat-composer {
-  grid-template-columns: 34px minmax(0, 1fr) 74px;
-  padding: 6px;
-}
-
-.business-order-chat--typing .business-order-chat-composer__input {
-  min-height: 40px;
-  max-height: 72px;
-}
-
 @media (max-width: 420px) {
   .business-support,
   .business-order-chat {
@@ -1043,8 +982,7 @@ textarea {
     min-height: min(360px, calc(var(--nodo-viewport-height, 100dvh) - 100px));
   }
 
-  .business-support--typing,
-  .business-order-chat--typing {
+  .business-support--typing {
     height: min(82dvh, calc(var(--nodo-viewport-height, 100dvh) - 44px), 640px);
     max-height: calc(var(--nodo-viewport-height, 100dvh) - 44px);
     min-height: min(280px, calc(var(--nodo-viewport-height, 100dvh) - 44px));
@@ -1052,7 +990,7 @@ textarea {
 
   .business-support-composer,
   .business-order-chat-composer {
-    grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-columns: 34px minmax(0, 1fr) 74px;
     padding: 7px;
   }
 

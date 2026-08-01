@@ -30,27 +30,29 @@ def test_business_order_chat_uses_native_chat_surface_not_table_rows() -> None:
 
 def test_business_order_chat_has_compact_attachment_and_keyboard_safe_typing_mode() -> None:
     chat_screen = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
+    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
     global_css = _read("apps/web/src/app/globals.css")
 
     assert "PaperclipIcon" in chat_screen
     assert "fileInputRef.current?.click()" in chat_screen
     assert 'accept="image/*,application/pdf"' in chat_screen
     assert 'aria-label="Adjuntar comprobante o soporte"' in chat_screen
-    assert "composerFocused ? \"business-order-chat business-order-chat--typing\"" in chat_screen
-    assert "focusComposer" in chat_screen
-    assert "blurComposer" in chat_screen
-    assert "window.setTimeout(scrollMessagesToEnd, 260);" in chat_screen
+    for source in [chat_screen, client_chat]:
+        assert 'className="business-order-chat"' in source
+        assert "business-order-chat--typing" not in source
+        assert "focusComposer" not in source
+        assert "blurComposer" not in source
+        assert "window.setTimeout(scrollMessagesToEnd, 260);" not in source
     assert "business-shell--keyboard-active" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
     assert "useMobileKeyboardViewport" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
     assert "window.visualViewport" in _read("apps/web/src/hooks/useMobileKeyboardViewport.ts")
     assert "--nodo-viewport-height" in global_css
-    assert ".app-shell:has(.business-order-chat--typing) .primary-nav" in global_css
+    assert ".app-shell:has(.business-order-chat--typing) .primary-nav" not in global_css
     assert ".business-shell--keyboard-active .primary-nav" in global_css
     assert ".primary-nav--hidden" in global_css
-    assert ".business-order-chat--typing {" in global_css
-    assert ".business-order-chat--typing > .business-order-chat-actions" in global_css
-    assert ".business-order-chat--typing .business-order-chat-composer" in global_css
+    assert ".business-order-chat--typing" not in global_css
     assert "grid-template-columns: 34px minmax(0, 1fr) 74px;" in global_css
+    assert "font-size: 16px;" in global_css.split(".business-order-chat-composer__input", 1)[1].split("}", 1)[0]
     assert "-webkit-overflow-scrolling: touch;" in global_css
     assert "touch-action: pan-y;" in global_css
     assert "business-order-chat__compact-code" in chat_screen
