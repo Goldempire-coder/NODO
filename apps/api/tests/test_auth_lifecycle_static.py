@@ -407,10 +407,11 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "disabled={verifyingCreditTx || !baseUsdcTxHash.trim()}" in credits_screen
     assert "Verificando..." in credits_screen
     assert "Actualizando..." in credits_screen
-    assert "disabled={businessOrderAction === \"confirm-payment\"" in orders_screen
-    assert "Confirmando..." in orders_screen
+    assert "shouldHandleInChat" in orders_screen
+    assert "Abrir chat" in orders_screen
+    assert "Confirmando..." not in orders_screen
     assert "Rechazando..." in orders_screen
-    assert "Marcando..." in orders_screen
+    assert "Marcando..." not in orders_screen
     assert "disabled={busy || !chatCapabilities.can_send_message" not in chat_screen
     assert "sendingChatMessage" in chat_screen
     assert "uploadingChatAttachment" in chat_screen
@@ -569,7 +570,8 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "disabled={busy" not in support_screen
     assert "Buscando..." in marketplace_screen
     assert "Confirmando..." in order_screen
-    assert "Abriendo pago..." in chat_screen
+    assert "Zelle enviado" in chat_screen
+    assert "loadingPaymentInstructions" in chat_screen
     assert "Subiendo comprobante..." in payment_screen
     assert "Enviando reporte..." in payment_screen
     assert 'sendingChatMessage ? "..." : "Enviar"' in chat_screen

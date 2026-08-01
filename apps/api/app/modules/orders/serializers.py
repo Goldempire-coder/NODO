@@ -27,7 +27,7 @@ def order_capabilities(order, *, receiver_details_shared: bool = False) -> dict[
     return {
         "can_confirm_payment": order.status == "payment_reported",
         "can_reject_payment_report": order.status == "payment_reported",
-        "can_mark_delivered": order.status == "payment_confirmed" and receiver_details_shared,
+        "can_mark_delivered": order.status == "payment_confirmed",
         "can_decline_before_payment": order.status == "waiting_payment",
         "receiver_details_shared": receiver_details_shared,
     }

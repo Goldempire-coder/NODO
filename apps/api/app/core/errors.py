@@ -92,7 +92,7 @@ ERROR_MESSAGES = {
     "ORDER_PAYMENT_DETAILS_NOT_SHARED": "Espera a que el negocio comparta sus datos Zelle en el chat.",
     "ORDER_PAYMENT_METHOD_UNAVAILABLE": "La orden no tiene un metodo Zelle disponible para compartir.",
     "ORDER_RECEIVER_DETAILS_INVALID": "Revisa los datos de Pago Movil antes de continuar.",
-    "ORDER_RECEIVER_DETAILS_REQUIRED": "El cliente debe compartir los datos de Pago Movil antes de marcar el envio.",
+    "ORDER_RECEIVER_DETAILS_REQUIRED": "No encontramos datos estructurados de Pago Movil para esta accion.",
     "ORDER_RECEIVER_DETAILS_ALREADY_SHARED": "Los datos de Pago Movil de esta orden ya fueron compartidos y no pueden reemplazarse.",
     "ORDER_RECEIVER_DETAILS_NOT_FOUND": "No encontramos datos de Pago Movil compartidos para esta orden.",
     "ORDER_RECEIPT_CONFIRMATION_NOT_ALLOWED": "La orden no permite confirmar la recepcion en este estado.",

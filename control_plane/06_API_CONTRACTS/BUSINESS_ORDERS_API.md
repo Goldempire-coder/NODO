@@ -407,12 +407,12 @@ Rules:
 - `Idempotency-Key` obligatorio.
 - Solo negocio dueno.
 - Requiere `orders.status = payment_confirmed`.
-- Requiere datos estructurados de receptor validos y compartidos mediante el
-  contrato `PUT /api/v1/orders/{id}/receiver-details`.
-- La transicion bloquea la orden y verifica el recurso inmutable dentro de la
-  misma operacion; no acepta una copia enviada por el negocio.
-- No se aceptan datos de receptor tomados de `messages.body`, metadata libre,
-  logs, telemetry o un payload enviado por el negocio.
+- Pago Movil se coordina por chat entre participantes. El texto del chat no
+  cambia estado, monto ni tasa; solo este endpoint marca envio oficial.
+- El endpoint estructurado `PUT /api/v1/orders/{id}/receiver-details` puede
+  existir por compatibilidad, pero no es requisito para esta transicion.
+- No se aceptan datos de receptor desde metadata libre, logs, telemetry o un
+  payload enviado por el negocio para cambiar la orden.
 - Cambia `orders.status = delivered`.
 - Setea `orders.delivered_at`.
 - Setea `auto_complete_warning_12h_at = now + 12 hours`.
@@ -434,7 +434,6 @@ Errores:
 - `ORDER_NOT_OWNED`
 - `ORDER_STATUS_INVALID`
 - `DELIVERY_NOT_ALLOWED`
-- `ORDER_RECEIVER_DETAILS_REQUIRED`
 - `IDEMPOTENCY_KEY_REQUIRED`
 - `IDEMPOTENCY_CONFLICT`
 - `IDEMPOTENCY_PAYLOAD_MISMATCH`

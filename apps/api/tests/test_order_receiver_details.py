@@ -219,7 +219,7 @@ def test_receiver_details_reveal_is_participant_only_audited_and_no_store() -> N
         assert private_value not in audit_dump
 
 
-def test_mark_delivered_requires_structured_receiver_details_not_legacy_receiver_data() -> None:
+def test_mark_delivered_allows_chat_coordinated_payment_mobile_without_structured_details() -> None:
     client = _client()
     owner, _, _, remitter, order = _seed_reported_order(
         client,
@@ -228,14 +228,7 @@ def test_mark_delivered_requires_structured_receiver_details_not_legacy_receiver
     )
     _confirm_payment(client, owner, order["id"], key="receiver_gate_confirm")
 
-    blocked = _mark_delivered(client, owner, order["id"], key="receiver_gate_blocked")
-    assert blocked.status_code == 409
-    assert blocked.json()["error"]["code"] == "ORDER_RECEIVER_DETAILS_REQUIRED"
-    assert client.app.state.order_repository.get_by_id(order["id"]).status == "payment_confirmed"
-
-    shared = _share_receiver_details(client, remitter, order["id"], key="receiver_gate_share")
     delivered = _mark_delivered(client, owner, order["id"], key="receiver_gate_delivered")
-    assert shared.status_code == 200, shared.text
     assert delivered.status_code == 200, delivered.text
     assert delivered.json()["data"]["order"]["status"] == "delivered"
 
@@ -248,7 +241,6 @@ def test_confirm_received_completes_once_consumes_capacity_and_not_credit() -> N
         remitter_id=5601,
     )
     _confirm_payment(client, owner, order["id"], key="receiver_complete_confirm")
-    _share_receiver_details(client, remitter, order["id"], key="receiver_complete_share")
     assert _mark_delivered(client, owner, order["id"], key="receiver_complete_deliver").status_code == 200
     wallet_before = client.app.state.ad_repository.get_wallet(business["id"])
     consumed_credits_before = wallet_before.consumed_credits
@@ -300,7 +292,6 @@ def test_confirm_received_rejects_wrong_state_and_open_dispute() -> None:
     assert before_delivery.status_code == 409
     assert before_delivery.json()["error"]["code"] == "ORDER_RECEIPT_CONFIRMATION_NOT_ALLOWED"
 
-    _share_receiver_details(client, remitter, order["id"], key="receiver_dispute_share")
     assert _mark_delivered(client, owner, order["id"], key="receiver_dispute_deliver").status_code == 200
     dispute = client.post(
         f"/api/v1/orders/{order['id']}/disputes",
@@ -332,7 +323,6 @@ def test_confirm_received_and_dispute_race_has_one_terminal_winner() -> None:
         remitter_id=5801,
     )
     _confirm_payment(client, owner, order["id"], key="receiver_race_confirm")
-    _share_receiver_details(client, remitter, order["id"], key="receiver_race_share")
     assert _mark_delivered(client, owner, order["id"], key="receiver_race_deliver").status_code == 200
 
     def complete():  # type: ignore[no-untyped-def]
@@ -389,7 +379,7 @@ def test_receiver_details_never_enter_general_chat_or_message_payloads() -> None
         assert private_value not in messages.text
 
 
-def test_slice_50b1_frontend_uses_structured_receiver_actions_not_chat_template() -> None:
+def test_slice_50b2_frontend_keeps_payment_mobile_as_chat_copy_not_blocking_form() -> None:
     root = __import__("pathlib").Path(__file__).resolve().parents[3]
     orders_api = (root / "apps/web/src/api/orders.ts").read_text(encoding="utf-8")
     client_chat = (root / "apps/web/src/screens/client/ClientOrderChatScreen.tsx").read_text(encoding="utf-8")
@@ -398,10 +388,13 @@ def test_slice_50b1_frontend_uses_structured_receiver_actions_not_chat_template(
     assert "/receiver-details" in orders_api
     assert "/confirm-received" in orders_api
     assert "PAYMENT_MOBILE_TEMPLATE" not in client_chat
-    assert "shareReceiverDetails" in client_chat
+    assert "shareReceiverDetails" not in client_chat
+    assert "receiverDetailsForm" not in client_chat
+    assert "Comparte Pago Movil" not in client_chat
+    assert "Escribe tu Pago Movil en el chat." in client_chat
     assert "confirmOrderReceived" in client_chat
+    assert "El cliente escribe el Pago Movil por chat" in business_chat
     assert "revealReceiverDetails" in business_chat
-    assert "receiverDetails" in business_chat
 
 
 def test_slice_50b1_migration_is_reversible_and_keeps_receiver_values_out_of_messages() -> None:

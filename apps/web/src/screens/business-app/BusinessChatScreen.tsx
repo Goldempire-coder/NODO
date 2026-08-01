@@ -261,9 +261,9 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
         </div>
       ) : null}
 
-      {chatCapabilities.receiver_details_required ? (
+      {model.businessOrderDetail?.order.status === "payment_confirmed" && !chatCapabilities.receiver_details_shared ? (
         <Text className="auth-entry__session-meta business-order-chat-note">
-          Pago Movil pendiente. El cliente debe compartirlo desde esta orden.
+          El cliente escribe el Pago Movil por chat. Cuando hayas enviado, toca Pago Movil enviado.
         </Text>
       ) : null}
 

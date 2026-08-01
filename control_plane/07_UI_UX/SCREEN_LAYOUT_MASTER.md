@@ -85,7 +85,6 @@ Forbidden filters in MVP:
 ## Order flow distribution
 
 Create Order:
-- receiver data form
 - calculated Bs preview
 - frozen rate preview
 - MainButton
@@ -127,7 +126,7 @@ Create Ad:
 Order Detail:
 - order status
 - payment report evidence
-- receiver data
+- chat-first Pago Movil coordination
 - state-specific actions
 - chat entry
 

@@ -72,9 +72,10 @@ Credito publicitario y capacidad operativa son conceptos distintos:
   `disputed` mantienen la reserva;
 - `completed` consume la capacidad una vez y no consume credito otra vez.
 
-Pago Movil se comparte como payload estructurado sensible. Puede verse como
-burbuja en la UX, pero no es `messages.body`. El negocio solo puede marcar
-`payment_confirmed -> delivered` cuando existen datos de receptor validos.
+Pago Movil se coordina por chat en el flujo normal. El texto no cambia estado,
+monto ni tasa. El negocio marca `payment_confirmed -> delivered` mediante la
+accion oficial cuando ya envio el Pago Movil. El payload estructurado queda
+como ruta opcional de compatibilidad, no como requisito de entrega.
 
 ## 1. Cliente crea orden pero no marca Ya pague
 

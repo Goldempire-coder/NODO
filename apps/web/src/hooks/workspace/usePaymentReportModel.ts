@@ -125,7 +125,7 @@ export function usePaymentReportModel(
   }
 
   async function uploadPaymentEvidence(file: File | null) {
-    const orderId = paymentInstructions?.order.id || selectedOrder?.id;
+    const orderId = paymentInstructions?.order.id || selectedOrder?.id || chatOrderId;
     if (!orderId || !file) {
       return;
     }
@@ -138,7 +138,7 @@ export function usePaymentReportModel(
       clearIdempotencyKey(idempotencyScope);
       setPaymentEvidence(data.file);
       setPendingPaymentReportId(data.pending_payment_report_id);
-      setNotice("Evidencia privada cargada. La ruta interna no se muestra.");
+      setNotice("");
       recordActionCompleted("client_payment_evidence_upload", "report-payment", startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos cargar el comprobante.");
@@ -149,10 +149,30 @@ export function usePaymentReportModel(
   }
 
   async function submitPaymentReport() {
-    const orderId = paymentInstructions?.order.id || selectedOrder?.id;
-    const paymentMethod = paymentInstructions?.payment_instructions.method_type || selectedOrder?.payment_method_snapshot;
-    const lockedPaymentAmount = paymentInstructions?.order.amount_usd || selectedOrder?.amount_usd;
-    if (!orderId || !paymentMethod || !lockedPaymentAmount) {
+    const orderId = paymentInstructions?.order.id || selectedOrder?.id || chatOrderId;
+    if (!orderId) {
+      setNotice("Selecciona una orden.");
+      return;
+    }
+    let resolvedInstructions = paymentInstructions;
+    if (!resolvedInstructions) {
+      try {
+        setLoadingPaymentInstructions(true);
+        resolvedInstructions = await getPaymentInstructions<PaymentInstructions>(request, orderId);
+        if (activeChatOrderIdRef.current !== orderId && selectedOrder?.id !== orderId) {
+          return;
+        }
+        setPaymentInstructions(resolvedInstructions);
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Las instrucciones no estan disponibles para esta orden.");
+        return;
+      } finally {
+        setLoadingPaymentInstructions(false);
+      }
+    }
+    const paymentMethod = resolvedInstructions.payment_instructions.method_type || selectedOrder?.payment_method_snapshot;
+    const lockedPaymentAmount = resolvedInstructions.order.amount_usd || selectedOrder?.amount_usd;
+    if (!paymentMethod || !lockedPaymentAmount) {
       setNotice("Selecciona una orden.");
       return;
     }

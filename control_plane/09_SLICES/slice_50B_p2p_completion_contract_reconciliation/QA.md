@@ -18,15 +18,16 @@
 
 ## Secure Receiver Details
 
-- Remitter can submit valid receiver details only for own `payment_confirmed`
-  order.
-- Business cannot mark delivered until valid receiver details exist.
+- Remitter can submit optional structured receiver details only for own
+  `payment_confirmed` order.
+- Business can mark delivered from `payment_confirmed` after chat
+  coordination, even when no structured receiver details exist.
 - Payload replay is idempotent; changed payload with same key conflicts.
 - A different key cannot replace already accepted receiver details.
 - A valid replay after the order advances returns the existing resource; it
   does not fail the first-creation state guard or duplicate effects.
-- Legacy create-order `receiver_data` cannot satisfy the secure receiver gate
-  and is removed/deprecated before 50B1 activation.
+- Legacy create-order `receiver_data` cannot replace chat coordination and is
+  removed/deprecated before real-use activation.
 - Unrelated client/business gets not found.
 - Admin/support cannot use the participant endpoint.
 - Receiver details are absent from message rows, message API, logs, audit

@@ -106,22 +106,16 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     openOrderDispute,
     openingOrderDispute,
     openChatAttachment,
-    openPaymentReport,
     paymentEvidence,
     paymentInstructions,
     paymentReportForm,
     confirmOrderReceived,
     confirmingOrderReceived,
     dismissChatAttachmentLink,
-    receiverDetailsForm,
-    receiverDetailsMasked,
     refreshChat,
     refreshingChat,
     sendChatMessage,
     sendingChatMessage,
-    setReceiverDetailsForm,
-    shareReceiverDetails,
-    sharingReceiverDetails,
     submitPaymentReport,
     submittingPaymentReport,
     setChatBody,
@@ -140,10 +134,8 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
   const canSend = chatCapabilities.can_send_message && !sendingChatMessage && !uploadingChatAttachment;
   const canSubmitMessage = canSend && (chatBody.trim().length > 0 || chatAttachments.length > 0);
   const selectedChatOrder = model.selectedOrder?.id === chatOrderId ? model.selectedOrder : null;
-  const paymentReportInChat = chatOrderId && paymentInstructions?.order.id === chatOrderId;
   const paymentReportMethod = paymentInstructions?.payment_instructions.method_type || selectedChatOrder?.payment_method_snapshot;
   const paymentReportAmount = paymentInstructions?.order.amount_usd || selectedChatOrder?.amount_usd;
-  const composerPlaceholder = "Escribir mensaje...";
 
   useEffect(() => {
     if (!chatOrderId || model.view !== "order-chat") {
@@ -263,86 +255,10 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         </div>
       ) : null}
 
-      {chatCapabilities.can_share_receiver_details ? (
-        <div className="business-order-chat-actions" aria-label="Compartir Pago Movil">
-          <strong>Comparte Pago Movil</strong>
-          <label>
-            <span>Banco</span>
-            <select
-              value={receiverDetailsForm.bank}
-              onChange={(event) => setReceiverDetailsForm((current) => ({ ...current, bank: event.target.value }))}
-            >
-              <option value="0102">Banco de Venezuela</option>
-              <option value="0105">Mercantil</option>
-              <option value="0108">BBVA Provincial</option>
-              <option value="0114">Bancaribe</option>
-              <option value="0115">Banco Exterior</option>
-              <option value="0128">Banco Caroni</option>
-              <option value="0134">Banesco</option>
-              <option value="0137">Banco Sofitasa</option>
-              <option value="0138">Banco Plaza</option>
-              <option value="0151">Banco Fondo Comun</option>
-              <option value="0156">100% Banco</option>
-              <option value="0157">DelSur</option>
-              <option value="0163">Banco del Tesoro</option>
-              <option value="0166">Banco Agricola</option>
-              <option value="0168">Bancrecer</option>
-              <option value="0169">Mi Banco</option>
-              <option value="0171">Banco Activo</option>
-              <option value="0172">Bancamiga</option>
-              <option value="0174">Banplus</option>
-              <option value="0175">Banco Bicentenario</option>
-              <option value="0177">Banfanb</option>
-              <option value="0191">BNC</option>
-            </select>
-          </label>
-          <label>
-            <span>Telefono</span>
-            <input
-              autoComplete="tel"
-              inputMode="tel"
-              placeholder="+584121234567"
-              value={receiverDetailsForm.phone}
-              onChange={(event) => setReceiverDetailsForm((current) => ({ ...current, phone: event.target.value }))}
-            />
-          </label>
-          <label>
-            <span>Documento</span>
-            <input
-              autoComplete="off"
-              placeholder="V12345678"
-              value={receiverDetailsForm.document}
-              onChange={(event) => setReceiverDetailsForm((current) => ({ ...current, document: event.target.value }))}
-            />
-          </label>
-          <label>
-            <span>Titular</span>
-            <input
-              autoComplete="name"
-              value={receiverDetailsForm.holder}
-              onChange={(event) => setReceiverDetailsForm((current) => ({ ...current, holder: event.target.value }))}
-            />
-          </label>
-          <button
-            className="business-order-chat-payment-action"
-            type="button"
-            disabled={sharingReceiverDetails}
-            onClick={() => void shareReceiverDetails()}
-          >
-            {sharingReceiverDetails ? "Compartiendo..." : "Compartir Pago Movil"}
-          </button>
-        </div>
-      ) : null}
-
-      {receiverDetailsMasked || chatCapabilities.receiver_details_shared ? (
-        <article className="business-order-chat-message business-order-chat-message--mine">
-          <span className="business-order-chat-message__sender">Pago Movil seguro</span>
-          <p>
-            {receiverDetailsMasked
-              ? `${receiverDetailsMasked.bank} · ${receiverDetailsMasked.phone} · ${receiverDetailsMasked.document} · ${receiverDetailsMasked.holder}`
-              : "Datos compartidos de forma segura."}
-          </p>
-        </article>
+      {selectedChatOrder?.status === "payment_confirmed" && !chatCapabilities.receiver_details_shared ? (
+        <Text className="auth-entry__session-meta business-order-chat-note">
+          Escribe tu Pago Movil en el chat.
+        </Text>
       ) : null}
 
       {chatCapabilities.can_confirm_received ? (
@@ -357,70 +273,54 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
       ) : null}
 
       {chatCapabilities.can_report_payment && chatOrderId ? (
-        paymentReportInChat ? (
-          <div className="business-order-chat-actions" aria-label="Reportar pago enviado">
-            <strong>Pago enviado</strong>
-            <small>
-              Adjunta el comprobante. El monto bloqueado es {paymentReportAmount} USD.
-            </small>
-            {paymentReportMethod === "usdt_trc20" ? (
-              <label>
-                <span>Tx hash</span>
-                <input
-                  value={paymentReportForm.tx_hash}
-                  onChange={(event) => setPaymentReportForm((current) => ({ ...current, tx_hash: event.target.value }))}
-                />
-              </label>
-            ) : null}
+        <div className="business-order-chat-payment-bar" aria-label="Reportar Zelle enviado">
+          <span>
+            Adjunta el comprobante
+            {paymentReportAmount ? ` - ${paymentReportAmount} USD` : ""}
+          </span>
+          {paymentReportMethod === "usdt_trc20" ? (
             <input
-              ref={paymentEvidenceInputRef}
-              className="business-support-file-input"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              disabled={uploadingPaymentEvidence || submittingPaymentReport}
-              type="file"
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0] || null;
-                event.currentTarget.value = "";
-                void uploadPaymentEvidence(file);
-              }}
+              className="business-order-chat-payment-bar__hash"
+              aria-label="Tx hash"
+              placeholder="Tx hash"
+              value={paymentReportForm.tx_hash}
+              onChange={(event) => setPaymentReportForm((current) => ({ ...current, tx_hash: event.target.value }))}
             />
-            <div className="business-order-chat-inline-actions">
-              <button
-                className="business-order-chat-payment-action"
-                type="button"
-                disabled={uploadingPaymentEvidence || submittingPaymentReport}
-                onClick={() => paymentEvidenceInputRef.current?.click()}
-              >
-                {uploadingPaymentEvidence ? "Subiendo..." : paymentEvidence ? "Cambiar comprobante" : "Adjuntar imagen"}
-              </button>
-              <button
-                className="business-order-chat-payment-action"
-                type="button"
-                disabled={submittingPaymentReport || uploadingPaymentEvidence || !paymentEvidence}
-                onClick={() => void submitPaymentReport()}
-              >
-                {submittingPaymentReport ? "Enviando..." : "Enviar pago"}
-              </button>
-            </div>
-            {paymentEvidence ? (
-              <small>{paymentEvidence.mime_type} - {Math.max(1, Math.round(paymentEvidence.size_bytes / 1024))} KB</small>
-            ) : null}
-          </div>
-        ) : (
+          ) : null}
+          <input
+            ref={paymentEvidenceInputRef}
+            className="business-support-file-input"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            disabled={uploadingPaymentEvidence || submittingPaymentReport}
+            type="file"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0] || null;
+              event.currentTarget.value = "";
+              void uploadPaymentEvidence(file);
+            }}
+          />
           <button
             className="business-order-chat-payment-action"
             type="button"
-            disabled={loadingPaymentInstructions}
-            onClick={() => void openPaymentReport(chatOrderId)}
+            disabled={uploadingPaymentEvidence || submittingPaymentReport}
+            onClick={() => paymentEvidenceInputRef.current?.click()}
           >
-            {loadingPaymentInstructions ? "Abriendo pago..." : "Pago enviado"}
+            {uploadingPaymentEvidence ? "..." : paymentEvidence ? "Cambiar" : "Foto"}
           </button>
-        )
+          <button
+            className="business-order-chat-payment-action"
+            type="button"
+            disabled={submittingPaymentReport || uploadingPaymentEvidence || !paymentEvidence || loadingPaymentInstructions}
+            onClick={() => void submitPaymentReport()}
+          >
+            {submittingPaymentReport || loadingPaymentInstructions ? "..." : "Zelle enviado"}
+          </button>
+        </div>
       ) : selectedChatOrder?.status === "waiting_payment"
         && selectedChatOrder.payment_method_snapshot === "zelle"
         && !chatCapabilities.payment_details_shared ? (
           <Text className="auth-entry__session-meta business-order-chat-note">
-            No envíes Zelle hasta que el negocio comparta sus datos.
+            No envies Zelle hasta que el negocio comparta sus datos.
           </Text>
         ) : null}
 
@@ -446,7 +346,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
           aria-label="Mensaje para negocio"
           disabled={!chatCapabilities.can_send_message || sendingChatMessage}
           maxLength={2000}
-          placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : composerPlaceholder}
+          placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : "Escribir mensaje..."}
           rows={2}
           value={chatBody}
           onBlur={blurComposer}

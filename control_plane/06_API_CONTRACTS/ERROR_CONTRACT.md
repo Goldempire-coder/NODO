@@ -241,8 +241,8 @@ Mensajes seguros:
 
 - `ORDER_RECEIVER_DETAILS_INVALID`: HTTP 400; uno o mas campos no cumplen el
   formato permitido. No devolver el valor rechazado.
-- `ORDER_RECEIVER_DETAILS_REQUIRED`: HTTP 409; el negocio no puede marcar
-  entrega porque no existe payload estructurado valido.
+- `ORDER_RECEIVER_DETAILS_REQUIRED`: HTTP 409; una accion explicita de
+  receiver-details requiere el recurso estructurado y no existe.
 - `ORDER_RECEIVER_DETAILS_ALREADY_SHARED`: HTTP 409; el recurso inmutable ya
   existe y el payload canonico nuevo es distinto.
 - `ORDER_RECEIVER_DETAILS_NOT_FOUND`: HTTP 404; el recurso no existe o no es

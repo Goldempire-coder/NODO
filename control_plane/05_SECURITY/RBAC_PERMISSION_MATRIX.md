@@ -152,7 +152,7 @@ Post-MVP:
 | business_owner | view_incoming_orders | own business | approved | no | yes |
 | business_owner | confirm_payment | own business order | payment_reported + payment_report submitted + approved business | payment_confirmed/credits_consumed | yes |
 | business_owner | reject_payment_report | own business order | payment_reported + payment_report submitted + approved business + reason required | payment_report_rejected | yes |
-| business_owner | mark_delivered | own business order | payment_confirmed + valid receiver details + approved business | order_delivered | yes |
+| business_owner | mark_delivered | own business order | payment_confirmed + approved business | order_delivered | yes |
 | business_owner | open_dispute | own business order | payment_reported/payment_rejected/payment_confirmed/delivered + approved business | dispute_opened | yes |
 | business_owner | respond_dispute | own order/dispute | dispute open | dispute_message_created | yes |
 | business_owner | view_order_messages | own business order | waiting_payment/payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | no | yes |

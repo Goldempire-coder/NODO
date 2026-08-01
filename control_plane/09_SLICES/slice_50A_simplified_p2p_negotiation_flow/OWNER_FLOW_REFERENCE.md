@@ -36,11 +36,11 @@ flowchart TD
   K --> L[Cancelar antes de pago y liberar capacidad]
 
   J --> M[Cliente marca Pago enviado]
-  M --> N[Cliente sube capture, referencia y nombre remitente]
+  M --> N[Cliente adjunta capture]
 
   N --> O[Negocio confirma recepcion]
-  O --> P[Cliente comparte receptor Pago Movil como payload seguro]
-  P --> Q[Negocio marca Pago enviado]
+  O --> P[Cliente escribe Pago Movil en chat]
+  P --> Q[Negocio marca Pago Movil enviado]
   Q --> R[Cliente confirma recepcion]
   R --> S[Orden completed y consume capacidad]
 
@@ -109,16 +109,11 @@ Preferred sequence:
 2. Business: any message means only that the business responded.
 3. Business shares its configured Zelle manually or with compact `Enviar Zelle`.
 4. Client: sends Zelle outside NODO.
-5. Client: taps compact `Pago enviado`.
-6. Client report collects only:
-   - capture/proof;
-   - transfer reference or ID;
-   - sender name;
-   - locked order amount.
+5. Client: attaches proof and taps compact `Pago enviado`.
+6. Client report collects only the capture/proof and locked order amount.
 7. Business confirms receipt.
-8. Client shares Pago Movil receiver details as a chat-style secure payload,
-   not as a free `messages.body`.
-9. Business marks payment sent.
+8. Client writes Pago Movil in the chat.
+9. Business marks Pago Movil sent.
 10. Client confirms receipt.
 
 Accounting:

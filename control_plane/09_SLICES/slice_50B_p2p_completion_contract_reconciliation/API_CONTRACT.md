@@ -5,9 +5,10 @@ All routes use `/api/v1`, authenticated ownership checks, rate limits,
 
 ## PUT /api/v1/orders/{id}/receiver-details
 
-Creates the structured Pago Movil receiver details for an order.
-This resource may render as a chat-style secure bubble, but it does not create a
-row in `messages` and its values never appear in `messages.body`.
+Optional structured Pago Movil receiver details for an order.
+The normal chat-first flow does not require this resource before delivery. If
+used, it may render as a compact secure bubble, but it does not create a row in
+`messages` and its values never appear in `messages.body`.
 
 Headers:
 
@@ -72,6 +73,8 @@ Rules:
 - Persist the protected resource and safe audit atomically; fail closed if the
   audit cannot be written.
 - Enqueue one generic business notification without any receiver field.
+- The business can still mark Pago Movil sent from `payment_confirmed` without
+  this resource when the participants coordinated the receiver details in chat.
 - Idempotency/resource lookup precedes the first-creation state guard:
   - an existing same-key/same-payload result replays in any later visible state;
   - an existing same canonical payload under another key returns the resource;
@@ -215,8 +218,7 @@ When a later slice activates it, the runner must:
 
 ## Notification Rules
 
-- `payment_confirmed`: tell the remitter to share receiver details in the
-  secure order action.
+- `payment_confirmed`: tell the remitter to write Pago Movil in the chat.
 - `order_receiver_details_shared_business`: tell the business to open the
   order; include no receiver field.
 - `delivered_reminder_immediate|12h|23h`: tell the remitter to confirm receipt

@@ -192,7 +192,7 @@ class ChatService:
                     "id": f"system:payment-confirmed:{order.id}",
                     "order_id": order.id,
                     "sender_role": "system",
-                    "body": "Negocio confirmo Zelle recibido. Sigue el Pago Movil dentro de este chat.",
+                    "body": "Negocio confirmo Zelle recibido. Escribe tu Pago Movil en el chat.",
                     "visibility": "parties",
                     "status": "visible",
                     "attachments": [],
@@ -265,17 +265,12 @@ class ChatService:
             and waiting_payment
             and payment_details_shared,
             "receiver_details_shared": receiver_details_shared,
-            "can_share_receiver_details": user.role == "remitter"
-            and user.status == "active"
-            and order.status == "payment_confirmed"
-            and not receiver_details_shared,
+            "can_share_receiver_details": False,
             "can_reveal_receiver_details": user.role == "business_owner"
             and user.status == "active"
             and order.status in {"payment_confirmed", "delivered", "disputed"}
             and receiver_details_shared,
-            "receiver_details_required": user.role == "business_owner"
-            and order.status == "payment_confirmed"
-            and not receiver_details_shared,
+            "receiver_details_required": False,
             "can_confirm_received": user.role == "remitter"
             and user.status == "active"
             and order.status == "delivered",
@@ -284,8 +279,7 @@ class ChatService:
             and order.status == "payment_reported",
             "can_mark_delivered": user.role == "business_owner"
             and user.status == "active"
-            and order.status == "payment_confirmed"
-            and receiver_details_shared,
+            and order.status == "payment_confirmed",
         }
 
     def list_messages(self, *, user: UserRecord, order_id: str, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:

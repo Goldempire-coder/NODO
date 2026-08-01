@@ -28,10 +28,10 @@ Contrato API canonico para mensajes y adjuntos privados de orden.
   orden despues de que el negocio lo comparta manualmente o con la accion
   autorizada. No se copia a logs, audit, Telegram o admin notifications.
 - Mensajes deben sanitizarse antes de mostrarse.
-- Los datos estructurados de receptor Pago Movil no son mensajes. No se
-  persisten en `messages.body` ni se devuelven en este endpoint. La UI puede
-  componer una burbuja `chat-style secure receiver payload` usando el endpoint
-  dedicado de `ORDERS_API.md`.
+- En el flujo normal, el cliente puede escribir Pago Movil en el chat. Ese
+  texto no cambia estado, monto, tasa ni entrega. El endpoint estructurado de
+  `ORDERS_API.md` queda como ruta opcional de compatibilidad y no es requisito
+  para marcar envio.
 
 ## GET /api/v1/orders/{id}/messages
 

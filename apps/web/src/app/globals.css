@@ -633,9 +633,9 @@ textarea {
 }
 
 .business-order-chat {
-  height: min(74dvh, calc(var(--nodo-viewport-height, 100dvh) - 132px), 680px);
-  max-height: calc(var(--nodo-viewport-height, 100dvh) - 132px);
-  min-height: min(450px, calc(var(--nodo-viewport-height, 100dvh) - 132px));
+  height: min(78dvh, calc(var(--nodo-viewport-height, 100dvh) - 118px), 700px);
+  max-height: calc(var(--nodo-viewport-height, 100dvh) - 118px);
+  min-height: min(450px, calc(var(--nodo-viewport-height, 100dvh) - 118px));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 8px;
@@ -655,7 +655,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 2px 2px 5px;
+  padding: 1px 2px 4px;
   border-bottom: 1px solid rgb(148 163 184 / 12%);
 }
 
@@ -667,7 +667,7 @@ textarea {
 
 .business-order-chat__compact-code {
   color: var(--nodo-text);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 850;
   line-height: 1.1;
   overflow-wrap: anywhere;
@@ -887,6 +887,39 @@ textarea {
   gap: 7px;
 }
 
+.business-order-chat-payment-bar {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 4px 2px;
+  color: var(--nodo-muted);
+  font-size: 11px;
+}
+
+.business-order-chat-payment-bar > span {
+  min-width: min(100%, 120px);
+  flex: 1 1 130px;
+  overflow-wrap: anywhere;
+}
+
+.business-order-chat-payment-bar__hash {
+  min-width: 120px;
+  max-width: 180px;
+  min-height: 30px;
+  flex: 1 1 120px;
+  border: 1px solid var(--nodo-line);
+  border-radius: 999px;
+  background: rgb(3 12 24 / 78%);
+  color: var(--nodo-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
 .business-order-chat-actions label {
   min-width: 0;
   display: grid;
@@ -955,6 +988,7 @@ textarea {
 .business-order-chat--typing > .business-order-chat-note,
 .business-order-chat--typing > .business-order-chat-actions,
 .business-order-chat--typing > .business-order-chat-inline-actions,
+.business-order-chat--typing > .business-order-chat-payment-bar,
 .business-order-chat--typing > .business-order-chat-payment-action,
 .business-order-chat--typing > .business-order-chat-attachment-preview,
 .business-order-chat--typing > .business-order-chat-attachment-ready,
@@ -1004,9 +1038,9 @@ textarea {
 @media (max-width: 420px) {
   .business-support,
   .business-order-chat {
-    height: min(74dvh, calc(var(--nodo-viewport-height, 100dvh) - 118px), 600px);
-    max-height: calc(var(--nodo-viewport-height, 100dvh) - 118px);
-    min-height: min(360px, calc(var(--nodo-viewport-height, 100dvh) - 118px));
+    height: min(78dvh, calc(var(--nodo-viewport-height, 100dvh) - 100px), 620px);
+    max-height: calc(var(--nodo-viewport-height, 100dvh) - 100px);
+    min-height: min(360px, calc(var(--nodo-viewport-height, 100dvh) - 100px));
   }
 
   .business-support--typing,

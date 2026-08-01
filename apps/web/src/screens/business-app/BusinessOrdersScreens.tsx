@@ -87,6 +87,10 @@ export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel })
 
 export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppModel }) {
   const { businessOrderAction, businessOrderDetail, businessOrderReason, busy, mutateBusinessOrder, openBusinessChat, setBusinessOrderReason } = model;
+  const shouldHandleInChat = Boolean(
+    businessOrderDetail?.order.capabilities.can_confirm_payment
+    || businessOrderDetail?.order.capabilities.can_mark_delivered
+  );
   return (
     <div className="business-card">
       <Text className="business-card__label">Detalle</Text>
@@ -126,21 +130,20 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
             </label>
           ) : null}
           <div className="business-shell__tabs">
-            <Button mode="filled" size="s" disabled={businessOrderAction === "confirm-payment" || !businessOrderDetail.order.capabilities.can_confirm_payment} onClick={() => void mutateBusinessOrder("confirm-payment")}>
-              {businessOrderAction === "confirm-payment" ? "Confirmando..." : "Confirmar pago"}
-            </Button>
+            {shouldHandleInChat ? (
+              <Button mode="filled" size="s" onClick={() => void openBusinessChat(businessOrderDetail.order.id)}>Abrir chat</Button>
+            ) : null}
             <Button mode="outline" size="s" disabled={businessOrderAction === "reject-payment-report" || !businessOrderDetail.order.capabilities.can_reject_payment_report} onClick={() => void mutateBusinessOrder("reject-payment-report")}>
               {businessOrderAction === "reject-payment-report" ? "Rechazando..." : "Rechazar reporte"}
-            </Button>
-            <Button mode="filled" size="s" disabled={businessOrderAction === "mark-delivered" || !businessOrderDetail.order.capabilities.can_mark_delivered} onClick={() => void mutateBusinessOrder("mark-delivered")}>
-              {businessOrderAction === "mark-delivered" ? "Marcando..." : "Marcar enviado"}
             </Button>
             {businessOrderDetail.order.capabilities.can_decline_before_payment ? (
               <Button mode="outline" size="s" disabled={businessOrderAction === "cannot-attend"} onClick={() => void mutateBusinessOrder("cannot-attend")}>
                 {businessOrderAction === "cannot-attend" ? "Cancelando..." : "No puedo atender"}
               </Button>
             ) : null}
-            <Button mode="outline" size="s" disabled={busy} onClick={() => void openBusinessChat(businessOrderDetail.order.id)}>Chat</Button>
+            {!shouldHandleInChat ? (
+              <Button mode="outline" size="s" disabled={busy} onClick={() => void openBusinessChat(businessOrderDetail.order.id)}>Chat</Button>
+            ) : null}
           </div>
         </>
       ) : <Text>Selecciona una orden para ver el detalle.</Text>}

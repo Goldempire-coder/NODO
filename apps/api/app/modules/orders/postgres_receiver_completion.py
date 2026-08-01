@@ -179,12 +179,6 @@ class PostgresOrderReceiverCompletionMixin:
                 raise ApiError("ORDER_NOT_FOUND", status_code=404)
             if order_row["status"] != "payment_confirmed":
                 raise ApiError("DELIVERY_NOT_ALLOWED", status_code=409)
-            receiver_row = conn.execute(
-                "select 1 from order_receiver_details where order_id = %s",
-                (order_id,),
-            ).fetchone()
-            if receiver_row is None:
-                raise ApiError("ORDER_RECEIVER_DETAILS_REQUIRED", status_code=409)
             updated_row = conn.execute(
                 """
                 update orders
