@@ -25,6 +25,9 @@ Slice additions:
    opens a temporary URL only for the two order participants. It returns
    `Cache-Control: private, no-store` and never returns storage paths or
    permanent URLs.
+9. A Zelle `POST /api/v1/orders/{id}/payment-report` requires the locked order
+   amount and the uploaded proof. Legacy sender name, reference and account
+   fields remain optional compatibility inputs and must never be fabricated.
 
 No quote endpoint was added. The confirmation screen is read-only and has no
 backend side effects. The existing order endpoint remains the authoritative

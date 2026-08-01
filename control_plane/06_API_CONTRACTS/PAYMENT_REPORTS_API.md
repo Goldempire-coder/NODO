@@ -215,9 +215,6 @@ Para `orders.payment_method_snapshot = zelle`:
 ```json
 {
   "payment_type": "zelle",
-  "payment_reference": "ABC123",
-  "payment_sender_name": "Nombre Remitente",
-  "payment_sender_account_masked": "***1234",
   "payment_amount": "50.00",
   "proof_file_id": "uuid",
   "pending_payment_report_id": "uuid"
@@ -226,11 +223,12 @@ Para `orders.payment_method_snapshot = zelle`:
 
 Reglas:
 
-- `payment_reference` requerido
-- `payment_sender_name` requerido
-- `payment_sender_account_masked` opcional/recomendado
+- `payment_reference` opcional por compatibilidad; el cliente no debe inventarlo
+- `payment_sender_name` opcional por compatibilidad; el cliente no debe inventarlo
+- `payment_sender_account_masked` opcional por compatibilidad
 - `payment_amount` requerido
 - `proof_file_id` requerido para Zelle
+- el flujo simplificado envia solo el monto bloqueado y el comprobante
 - `pending_payment_report_id` requerido cuando `proof_file_id` fue creado por `POST /payment-evidence`
 - el backend debe validar que `proof_file_id.resource_id = pending_payment_report_id`
 - no guardar datos bancarios completos innecesarios

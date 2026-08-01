@@ -30,6 +30,14 @@ Required regression coverage:
 - Opening another report clears the prior order's sender, reference and
   evidence state.
 - Payment amount is read-only and submitted from the order snapshot.
+- The PostgreSQL Zelle report constraint accepts the locked amount and proof
+  without requiring legacy sender/reference fields.
+- Transport failures during final report submission render controlled Spanish
+  copy instead of the browser `failed to fetch` text.
+- Client and business support keep one stable layout while the keyboard opens;
+  focus does not activate a separate compact mode or delayed forced scroll.
+- Visible form controls use at least 16px text and the shared viewport hook
+  coalesces real viewport resizes without depending on visual-viewport scroll.
 - Empty receiver data renders `Pago Movil pendiente en chat`; legacy values
   remain masked and no fallback values are invented.
 - Chat attachments can be opened by Cliente and Negocio participants through an

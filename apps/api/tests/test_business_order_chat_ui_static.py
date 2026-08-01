@@ -61,6 +61,28 @@ def test_business_order_chat_has_compact_attachment_and_keyboard_safe_typing_mod
     assert "Adjunto privado" not in chat_screen
 
 
+def test_client_and_business_support_keep_stable_layout_when_keyboard_opens() -> None:
+    business_support = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    client_support = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
+    keyboard_hook = _read("apps/web/src/hooks/useMobileKeyboardViewport.ts")
+    global_css = _read("apps/web/src/app/globals.css")
+
+    for source in [business_support, client_support]:
+        assert "composerFocused" not in source
+        assert "focusComposer" not in source
+        assert "blurComposer" not in source
+        assert "business-support--typing" not in source
+        assert "window.setTimeout(scrollMessagesToEnd" not in source
+
+    form_control_css = global_css.split("input,", 1)[1].split("}", 1)[0]
+    assert "font-size: 16px;" in form_control_css
+    assert ".business-support--typing" not in global_css
+    assert "visualViewport?.addEventListener(\"scroll\"" not in keyboard_hook
+    assert "window.setTimeout" not in keyboard_hook
+    assert "window.requestAnimationFrame" in keyboard_hook
+    assert "isEditableElement(document.activeElement) &&" in keyboard_hook
+
+
 def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations() -> None:
     chat_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
     chat_screen = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")

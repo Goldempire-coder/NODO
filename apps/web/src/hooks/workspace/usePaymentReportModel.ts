@@ -44,6 +44,17 @@ function paymentEvidenceUploadErrorMessage(error: unknown): string {
   return "No pudimos subir el comprobante.";
 }
 
+function paymentReportSubmitErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    const normalizedMessage = error.message.toLowerCase();
+    if (error.name === "TypeError" || normalizedMessage.includes("fetch")) {
+      return "No pudimos confirmar el pago. Revisa tu conexion e intenta otra vez.";
+    }
+    return error.message;
+  }
+  return "No pudimos confirmar el pago.";
+}
+
 export function usePaymentReportModel(
   state: PaymentReportState & {
     request: AuthenticatedRequest;
@@ -264,7 +275,7 @@ export function usePaymentReportModel(
       void loadMyOrders();
       recordActionCompleted("client_payment_report_submit", "report-payment", startedAt);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos reportar el pago.");
+      setNotice(paymentReportSubmitErrorMessage(error));
       recordActionFailed("client_payment_report_submit", "report-payment", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setSubmittingPaymentReport(false);

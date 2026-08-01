@@ -187,8 +187,10 @@ def test_payment_evidence_upload_prepares_mobile_images_and_hides_raw_fetch_erro
 
     assert "preparePaymentEvidenceFile(file)" in payment_model
     assert "paymentEvidenceUploadErrorMessage(error)" in payment_model
+    assert "paymentReportSubmitErrorMessage(error)" in payment_model
     assert '"Failed to fetch"' not in payment_model
     assert "No pudimos subir el comprobante." in payment_model
+    assert "No pudimos confirmar el pago. Revisa tu conexion" in payment_model
     assert "MAX_PAYMENT_EVIDENCE_UPLOAD_BYTES" in payment_file
     assert "MAX_PAYMENT_EVIDENCE_IMAGE_DIMENSION" in payment_file
     assert "canvas.toBlob" in payment_file
@@ -196,6 +198,36 @@ def test_payment_evidence_upload_prepares_mobile_images_and_hides_raw_fetch_erro
     assert "application/pdf" in payment_file
     assert "Adjunta una imagen PNG/JPG/WebP o PDF." in payment_file
     assert 'accept="image/jpeg,image/png,image/webp,application/pdf"' in client_chat
+
+
+def test_slice_50a_zelle_database_contract_accepts_locked_amount_and_proof_only() -> None:
+    migration = _read(
+        "database/migrations/0041_simplified_zelle_payment_report_contract.up.sql"
+    ).lower()
+    rollback = _read(
+        "database/migrations/0041_simplified_zelle_payment_report_contract.down.sql"
+    ).lower()
+    canonical_contract = _read(
+        "control_plane/06_API_CONTRACTS/PAYMENT_REPORTS_API.md"
+    )
+
+    zelle_constraint = migration.split(
+        "add constraint payment_reports_zelle_required_check", 1
+    )[1].split(";", 1)[0]
+
+    assert "drop constraint if exists payment_reports_zelle_required_check" in migration
+    assert "payment_type <> 'zelle'" in zelle_constraint
+    assert "proof_file_id is not null" in zelle_constraint
+    assert "proof_content_sha256 is not null" in zelle_constraint
+    assert "payment_reference is not null" not in zelle_constraint
+    assert "payment_sender_name is not null" not in zelle_constraint
+    assert "payment reports without legacy zelle sender fields require review" in rollback
+    assert "payment_reference is not null" in rollback
+    assert "payment_sender_name is not null" in rollback
+    assert "delete from" not in migration
+    assert "delete from" not in rollback
+    assert "payment_reference` opcional" in canonical_contract
+    assert "payment_sender_name` opcional" in canonical_contract
 
 
 def test_slice_50b1_business_order_detail_ignores_legacy_receiver_data() -> None:

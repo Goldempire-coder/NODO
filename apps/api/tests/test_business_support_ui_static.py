@@ -62,7 +62,8 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
     support_api = _read("apps/web/src/api/support.ts")
     global_css = _read("apps/web/src/app/globals.css")
 
-    assert '"business-support business-support--typing" : "business-support"' in support_screen
+    assert 'className="business-support"' in support_screen
+    assert "business-support--typing" not in support_screen
     assert 'className="business-card business-support-thread"' not in support_screen
     assert "business-support-composer" in support_screen
     assert "business-support-clip" in support_screen
@@ -107,8 +108,8 @@ def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
     global_css = _read("apps/web/src/app/globals.css")
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
 
-    assert "composerFocused" in support_screen
-    assert "business-support business-support--typing" in support_screen
+    assert "composerFocused" not in support_screen
+    assert "business-support--typing" not in support_screen
     assert "height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);" in global_css
     assert "max-height: calc(var(--nodo-viewport-height, 100dvh) - 174px);" in global_css
     assert "grid-template-rows: minmax(0, 1fr);" in global_css
@@ -122,34 +123,36 @@ def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
     assert "width: 34px;" in global_css
     assert "business-support__title" not in global_css
     assert "grid-template-rows: auto minmax(0, 1fr) auto;" in global_css
-    assert "font-size: clamp(14px, 3.8vw, 16px);" in global_css
+    assert "font-size: 15px;" in global_css
     assert "grid-template-columns: 34px minmax(0, 1fr) auto;" in global_css
     assert "min-height: 36px;" in global_css
 
 
-def test_business_support_typing_mode_prioritizes_chat_above_mobile_keyboard() -> None:
+def test_business_support_keyboard_mode_preserves_layout_and_internal_scroll() -> None:
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    client_support_screen = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
+    keyboard_hook = _read("apps/web/src/hooks/useMobileKeyboardViewport.ts")
     global_css = _read("apps/web/src/app/globals.css")
 
-    assert "focusComposer" in support_screen
-    assert "blurComposer" in support_screen
     assert "messagesEndRef.current?.scrollIntoView({ block: \"end\" });" in support_screen
-    assert "window.setTimeout(scrollMessagesToEnd, 260);" in support_screen
-    assert 'onFocus={focusComposer}' in support_screen
-    assert 'onBlur={blurComposer}' in support_screen
+    for source in [support_screen, client_support_screen]:
+        assert "focusComposer" not in source
+        assert "blurComposer" not in source
+        assert "window.setTimeout(scrollMessagesToEnd" not in source
+        assert "business-support--typing" not in source
     assert "business-shell--keyboard-active" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
     assert "useMobileKeyboardViewport" in _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
-    assert "window.visualViewport" in _read("apps/web/src/hooks/useMobileKeyboardViewport.ts")
+    assert "window.visualViewport" in keyboard_hook
+    assert "window.requestAnimationFrame" in keyboard_hook
+    assert "window.setTimeout" not in keyboard_hook
+    assert 'visualViewport?.addEventListener("scroll"' not in keyboard_hook
     assert "--nodo-viewport-height" in global_css
-    assert ".app-shell:has(.business-support--typing) .primary-nav" in global_css
     assert ".business-shell--keyboard-active .primary-nav" in global_css
     assert ".primary-nav--hidden" in global_css
     assert "transform: translateY(calc(112% + env(safe-area-inset-bottom)));" in global_css
-    assert ".business-support--typing {\n  height: min(72dvh, calc(var(--nodo-viewport-height, 100dvh) - 96px), 640px);" in global_css
-    assert ".business-support--typing .business-support__topbar" not in global_css
-    assert ".business-support--typing .business-support-thread__summary small" in global_css
-    assert ".business-support--typing .business-support-messages" in global_css
-    assert ".business-support--typing .business-support-composer__input" in global_css
+    assert ".business-support--typing" not in global_css
+    assert ".business-support-messages {" in global_css
+    assert "overflow-y: auto;" in global_css
 
 
 def test_business_support_prevents_duplicate_active_topic_creation() -> None:

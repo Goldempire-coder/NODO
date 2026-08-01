@@ -52,6 +52,7 @@ select {
   background: color-mix(in srgb, var(--nodo-bg), transparent 14%);
   color: var(--nodo-text);
   font: inherit;
+  font-size: 16px;
   padding: 9px 10px;
 }
 
@@ -119,21 +120,10 @@ textarea {
   gap: 18px;
 }
 
-.business-shell--keyboard-active {
-  gap: 10px;
-}
-
-.app-shell:has(.business-shell--keyboard-active),
-.app-shell:has(.business-support--typing) {
+.app-shell:has(.business-shell--keyboard-active) {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
-.business-shell:has(.business-support--typing),
-.business-shell--keyboard-active {
-  gap: 10px;
-}
-
-.app-shell:has(.business-support--typing) .primary-nav,
 .business-shell--keyboard-active .primary-nav,
 .primary-nav--hidden {
   pointer-events: none;
@@ -414,61 +404,6 @@ textarea {
   overflow: hidden;
 }
 
-.business-support--typing {
-  height: min(72dvh, calc(var(--nodo-viewport-height, 100dvh) - 96px), 640px);
-  max-height: calc(var(--nodo-viewport-height, 100dvh) - 96px);
-  min-height: min(320px, calc(var(--nodo-viewport-height, 100dvh) - 96px));
-  gap: 6px;
-}
-
-.business-support--typing .business-support-thread__summary .business-card__label,
-.business-support--typing .business-support-thread__summary small {
-  display: none;
-}
-
-.business-support--typing .business-support-thread {
-  gap: 6px;
-}
-
-.business-support--typing .business-support-thread__summary {
-  align-items: center;
-  padding-bottom: 4px;
-}
-
-.business-support--typing .business-support-thread__title {
-  font-size: clamp(16px, 4.2vw, 18px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.business-support--typing .business-support-messages {
-  gap: 6px;
-  padding: 6px 2px;
-}
-
-.business-support--typing .business-support-message {
-  padding: 8px 10px;
-}
-
-.business-support--typing .business-support-message p {
-  font-size: clamp(13px, 3.6vw, 15px);
-}
-
-.business-support--typing .business-support-message small {
-  display: none;
-}
-
-.business-support--typing .business-support-composer {
-  grid-template-columns: 34px minmax(0, 1fr) 74px;
-  padding: 6px;
-}
-
-.business-support--typing .business-support-composer__input {
-  min-height: 40px;
-  max-height: 72px;
-}
-
 .business-support-thread__summary {
   min-width: 0;
   display: flex;
@@ -537,7 +472,7 @@ textarea {
 
 .business-support-message p {
   margin: 0;
-  font-size: clamp(14px, 3.8vw, 16px);
+  font-size: 15px;
   line-height: 1.32;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -720,7 +655,7 @@ textarea {
 
 .business-order-chat-message p {
   margin: 0;
-  font-size: clamp(14px, 3.8vw, 16px);
+  font-size: 15px;
   line-height: 1.32;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -980,12 +915,6 @@ textarea {
     height: min(78dvh, calc(var(--nodo-viewport-height, 100dvh) - 100px), 620px);
     max-height: calc(var(--nodo-viewport-height, 100dvh) - 100px);
     min-height: min(360px, calc(var(--nodo-viewport-height, 100dvh) - 100px));
-  }
-
-  .business-support--typing {
-    height: min(82dvh, calc(var(--nodo-viewport-height, 100dvh) - 44px), 640px);
-    max-height: calc(var(--nodo-viewport-height, 100dvh) - 44px);
-    min-height: min(280px, calc(var(--nodo-viewport-height, 100dvh) - 44px));
   }
 
   .business-support-composer,

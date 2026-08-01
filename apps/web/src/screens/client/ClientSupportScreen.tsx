@@ -93,8 +93,6 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
     uploadTicketAttachment
   } = model;
   const [showNewConversation, setShowNewConversation] = useState(false);
-  const [composerFocused, setComposerFocused] = useState(false);
-  const composerRef = useRef<HTMLFormElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const ticketMessages = selectedSupportTicket?.messages || [];
@@ -123,10 +121,6 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [selectedSupportTicket?.id, ticketMessages.length]);
 
-  const scrollMessagesToEnd = () => {
-    messagesEndRef.current?.scrollIntoView({ block: "end" });
-  };
-
   const startNewConversation = () => {
     setSelectedSupportTicket(null);
     setSupportReply("");
@@ -147,22 +141,8 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
     void loadSupportTickets(filter);
   };
 
-  const focusComposer = () => {
-    setComposerFocused(true);
-    window.requestAnimationFrame(scrollMessagesToEnd);
-    window.setTimeout(scrollMessagesToEnd, 260);
-  };
-
-  const blurComposer = () => {
-    window.setTimeout(() => {
-      if (!composerRef.current?.contains(document.activeElement)) {
-        setComposerFocused(false);
-      }
-    }, 120);
-  };
-
   return (
-    <section className={composerFocused && selectedSupportTicket && !selectedArchived ? "business-support business-support--typing" : "business-support"} aria-label="Soporte NODO">
+    <section className="business-support" aria-label="Soporte NODO">
       {showNewConversation && !selectedSupportTicket ? (
         <form
           className="business-support-new"
@@ -253,7 +233,6 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
             </div>
           ) : (
             <form
-              ref={composerRef}
               className="business-support-composer"
               onSubmit={(event) => {
                 event.preventDefault();
@@ -278,8 +257,6 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
                 rows={2}
                 value={supportReply}
                 onChange={(event) => setSupportReply(event.target.value)}
-                onBlur={blurComposer}
-                onFocus={focusComposer}
               />
               <input
                 ref={fileInputRef}
