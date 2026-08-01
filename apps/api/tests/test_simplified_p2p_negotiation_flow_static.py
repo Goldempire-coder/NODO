@@ -44,7 +44,7 @@ def test_slice_50a_chat_gates_payment_and_exposes_only_compact_zelle_action() ->
     assert "Zelle enviado" in client_chat
     assert "No envies Zelle" in client_chat
     assert "chatCapabilities.can_share_zelle" in business_chat
-    assert "Enviar Zelle" in business_chat
+    assert "Compartir datos Zelle" in business_chat
     assert "shareConfiguredZelle" in business_chat_model
     assert 'className="business-order-chat-payment-action"' in business_chat
     assert "readOnly" in payment_screen
@@ -99,7 +99,7 @@ def test_slice_50a_payment_action_stays_in_chat_without_intermediate_screen() ->
     client_views = _read("apps/web/src/constants/clientViews.ts")
     client_shell = _read("apps/web/src/screens/client/ClientWorkspaceShell.tsx")
 
-    assert "business-order-chat-payment-bar" in client_chat
+    assert "business-order-chat-action-dock" in client_chat
     assert "paymentEvidenceInputRef.current?.click()" in client_chat
     assert "submitPaymentReport()" in client_chat
     assert "openPaymentReport" not in client_chat
@@ -156,7 +156,7 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
     assert "uploadPaymentEvidence" in client_chat
     assert "submitPaymentReport" in client_chat
     assert "Adjunta el comprobante" in client_chat
-    assert "business-order-chat-payment-bar" in client_chat
+    assert "business-order-chat-action-dock" in client_chat
     assert "paymentEvidenceInputRef.current?.click()" in client_chat
     assert "Cliente marco Pago enviado" not in client_chat
     assert "can_confirm_payment" in chat_types

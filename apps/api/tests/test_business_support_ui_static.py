@@ -107,11 +107,17 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
 def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
     global_css = _read("apps/web/src/app/globals.css")
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    client_support = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
 
     assert "composerFocused" not in support_screen
     assert "business-support--typing" not in support_screen
-    assert "height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);" in global_css
-    assert "max-height: calc(var(--nodo-viewport-height, 100dvh) - 174px);" in global_css
+    for source in [support_screen, client_support]:
+        assert "business-support-thread__summary" not in source
+        assert "business-support-system-bubble" in source
+        assert "rows={1}" in source
+        assert "SendIcon" in source
+    assert ".business-shell--native-chat .business-support {" in global_css
+    assert "height: 100%;" in global_css
     assert "grid-template-rows: minmax(0, 1fr);" in global_css
     assert ".business-support {\n  height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);" in global_css
     assert ".business-support-thread {\n  min-height: 0;\n  height: 100%;" in global_css
@@ -122,9 +128,9 @@ def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
     assert "min-height: 56px;" in global_css
     assert "width: 34px;" in global_css
     assert "business-support__title" not in global_css
-    assert "grid-template-rows: auto minmax(0, 1fr) auto;" in global_css
+    assert "grid-template-rows: minmax(0, 1fr) auto;" in global_css
     assert "font-size: 15px;" in global_css
-    assert "grid-template-columns: 34px minmax(0, 1fr) auto;" in global_css
+    assert "grid-template-columns: 40px minmax(0, 1fr) 44px;" in global_css
     assert "min-height: 36px;" in global_css
 
 
@@ -183,6 +189,8 @@ def test_business_support_shell_back_returns_from_chat_to_ticket_list() -> None:
     assert 'setSupportReply("")' in shell
     assert 'void loadSupportTickets("active");' in shell
     assert "onClick={handleBusinessBack}" in shell
+    assert "isNativeChatSurface" in shell
+    assert "native-chat-back" in shell
 
 
 def test_business_support_upload_picker_and_message_attachment_contract() -> None:
@@ -228,6 +236,8 @@ def test_client_support_shell_back_returns_from_ticket_to_ticket_list() -> None:
     assert 'setSupportReply("")' in shell
     assert 'void loadSupportTickets("active");' in shell
     assert "onClick={handleClientBack}" in shell
+    assert "isNativeChatSurface" in shell
+    assert "native-chat-back" in shell
 
 
 def test_client_support_request_does_not_depend_on_whole_workspace_state() -> None:

@@ -105,7 +105,13 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
   const previousViewRef = useRef<BusinessMiniAppView | null>(null);
   const termsRequired = view === "business-terms";
   const canUseBusinessNav = accessState === "ready" && !termsRequired;
-  const attentionBannerItem = view === "business-chat" ? null : attentionAlert;
+  const isNativeChatSurface = view === "business-chat" || (view === "business-support" && Boolean(selectedSupportTicket));
+  const attentionBannerItem = isNativeChatSurface ? null : attentionAlert;
+  const shellClassName = [
+    "business-shell",
+    keyboardActive ? "business-shell--keyboard-active" : "",
+    isNativeChatSurface ? "business-shell--native-chat" : ""
+  ].filter(Boolean).join(" ");
 
   const openHome = () => {
     void loadHomeSummary();
@@ -180,8 +186,8 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
   }, [view]);
 
   return (
-    <section className={keyboardActive ? "business-shell business-shell--keyboard-active" : "business-shell"} aria-live="polite">
-      <div className="business-shell__header app-topbar">
+    <section className={shellClassName} aria-live="polite">
+      {!isNativeChatSurface ? <div className="business-shell__header app-topbar">
         <div className="topbar-brand">
           <AnimatedLogo />
           <div className="topbar-wordmark">
@@ -197,9 +203,15 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
             <span>{business?.business_name || user.first_name || user.username || "Negocio"}</span>
           </div>
         </div>
-      </div>
+      </div> : null}
 
-      {canGoBack && canUseBusinessNav ? (
+      {canGoBack && canUseBusinessNav && isNativeChatSurface ? (
+        <button className="topbar-back native-chat-back" type="button" aria-label="Volver" onClick={handleBusinessBack}>
+          <span aria-hidden="true" />
+        </button>
+      ) : null}
+
+      {canGoBack && canUseBusinessNav && !isNativeChatSurface ? (
         <div className="screen-heading">
           <button className="topbar-back" type="button" aria-label="Volver" onClick={handleBusinessBack}>
             <span aria-hidden="true" />
@@ -210,7 +222,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
         </div>
       ) : null}
 
-      {canUseBusinessNav ? (
+      {canUseBusinessNav && !isNativeChatSurface ? (
         <div className={keyboardActive ? "primary-nav primary-nav--hidden" : "primary-nav"}>
           <button className={activeNav === "home" ? "nav-button is-active" : "nav-button"} type="button" onClick={openHome}>
             <NavIcon name="home" />
@@ -240,14 +252,14 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
         </div>
       ) : null}
 
-      {accessState === "loading" ? (
+      {accessState === "loading" && !isNativeChatSurface ? (
         <div className="shell-loading-pill">
           <Spinner size="s" />
           <Text>Cargando</Text>
         </div>
       ) : null}
 
-      {notice ? <Text className="auth-entry__message">{notice}</Text> : null}
+      {notice && !isNativeChatSurface ? <Text className="auth-entry__message">{notice}</Text> : null}
 
       <AttentionBanner
         item={attentionBannerItem}

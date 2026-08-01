@@ -574,7 +574,8 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "loadingPaymentInstructions" in chat_screen
     assert "Subiendo comprobante..." in payment_screen
     assert "Enviando reporte..." in payment_screen
-    assert 'sendingChatMessage ? "..." : "Enviar"' in chat_screen
+    assert 'sendingChatMessage ? "..." : <SendIcon />' in chat_screen
+    assert 'aria-label="Enviar"' in chat_screen
     assert "Abriendo..." in chat_screen
     assert "Creando..." in support_screen
     assert "Archivados" in support_screen

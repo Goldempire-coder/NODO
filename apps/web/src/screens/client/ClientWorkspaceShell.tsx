@@ -95,8 +95,14 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
   const previousViewRef = useRef<ClientView | null>(null);
   const viewStartedAtRef = useRef<number | null>(null);
   const isOnboardingView = view === "welcome" || view === "terms" || view === "client-profile-setup";
-  const shouldShowNotice = Boolean(notice) && !["welcome", "terms", "client-profile-setup", "marketplace-search", "create-order", "marketplace-detail"].includes(view);
-  const attentionBannerItem = view === "order-chat" ? null : attentionAlert;
+  const isNativeChatSurface = view === "order-chat" || (view === "support" && Boolean(selectedSupportTicket));
+  const shouldShowNotice = Boolean(notice) && !isNativeChatSurface && !["welcome", "terms", "client-profile-setup", "marketplace-search", "create-order", "marketplace-detail"].includes(view);
+  const attentionBannerItem = isNativeChatSurface ? null : attentionAlert;
+  const shellClassName = [
+    "business-shell",
+    keyboardActive ? "business-shell--keyboard-active" : "",
+    isNativeChatSurface ? "business-shell--native-chat" : ""
+  ].filter(Boolean).join(" ");
 
   useEffect(() => {
     const previousView = previousViewRef.current;
@@ -141,8 +147,8 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
   }, [view]);
 
   return (
-    <section className={keyboardActive ? "business-shell business-shell--keyboard-active" : "business-shell"} aria-live="polite">
-      <div className="business-shell__header app-topbar">
+    <section className={shellClassName} aria-live="polite">
+      {!isNativeChatSurface ? <div className="business-shell__header app-topbar">
         <div className="topbar-brand">
           <AnimatedLogo />
           <div className="topbar-wordmark">
@@ -157,9 +163,15 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
             <span>Hola, {user.first_name || user.username || "Usuario"}</span>
           </div>
         </div>
-      </div>
+      </div> : null}
 
-      {canGoBack ? (
+      {canGoBack && isNativeChatSurface ? (
+        <button className="topbar-back native-chat-back" type="button" aria-label="Volver" onClick={handleClientBack}>
+          <span aria-hidden="true" />
+        </button>
+      ) : null}
+
+      {canGoBack && !isNativeChatSurface ? (
         <div className="screen-heading">
           <button className="topbar-back" type="button" aria-label="Volver" onClick={handleClientBack}>
             <span aria-hidden="true" />
@@ -170,7 +182,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
         </div>
       ) : null}
 
-      {!isOnboardingView ? (
+      {!isOnboardingView && !isNativeChatSurface ? (
         <div className={keyboardActive ? "primary-nav primary-nav--hidden" : "primary-nav"}>
           <button className={activeNav === "home" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => {
             setActiveNav("home");
@@ -220,7 +232,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
         </div>
       ) : null}
 
-      {busy ? (
+      {busy && !isNativeChatSurface ? (
         <div className="shell-loading-pill">
           <Spinner size="s" />
           <Text>Cargando</Text>
