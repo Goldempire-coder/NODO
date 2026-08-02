@@ -46,10 +46,6 @@ function supportTimestamp(value: string | null): string {
   return new Date(value).toLocaleString();
 }
 
-function supportTicketCode(id: string): string {
-  return `SP-${id.slice(0, 8).toUpperCase()}`;
-}
-
 function RefreshIcon() {
   return (
     <svg aria-hidden="true" className="business-support-icon-svg" focusable="false" viewBox="0 0 24 24">
@@ -117,7 +113,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
   const startNewConversation = () => {
     setSelectedSupportTicket(null);
     setSupportReply("");
-    setSupportForm((current) => ({ ...current, scope: "client_general", subject: "", message: "" }));
+    setSupportForm((current) => ({ ...current, scope: "client_general", subject: "", message: "", order_id: null }));
     setShowNewConversation(true);
   };
 
@@ -141,7 +137,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
           className="business-support-new"
           onSubmit={(event) => {
             event.preventDefault();
-            void submitSupportTicket({ scope: "client_general" });
+            void submitSupportTicket();
           }}
         >
           <div className="business-support-new__heading">
@@ -170,7 +166,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
             <textarea disabled={creatingSupportTicket} maxLength={2000} rows={4} value={supportForm.message} onChange={(event) => setSupportForm((current) => ({ ...current, message: event.target.value }))} />
           </label>
           <Text className="auth-entry__session-meta">
-            Para una orden especifica, abre la orden y escribe desde su chat o disputa. Este ticket general no cambia estados de pago.
+            Soporte revisa el caso sin cambiar automaticamente el estado de la orden o del pago.
           </Text>
           <Button mode="filled" size="s" type="submit" disabled={creatingSupportTicket || loadingSupportTickets || supportForm.subject.trim().length < 3 || supportForm.message.trim().length < 3}>
             {creatingSupportTicket ? "Creando..." : "Crear ticket"}
@@ -184,7 +180,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
             <article className="business-support-message business-support-message--system business-support-system-bubble">
               <span className="business-support-message__sender">Soporte NODO</span>
               <p>{selectedSupportTicket.subject}</p>
-              <small>Ticket #{supportTicketCode(selectedSupportTicket.id)}</small>
+              <small>Conversacion de soporte</small>
               <span className={selectedArchived ? "business-support-status business-support-status--archived" : "business-support-status"}>
                 {supportStatusLabel(selectedSupportTicket.status)}
               </span>
@@ -302,7 +298,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
                   {supportStatusLabel(ticket.status)}
                 </span>
                 <strong>{ticket.subject}</strong>
-                <small>#{supportTicketCode(ticket.id)} - {openingSupportTicketId === ticket.id ? "Abriendo..." : `${supportCategoryLabel(ticket.category)} - ${supportTimestamp(ticket.last_message_at || ticket.updated_at)}`}</small>
+                <small>{openingSupportTicketId === ticket.id ? "Abriendo conversacion..." : `${supportCategoryLabel(ticket.category)} - ${supportTimestamp(ticket.last_message_at || ticket.updated_at)}`}</small>
               </button>
             ))}
           </div>

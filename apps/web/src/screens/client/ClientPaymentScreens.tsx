@@ -50,7 +50,7 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
               ) : (
                 <>
                   <label className="business-field">
-                    <span>Tx hash USDT TRC20</span>
+                    <span>Identificador de transaccion USDT en red TRC20</span>
                     <input value={model.paymentReportForm.tx_hash} onChange={(event) => model.setPaymentReportForm((current) => ({ ...current, tx_hash: event.target.value }))} />
                   </label>
                   <label className="business-upload">

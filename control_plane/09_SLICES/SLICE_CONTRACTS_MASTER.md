@@ -441,7 +441,8 @@ Reglas:
 - POST payment-report mantiene `ad.status = in_order`.
 - POST payment-report mantiene creditos bloqueados.
 - POST payment-report no consume creditos, no confirma negocio, no entrega y no completa orden.
-- Zelle requiere referencia, sender name, payment amount y proof_file_id.
+- Zelle requiere el monto bloqueado de la orden. El comprobante es opcional y
+  el negocio puede solicitarlo dentro del chat.
 - USDT TRC20 requiere tx_hash, network = TRC20 y payment amount.
 - Evidencia privada usa `file_assets`; no crear `payment_evidence_files` ni `storage_objects` en slice 05.
 

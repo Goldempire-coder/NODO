@@ -81,6 +81,8 @@ def resolve_payment_report_identity(
     pending_payment_report_id = require_uuid(payload.pending_payment_report_id, "INVALID_PAYMENT_EVIDENCE")
     report_id = pending_payment_report_id or new_id()
     if payload.payment_type == "zelle":
+        if proof_file_id is None and pending_payment_report_id is None:
+            return None, report_id, None
         report_id, proof_content_sha256 = require_zelle_evidence(
             user=user,
             order_id=order_id,
@@ -110,7 +112,7 @@ def require_zelle_evidence(
     proof_lookup: Callable[[str], FileAssetRecord | None],
 ) -> tuple[str, str]:
     if not proof_file_id or not pending_payment_report_id:
-        raise ApiError("PAYMENT_EVIDENCE_REQUIRED", status_code=400)
+        raise ApiError("INVALID_PAYMENT_EVIDENCE", status_code=400)
     proof = proof_lookup(proof_file_id)
     if proof is None or proof.owner_user_id != user.id or proof.resource_id != pending_payment_report_id:
         raise ApiError("INVALID_PAYMENT_EVIDENCE", status_code=400)

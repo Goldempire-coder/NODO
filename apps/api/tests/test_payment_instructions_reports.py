@@ -417,7 +417,7 @@ def test_report_zelle_valid_changes_state_without_consuming_credits_or_changing_
     assert JWT_REFRESH_SECRET not in combined
 
 
-def test_slice_50c_zelle_report_accepts_only_locked_amount_and_proof() -> None:
+def test_slice_50c_zelle_report_accepts_locked_amount_with_optional_proof() -> None:
     client = _client()
     business, ad, remitter, order = _seed_order(client, owner_id=632, remitter_id=633)
     wallet_before = client.app.state.ad_repository.get_wallet(business["id"])
@@ -453,7 +453,7 @@ def test_slice_50c_zelle_report_accepts_only_locked_amount_and_proof() -> None:
     assert wallet_after.consumed_credits == wallet_before.consumed_credits
 
 
-def test_report_usdt_valid_invalid_method_missing_evidence_expired_and_foreign_failures() -> None:
+def test_report_usdt_valid_invalid_method_expired_and_foreign_failures() -> None:
     client = _client()
     _, _, remitter, usdt_order = _seed_order(client, method="usdt_trc20", owner_id=640, remitter_id=641)
     usdt = client.post(
@@ -475,11 +475,6 @@ def test_report_usdt_valid_invalid_method_missing_evidence_expired_and_foreign_f
         headers={**_headers(zelle_remitter, "invalid_hash"), "Content-Type": "application/json"},
         json={"payment_type": "usdt_trc20", "tx_hash": "not-a-real-hash", "network": "TRC20", "payment_amount": "50.00"},
     )
-    missing_evidence = client.post(
-        f"/api/v1/orders/{zelle_order['id']}/payment-report",
-        headers={**_headers(zelle_remitter, "missing_evidence"), "Content-Type": "application/json"},
-        json={"payment_type": "zelle", "payment_reference": "ABC", "payment_sender_name": "Sender", "payment_amount": "50.00"},
-    )
     other = _login(client, 644, "other")
     foreign = client.post(
         f"/api/v1/orders/{zelle_order['id']}/payment-report",
@@ -498,11 +493,65 @@ def test_report_usdt_valid_invalid_method_missing_evidence_expired_and_foreign_f
     assert invalid_method.json()["error"]["code"] == "INVALID_PAYMENT_METHOD"
     assert invalid_hash.status_code == 422
     assert invalid_hash.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert missing_evidence.status_code == 400
-    assert missing_evidence.json()["error"]["code"] == "PAYMENT_EVIDENCE_REQUIRED"
     assert foreign.status_code == 404
     assert expired.status_code == 409
     assert expired.json()["error"]["code"] == "ORDER_EXPIRED"
+
+
+def test_zelle_payment_report_allows_client_to_mark_paid_without_evidence() -> None:
+    client = _client()
+    _, _, remitter, order = _seed_order(
+        client,
+        owner_id=645,
+        remitter_id=646,
+    )
+
+    response = client.post(
+        f"/api/v1/orders/{order['id']}/payment-report",
+        headers={
+            **_headers(remitter, "zelle_without_evidence"),
+            "Content-Type": "application/json",
+        },
+        json={
+            "payment_type": "zelle",
+            "payment_amount": "50.00",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["data"]["order"]["status"] == "payment_reported"
+    assert response.json()["data"]["payment_report"]["proof_file_id"] is None
+    stored_report = client.app.state.order_repository.get_submitted_payment_report_for_order(order["id"])
+    assert stored_report is not None
+    assert stored_report.proof_file_id is None
+    assert stored_report.proof_content_sha256 is None
+
+
+def test_zelle_optional_evidence_rejects_incomplete_identity() -> None:
+    client = _client()
+    _, _, remitter, order = _seed_order(
+        client,
+        owner_id=647,
+        remitter_id=648,
+    )
+
+    response = client.post(
+        f"/api/v1/orders/{order['id']}/payment-report",
+        headers={
+            **_headers(remitter, "zelle_incomplete_evidence"),
+            "Content-Type": "application/json",
+        },
+        json={
+            "payment_type": "zelle",
+            "payment_amount": "50.00",
+            "pending_payment_report_id": new_id(),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_PAYMENT_EVIDENCE"
+    assert client.app.state.order_repository.get_by_id(order["id"]).status == "waiting_payment"
+    assert client.app.state.order_repository.get_submitted_payment_report_for_order(order["id"]) is None
 
 
 def test_payment_report_idempotency_replay_and_payload_mismatch() -> None:

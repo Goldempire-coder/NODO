@@ -28,6 +28,16 @@ Owner-approved direction:
 - Opening the keyboard must not trigger zoom, page jumps or delayed forced
   scroll.
 
+Owner follow-up:
+
+- Order chat does not expose dispute creation. Problems are reported from the
+  normal Support section, with no direct Support entry inside order chat.
+- Payment and delivery actions refresh the active conversation in place; they
+  must not navigate the participant back to an order list.
+- Floating navigation uses a quiet shadow.
+- Visible chat/support labels use complete public wording and never synthesize
+  shortened internal identifiers.
+
 Visual references available on the Owner machine:
 
 - Current problem photo:

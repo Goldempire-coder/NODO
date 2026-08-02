@@ -415,7 +415,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "disabled={busy || !chatCapabilities.can_send_message" not in chat_screen
     assert "sendingChatMessage" in chat_screen
     assert "uploadingChatAttachment" in chat_screen
-    assert "openingOrderDispute" in chat_screen
+    assert "openingOrderDispute" not in chat_screen
     assert "disabled={busy || supportForm.subject" not in support_screen
     assert "creatingSupportTicket" in support_screen
     assert "sendingSupportReply" in support_screen
@@ -424,8 +424,8 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "Identificacion del negocio" in business_settings
     assert "const businessId = business?.id || \"\"" in business_settings
     assert "copyBusinessId" in business_settings
-    assert "ID copiado para soporte." in business_settings
-    assert "No pudimos copiar el ID. Puedes seleccionarlo manualmente." in business_settings
+    assert "Identificacion copiada para soporte." in business_settings
+    assert "No pudimos copiar la identificacion. Puedes seleccionarla manualmente." in business_settings
     assert 'recordActionFailed("business_id_copy"' in business_settings
     assert "if (!copied)" in business_settings
     assert "business-identity-box" in business_settings
@@ -542,7 +542,7 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "uploadingPaymentEvidence" in client_state
     assert "submittingPaymentReport" in client_state
     assert "sendingChatMessage" in client_state
-    assert "openingOrderDispute" in client_state
+    assert "openingOrderDispute" not in client_state
     assert "mainActionBusy = state.busy || state.creatingOrder || state.submittingPaymentReport" in client_model
     assert "searchingMarketplace: state.searchingMarketplace" in client_model
     assert "creatingOrder: state.creatingOrder" in client_model
@@ -557,7 +557,7 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert 'recordActionStarted("client_order_cancel"' in orders_model
     assert 'recordActionStarted("client_payment_report_submit"' in payment_model
     assert 'recordActionStarted("client_chat_message_send"' in chat_model
-    assert 'recordActionStarted("client_order_dispute_open"' in chat_model
+    assert 'recordActionStarted("client_order_dispute_open"' not in chat_model
     assert 'recordActionStarted("support_ticket_create"' in support_model
     assert "setBusy(" not in marketplace_model
     assert "setBusy(" not in orders_model
@@ -576,7 +576,7 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "Enviando reporte..." in payment_screen
     assert 'sendingChatMessage ? "..." : <SendIcon />' in chat_screen
     assert 'aria-label="Enviar"' in chat_screen
-    assert "Abriendo..." in chat_screen
+    assert "Ir a Soporte" not in chat_screen
     assert "Creando..." in support_screen
     assert "Archivados" in support_screen
     assert "No tienes tickets archivados." in support_screen

@@ -47,7 +47,6 @@ export function useClientWorkspaceState(user: PublicUser) {
   });
   const [chatBody, setChatBody] = useState("");
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
-  const [disputeReason, setDisputeReason] = useState("business_no_payment_confirmation");
   const [orderForm, setOrderForm] = useState<OrderFormState>({
     amount_usd: "50.00"
   });
@@ -103,8 +102,6 @@ export function useClientWorkspaceState(user: PublicUser) {
     setUploadingChatAttachment: actions.setUploadingChatAttachment,
     sendingChatMessage: actions.sendingChatMessage,
     setSendingChatMessage: actions.setSendingChatMessage,
-    openingOrderDispute: actions.openingOrderDispute,
-    setOpeningOrderDispute: actions.setOpeningOrderDispute,
     submittingRatingOrderId: actions.submittingRatingOrderId,
     setSubmittingRatingOrderId: actions.setSubmittingRatingOrderId,
     searchForm,
@@ -129,8 +126,6 @@ export function useClientWorkspaceState(user: PublicUser) {
     setChatBody,
     chatAttachments,
     setChatAttachments,
-    disputeReason,
-    setDisputeReason,
     orderForm,
     setOrderForm,
     paymentInstructions,

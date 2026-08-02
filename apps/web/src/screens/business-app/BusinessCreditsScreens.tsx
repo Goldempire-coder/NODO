@@ -280,7 +280,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
             {selectedCreditPurchase.expires_at ? <Text>Vence: {new Date(selectedCreditPurchase.expires_at).toLocaleString("es-VE")}</Text> : null}
           </div>
           <label className="business-field">
-            <span>Tx hash despues de pagar</span>
+            <span>Identificador de transaccion despues de pagar</span>
             <input value={baseUsdcTxHash} onChange={(event) => setBaseUsdcTxHash(event.target.value.trim())} placeholder="0x..." />
           </label>
           <div className="business-shell__tabs">

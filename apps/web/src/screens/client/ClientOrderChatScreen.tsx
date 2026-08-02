@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Text } from "@telegram-apps/telegram-ui";
 import { PaperclipIcon, SendIcon } from "../../components/nodo/ChatComposerIcons";
-import { CHAT_DISPUTE_COPY } from "../../constants/copy";
 import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
 
 const CLIENT_ORDER_CHAT_REFRESH_MS = 5000;
@@ -47,11 +46,11 @@ function attachmentMeta(mimeType: string, sizeBytes: number): string {
   return `${sizeKb} KB`;
 }
 
-function orderCode(model: ClientWorkspaceModel): string {
+function orderLabel(model: ClientWorkspaceModel): string {
   if (model.selectedOrder?.id === model.chatOrderId && model.selectedOrder.public_order_code) {
-    return model.selectedOrder.public_order_code;
+    return `Orden ${model.selectedOrder.public_order_code}`;
   }
-  return model.chatOrderId ? model.chatOrderId.slice(0, 8).toUpperCase() : "Sin orden";
+  return "Orden en curso";
 }
 
 export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }) {
@@ -62,10 +61,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     chatCapabilities,
     chatMessages,
     chatOrderId,
-    disputeReason,
     loadingPaymentInstructions,
-    openOrderDispute,
-    openingOrderDispute,
     openChatAttachment,
     paymentEvidence,
     paymentInstructions,
@@ -79,7 +75,6 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     submitPaymentReport,
     submittingPaymentReport,
     setChatBody,
-    setDisputeReason,
     setPaymentReportForm,
     uploadPaymentEvidence,
     uploadingPaymentEvidence,
@@ -94,7 +89,9 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
   const selectedChatOrder = model.selectedOrder?.id === chatOrderId ? model.selectedOrder : null;
   const paymentReportMethod = paymentInstructions?.payment_instructions.method_type || selectedChatOrder?.payment_method_snapshot;
   const chatIsTerminal = selectedChatOrder?.status === "cancelled" || selectedChatOrder?.status === "completed";
-  const hasActionDock = chatCapabilities.can_confirm_received || (chatCapabilities.can_report_payment && Boolean(chatOrderId));
+  const canReportPayment = chatCapabilities.can_report_payment && selectedChatOrder?.status === "waiting_payment";
+  const canConfirmReceived = chatCapabilities.can_confirm_received && selectedChatOrder?.status === "delivered";
+  const hasActionDock = canConfirmReceived || (canReportPayment && Boolean(chatOrderId));
 
   useEffect(() => {
     if (!chatOrderId || model.view !== "order-chat") {
@@ -129,7 +126,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         <article className="business-order-chat-message business-order-chat-message--system business-order-chat-system-bubble">
           <span className="business-order-chat-message__sender">NODO</span>
           <p>Negociacion abierta con {selectedChatOrder?.business_name || "el negocio"}</p>
-          <strong>Orden {orderCode(model)}</strong>
+          <strong>{orderLabel(model)}</strong>
         </article>
         {chatMessages.length === 0 ? <Text className="business-order-chat-empty">Aun no hay mensajes en esta orden.</Text> : null}
         {chatMessages.map((message) => {
@@ -209,33 +206,13 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
             {uploadingChatAttachment ? "Subiendo adjunto..." : `${chatAttachments.length} adjunto(s) listo(s) para enviar`}
           </small>
         ) : null}
-        {paymentEvidence && chatCapabilities.can_report_payment ? (
+        {paymentEvidence && canReportPayment ? (
           <small className="business-order-chat-attachment-ready">Comprobante listo para reportar.</small>
         ) : null}
         {chatIsTerminal ? (
           <Text className="auth-entry__session-meta business-order-chat-note">
             Esta negociacion esta cerrada. El historial queda disponible como respaldo.
           </Text>
-        ) : null}
-        {chatCapabilities.can_open_dispute ? (
-          <div className="business-order-chat-actions">
-            <label>
-              <span>Si algo no cuadra</span>
-              <select value={disputeReason} onChange={(event) => setDisputeReason(event.target.value)}>
-                <option value="business_no_payment_confirmation">Pago no confirmado</option>
-                <option value="business_confirmed_payment_but_not_delivered">Pago confirmado sin envio</option>
-                <option value="payment_mobile_not_received">Pago movil no recibido</option>
-                <option value="amount_incorrect">Monto incorrecto</option>
-                <option value="wrong_receiver_data">Datos de receptor incorrectos</option>
-                <option value="other">Otro</option>
-              </select>
-            </label>
-            <button className="business-order-chat-dispute" type="button" disabled={openingOrderDispute} onClick={() => void openOrderDispute()}>
-              {openingOrderDispute ? "Abriendo..." : "Abrir caso"}
-            </button>
-          </div>
-        ) : !chatIsTerminal ? (
-          <Text className="auth-entry__session-meta business-order-chat-note">{CHAT_DISPUTE_COPY}</Text>
         ) : null}
         {model.notice ? (
           <div className="native-chat-inline-notice" role="status">
@@ -251,23 +228,23 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
           {paymentReportMethod === "usdt_trc20" ? (
             <input
               className="business-order-chat-action-dock__hash"
-              aria-label="Tx hash"
-              placeholder="Tx hash"
+              aria-label="Identificador de transaccion"
+              placeholder="Identificador de transaccion"
               value={paymentReportForm.tx_hash}
               onChange={(event) => setPaymentReportForm((current) => ({ ...current, tx_hash: event.target.value }))}
             />
           ) : null}
-          {chatCapabilities.can_report_payment && chatOrderId ? (
+          {canReportPayment && chatOrderId ? (
             <button
               className="business-order-chat-payment-action"
               type="button"
-              disabled={submittingPaymentReport || uploadingPaymentEvidence || !paymentEvidence || loadingPaymentInstructions}
+              disabled={submittingPaymentReport || uploadingPaymentEvidence || loadingPaymentInstructions}
               onClick={() => void submitPaymentReport()}
             >
               {submittingPaymentReport || loadingPaymentInstructions ? "Procesando..." : "Zelle enviado"}
             </button>
           ) : null}
-          {chatCapabilities.can_confirm_received ? (
+          {canConfirmReceived ? (
             <button
               className="business-order-chat-payment-action"
               type="button"
@@ -304,12 +281,12 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
           <button
             className="business-support-clip"
             type="button"
-            aria-label={chatCapabilities.can_report_payment ? "Adjunta el comprobante" : "Adjuntar comprobante o soporte"}
-            disabled={chatCapabilities.can_report_payment
+            aria-label={canReportPayment ? "Adjuntar comprobante opcional" : "Adjuntar comprobante o soporte"}
+            disabled={canReportPayment
               ? uploadingPaymentEvidence || submittingPaymentReport
               : !chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
             onClick={() => {
-              if (chatCapabilities.can_report_payment) {
+              if (canReportPayment) {
                 paymentEvidenceInputRef.current?.click();
                 return;
               }

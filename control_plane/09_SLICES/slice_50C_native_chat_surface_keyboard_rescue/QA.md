@@ -12,8 +12,8 @@
 - There is no persistent refresh control; recovery is shown only with an error.
 - `Foto`, `Zelle enviado`, `Zelle recibido` and completion actions are compact
   chips/actions, not permanent full-width vertical bars.
-- Payment evidence is selected from the composer paperclip, not a separate
-  `Foto` button.
+- Optional payment evidence is selected from the composer paperclip, not a
+  separate `Foto` button, and its absence does not block `Zelle enviado`.
 - Floating controls never cover the latest message or composer.
 - Successful financial actions disappear based on refreshed backend
   capabilities and may render only as derived state bubbles.
@@ -34,6 +34,16 @@
   is allowed.
 - Existing attachment opening tests still pass.
 - Existing Zelle report tests still pass.
+- Order chat contains no dispute selector or dispute-submit action.
+- Client and business order chat contain no direct Support action or route.
+- Problems are opened from the normal Support section outside the order chat.
+- Reporting payment does not call a navigation-producing order-list loader.
+- Business confirmation/delivery applies the returned order in place before a
+  full conversation refresh.
+- Chat and support never derive visible identifiers by truncating internal
+  UUIDs.
+- The transaction identifier label is written in full.
+- The floating back control uses a quiet shadow.
 
 ## Manual Smoke
 
@@ -58,8 +68,9 @@ Run in Telegram Mini App:
    - confirm composer remains visible.
 6. Zelle flow:
    - business shares Zelle;
-   - client attaches proof;
-   - client taps `Zelle enviado`;
+   - client taps `Zelle enviado` without attaching proof;
+   - confirm the report succeeds and stays in chat;
+   - repeat with optional proof and confirm it remains linked to the order;
    - confirm `Zelle enviado` disappears after backend confirmation;
    - confirm the resulting state appears without a fabricated user message.
 

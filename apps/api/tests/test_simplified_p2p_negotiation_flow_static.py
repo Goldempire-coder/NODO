@@ -144,18 +144,22 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
     chat_types = _read("apps/web/src/types/chat.ts")
 
     assert 'setView("my-orders")' not in payment_model
+    assert "loadMyOrders()" not in payment_model
+    assert "refreshMyOrdersAfterPaymentReport" in payment_model
     assert 'setView("report-payment")' not in payment_model.split("async function openPaymentReport", 1)[1].split(
         "async function uploadPaymentEvidence", 1
     )[0]
     assert "refreshChatAfterPaymentReport" in payment_model
-    assert "Zelle requiere comprobante." in payment_model
+    assert "Zelle requiere comprobante." not in payment_model
     assert "payment_reference:" not in payment_model.split("isZelle", 1)[1].split(": {", 1)[0]
     assert "Referencia Zelle" not in payment_screen
     assert "Nombre del remitente" not in payment_screen
     assert "paymentEvidence" in client_chat
     assert "uploadPaymentEvidence" in client_chat
     assert "submitPaymentReport" in client_chat
-    assert "Adjunta el comprobante" in client_chat
+    assert "Adjuntar comprobante opcional" in client_chat
+    payment_action = client_chat.split("business-order-chat-payment-action", 1)[1].split("</button>", 1)[0]
+    assert "!paymentEvidence" not in payment_action
     assert "business-order-chat-action-dock" in client_chat
     assert "paymentEvidenceInputRef.current?.click()" in client_chat
     assert "Cliente marco Pago enviado" not in client_chat
@@ -200,7 +204,7 @@ def test_payment_evidence_upload_prepares_mobile_images_and_hides_raw_fetch_erro
     assert 'accept="image/jpeg,image/png,image/webp,application/pdf"' in client_chat
 
 
-def test_slice_50a_zelle_database_contract_accepts_locked_amount_and_proof_only() -> None:
+def test_legacy_0041_zelle_database_contract_accepts_locked_amount_and_proof_only() -> None:
     migration = _read(
         "database/migrations/0041_simplified_zelle_payment_report_contract.up.sql"
     ).lower()
@@ -228,6 +232,35 @@ def test_slice_50a_zelle_database_contract_accepts_locked_amount_and_proof_only(
     assert "delete from" not in rollback
     assert "payment_reference` opcional" in canonical_contract
     assert "payment_sender_name` opcional" in canonical_contract
+
+
+def test_zelle_payment_evidence_is_optional_in_runtime_and_database_contract() -> None:
+    migration = _read(
+        "database/migrations/0042_optional_zelle_payment_evidence.up.sql"
+    ).lower()
+    rollback = _read(
+        "database/migrations/0042_optional_zelle_payment_evidence.down.sql"
+    ).lower()
+    payment_builder = _read(
+        "apps/api/app/modules/orders/payment_report_builder.py"
+    )
+    canonical_contract = _read(
+        "control_plane/06_API_CONTRACTS/PAYMENT_REPORTS_API.md"
+    )
+
+    zelle_constraint = migration.split(
+        "add constraint payment_reports_zelle_required_check", 1
+    )[1].split(";", 1)[0]
+
+    assert "proof_file_id is null" in zelle_constraint
+    assert "proof_content_sha256 is null" in zelle_constraint
+    assert "proof_file_id is not null" in zelle_constraint
+    assert "proof_content_sha256 is not null" in zelle_constraint
+    assert "zelle payment reports without proof require review before rollback" in rollback
+    assert "delete from" not in migration
+    assert "delete from" not in rollback
+    assert "if proof_file_id is None and pending_payment_report_id is None" in payment_builder
+    assert "comprobante es opcional" in canonical_contract
 
 
 def test_slice_50b1_business_order_detail_ignores_legacy_receiver_data() -> None:

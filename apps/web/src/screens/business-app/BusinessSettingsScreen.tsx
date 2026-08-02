@@ -88,11 +88,11 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
           <code>{shortBusinessId(businessId)}</code>
         </div>
         <button className="mini-action-button" type="button" disabled={!businessId} onClick={() => void copyBusinessId()}>
-          {businessIdCopied ? "Copiado" : "Copiar ID"}
+          {businessIdCopied ? "Copiado" : "Copiar identificacion"}
         </button>
       </div>
-      {businessIdCopied ? <Text className="business-identity-box__feedback" role="status">ID copiado para soporte.</Text> : null}
-      {businessIdCopyError ? <Text className="business-identity-box__feedback" role="alert">No pudimos copiar el ID. Puedes seleccionarlo manualmente.</Text> : null}
+      {businessIdCopied ? <Text className="business-identity-box__feedback" role="status">Identificacion copiada para soporte.</Text> : null}
+      {businessIdCopyError ? <Text className="business-identity-box__feedback" role="alert">No pudimos copiar la identificacion. Puedes seleccionarla manualmente.</Text> : null}
       <Text className="auth-entry__session-meta">Puedes guardar Zelle y USDT TRC20 antes de comprar creditos.</Text>
       <Button
         mode={isAcceptingOrders ? "outline" : "filled"}

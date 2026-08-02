@@ -85,7 +85,7 @@ export function useClientWorkspaceModel({
   });
   const paymentReport = usePaymentReportModel({
     ...context,
-    loadMyOrders: remitterOrders.loadMyOrders,
+    refreshMyOrdersAfterPaymentReport: remitterOrders.refreshMyOrdersSilently,
     refreshChatAfterPaymentReport: chatDisputes.refreshChat
   });
   const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice, initialScope: "client_general" });
@@ -246,9 +246,6 @@ export function useClientWorkspaceModel({
     refreshingChat: state.refreshingChat,
     uploadingChatAttachment: state.uploadingChatAttachment,
     sendingChatMessage: state.sendingChatMessage,
-    openingOrderDispute: state.openingOrderDispute,
-    disputeReason: state.disputeReason,
-    setDisputeReason: state.setDisputeReason,
     orderForm: state.orderForm,
     setOrderForm: state.setOrderForm,
     paymentInstructions: state.paymentInstructions,
@@ -283,7 +280,6 @@ export function useClientWorkspaceModel({
     dismissChatAttachmentLink: chatDisputes.dismissChatAttachmentLink,
     openChatAttachment: chatDisputes.openChatAttachment,
     sendChatMessage: chatDisputes.sendChatMessage,
-    openOrderDispute: chatDisputes.openOrderDispute,
     receiverDetailsForm: chatDisputes.receiverDetailsForm,
     setReceiverDetailsForm: chatDisputes.setReceiverDetailsForm,
     receiverDetailsMasked: chatDisputes.receiverDetailsMasked,

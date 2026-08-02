@@ -46,10 +46,6 @@ function supportTimestamp(value: string | null): string {
   return new Date(value).toLocaleString();
 }
 
-function supportTicketCode(id: string): string {
-  return `SP-${id.slice(0, 8).toUpperCase()}`;
-}
-
 function RefreshIcon() {
   return (
     <svg aria-hidden="true" className="business-support-icon-svg" focusable="false" viewBox="0 0 24 24">
@@ -192,7 +188,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
             <article className="business-support-message business-support-message--system business-support-system-bubble">
               <span className="business-support-message__sender">Soporte NODO</span>
               <p>{selectedSupportTicket.subject}</p>
-              <small>Ticket #{supportTicketCode(selectedSupportTicket.id)}</small>
+              <small>Conversacion de soporte</small>
               <span className={selectedArchived ? "business-support-status business-support-status--archived" : "business-support-status"}>
                 {supportStatusLabel(selectedSupportTicket.status)}
               </span>
@@ -310,7 +306,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
                   {supportStatusLabel(ticket.status)}
                 </span>
                 <strong>{ticket.subject}</strong>
-                <small>#{supportTicketCode(ticket.id)} - {openingSupportTicketId === ticket.id ? "Abriendo..." : `${supportCategoryLabel(ticket.category)} - ${supportTimestamp(ticket.last_message_at || ticket.updated_at)}`}</small>
+                <small>{openingSupportTicketId === ticket.id ? "Abriendo conversacion..." : `${supportCategoryLabel(ticket.category)} - ${supportTimestamp(ticket.last_message_at || ticket.updated_at)}`}</small>
               </button>
             ))}
           </div>

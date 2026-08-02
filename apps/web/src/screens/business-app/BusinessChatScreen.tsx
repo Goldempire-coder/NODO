@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Text } from "@telegram-apps/telegram-ui";
 import { PaperclipIcon, SendIcon } from "../../components/nodo/ChatComposerIcons";
-import { CHAT_DISPUTE_COPY } from "../../constants/copy";
 import { humanizeSenderRole } from "../../hooks/business-mini-app/helpers";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 
@@ -48,15 +47,15 @@ function attachmentMeta(mimeType: string, sizeBytes: number): string {
   return `${sizeKb} KB`;
 }
 
-function orderCode(model: BusinessMiniAppModel): string {
+function orderLabel(model: BusinessMiniAppModel): string {
   if (model.chatOrder?.id === model.chatOrderId && model.chatOrder.public_order_code) {
-    return model.chatOrder.public_order_code;
+    return `Orden ${model.chatOrder.public_order_code}`;
   }
   const order = model.businessOrderDetail?.order;
   if (order?.id === model.chatOrderId && order.public_order_code) {
-    return order.public_order_code;
+    return `Orden ${order.public_order_code}`;
   }
-  return model.chatOrderId ? model.chatOrderId.slice(0, 8).toUpperCase() : "Sin orden";
+  return "Orden en curso";
 }
 
 export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
@@ -70,11 +69,8 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     chatOrderId,
     businessChatAction,
     confirmBusinessPaymentInChat,
-    disputeReason,
     dismissChatAttachmentLink,
     openChatAttachment,
-    openOrderDispute,
-    openingOrderDispute,
     refreshChat,
     receiverDetails,
     revealReceiverDetails,
@@ -85,7 +81,6 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     shareConfiguredZelle,
     sharingZelle,
     setChatBody,
-    setDisputeReason,
     uploadingChatAttachment,
     uploadChatAttachment
   } = model;
@@ -100,9 +95,10 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
       ? detailOrder
       : null;
   const chatIsTerminal = currentOrder?.status === "cancelled" || currentOrder?.status === "completed";
-  const hasActionDock = chatCapabilities.can_share_zelle
-    || chatCapabilities.can_confirm_payment
-    || chatCapabilities.can_mark_delivered;
+  const canShareZelle = chatCapabilities.can_share_zelle && currentOrder?.status === "waiting_payment";
+  const canConfirmPayment = chatCapabilities.can_confirm_payment && currentOrder?.status === "payment_reported";
+  const canMarkDelivered = chatCapabilities.can_mark_delivered && currentOrder?.status === "payment_confirmed";
+  const hasActionDock = canShareZelle || canConfirmPayment || canMarkDelivered;
 
   useEffect(() => {
     if (!chatOrderId || model.view !== "business-chat") {
@@ -131,7 +127,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
         <article className="business-order-chat-message business-order-chat-message--system business-order-chat-system-bubble">
           <span className="business-order-chat-message__sender">NODO</span>
           <p>Negociacion abierta con cliente</p>
-          <strong>Orden {orderCode(model)}</strong>
+          <strong>{orderLabel(model)}</strong>
         </article>
 
         {chatMessages.length === 0 ? <Text className="business-order-chat-empty">Aun no hay mensajes en esta orden.</Text> : null}
@@ -237,26 +233,6 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
           </Text>
         ) : null}
 
-        {chatCapabilities.can_open_dispute ? (
-          <div className="business-order-chat-actions">
-            <label>
-              <span>Si algo no cuadra</span>
-              <select value={disputeReason} onChange={(event) => setDisputeReason(event.target.value)}>
-                <option value="business_no_payment_confirmation">Pago no confirmado</option>
-                <option value="business_confirmed_payment_but_not_delivered">Pago confirmado sin envio</option>
-                <option value="payment_mobile_not_received">Pago movil no recibido</option>
-                <option value="amount_incorrect">Monto incorrecto</option>
-                <option value="wrong_receiver_data">Datos de receptor incorrectos</option>
-                <option value="other">Otro</option>
-              </select>
-            </label>
-            <button className="business-order-chat-dispute" type="button" disabled={openingOrderDispute} onClick={() => void openOrderDispute()}>
-              {openingOrderDispute ? "Abriendo..." : "Abrir caso"}
-            </button>
-          </div>
-        ) : !chatIsTerminal ? (
-          <Text className="auth-entry__session-meta business-order-chat-note">{CHAT_DISPUTE_COPY}</Text>
-        ) : null}
         {model.notice ? (
           <div className="native-chat-inline-notice" role="status">
             <span>{model.notice}</span>
@@ -268,12 +244,12 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
 
       {hasActionDock ? (
         <div className="business-order-chat-action-dock" aria-label="Acciones de la orden">
-          {chatCapabilities.can_share_zelle ? (
+          {canShareZelle ? (
             <button className="business-order-chat-payment-action" type="button" disabled={sharingZelle} onClick={() => void shareConfiguredZelle()}>
               {sharingZelle ? "Compartiendo..." : "Compartir datos Zelle"}
             </button>
           ) : null}
-          {chatCapabilities.can_confirm_payment ? (
+          {canConfirmPayment ? (
             <button
               className="business-order-chat-payment-action"
               type="button"
@@ -283,7 +259,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
               {businessChatAction === "confirm-payment" ? "Confirmando..." : "Confirmar Zelle recibido"}
             </button>
           ) : null}
-          {chatCapabilities.can_mark_delivered ? (
+          {canMarkDelivered ? (
             <button
               className="business-order-chat-payment-action"
               type="button"

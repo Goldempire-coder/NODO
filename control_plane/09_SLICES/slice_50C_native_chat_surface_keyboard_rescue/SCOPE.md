@@ -15,13 +15,13 @@
 - No persistent refresh control; allow a compact recovery action only when an
   error is visible.
 - Compact floating payment action chips:
-  - `Foto`;
   - `Zelle enviado`;
   - `Zelle recibido`;
   - `Recibi el pago`;
   - equivalent support actions only where already authorized.
 - Composer fixed above the keyboard with:
-  - clip button;
+  - clip button for chat attachments or payment evidence, according to the
+    active backend capability;
   - 16px text input;
   - compact send icon/text button.
 - Stable keyboard behavior on iPhone and Android Telegram WebView.
@@ -40,6 +40,8 @@
 - New attachment storage or signed URL behavior.
 - Admin dashboard changes.
 - Reopening, cancellation or dispute policy changes.
+- Removal or modification of dispute backend endpoints. This slice removes
+  dispute creation and direct Support entry points from the order-chat UI.
 - Scheduler/expiration changes.
 - Production deployment.
 - Data cleanup.

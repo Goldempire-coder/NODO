@@ -3,7 +3,6 @@
 import { useCallback, useRef, useState } from "react";
 import {
   listOrderMessages,
-  openOrderDispute as openOrderDisputeRequest,
   openOrderMessageAttachment,
   sendOrderMessage,
   uploadOrderMessageAttachment
@@ -50,7 +49,6 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     chatOrderId,
     chatBody,
     chatAttachments,
-    disputeReason,
     setChatOrderId,
     setChatMessages,
     setChatCapabilities,
@@ -59,7 +57,6 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     setNotice,
     setSelectedOrder,
     setOpeningChatOrderId,
-    setOpeningOrderDispute,
     setRefreshingChat,
     setSendingChatMessage,
     setUploadingChatAttachment,
@@ -68,7 +65,6 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
   const sendingChatMessageRef = useRef(false);
   const uploadingChatAttachmentRef = useRef(false);
-  const openingOrderDisputeRef = useRef(false);
   const sharingReceiverDetailsRef = useRef(false);
   const confirmingOrderReceivedRef = useRef(false);
   const refreshingChatRef = useRef(false);
@@ -245,34 +241,6 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     }
   }
 
-  async function openOrderDispute() {
-    if (openingOrderDisputeRef.current || !chatOrderId) {
-      return;
-    }
-    openingOrderDisputeRef.current = true;
-    const startedAt = actionStartedAt();
-    recordActionStarted("client_order_dispute_open", "order-chat");
-    setOpeningOrderDispute(true);
-    const idempotencyScope = `dispute_${chatOrderId}`;
-    try {
-      await openOrderDisputeRequest(request, chatOrderId, {
-        reason: disputeReason,
-        description: chatBody.trim() || undefined,
-        evidence_file_ids: []
-      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, disputeReason, description: chatBody.trim() || undefined }));
-      clearIdempotencyKey(idempotencyScope);
-      await refreshChat({ silent: true });
-      setNotice("Disputa abierta. La resolucion admin queda para contrato futuro.");
-      recordActionCompleted("client_order_dispute_open", "order-chat", startedAt);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos abrir la disputa.");
-      recordActionFailed("client_order_dispute_open", "order-chat", startedAt, error instanceof Error ? error.name : undefined);
-    } finally {
-      openingOrderDisputeRef.current = false;
-      setOpeningOrderDispute(false);
-    }
-  }
-
   async function shareReceiverDetails() {
     if (sharingReceiverDetailsRef.current || !chatOrderId) {
       return;
@@ -334,7 +302,6 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     dismissChatAttachmentLink,
     openChatAttachment,
     sendChatMessage,
-    openOrderDispute,
     receiverDetailsForm,
     setReceiverDetailsForm,
     receiverDetailsMasked,

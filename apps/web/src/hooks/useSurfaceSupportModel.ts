@@ -65,6 +65,9 @@ function findMatchingActiveTicket(tickets: SupportTicket[], input: SupportTicket
       ACTIVE_SUPPORT_STATUSES.has(ticket.status) &&
       ticket.scope === input.scope &&
       ticket.category === input.category &&
+      ticket.order_id === (input.order_id || null) &&
+      ticket.ad_id === (input.ad_id || null) &&
+      ticket.credit_purchase_id === (input.credit_purchase_id || null) &&
       normalizeSupportTopic(ticket.subject) === subject
   );
 }

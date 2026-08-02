@@ -12,6 +12,7 @@
 - Backend payment gate and read-only client payment amount.
 - Visible-only, non-overlapping client chat refresh scoped to `order-chat`.
 - Direct transition from the chat payment action to the compact report form.
+- Optional Zelle proof; absence of a photo does not block `Pago enviado`.
 - Honest business-order copy when legacy `receiver_data` is absent.
 - Contracts and regression tests.
 

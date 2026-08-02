@@ -4,7 +4,6 @@ import {
 } from "../../api/businessOrders";
 import {
   listOrderMessages,
-  openOrderDispute as openOrderDisputeRequest,
   openOrderMessageAttachment,
   sendOrderMessage,
   shareConfiguredZelle as shareConfiguredZelleRequest,
@@ -87,8 +86,6 @@ export function useBusinessChatModel({
   });
   const [chatBody, setChatBody] = useState("");
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
-  const [disputeReason, setDisputeReason] = useState("business_no_payment_confirmation");
-  const [openingOrderDispute, setOpeningOrderDispute] = useState(false);
   const [refreshingChat, setRefreshingChat] = useState(false);
   const [sendingChatMessage, setSendingChatMessage] = useState(false);
   const [uploadingChatAttachment, setUploadingChatAttachment] = useState(false);
@@ -99,7 +96,6 @@ export function useBusinessChatModel({
   const [businessChatAction, setBusinessChatAction] = useState<"confirm-payment" | "mark-delivered" | null>(null);
   const sendingChatMessageRef = useRef(false);
   const uploadingChatAttachmentRef = useRef(false);
-  const openingOrderDisputeRef = useRef(false);
   const sharingZelleRef = useRef(false);
   const revealingReceiverDetailsRef = useRef(false);
   const businessChatActionRef = useRef(false);
@@ -285,30 +281,6 @@ export function useBusinessChatModel({
     setNotice
   ]);
 
-  const openOrderDispute = useCallback(async () => {
-    if (!chatOrderId || openingOrderDisputeRef.current) {
-      return;
-    }
-    openingOrderDisputeRef.current = true;
-    setOpeningOrderDispute(true);
-    const idempotencyScope = `dispute_${chatOrderId}`;
-    try {
-      await openOrderDisputeRequest(request, chatOrderId, {
-        reason: disputeReason,
-        description: chatBody || undefined,
-        evidence_file_ids: []
-      }, getIdempotencyKey(idempotencyScope, { orderId: chatOrderId, disputeReason, description: chatBody || undefined }));
-      clearIdempotencyKey(idempotencyScope);
-      await refreshChat();
-      setNotice("Caso abierto para revision de NODO.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos abrir el caso.");
-    } finally {
-      openingOrderDisputeRef.current = false;
-      setOpeningOrderDispute(false);
-    }
-  }, [chatBody, chatOrderId, clearIdempotencyKey, disputeReason, getIdempotencyKey, refreshChat, request, setNotice]);
-
   const revealReceiverDetails = useCallback(async () => {
     if (!chatOrderId || revealingReceiverDetailsRef.current || !chatCapabilities.can_reveal_receiver_details) {
       return;
@@ -352,7 +324,7 @@ export function useBusinessChatModel({
     setBusinessChatAction(action);
     const idempotencyScope = `business_chat_${action}_${targetOrderId}`;
     try {
-      await mutateBusinessOrderRequest(
+      const mutation = await mutateBusinessOrderRequest<{ order: BusinessOrderSummary }>(
         request,
         targetOrderId,
         action,
@@ -360,12 +332,24 @@ export function useBusinessChatModel({
         getIdempotencyKey(idempotencyScope, { orderId: targetOrderId, action })
       );
       clearIdempotencyKey(idempotencyScope);
-      const data = await listOrderMessages<ChatThread<BusinessOrderSummary>>(request, targetOrderId, 50);
       if (chatOrderIdRef.current === targetOrderId) {
+        setChatOrder(mutation.order);
+        syncBusinessOrderFromChat(mutation.order);
+      }
+      try {
+        const data = await listOrderMessages<ChatThread<BusinessOrderSummary>>(request, targetOrderId, 50);
+        if (chatOrderIdRef.current !== targetOrderId) {
+          return;
+        }
         setChatOrder(data.order);
         syncBusinessOrderFromChat(data.order);
         setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
         setChatCapabilities(data.capabilities);
+        setNotice("");
+      } catch {
+        if (chatOrderIdRef.current === targetOrderId) {
+          setNotice("No pudimos actualizar toda la conversacion, pero la accion fue aplicada. Toca Actualizar.");
+        }
       }
     } catch (error) {
       if (routeBusinessPinError({ action: actionLabel, error, setNotice, setView })) {
@@ -384,7 +368,8 @@ export function useBusinessChatModel({
     getIdempotencyKey,
     request,
     setNotice,
-    setView
+    setView,
+    syncBusinessOrderFromChat
   ]);
 
   const confirmBusinessPaymentInChat = useCallback(async () => {
@@ -404,12 +389,9 @@ export function useBusinessChatModel({
     chatMessages,
     chatOrder,
     chatOrderId,
-    disputeReason,
     dismissChatAttachmentLink,
     openBusinessChat,
     openChatAttachment,
-    openOrderDispute,
-    openingOrderDispute,
     refreshChat,
     refreshingChat,
     receiverDetails,
@@ -422,7 +404,6 @@ export function useBusinessChatModel({
     shareConfiguredZelle,
     sharingZelle,
     setChatBody,
-    setDisputeReason,
     uploadingChatAttachment,
     uploadChatAttachment
   };

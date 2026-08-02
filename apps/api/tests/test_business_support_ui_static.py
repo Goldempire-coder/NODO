@@ -208,14 +208,19 @@ def test_business_support_upload_picker_and_message_attachment_contract() -> Non
     assert 'body="Adjunto enviado."' in support_service
 
 
-def test_client_support_creates_general_tickets_without_invalid_order_scope() -> None:
+def test_client_support_creates_general_tickets_only_from_support_surface() -> None:
     support_screen = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
+    client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
 
     assert "const startNewConversation = () => {" in support_screen
     assert 'scope: "client_general"' in support_screen
-    assert 'void submitSupportTicket({ scope: "client_general" });' in support_screen
+    assert "order_id: null" in support_screen
+    assert "void submitSupportTicket();" in support_screen
     assert 'option value="client_order"' not in support_screen
-    assert "Para una orden especifica, abre la orden" in support_screen
+    assert "chat o disputa" not in support_screen
+    assert "openClientOrderSupport" not in client_model
+    support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
+    assert "ticket.order_id === (input.order_id || null)" in support_model
     assert 'className="business-support-new-button"' in support_screen
     assert "Nuevo" in support_screen
     assert "Ver tickets" in support_screen

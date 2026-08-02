@@ -152,6 +152,16 @@ export function useRemitterOrdersModel(
     }
   }
 
+  async function refreshMyOrdersSilently() {
+    try {
+      const data = await listMyOrders<{ items: OrderSummary[] }>(request);
+      ordersCacheRef.current = { items: data.items, loadedAt: Date.now() };
+      setMyOrders(data.items);
+    } catch {
+      // The active chat remains authoritative; a background list refresh must not navigate or interrupt it.
+    }
+  }
+
   async function openOrderDetail(orderId: string) {
     const startedAt = actionStartedAt();
     recordActionStarted("client_order_detail_open", "order-summary");
@@ -295,6 +305,7 @@ export function useRemitterOrdersModel(
     loadMyOrders,
     openOrderDetail,
     prefetchMyOrders,
+    refreshMyOrdersSilently,
     submitRating
   };
 }

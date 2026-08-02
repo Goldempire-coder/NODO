@@ -131,6 +131,7 @@ textarea {
 
 .business-shell--native-chat {
   position: relative;
+  display: block;
   width: min(100%, 720px);
   height: 100%;
   min-height: 0;
@@ -145,9 +146,9 @@ textarea {
   left: max(12px, env(safe-area-inset-left));
   width: 44px;
   height: 44px;
-  background: rgb(7 20 38 / 88%);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 34%);
-  backdrop-filter: blur(12px);
+  background: rgb(7 20 38 / 72%);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+  backdrop-filter: blur(6px);
 }
 
 .business-shell--keyboard-active .primary-nav,
@@ -794,32 +795,6 @@ textarea {
   line-height: 1.25;
 }
 
-.business-order-chat-actions {
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: end;
-  padding: 8px;
-  border: 1px solid rgb(148 163 184 / 18%);
-  border-radius: 12px;
-  background: rgb(6 18 34 / 64%);
-}
-
-.business-order-chat-actions > strong {
-  min-width: 0;
-  color: var(--nodo-text);
-  font-size: 12px;
-  line-height: 1.2;
-}
-
-.business-order-chat-actions > small {
-  min-width: 0;
-  color: var(--nodo-muted);
-  font-size: 11px;
-  line-height: 1.25;
-}
-
 .business-order-chat-action-dock {
   position: absolute;
   z-index: 4;
@@ -836,10 +811,10 @@ textarea {
 }
 
 .business-order-chat-action-dock__hash {
-  min-width: 120px;
-  max-width: 180px;
-  min-height: 30px;
-  flex: 1 1 120px;
+  min-width: 205px;
+  max-width: 240px;
+  min-height: 34px;
+  flex: 1 1 205px;
   border: 1px solid var(--nodo-line);
   border-radius: 999px;
   background: rgb(3 12 24 / 78%);
@@ -848,52 +823,6 @@ textarea {
   font-size: 16px;
   font-weight: 800;
   padding: 0 10px;
-}
-
-.business-order-chat-actions label {
-  min-width: 0;
-  display: grid;
-  gap: 5px;
-  color: var(--nodo-muted);
-  font-size: 11px;
-  font-weight: 750;
-}
-
-.business-order-chat-actions select {
-  min-height: 34px;
-  border: 1px solid var(--nodo-line);
-  border-radius: 10px;
-  background: rgb(3 12 24 / 78%);
-  color: var(--nodo-text);
-  font: inherit;
-  font-weight: 800;
-}
-
-.business-order-chat-actions input {
-  min-height: 34px;
-  min-width: 0;
-  border: 1px solid var(--nodo-line);
-  border-radius: 10px;
-  background: rgb(3 12 24 / 78%);
-  color: var(--nodo-text);
-  font: inherit;
-  font-weight: 800;
-}
-
-.business-order-chat-dispute {
-  min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid rgb(255 95 104 / 36%);
-  border-radius: 999px;
-  background: rgb(255 95 104 / 10%);
-  color: var(--nodo-text);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 850;
-}
-
-.business-order-chat-dispute:disabled {
-  opacity: 0.48;
 }
 
 .business-order-chat-payment-action {
@@ -966,9 +895,6 @@ textarea {
     flex: 1 1 auto;
   }
 
-  .business-order-chat-actions {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .business-shell--native-chat .business-support {

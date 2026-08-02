@@ -15,6 +15,8 @@ This slice implements only 50A1 and 50A2:
   and the document is visible;
 - compact `Pago enviado` validates instructions in the background and opens the
   report form directly;
+- Zelle can be reported without a photo; proof remains optional and may be
+  requested by the business in the order chat;
 - missing legacy receiver data is shown as pending coordination in chat, never
   as fabricated masked values;
 - locked payment-report amount in the client UI.

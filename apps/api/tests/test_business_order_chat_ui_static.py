@@ -35,6 +35,8 @@ def test_business_order_chat_uses_native_chat_surface_not_table_rows() -> None:
     assert ".business-order-chat-messages {" in global_css
     assert ".business-order-chat-composer {" in global_css
     assert ".business-shell--native-chat {" in global_css
+    native_shell_css = global_css.split(".business-shell--native-chat {", 1)[1].split("}", 1)[0]
+    assert "display: block;" in native_shell_css
     assert ".native-chat-back {" in global_css
     assert "overflow-y: auto;" in global_css
     assert "grid-template-rows: minmax(0, 1fr) auto;" in global_css
@@ -115,7 +117,7 @@ def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations
     assert "chatOrderIdRef.current !== targetOrderId" in chat_model
     assert "sendingChatMessageRef.current" in chat_model
     assert "uploadingChatAttachmentRef.current" in chat_model
-    assert "openingOrderDisputeRef.current" in chat_model
+    assert "openingOrderDisputeRef.current" not in chat_model
     assert "syncBusinessOrderFromChat(data.order)" in chat_model
     assert "ChatThread<BusinessOrderSummary>" in chat_model
     assert "order: TOrder" in chat_types
@@ -222,3 +224,69 @@ def test_order_chat_uses_compact_role_correct_actions_and_composer_attachment() 
     assert '>Foto<' not in client_chat
     assert "Zelle enviado" in client_chat
     assert "Pago reportado. Esperando confirmacion del negocio." in client_chat
+
+
+def test_order_chat_has_no_support_or_dispute_entry_points() -> None:
+    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
+    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    business_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
+    client_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+
+    for source in [business_chat, client_chat, business_model, client_model]:
+        assert "openOrderDispute" not in source
+        assert "openingOrderDispute" not in source
+        assert "disputeReason" not in source
+    for source in [
+        business_chat,
+        client_chat,
+        _read("apps/web/src/hooks/useBusinessMiniAppModel.ts"),
+        _read("apps/web/src/hooks/useClientWorkspaceModel.ts"),
+    ]:
+        assert "Ir a Soporte" not in source
+        assert "openBusinessOrderSupport" not in source
+        assert "openClientOrderSupport" not in source
+    global_css = _read("apps/web/src/app/globals.css")
+    assert "business-order-chat-support-action" not in global_css
+
+
+def test_order_chat_actions_refresh_in_place_without_abbreviated_identifiers() -> None:
+    payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
+    orders_model = _read("apps/web/src/hooks/workspace/useRemitterOrdersModel.ts")
+    client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
+    business_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
+    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
+    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    business_support = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    client_support = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
+    client_payment = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
+    business_credits = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    business_settings = _read("apps/web/src/screens/business-app/BusinessSettingsScreen.tsx")
+    global_css = _read("apps/web/src/app/globals.css")
+
+    submit_source = payment_model.split("async function submitPaymentReport", 1)[1]
+    assert "loadMyOrders()" not in submit_source
+    assert "refreshMyOrdersAfterPaymentReport" in submit_source
+    assert 'setView("order-chat")' not in submit_source
+    assert "refreshMyOrdersAfterPaymentReport: remitterOrders.refreshMyOrdersSilently" in client_model
+    silent_refresh = orders_model.split("async function refreshMyOrdersSilently", 1)[1].split(
+        "async function openOrderDetail", 1
+    )[0]
+    assert "setView(" not in silent_refresh
+    assert "const mutation = await mutateBusinessOrderRequest" in business_model
+    assert "setChatOrder(mutation.order)" in business_model
+    assert 'chatCapabilities.can_report_payment && selectedChatOrder?.status === "waiting_payment"' in client_chat
+    assert 'chatCapabilities.can_confirm_received && selectedChatOrder?.status === "delivered"' in client_chat
+    assert 'chatCapabilities.can_confirm_payment && currentOrder?.status === "payment_reported"' in business_chat
+    assert 'chatCapabilities.can_mark_delivered && currentOrder?.status === "payment_confirmed"' in business_chat
+
+    for source in [business_chat, client_chat, business_support, client_support]:
+        assert ".slice(0, 8)" not in source
+    assert "Tx hash" not in client_chat
+    assert "Identificador de transaccion" in client_chat
+    for source in [client_payment, business_credits]:
+        assert "Tx hash" not in source
+        assert "Identificador de transaccion" in source
+    assert "Copiar ID" not in business_settings
+    assert "Copiar identificacion" in business_settings
+    back_css = global_css.split(".topbar-back.native-chat-back", 1)[1].split("}", 1)[0]
+    assert "0 8px 24px" not in back_css

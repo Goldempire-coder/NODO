@@ -28,7 +28,6 @@ type PaymentReportState = Pick<
   | "setLoadingPaymentInstructions"
   | "setUploadingPaymentEvidence"
   | "setSubmittingPaymentReport"
-  | "setView"
 >;
 
 type RefreshChatAfterPaymentReport = (options?: { silent?: boolean }) => Promise<boolean>;
@@ -58,13 +57,13 @@ function paymentReportSubmitErrorMessage(error: unknown): string {
 export function usePaymentReportModel(
   state: PaymentReportState & {
     request: AuthenticatedRequest;
-    loadMyOrders: () => Promise<void>;
+    refreshMyOrdersAfterPaymentReport: () => Promise<void>;
     refreshChatAfterPaymentReport: RefreshChatAfterPaymentReport;
   }
 ) {
   const {
     request,
-    loadMyOrders,
+    refreshMyOrdersAfterPaymentReport,
     refreshChatAfterPaymentReport,
     selectedOrder,
     chatOrderId,
@@ -82,8 +81,7 @@ export function usePaymentReportModel(
     setNotice,
     setLoadingPaymentInstructions,
     setSubmittingPaymentReport,
-    setUploadingPaymentEvidence,
-    setView
+    setUploadingPaymentEvidence
   } = state;
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
   const openingPaymentReportRef = useRef(false);
@@ -213,12 +211,8 @@ export function usePaymentReportModel(
       return;
     }
     const isZelle = paymentMethod === "zelle";
-    if (isZelle && (!paymentEvidence || !pendingPaymentReportId)) {
-      setNotice("Zelle requiere comprobante.");
-      return;
-    }
     if (!isZelle && !paymentReportForm.tx_hash) {
-      setNotice("USDT TRC20 requiere tx_hash.");
+      setNotice("USDT por red TRC20 requiere el identificador de la transaccion.");
       return;
     }
     const startedAt = actionStartedAt();
@@ -233,8 +227,12 @@ export function usePaymentReportModel(
           ? {
               payment_type: "zelle",
               payment_amount: lockedPaymentAmount,
-              proof_file_id: paymentEvidence?.id,
-              pending_payment_report_id: pendingPaymentReportId
+              ...(paymentEvidence && pendingPaymentReportId
+                ? {
+                    proof_file_id: paymentEvidence.id,
+                    pending_payment_report_id: pendingPaymentReportId
+                  }
+                : {})
             }
           : {
               payment_type: "usdt_trc20",
@@ -269,10 +267,9 @@ export function usePaymentReportModel(
         payment_sender_account_masked: "",
         tx_hash: ""
       }));
-      setView("order-chat");
       setNotice("");
       await refreshChatAfterPaymentReport({ silent: true });
-      void loadMyOrders();
+      void refreshMyOrdersAfterPaymentReport();
       recordActionCompleted("client_payment_report_submit", "report-payment", startedAt);
     } catch (error) {
       setNotice(paymentReportSubmitErrorMessage(error));

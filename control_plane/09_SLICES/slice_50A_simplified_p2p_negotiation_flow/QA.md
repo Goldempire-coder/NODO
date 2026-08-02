@@ -30,8 +30,10 @@ Required regression coverage:
 - Opening another report clears the prior order's sender, reference and
   evidence state.
 - Payment amount is read-only and submitted from the order snapshot.
-- The PostgreSQL Zelle report constraint accepts the locked amount and proof
-  without requiring legacy sender/reference fields.
+- The client can report Zelle with the locked amount and no proof.
+- Optional proof remains bound to the order and protected from reuse.
+- The PostgreSQL Zelle report constraint accepts either no proof or a complete
+  proof identity/hash pair without requiring legacy sender/reference fields.
 - Transport failures during final report submission render controlled Spanish
   copy instead of the browser `failed to fetch` text.
 - Client and business support keep one stable layout while the keyboard opens;

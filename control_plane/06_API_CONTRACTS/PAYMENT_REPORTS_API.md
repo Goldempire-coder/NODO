@@ -182,10 +182,11 @@ Precondiciones:
 - para USDT TRC20, `tx_hash` debe tener 64 caracteres hexadecimales; el
   prefijo `0x` se acepta pero se remueve al persistir la forma canonica en
   minusculas
-- `proof_file_id`, la identidad del reporte pendiente y el hash SHA-256 del
-  contenido del comprobante son de un solo uso entre ordenes
-- `proof_file_id` debe pertenecer a la misma orden del reporte; un
-  comprobante subido en otra orden responde `INVALID_PAYMENT_EVIDENCE`
+- cuando se adjunta comprobante, `proof_file_id`, la identidad del reporte
+  pendiente y el hash SHA-256 de su contenido son de un solo uso entre ordenes
+- cuando se adjunta comprobante, `proof_file_id` debe pertenecer a la misma
+  orden del reporte; uno subido en otra orden responde
+  `INVALID_PAYMENT_EVIDENCE`
 
 Efectos:
 
@@ -215,9 +216,7 @@ Para `orders.payment_method_snapshot = zelle`:
 ```json
 {
   "payment_type": "zelle",
-  "payment_amount": "50.00",
-  "proof_file_id": "uuid",
-  "pending_payment_report_id": "uuid"
+  "payment_amount": "50.00"
 }
 ```
 
@@ -227,10 +226,12 @@ Reglas:
 - `payment_sender_name` opcional por compatibilidad; el cliente no debe inventarlo
 - `payment_sender_account_masked` opcional por compatibilidad
 - `payment_amount` requerido
-- `proof_file_id` requerido para Zelle
-- el flujo simplificado envia solo el monto bloqueado y el comprobante
-- `pending_payment_report_id` requerido cuando `proof_file_id` fue creado por `POST /payment-evidence`
-- el backend debe validar que `proof_file_id.resource_id = pending_payment_report_id`
+- el comprobante es opcional; el cliente puede marcar el pago enviado sin foto
+- el negocio puede pedir el comprobante dentro del chat de la orden
+- si se adjunta comprobante, `proof_file_id` y `pending_payment_report_id` se
+  envian juntos
+- si se adjunta comprobante, el backend debe validar que
+  `proof_file_id.resource_id = pending_payment_report_id`
 - no guardar datos bancarios completos innecesarios
 
 ### Payload USDT TRC20
@@ -271,7 +272,7 @@ Response 201:
       "payment_reference_masked": "***C123",
       "tx_hash_masked": null,
       "payment_amount": "50.00",
-      "proof_file_id": "uuid",
+      "proof_file_id": null,
       "created_at": "timestamp"
     },
     "order": {
@@ -305,7 +306,6 @@ Response 201:
 - `ORDER_STATUS_INVALID`
 - `ORDER_EXPIRED`
 - `PAYMENT_REPORT_NOT_ALLOWED`
-- `PAYMENT_EVIDENCE_REQUIRED`
 - `PAYMENT_REPORT_ALREADY_SUBMITTED`
 - `INVALID_PAYMENT_METHOD`
 - `INVALID_PAYMENT_EVIDENCE`

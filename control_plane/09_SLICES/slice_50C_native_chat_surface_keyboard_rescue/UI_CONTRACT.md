@@ -23,6 +23,10 @@ The fixed chat surface must not contain:
 The chat relies on the existing silent refresh. A refresh control is rendered
 only alongside an error recovery notice; it is not a persistent chat control.
 
+Order chat must not render a dispute form, dispute action or direct entry to
+Support. Participants use the normal Support section outside the order chat.
+The conversation stays focused on negotiation and payment state.
+
 ## Derived System Bubble
 
 At the top of the order-chat message list, render a derived system bubble:
@@ -41,6 +45,8 @@ Rules:
 - It scrolls away like a normal message.
 - It must not duplicate if the chat refreshes.
 - It must not expose internal IDs when `public_order_code` exists.
+- If a public code is unavailable, show a neutral complete label such as
+  `Orden en curso`; never abbreviate an internal UUID.
 
 Support chats may keep their own ticket metadata as a scrollable system bubble,
 not a fixed header, if that metadata currently consumes keyboard space.
@@ -67,7 +73,8 @@ The message viewport must reserve the small safety inset needed by visible
 floating actions.
 
 The composer paperclip owns attachment selection. During the pre-payment Zelle
-report flow it selects payment evidence; there is no second `Foto` button.
+report flow it may select optional payment evidence; there is no second `Foto`
+button and the absence of a file does not disable `Zelle enviado`.
 
 Sensitive actions keep explicit labels:
 
@@ -78,6 +85,13 @@ Sensitive actions keep explicit labels:
 After a successful action, its chip disappears when the backend capability no
 longer allows it. The resulting backend state may render as a derived system
 bubble; it must not be fabricated as a free-form chat message.
+
+Successful client and business order actions refresh the active chat and order
+state in place. Background order-list synchronization must never navigate away
+from the open chat.
+
+Visible labels must use complete words. In particular, do not render shortened
+internal ticket/order IDs or the abbreviated `Tx hash` label.
 
 ## Keyboard Behavior
 
