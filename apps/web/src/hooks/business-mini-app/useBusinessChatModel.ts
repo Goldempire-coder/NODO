@@ -6,7 +6,7 @@ import {
   listOrderMessages,
   openOrderMessageAttachment,
   sendOrderMessage,
-  shareConfiguredZelle as shareConfiguredZelleRequest,
+  shareConfiguredZelle as shareConfiguredPaymentDetailsRequest,
   uploadOrderMessageAttachment
 } from "../../api/chat";
 import type { AuthenticatedRequest } from "../../api/client";
@@ -89,14 +89,14 @@ export function useBusinessChatModel({
   const [refreshingChat, setRefreshingChat] = useState(false);
   const [sendingChatMessage, setSendingChatMessage] = useState(false);
   const [uploadingChatAttachment, setUploadingChatAttachment] = useState(false);
-  const [sharingZelle, setSharingZelle] = useState(false);
+  const [sharingPaymentDetails, setSharingPaymentDetails] = useState(false);
   const [receiverDetails, setReceiverDetails] = useState<ReceiverDetails | null>(null);
   const [revealingReceiverDetails, setRevealingReceiverDetails] = useState(false);
   const [chatAttachmentLink, setChatAttachmentLink] = useState<ChatAttachmentLink | null>(null);
   const [businessChatAction, setBusinessChatAction] = useState<"confirm-payment" | "mark-delivered" | null>(null);
   const sendingChatMessageRef = useRef(false);
   const uploadingChatAttachmentRef = useRef(false);
-  const sharingZelleRef = useRef(false);
+  const sharingPaymentDetailsRef = useRef(false);
   const revealingReceiverDetailsRef = useRef(false);
   const businessChatActionRef = useRef(false);
   const refreshingChatRef = useRef(false);
@@ -249,27 +249,27 @@ export function useBusinessChatModel({
     }
   }, [request, setNotice]);
 
-  const shareConfiguredZelle = useCallback(async () => {
-    if (!chatOrderId || sharingZelleRef.current || !chatCapabilities.can_share_zelle) {
+  const shareConfiguredPaymentDetails = useCallback(async () => {
+    if (!chatOrderId || sharingPaymentDetailsRef.current || !chatCapabilities.can_share_zelle) {
       return;
     }
-    sharingZelleRef.current = true;
-    setSharingZelle(true);
-    const idempotencyScope = `share_zelle_${chatOrderId}`;
+    sharingPaymentDetailsRef.current = true;
+    setSharingPaymentDetails(true);
+    const idempotencyScope = `share_payment_details_${chatOrderId}`;
     try {
-      await shareConfiguredZelleRequest(
+      await shareConfiguredPaymentDetailsRequest(
         request,
         chatOrderId,
         getIdempotencyKey(idempotencyScope, { orderId: chatOrderId })
       );
       clearIdempotencyKey(idempotencyScope);
       await refreshChat({ silent: true });
-      setNotice("Zelle compartido en el chat.");
+      setNotice("Datos de pago compartidos en el chat.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos compartir el Zelle.");
+      setNotice(error instanceof Error ? error.message : "No pudimos compartir los datos de pago.");
     } finally {
-      sharingZelleRef.current = false;
-      setSharingZelle(false);
+      sharingPaymentDetailsRef.current = false;
+      setSharingPaymentDetails(false);
     }
   }, [
     chatCapabilities.can_share_zelle,
@@ -401,8 +401,8 @@ export function useBusinessChatModel({
     markBusinessDeliveredInChat,
     sendChatMessage,
     sendingChatMessage,
-    shareConfiguredZelle,
-    sharingZelle,
+    shareConfiguredPaymentDetails,
+    sharingPaymentDetails,
     setChatBody,
     uploadingChatAttachment,
     uploadChatAttachment

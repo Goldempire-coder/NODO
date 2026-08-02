@@ -8,7 +8,15 @@ import type { AdFormState } from "../../types/ads";
 import type { BusinessPaymentMethod, BusinessPaymentMethodFormState, BusinessSummary } from "../../types/business";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import { businessPinActionMessage, isBusinessPinError } from "./businessPinGuards";
-import { activeBusinessPaymentMethods, emptyPaymentMethodForm, paymentMethodDisplay, paymentMethodTelemetry } from "./businessPaymentMethodHelpers";
+import {
+  activeBusinessPaymentMethods,
+  emptyPaymentMethodForm,
+  normalizePaymentMethodAccount,
+  paymentMethodDisplay,
+  paymentMethodInputError,
+  paymentMethodRequestError,
+  paymentMethodTelemetry
+} from "./businessPaymentMethodHelpers";
 
 type PaymentMethodSaveInput = {
   accountValue: string;
@@ -37,6 +45,7 @@ export function useBusinessPaymentMethodsModel({
 }) {
   const [paymentMethods, setPaymentMethods] = useState<BusinessPaymentMethod[]>([]);
   const [paymentMethodForm, setPaymentMethodForm] = useState<BusinessPaymentMethodFormState>(emptyPaymentMethodForm());
+  const [paymentMethodError, setPaymentMethodError] = useState("");
   const [editingPaymentMethodId, setEditingPaymentMethodId] = useState<string | null>(null);
   const [pendingPaymentMethodDeleteId, setPendingPaymentMethodDeleteId] = useState<string | null>(null);
   const [pendingPaymentMethodSave, setPendingPaymentMethodSave] = useState<PaymentMethodSaveInput | null>(null);
@@ -106,6 +115,7 @@ export function useBusinessPaymentMethodsModel({
     const methodLabel = paymentMethodDisplay(methodType);
     const action = paymentMethodId ? `editar este ${methodLabel}` : `agregar ${methodLabel}`;
     const telemetryAction = paymentMethodTelemetry(methodType, paymentMethodId ? "edit" : "add");
+    setPaymentMethodError("");
     setSavingPaymentMethodId(paymentMethodId || "new");
     recordActionBreadcrumb(telemetryAction, { screen: "payment-methods", status: "started" });
     const idempotencyScope = paymentMethodId
@@ -139,6 +149,7 @@ export function useBusinessPaymentMethodsModel({
         amount_max_usd: saved.limits.max_amount_usd
       }));
       setPaymentMethodForm(emptyPaymentMethodForm(methodType));
+      setPaymentMethodError("");
       setEditingPaymentMethodId(null);
       setPendingPaymentMethodSave(null);
       setPaymentMethodReturnView(null);
@@ -152,7 +163,14 @@ export function useBusinessPaymentMethodsModel({
         setPendingPaymentMethodSave(saveInput);
         return false;
       }
-      setNotice(error instanceof Error ? error.message : `No pudimos guardar ${methodLabel}.`);
+      const errorMessage = paymentMethodRequestError(
+        error instanceof ApiClientError ? error.code : undefined,
+        methodType,
+        error instanceof Error ? error.message : `No pudimos guardar ${methodLabel}.`
+      );
+      setPaymentMethodError(errorMessage);
+      setNotice("");
+      setView("payment-methods");
       return false;
     } finally {
       setSavingPaymentMethodId(null);
@@ -160,16 +178,24 @@ export function useBusinessPaymentMethodsModel({
   }, [clearIdempotencyKey, getIdempotencyKey, handleBusinessPinError, request, setAdForm, setNotice, setView]);
 
   const createPaymentMethod = useCallback(async () => {
-    const accountValue = paymentMethodForm.account_value.trim();
+    const rawAccountValue = paymentMethodForm.account_value;
     const holderName = paymentMethodForm.holder_name.trim();
     const editingMethod = editingPaymentMethodId ? paymentMethods.find((method) => method.id === editingPaymentMethodId) || null : null;
     const methodType = editingMethod?.receive_method || paymentMethodForm.method_type;
     const methodLabel = paymentMethodDisplay(methodType);
     const action = editingPaymentMethodId ? `editar este ${methodLabel}` : `agregar ${methodLabel}`;
-    if ((!editingPaymentMethodId && !accountValue) || !holderName) {
-      setNotice(`Agrega ${methodLabel} y titular para guardar.`);
+    const inputError = paymentMethodInputError({
+      accountValue: rawAccountValue,
+      editing: Boolean(editingPaymentMethodId),
+      holderName,
+      methodType
+    });
+    if (inputError) {
+      setPaymentMethodError(inputError);
+      setNotice("");
       return;
     }
+    const accountValue = normalizePaymentMethodAccount(methodType, rawAccountValue);
     const saveInput: PaymentMethodSaveInput = {
       accountValue,
       editingPaymentMethodId,
@@ -186,6 +212,7 @@ export function useBusinessPaymentMethodsModel({
   }, [editingPaymentMethodId, paymentMethodForm.account_value, paymentMethodForm.holder_name, paymentMethodForm.method_type, paymentMethodReturnView, paymentMethods, requireBusinessPinFor, savePaymentMethodUnlocked, setNotice]);
 
   const editPaymentMethod = useCallback((method: BusinessPaymentMethod) => {
+    setPaymentMethodError("");
     setEditingPaymentMethodId(method.id);
     setPaymentMethodForm({
       method_type: method.receive_method,
@@ -196,12 +223,14 @@ export function useBusinessPaymentMethodsModel({
   }, [setNotice]);
 
   const cancelPaymentMethodEdit = useCallback(() => {
+    setPaymentMethodError("");
     setEditingPaymentMethodId(null);
     setPaymentMethodForm(emptyPaymentMethodForm());
     setNotice("");
   }, [setNotice]);
 
   const startPaymentMethodCreate = useCallback((methodType: BusinessPaymentMethodFormState["method_type"] = "zelle") => {
+    setPaymentMethodError("");
     setEditingPaymentMethodId(null);
     setPaymentMethodForm(emptyPaymentMethodForm(methodType));
     setPaymentMethodReturnView(null);
@@ -209,6 +238,7 @@ export function useBusinessPaymentMethodsModel({
   }, [setNotice]);
 
   const startAddingPaymentMethod = useCallback((returnView?: BusinessMiniAppView, methodType: BusinessPaymentMethodFormState["method_type"] = "zelle") => {
+    setPaymentMethodError("");
     setEditingPaymentMethodId(null);
     setPaymentMethodForm(emptyPaymentMethodForm(methodType));
     setPaymentMethodReturnView(returnView || null);
@@ -293,6 +323,7 @@ export function useBusinessPaymentMethodsModel({
     editingPaymentMethodId,
     loadPaymentMethods,
     paymentMethodForm,
+    paymentMethodError,
     paymentMethods,
     pendingPaymentMethodDeleteId,
     pendingPaymentMethodSave,
@@ -300,6 +331,7 @@ export function useBusinessPaymentMethodsModel({
     savingPaymentMethodId,
     selectAdPaymentType,
     selectPaymentMethod,
+    setPaymentMethodError,
     setPaymentMethodForm,
     startAddingPaymentMethod,
     startPaymentMethodCreate

@@ -301,6 +301,7 @@ def test_reveal_own_waiting_payment_sets_tracking_audit_and_only_endpoint_expose
     reveal = client.get(f"/api/v1/orders/{order['id']}/payment-instructions", headers=_bearer(remitter, "req_reveal"))
 
     assert reveal.status_code == 200, reveal.text
+    assert reveal.headers["Cache-Control"] == "private, no-store"
     body = reveal.json()["data"]
     assert body["payment_instructions"]["account_value"] == "owner@example.com"
     stored = client.app.state.order_repository.get_by_id(order["id"])
@@ -496,6 +497,37 @@ def test_report_usdt_valid_invalid_method_expired_and_foreign_failures() -> None
     assert foreign.status_code == 404
     assert expired.status_code == 409
     assert expired.json()["error"]["code"] == "ORDER_EXPIRED"
+
+
+def test_report_usdt_allows_client_to_mark_sent_without_tx_hash() -> None:
+    client = _client()
+    _, _, remitter, order = _seed_order(
+        client,
+        method="usdt_trc20",
+        owner_id=638,
+        remitter_id=639,
+    )
+
+    response = client.post(
+        f"/api/v1/orders/{order['id']}/payment-report",
+        headers={**_headers(remitter, "usdt_report_without_hash"), "Content-Type": "application/json"},
+        json={
+            "payment_type": "usdt_trc20",
+            "payment_amount": "50.00",
+            "network": "TRC20",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    payload = response.json()["data"]
+    assert payload["order"]["status"] == "payment_reported"
+    assert payload["payment_report"]["tx_hash_masked"] is None
+    report = next(iter(client.app.state.order_repository.payment_reports.values()))
+    assert report.tx_hash is None
+    assert report.network is None
+    stored = client.app.state.order_repository.get_by_id(order["id"])
+    assert stored.status == "payment_reported"
+    assert stored.paid_reported_at is not None
 
 
 def test_zelle_payment_report_allows_client_to_mark_paid_without_evidence() -> None:
@@ -1067,3 +1099,17 @@ def test_migration_0006_contains_payment_reports_file_assets_constraints_and_ind
         "resource_type in ('business', 'payment_report')",
     ]:
         assert text in migration
+
+
+def test_migration_0043_makes_usdt_transaction_hash_optional_with_safe_rollback() -> None:
+    up = open("database/migrations/0043_optional_usdt_transaction_hash.up.sql", encoding="utf-8").read()
+    down = open("database/migrations/0043_optional_usdt_transaction_hash.down.sql", encoding="utf-8").read()
+
+    assert "drop constraint if exists payment_reports_usdt_required_check" in up
+    assert "tx_hash is null" in up
+    assert "tx_hash is not null" in up
+    assert "network = 'TRC20'" in up
+    assert "usdt payment reports without tx_hash require review before rollback" in down
+    assert "network is distinct from 'TRC20'" in down
+    assert "tx_hash is not null" in down
+    assert "and network = 'TRC20'" in down

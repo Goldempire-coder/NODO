@@ -78,8 +78,8 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     markBusinessDeliveredInChat,
     sendChatMessage,
     sendingChatMessage,
-    shareConfiguredZelle,
-    sharingZelle,
+    shareConfiguredPaymentDetails,
+    sharingPaymentDetails,
     setChatBody,
     uploadingChatAttachment,
     uploadChatAttachment
@@ -95,10 +95,10 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
       ? detailOrder
       : null;
   const chatIsTerminal = currentOrder?.status === "cancelled" || currentOrder?.status === "completed";
-  const canShareZelle = chatCapabilities.can_share_zelle && currentOrder?.status === "waiting_payment";
+  const canSharePaymentDetails = chatCapabilities.can_share_zelle && currentOrder?.status === "waiting_payment";
   const canConfirmPayment = chatCapabilities.can_confirm_payment && currentOrder?.status === "payment_reported";
   const canMarkDelivered = chatCapabilities.can_mark_delivered && currentOrder?.status === "payment_confirmed";
-  const hasActionDock = canShareZelle || canConfirmPayment || canMarkDelivered;
+  const hasActionDock = canSharePaymentDetails || canConfirmPayment || canMarkDelivered;
 
   useEffect(() => {
     if (!chatOrderId || model.view !== "business-chat") {
@@ -244,9 +244,9 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
 
       {hasActionDock ? (
         <div className="business-order-chat-action-dock" aria-label="Acciones de la orden">
-          {canShareZelle ? (
-            <button className="business-order-chat-payment-action" type="button" disabled={sharingZelle} onClick={() => void shareConfiguredZelle()}>
-              {sharingZelle ? "Compartiendo..." : "Compartir datos Zelle"}
+          {canSharePaymentDetails ? (
+            <button className="business-order-chat-payment-action" type="button" disabled={sharingPaymentDetails} onClick={() => void shareConfiguredPaymentDetails()}>
+              {sharingPaymentDetails ? "Compartiendo..." : "Compartir datos de pago"}
             </button>
           ) : null}
           {canConfirmPayment ? (
@@ -256,7 +256,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
               disabled={businessChatAction === "confirm-payment"}
               onClick={() => void confirmBusinessPaymentInChat()}
             >
-              {businessChatAction === "confirm-payment" ? "Confirmando..." : "Confirmar Zelle recibido"}
+              {businessChatAction === "confirm-payment" ? "Confirmando..." : "Confirmar pago recibido"}
             </button>
           ) : null}
           {canMarkDelivered ? (

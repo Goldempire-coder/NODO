@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { AdSummary } from "../../types/ads";
 import type { PublicUser } from "../../types/auth";
 import type { ChatAttachment, ChatCapabilities, ChatMessage } from "../../types/chat";
@@ -9,6 +9,16 @@ import type { OrderFormState, OrderSummary } from "../../types/orders";
 import type { PaymentEvidence, PaymentInstructions, PaymentReportFormState } from "../../types/payments";
 import { useClientActionState } from "./useClientActionState";
 import { useClientNavigationState } from "./useClientNavigationState";
+
+export function emptyPaymentReportForm(paymentAmount = ""): PaymentReportFormState {
+  return {
+    payment_reference: "",
+    payment_sender_name: "",
+    payment_sender_account_masked: "",
+    payment_amount: paymentAmount,
+    tx_hash: ""
+  };
+}
 
 export function useClientWorkspaceState(user: PublicUser) {
   const navigation = useClientNavigationState(user);
@@ -30,6 +40,7 @@ export function useClientWorkspaceState(user: PublicUser) {
   const [selectedRatingStars, setSelectedRatingStars] = useState(0);
   const [myOrders, setMyOrders] = useState<OrderSummary[]>([]);
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
+  const paymentOrderContextRef = useRef<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatCapabilities, setChatCapabilities] = useState<ChatCapabilities>({
     can_send_message: false,
@@ -53,13 +64,7 @@ export function useClientWorkspaceState(user: PublicUser) {
   const [paymentInstructions, setPaymentInstructions] = useState<PaymentInstructions | null>(null);
   const [paymentEvidence, setPaymentEvidence] = useState<PaymentEvidence | null>(null);
   const [pendingPaymentReportId, setPendingPaymentReportId] = useState<string | null>(null);
-  const [paymentReportForm, setPaymentReportForm] = useState<PaymentReportFormState>({
-    payment_reference: "",
-    payment_sender_name: "",
-    payment_sender_account_masked: "",
-    payment_amount: "50.00",
-    tx_hash: ""
-  });
+  const [paymentReportForm, setPaymentReportForm] = useState<PaymentReportFormState>(emptyPaymentReportForm("50.00"));
 
   return {
     view: navigation.view,
@@ -118,6 +123,7 @@ export function useClientWorkspaceState(user: PublicUser) {
     setMyOrders,
     chatOrderId,
     setChatOrderId,
+    paymentOrderContextRef,
     chatMessages,
     setChatMessages,
     chatCapabilities,

@@ -21,8 +21,8 @@ from app.modules.users.models import UserRecord
 
 CHAT_DISCLAIMER = "Usa este chat para coordinar la orden y dejar un respaldo claro entre las partes."
 NEGOTIATION_CREATED_MESSAGE = (
-    "Negociación creada. Coordinen por aquí. "
-    "No envíes Zelle hasta que el negocio comparta sus datos."
+    "Negociacion creada. Coordinen por aqui. "
+    "No envies el pago hasta que el negocio comparta sus datos."
 )
 logger = get_logger(__name__)
 
@@ -193,7 +193,7 @@ class ChatService:
                     "id": f"system:payment-confirmed:{order.id}",
                     "order_id": order.id,
                     "sender_role": "system",
-                    "body": "Negocio confirmo Zelle recibido. Escribe tu Pago Movil en el chat.",
+                    "body": "Negocio confirmo el pago recibido. Escribe tu Pago Movil en el chat.",
                     "visibility": "parties",
                     "status": "visible",
                     "attachments": [],

@@ -1,9 +1,35 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Text } from "@telegram-apps/telegram-ui";
 import { PaperclipIcon, SendIcon } from "../../components/nodo/ChatComposerIcons";
 import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
 
 const CLIENT_ORDER_CHAT_REFRESH_MS = 5000;
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    if (!document.execCommand("copy")) {
+      throw new Error("CLIPBOARD_COPY_FAILED");
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+function paymentMethodLabel(method: string | null | undefined): string {
+  return method === "usdt_trc20" ? "USDT TRC20" : "Zelle";
+}
 
 function chatSenderLabel(senderRole: string): string {
   if (senderRole === "remitter" || senderRole === "client") {
@@ -63,9 +89,9 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     chatOrderId,
     loadingPaymentInstructions,
     openChatAttachment,
+    openPaymentReport,
     paymentEvidence,
     paymentInstructions,
-    paymentReportForm,
     confirmOrderReceived,
     confirmingOrderReceived,
     dismissChatAttachmentLink,
@@ -75,7 +101,6 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     submitPaymentReport,
     submittingPaymentReport,
     setChatBody,
-    setPaymentReportForm,
     uploadPaymentEvidence,
     uploadingPaymentEvidence,
     uploadChatAttachment,
@@ -84,10 +109,14 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const paymentEvidenceInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const paymentInstructionsRequestedForRef = useRef<string | null>(null);
+  const [copiedPaymentAccount, setCopiedPaymentAccount] = useState(false);
+  const [paymentAccountCopyFailed, setPaymentAccountCopyFailed] = useState(false);
   const canSend = chatCapabilities.can_send_message && !sendingChatMessage && !uploadingChatAttachment;
   const canSubmitMessage = canSend && (chatBody.trim().length > 0 || chatAttachments.length > 0);
   const selectedChatOrder = model.selectedOrder?.id === chatOrderId ? model.selectedOrder : null;
-  const paymentReportMethod = paymentInstructions?.payment_instructions.method_type || selectedChatOrder?.payment_method_snapshot;
+  const currentPaymentInstructions = paymentInstructions?.order.id === chatOrderId ? paymentInstructions : null;
+  const paymentReportMethod = currentPaymentInstructions?.payment_instructions.method_type || selectedChatOrder?.payment_method_snapshot;
   const chatIsTerminal = selectedChatOrder?.status === "cancelled" || selectedChatOrder?.status === "completed";
   const canReportPayment = chatCapabilities.can_report_payment && selectedChatOrder?.status === "waiting_payment";
   const canConfirmReceived = chatCapabilities.can_confirm_received && selectedChatOrder?.status === "delivered";
@@ -118,7 +147,34 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
-  }, [chatOrderId, chatMessages.length, chatAttachments.length]);
+  }, [chatOrderId, chatMessages.length, chatAttachments.length, currentPaymentInstructions?.order.id]);
+
+  useEffect(() => {
+    if (!chatOrderId || !canReportPayment || currentPaymentInstructions) {
+      return;
+    }
+    if (paymentInstructionsRequestedForRef.current === chatOrderId) {
+      return;
+    }
+    paymentInstructionsRequestedForRef.current = chatOrderId;
+    void openPaymentReport(chatOrderId);
+  }, [canReportPayment, chatOrderId, currentPaymentInstructions, openPaymentReport]);
+
+  const copyPaymentAccount = async () => {
+    const accountValue = currentPaymentInstructions?.payment_instructions.account_value;
+    if (!accountValue) {
+      return;
+    }
+    setPaymentAccountCopyFailed(false);
+    try {
+      await copyText(accountValue);
+      setCopiedPaymentAccount(true);
+      window.setTimeout(() => setCopiedPaymentAccount(false), 1600);
+    } catch {
+      setCopiedPaymentAccount(false);
+      setPaymentAccountCopyFailed(true);
+    }
+  };
 
   return (
     <section className={hasActionDock ? "business-order-chat business-order-chat--has-actions" : "business-order-chat"} aria-label="Chat con negocio">
@@ -130,6 +186,14 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         </article>
         {chatMessages.length === 0 ? <Text className="business-order-chat-empty">Aun no hay mensajes en esta orden.</Text> : null}
         {chatMessages.map((message) => {
+          const isAutomaticZelleDetails = currentPaymentInstructions?.payment_instructions.method_type === "zelle"
+            && message.sender_role === "business_owner"
+            && message.body?.startsWith(
+              `Zelle del negocio: ${currentPaymentInstructions.payment_instructions.account_value}`
+            );
+          if (isAutomaticZelleDetails) {
+            return null;
+          }
           const isMine = message.sender_role === "remitter" || message.sender_role === "client";
           const isSystem = message.sender_role === "system";
           return (
@@ -164,6 +228,25 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
             </article>
           );
         })}
+        {currentPaymentInstructions ? (
+          <article className="business-order-chat-message business-order-chat-message--system business-order-chat-payment-details">
+            <span className="business-order-chat-message__sender">NODO</span>
+            <p>{paymentMethodLabel(paymentReportMethod)} del negocio</p>
+            <div className="business-order-chat-payment-details__value">
+              <code>{currentPaymentInstructions.payment_instructions.account_value}</code>
+              <button type="button" onClick={() => void copyPaymentAccount()}>
+                {copiedPaymentAccount ? "Copiado" : "Copiar"}
+              </button>
+            </div>
+            <small>
+              Monto: {currentPaymentInstructions.order.amount_usd} USD
+              {currentPaymentInstructions.payment_instructions.network
+                ? ` - Red ${currentPaymentInstructions.payment_instructions.network}`
+                : ""}
+            </small>
+            {paymentAccountCopyFailed ? <span className="business-order-chat-payment-details__error">No pudimos copiar. Manten presionado el dato.</span> : null}
+          </article>
+        ) : null}
         {selectedChatOrder?.status === "payment_reported" ? (
           <article className="business-order-chat-message business-order-chat-message--system">
             <span className="business-order-chat-message__sender">NODO</span>
@@ -175,11 +258,9 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
             Escribe tu Pago Movil en el chat.
           </Text>
         ) : null}
-        {selectedChatOrder?.status === "waiting_payment"
-          && selectedChatOrder.payment_method_snapshot === "zelle"
-          && !chatCapabilities.payment_details_shared ? (
+        {selectedChatOrder?.status === "waiting_payment" && !chatCapabilities.payment_details_shared ? (
             <Text className="auth-entry__session-meta business-order-chat-note">
-              No envies Zelle hasta que el negocio comparta sus datos.
+              No envies el pago hasta que el negocio comparta sus datos.
             </Text>
           ) : null}
         {chatAttachmentLink ? (
@@ -225,15 +306,6 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
 
       {hasActionDock ? (
         <div className="business-order-chat-action-dock" aria-label="Acciones de la orden">
-          {paymentReportMethod === "usdt_trc20" ? (
-            <input
-              className="business-order-chat-action-dock__hash"
-              aria-label="Identificador de transaccion"
-              placeholder="Identificador de transaccion"
-              value={paymentReportForm.tx_hash}
-              onChange={(event) => setPaymentReportForm((current) => ({ ...current, tx_hash: event.target.value }))}
-            />
-          ) : null}
           {canReportPayment && chatOrderId ? (
             <button
               className="business-order-chat-payment-action"
@@ -241,7 +313,9 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
               disabled={submittingPaymentReport || uploadingPaymentEvidence || loadingPaymentInstructions}
               onClick={() => void submitPaymentReport()}
             >
-              {submittingPaymentReport || loadingPaymentInstructions ? "Procesando..." : "Zelle enviado"}
+              {submittingPaymentReport || loadingPaymentInstructions
+                ? "Procesando..."
+                : paymentReportMethod === "usdt_trc20" ? "USDT enviado" : "Zelle enviado"}
             </button>
           ) : null}
           {canConfirmReceived ? (
@@ -261,7 +335,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         ref={paymentEvidenceInputRef}
         className="business-support-file-input"
         accept="image/jpeg,image/png,image/webp,application/pdf"
-        disabled={uploadingPaymentEvidence || submittingPaymentReport}
+        disabled={uploadingPaymentEvidence || submittingPaymentReport || loadingPaymentInstructions}
         type="file"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0] || null;
@@ -283,7 +357,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
             type="button"
             aria-label={canReportPayment ? "Adjuntar comprobante opcional" : "Adjuntar comprobante o soporte"}
             disabled={canReportPayment
-              ? uploadingPaymentEvidence || submittingPaymentReport
+              ? uploadingPaymentEvidence || submittingPaymentReport || loadingPaymentInstructions
               : !chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
             onClick={() => {
               if (canReportPayment) {

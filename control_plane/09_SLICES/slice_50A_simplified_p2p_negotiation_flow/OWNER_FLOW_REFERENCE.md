@@ -68,8 +68,8 @@ flowchart TD
 
 3. Chat opens immediately after confirmation.
 
-4. The first chat message must tell the client not to send Zelle until the
-   business confirms availability.
+4. The first chat message must tell the client not to send payment until the
+   authorized payment data is available in the conversation.
 
 5. A first business message only means that the business responded. It does
    not authorize payment.
@@ -77,23 +77,29 @@ flowchart TD
 6. Zelle details are shown only after the business shares its configured Zelle
    in the private order chat by:
    - writing that configured Zelle manually; or
-   - using the compact action `Enviar Zelle`.
+   - using the compact action `Compartir datos de pago`.
 
-7. The client can cancel only before marking `Pago enviado`.
+7. USDT TRC20 uses the wallet already configured by the business and frozen in
+   the order. The client sees it through the private payment-instructions
+   reveal, rendered with the same compact chat bubble and copy action as Zelle.
+   Reporting USDT does not require the client to provide the TRC20 transaction
+   hash; if provided, it remains optional evidence and must be canonical.
 
-8. After `Pago enviado`, simple cancellation is not allowed. Problems must go
+8. The client can cancel only before marking `Pago enviado`.
+
+9. After `Pago enviado`, simple cancellation is not allowed. Problems must go
    to support or dispute.
 
-9. The business must not have a normal cancel button.
+10. The business must not have a normal cancel button.
 
-10. The business may use `No puedo atender` only before the client marks
+11. The business may use `No puedo atender` only before the client marks
    `Pago enviado`. This must:
    - release the client;
    - release capacity;
    - close the operation safely;
    - record a negative operational event for the business.
 
-11. Timeout before payment must:
+12. Timeout before payment must:
     - close the operation;
     - release capacity;
     - record the cause;
@@ -105,12 +111,16 @@ The negotiation must feel like a chat, not a form.
 
 Preferred sequence:
 
-1. System: `Negociacion creada. Coordinen por aqui. No envies Zelle hasta que el negocio comparta sus datos.`
+1. System: `Negociacion creada. Coordinen por aqui. No envies el pago hasta que el negocio comparta sus datos.`
 2. Business: any message means only that the business responded.
-3. Business shares its configured Zelle manually or with compact `Enviar Zelle`.
-4. Client: sends Zelle outside NODO.
-5. Client: attaches proof and taps compact `Pago enviado`.
-6. Client report collects only the capture/proof and locked order amount.
+3. Business shares its configured Zelle manually or with compact
+   `Compartir datos de pago`.
+   For USDT, the configured wallet is revealed privately in the same compact
+   presentation without a second business action.
+4. Client sends the selected payment method outside NODO.
+5. Client optionally attaches proof and taps the method-specific compact action.
+6. Client report uses the locked order amount. USDT can be marked sent without
+   asking the client for a transaction hash.
 7. Business confirms receipt.
 8. Client writes Pago Movil in the chat.
 9. Business marks Pago Movil sent.

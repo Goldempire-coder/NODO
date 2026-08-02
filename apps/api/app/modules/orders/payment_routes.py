@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, Request, Response, UploadFile
 
 from app.auth.dependencies import require_current_user, require_current_user_with_terms
 from app.core.errors import ApiError
@@ -14,8 +14,21 @@ router = APIRouter(tags=["orders"])
 
 
 @router.get("/orders/{order_id}/payment-instructions")
-def payment_instructions(order_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
-    return {"data": order_service(request).payment_instructions(user=user, order_id=order_id, request_id=request_id(request)), "request_id": request_id(request)}
+def payment_instructions(
+    order_id: str,
+    request: Request,
+    response: Response,
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "data": order_service(request).payment_instructions(
+            user=user,
+            order_id=order_id,
+            request_id=request_id(request),
+        ),
+        "request_id": request_id(request),
+    }
 
 
 @router.post("/orders/{order_id}/payment-evidence", status_code=201)

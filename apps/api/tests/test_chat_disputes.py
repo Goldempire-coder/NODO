@@ -106,7 +106,13 @@ def _create_business(client: TestClient, login: dict, key: str) -> dict:
     return response.json()["data"]["business"]
 
 
-def _approved_business_with_method(client: TestClient, login: dict, *, credits: int = 5) -> tuple[dict, str]:
+def _approved_business_with_method(
+    client: TestClient,
+    login: dict,
+    *,
+    credits: int = 5,
+    method: str = "zelle",
+) -> tuple[dict, str]:
     business = _create_business(client, login, f"biz_{login['user']['id']}")
     stored_business = client.app.state.business_repository.get_business(business["id"])
     stored_business.verification_status = "approved"
@@ -125,10 +131,10 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
     client.app.state.business_repository.mark_access_link_pin_verified(link_id=link.id, unlocked_until=utc_now() + timedelta(minutes=15))
     payment = client.app.state.business_repository.add_payment_method(
         business_id=business["id"],
-        method_type="zelle",
-        network=None,
-        account_value="owner@example.com",
-        account_masked="***.com",
+        method_type=method,
+        network="TRC20" if method == "usdt_trc20" else None,
+        account_value="TFullWalletValue123456789" if method == "usdt_trc20" else "owner@example.com",
+        account_masked="TFull...6789" if method == "usdt_trc20" else "***.com",
         holder_name="Owner Test",
     )
     payment.verified_status = "approved"
@@ -138,13 +144,20 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
     return business, payment.id
 
 
-def _create_ad(client: TestClient, owner: dict, payment_method_id: str, *, key: str = "ad") -> dict:
+def _create_ad(
+    client: TestClient,
+    owner: dict,
+    payment_method_id: str,
+    *,
+    key: str = "ad",
+    method: str = "zelle",
+) -> dict:
     response = client.post(
         "/api/v1/business/ads",
         headers={**_headers(owner, key), "Content-Type": "application/json"},
         json={
             "payment_method_id": payment_method_id,
-            "payment_method": "zelle",
+            "payment_method": method,
             "delivery_method": "pago_movil_ve",
             "rate_bs_per_usd": "39.5000",
             "amount_min_usd": "20.00",
@@ -313,8 +326,8 @@ def test_slice_50a_waiting_payment_chat_is_immediate_virtual_and_private() -> No
             "order_id": order["id"],
             "sender_role": "system",
             "body": (
-                "Negociación creada. Coordinen por aquí. "
-                "No envíes Zelle hasta que el negocio comparta sus datos."
+                "Negociacion creada. Coordinen por aqui. "
+                "No envies el pago hasta que el negocio comparta sus datos."
             ),
             "visibility": "parties",
             "status": "visible",
@@ -543,6 +556,49 @@ def test_slice_50a_business_share_zelle_is_owner_only_deduped_and_safe() -> None
         default=str,
     )
     assert "owner@example.com" not in audit_text
+    assert business["id"] in audit_text
+
+
+def test_usdt_wallet_is_available_to_order_client_without_public_leak() -> None:
+    client = _client()
+    owner = _login(client, 7814, "payment_details_usdt_owner")
+    business, method_id = _approved_business_with_method(
+        client,
+        owner,
+        credits=1,
+        method="usdt_trc20",
+    )
+    ad = _create_ad(
+        client,
+        owner,
+        method_id,
+        key="payment_details_usdt_ad",
+        method="usdt_trc20",
+    )
+    remitter = _login(client, 7815, "payment_details_usdt_client")
+    order = _create_order(client, remitter, ad["id"], key="payment_details_usdt_order")
+
+    chat = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_payment_details_usdt_before"),
+    )
+    reveal = client.get(
+        f"/api/v1/orders/{order['id']}/payment-instructions",
+        headers=_bearer(remitter, "req_payment_details_usdt_reveal_before"),
+    )
+
+    assert chat.status_code == 200, chat.text
+    assert chat.json()["data"]["capabilities"]["can_report_payment"] is True
+    assert chat.json()["data"]["capabilities"]["can_share_zelle"] is False
+    assert "TFullWalletValue123456789" not in chat.text
+    assert reveal.status_code == 200, reveal.text
+    assert reveal.json()["data"]["payment_instructions"]["account_value"] == "TFullWalletValue123456789"
+    assert reveal.json()["data"]["payment_instructions"]["network"] == "TRC20"
+    audit_text = json.dumps(
+        [event.__dict__ for event in client.app.state.audit_writer.events],
+        default=str,
+    )
+    assert "TFullWalletValue123456789" not in audit_text
     assert business["id"] in audit_text
 
 

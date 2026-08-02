@@ -146,6 +146,7 @@ export function useSurfaceAttentionModel({
     acknowledgeAttention,
     attentionAlert,
     attentionCounts,
+    attentionItems: pendingItems,
     attentionStale,
     attentionTruncated,
     dismissAttention,

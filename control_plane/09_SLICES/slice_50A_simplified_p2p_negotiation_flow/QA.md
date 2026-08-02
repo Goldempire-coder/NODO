@@ -6,7 +6,8 @@ Required regression coverage:
   capacity reservation.
 - Waiting-payment chat is available only to the two participants.
 - The virtual message is returned without audit or Telegram duplication.
-- Compact `Enviar Zelle` is owner-only and deduplicated across keys.
+- Compact `Compartir datos de pago` is owner-only for Zelle and deduplicated
+  across keys.
 - Manual configured Zelle unlocks payment.
 - Similar or external contact does not unlock payment and remains moderated.
 - Instructions and report return `ORDER_PAYMENT_DETAILS_NOT_SHARED` before
@@ -19,6 +20,10 @@ Required regression coverage:
 - Silent refresh failure preserves the current messages and capabilities.
 - Refreshed capabilities can enable `Pago enviado` after the business shares
   configured Zelle.
+- Zelle and USDT payment instructions render inside the chat with a local copy
+  action; the USDT label is not shown as Zelle.
+- USDT wallet reveal remains participant-only and the report can be sent without
+  asking the client for a TRC20 transaction hash.
 - Client and business initial chat loads return the latest bounded message
   window, including a newly shared Zelle after older history.
 - Business chat polling is visible-only, single-flight and preserves current

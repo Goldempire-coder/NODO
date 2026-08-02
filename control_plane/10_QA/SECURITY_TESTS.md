@@ -92,8 +92,8 @@ Un slice sensible no pasa a `READY_FOR_OWNER_REVIEW` sin pruebas de seguridad ej
 - reveal de instrucciones de orden vencida falla con error seguro.
 - reveal de instrucciones setea `payment_data_revealed_at/payment_data_revealed_by` y audita `payment_instructions_viewed`.
 - reportar pago no expone `account_value` ni instrucciones completas en logs/audit.
-- reportar pago con Zelle exige referencia, sender name, monto y evidencia.
-- reportar pago con USDT TRC20 exige tx_hash, network TRC20 y monto.
+- reportar pago con Zelle exige monto bloqueado; referencia, sender name y evidencia son opcionales en el flujo simplificado.
+- reportar pago con USDT TRC20 exige monto bloqueado; `tx_hash` es opcional, pero si se envia exige network TRC20 y formato canonico.
 - `tx_hash` se enmascara/trunca en UI/listados/audit cuando aplique.
 - logs no contienen datos bancarios completos.
 - UI enmascara telefono, correo, wallet, tx_hash y referencias cuando aplique.

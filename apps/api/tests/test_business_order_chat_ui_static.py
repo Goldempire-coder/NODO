@@ -215,14 +215,17 @@ def test_order_chat_uses_compact_role_correct_actions_and_composer_attachment() 
     client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
 
     assert "business-order-chat-action-dock" in business_chat
-    assert "Compartir datos Zelle" in business_chat
-    assert "Confirmar Zelle recibido" in business_chat
+    assert "Compartir datos de pago" in business_chat
+    assert "Confirmar pago recibido" in business_chat
     assert '"Enviar Zelle"' not in business_chat
     assert "Pago Movil enviado" in business_chat
     assert "business-order-chat-action-dock" in client_chat
     assert "paymentEvidenceInputRef.current?.click()" in client_chat
     assert '>Foto<' not in client_chat
-    assert "Zelle enviado" in client_chat
+    assert 'paymentReportMethod === "usdt_trc20" ? "USDT enviado" : "Zelle enviado"' in client_chat
+    assert "business-order-chat-action-dock__hash" not in client_chat
+    assert "Identificador de transaccion" not in client_chat
+    assert "Copiar" in client_chat
     assert "Pago reportado. Esperando confirmacion del negocio." in client_chat
 
 
@@ -282,10 +285,11 @@ def test_order_chat_actions_refresh_in_place_without_abbreviated_identifiers() -
     for source in [business_chat, client_chat, business_support, client_support]:
         assert ".slice(0, 8)" not in source
     assert "Tx hash" not in client_chat
-    assert "Identificador de transaccion" in client_chat
+    assert "Identificador de transaccion" not in client_chat
     for source in [client_payment, business_credits]:
         assert "Tx hash" not in source
-        assert "Identificador de transaccion" in source
+    assert "Identificador de transaccion" not in client_payment
+    assert "Identificador de transaccion" in business_credits
     assert "Copiar ID" not in business_settings
     assert "Copiar identificacion" in business_settings
     back_css = global_css.split(".topbar-back.native-chat-back", 1)[1].split("}", 1)[0]

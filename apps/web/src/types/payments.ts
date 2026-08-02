@@ -11,6 +11,7 @@ export type PaymentInstructions = {
   payment_instructions: {
     method_type: "zelle" | "usdt_trc20";
     network: string | null;
+    account_value: string;
     account_masked: string;
     holder_name: string;
   } & Record<string, string | null>;

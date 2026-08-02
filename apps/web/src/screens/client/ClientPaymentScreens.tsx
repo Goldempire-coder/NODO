@@ -39,27 +39,11 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
                   inputMode="decimal"
                 />
               </label>
-              {reportPaymentMethod === "zelle" ? (
-                <>
-                  <label className="business-upload">
-                    <span>Comprobante</span>
-                    <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingPaymentEvidence} type="file" onChange={(event) => void uploadPaymentEvidence(event.target.files?.[0] || null)} />
-                    {uploadingPaymentEvidence ? <small>Subiendo comprobante...</small> : paymentEvidence ? <small>{paymentEvidence.mime_type} - {paymentEvidence.size_bytes} bytes</small> : null}
-                  </label>
-                </>
-              ) : (
-                <>
-                  <label className="business-field">
-                    <span>Identificador de transaccion USDT en red TRC20</span>
-                    <input value={model.paymentReportForm.tx_hash} onChange={(event) => model.setPaymentReportForm((current) => ({ ...current, tx_hash: event.target.value }))} />
-                  </label>
-                  <label className="business-upload">
-                    <span>Comprobante opcional</span>
-                    <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingPaymentEvidence} type="file" onChange={(event) => void uploadPaymentEvidence(event.target.files?.[0] || null)} />
-                    {uploadingPaymentEvidence ? <small>Subiendo comprobante...</small> : paymentEvidence ? <small>{paymentEvidence.mime_type} - {paymentEvidence.size_bytes} bytes</small> : null}
-                  </label>
-                </>
-              )}
+              <label className="business-upload">
+                <span>Comprobante opcional</span>
+                <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingPaymentEvidence} type="file" onChange={(event) => void uploadPaymentEvidence(event.target.files?.[0] || null)} />
+                {uploadingPaymentEvidence ? <small>Subiendo comprobante...</small> : paymentEvidence ? <small>{paymentEvidence.mime_type} - {paymentEvidence.size_bytes} bytes</small> : null}
+              </label>
               <Button mode="filled" stretched disabled={submittingPaymentReport} onClick={() => void submitPaymentReport()}>
                 {submittingPaymentReport ? "Enviando reporte..." : "Confirmar y enviar"}
               </Button>

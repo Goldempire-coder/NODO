@@ -14,7 +14,7 @@ import type { OrderSummary, ReceiverDetailsInput, ReceiverDetailsMasked } from "
 import { getTelegramWebApp } from "../../theme/telegramTheme";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
-import type { ClientWorkspaceState } from "./useClientWorkspaceState";
+import { emptyPaymentReportForm, type ClientWorkspaceState } from "./useClientWorkspaceState";
 
 type ChatAttachmentLink = {
   url: string;
@@ -49,12 +49,17 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     chatOrderId,
     chatBody,
     chatAttachments,
+    paymentOrderContextRef,
     setChatOrderId,
     setChatMessages,
     setChatCapabilities,
     setChatAttachments,
     setChatBody,
     setNotice,
+    setPaymentEvidence,
+    setPaymentInstructions,
+    setPaymentReportForm,
+    setPendingPaymentReportId,
     setSelectedOrder,
     setOpeningChatOrderId,
     setRefreshingChat,
@@ -84,10 +89,18 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
   async function openOrderChat(orderId: string) {
     const startedAt = actionStartedAt();
     recordActionStarted("client_chat_open", "order-chat");
+    paymentOrderContextRef.current = orderId;
+    if (chatOrderIdRef.current !== orderId) {
+      chatOrderIdRef.current = orderId;
+      setChatOrderId(orderId);
+      setPaymentInstructions(null);
+      setPaymentEvidence(null);
+      setPendingPaymentReportId(null);
+      setPaymentReportForm(emptyPaymentReportForm());
+    }
     setOpeningChatOrderId(orderId);
     try {
       const data = await listOrderMessages<ChatThread<OrderSummary>>(request, orderId);
-      setChatOrderId(orderId);
       setSelectedOrder(data.order);
       setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
@@ -99,7 +112,6 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setNotice("");
       recordActionCompleted("client_chat_open", "order-chat", startedAt);
     } catch (error) {
-      setChatOrderId(orderId);
       setChatMessages([]);
       setReceiverDetailsMasked(null);
       setChatAttachmentLink(null);

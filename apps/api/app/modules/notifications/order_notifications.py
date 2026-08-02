@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Any
 
 from app.core.config import Settings
@@ -15,10 +14,6 @@ logger = get_logger(__name__)
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def _decimal_text(value: Decimal) -> str:
-    return f"{value:.2f}"
 
 
 def _safe_operation_context(
@@ -62,7 +57,7 @@ class OrderNotificationService:
             recipient_user_id=business.owner_user_id,
             target_surface="business_mini_app",
             text=self._business_order_created_text(order),
-            action_url=self._business_order_url(order.id),
+            action_url=self._business_order_chat_url(order.id),
             request_id=request_id,
             correlation_id=correlation_id,
             operation_id=operation_id,
@@ -301,9 +296,6 @@ class OrderNotificationService:
                 "target_surface": target_surface,
                 "public_order_code": order.public_order_code,
                 "order_status": order.status,
-                "amount_usd": _decimal_text(order.amount_usd),
-                "payment_method": order.payment_method_snapshot,
-                "delivery_method": order.delivery_method_snapshot,
                 "message_text": text,
                 "action_text": "Abrir orden",
                 "action_url": action_url,
@@ -353,10 +345,11 @@ class OrderNotificationService:
         )
 
     def _business_order_created_text(self, order: OrderRecord) -> str:
-        return (
-            f"Nueva orden {order.public_order_code} por {_decimal_text(order.amount_usd)} USD. "
-            f"Metodo: {order.payment_method_snapshot}. Abre la orden para revisar los datos seguros."
-        )
+        return f"Nueva negociacion {order.public_order_code}. Abre NODO para revisarla."
+
+    def _business_order_chat_url(self, order_id: str) -> str:
+        base_url = self._settings.telegram_web_app_url.rstrip("/")
+        return f"{base_url}/business/?view=business-chat&order_id={order_id}"
 
     def _business_order_url(self, order_id: str) -> str:
         base_url = self._settings.telegram_web_app_url.rstrip("/")

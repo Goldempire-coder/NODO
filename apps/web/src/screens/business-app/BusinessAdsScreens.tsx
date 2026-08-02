@@ -211,15 +211,16 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
     editingPaymentMethodId,
     editPaymentMethod,
     paymentMethodForm,
+    paymentMethodError,
     paymentMethods,
     savingPaymentMethodId,
     startPaymentMethodCreate,
+    setPaymentMethodError,
     setPaymentMethodForm
   } = model;
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const editingMethod = paymentMethods.find((method) => method.id === editingPaymentMethodId);
   const formMethodName = paymentMethodName(paymentMethodForm.method_type);
-  const canSave = Boolean(paymentMethodForm.holder_name.trim() && (editingPaymentMethodId || paymentMethodForm.account_value.trim()));
   const isSavingPaymentMethod = Boolean(savingPaymentMethodId);
   return (
     <div className="business-card">
@@ -248,7 +249,10 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
           <span>{formMethodName}</span>
           <input
             value={paymentMethodForm.account_value}
-            onChange={(event) => setPaymentMethodForm((current) => ({ ...current, account_value: event.target.value }))}
+            onChange={(event) => {
+              setPaymentMethodError("");
+              setPaymentMethodForm((current) => ({ ...current, account_value: event.target.value }));
+            }}
             autoComplete="off"
             autoCapitalize="none"
             autoCorrect="off"
@@ -261,7 +265,10 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
           <span>Titular</span>
           <input
             value={paymentMethodForm.holder_name}
-            onChange={(event) => setPaymentMethodForm((current) => ({ ...current, holder_name: event.target.value }))}
+            onChange={(event) => {
+              setPaymentMethodError("");
+              setPaymentMethodForm((current) => ({ ...current, holder_name: event.target.value }));
+            }}
             autoComplete="name"
           />
         </label>
@@ -269,7 +276,8 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
       {editingMethod ? (
         <Text className="auth-entry__session-meta">Si dejas Zelle o wallet vacio, se conserva el actual. Escribe uno nuevo para reemplazarlo.</Text>
       ) : null}
-      <Button mode="filled" stretched disabled={isSavingPaymentMethod || !canSave} onClick={() => void createPaymentMethod()}>
+      {paymentMethodError ? <Text className="auth-entry__message" role="alert">{paymentMethodError}</Text> : null}
+      <Button mode="filled" stretched disabled={isSavingPaymentMethod} onClick={() => void createPaymentMethod()}>
         {isSavingPaymentMethod ? "Guardando..." : editingPaymentMethodId ? "Guardar cambios" : `Agregar ${formMethodName}`}
       </Button>
       {editingPaymentMethodId ? (

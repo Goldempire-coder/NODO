@@ -33,6 +33,12 @@ X-Request-Id: requerido o generado por backend
 
 Revela instrucciones completas solo al remitente dueno de la orden.
 
+La Mini App puede invocar esta ruta desde el chat cuando
+`can_report_payment = true` para mostrar una burbuja compacta y copiable. Zelle
+solo queda habilitado despues de que el negocio comparte sus datos; USDT TRC20
+usa la wallet congelada al crear la orden. La respuesta completa no se copia a
+mensajes generales, audit, telemetry ni notificaciones.
+
 Precondiciones:
 
 - usuario autenticado
@@ -56,6 +62,13 @@ Efectos prohibidos:
 - no entrega pago movil
 
 Response 200:
+
+```http
+Cache-Control: private, no-store
+```
+
+La ruta siempre aplica esta cabecera porque la respuesta contiene instrucciones
+de pago completas y no debe almacenarse en caches compartidas ni privadas.
 
 ```json
 {
@@ -177,11 +190,11 @@ Precondiciones:
 - `Idempotency-Key` obligatorio
 - `payment_type` debe coincidir con `orders.payment_method_snapshot`
 - `payment_amount` debe coincidir exactamente con `orders.amount_usd`
-- para evidencia on-chain, `network` y `tx_hash` se canonicalizan antes de
-  persistir y el par canonico no puede pertenecer a otra orden
-- para USDT TRC20, `tx_hash` debe tener 64 caracteres hexadecimales; el
-  prefijo `0x` se acepta pero se remueve al persistir la forma canonica en
-  minusculas
+- para evidencia on-chain opcional, `network` y `tx_hash` se canonicalizan antes
+  de persistir y el par canonico no puede pertenecer a otra orden
+- para USDT TRC20, el cliente puede marcar enviado sin `tx_hash`; si lo aporta,
+  debe tener 64 caracteres hexadecimales y el prefijo `0x` se acepta pero se
+  remueve al persistir la forma canonica en minusculas
 - cuando se adjunta comprobante, `proof_file_id`, la identidad del reporte
   pendiente y el hash SHA-256 de su contenido son de un solo uso entre ordenes
 - cuando se adjunta comprobante, `proof_file_id` debe pertenecer a la misma
@@ -241,23 +254,24 @@ Para `orders.payment_method_snapshot = usdt_trc20`:
 ```json
 {
   "payment_type": "usdt_trc20",
-  "tx_hash": "full_tx_hash_internal",
-  "network": "TRC20",
-  "payment_amount": "50.00",
-  "proof_file_id": null
+  "payment_amount": "50.00"
 }
 ```
 
 Reglas:
 
-- `tx_hash` requerido
-- `network = TRC20` requerido
+- `tx_hash` opcional; no debe bloquear el boton compacto `USDT enviado`
+- si `tx_hash` se envia, `network = TRC20` es requerido y el hash debe cumplir
+  la forma canonica TRC20
 - `payment_amount` requerido
-- `proof_file_id` opcional porque `tx_hash` es evidencia primaria
+- `proof_file_id` opcional; el negocio puede pedir comprobante dentro del chat
+  si necesita mas contexto operativo
 - `tx_hash` puede guardarse completo internamente, pero UI/listados/audit usan version masked/truncated
 - el mismo hash canonico no puede usarse en dos ordenes
 - el mismo archivo de comprobante o el mismo contenido SHA-256 no puede
   respaldar dos reportes
+- reportar `USDT enviado` no confirma recepcion; el negocio debe verificar que
+  los fondos esten disponibles antes de confirmar
 
 Response 201:
 

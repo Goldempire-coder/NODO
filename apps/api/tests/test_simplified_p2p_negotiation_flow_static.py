@@ -34,18 +34,23 @@ def test_slice_50a_client_confirms_minimal_quote_before_post_and_opens_chat() ->
     )[0]
 
 
-def test_slice_50a_chat_gates_payment_and_exposes_only_compact_zelle_action() -> None:
+def test_chat_uses_one_compact_payment_details_flow_for_zelle_and_usdt() -> None:
     client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
     business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
     business_chat_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
     payment_screen = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
 
     assert "chatCapabilities.can_report_payment" in client_chat
-    assert "Zelle enviado" in client_chat
-    assert "No envies Zelle" in client_chat
-    assert "chatCapabilities.can_share_zelle" in business_chat
-    assert "Compartir datos Zelle" in business_chat
-    assert "shareConfiguredZelle" in business_chat_model
+    assert 'paymentReportMethod === "usdt_trc20" ? "USDT enviado" : "Zelle enviado"' in client_chat
+    assert "No envies el pago" in client_chat
+    assert "const canSharePaymentDetails = chatCapabilities.can_share_zelle" in business_chat
+    assert "Compartir datos de pago" in business_chat
+    assert "shareConfiguredPaymentDetails" in business_chat_model
+    assert "Copiar" in client_chat
+    assert "currentPaymentInstructions.payment_instructions.account_value" in client_chat
+    assert "isAutomaticZelleDetails" in client_chat
+    assert "business-order-chat-action-dock__hash" not in client_chat
+    assert "Identificador de transaccion" not in client_chat
     assert 'className="business-order-chat-payment-action"' in business_chat
     assert "readOnly" in payment_screen
     assert "sanitizeDecimalInput" not in payment_screen
@@ -95,6 +100,7 @@ def test_slice_50a_client_chat_refreshes_silently_only_while_visible() -> None:
 def test_slice_50a_payment_action_stays_in_chat_without_intermediate_screen() -> None:
     client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
     payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
+    workspace_state = _read("apps/web/src/hooks/workspace/useClientWorkspaceState.ts")
     payment_screen = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
     client_views = _read("apps/web/src/constants/clientViews.ts")
     client_shell = _read("apps/web/src/screens/client/ClientWorkspaceShell.tsx")
@@ -102,7 +108,7 @@ def test_slice_50a_payment_action_stays_in_chat_without_intermediate_screen() ->
     assert "business-order-chat-action-dock" in client_chat
     assert "paymentEvidenceInputRef.current?.click()" in client_chat
     assert "submitPaymentReport()" in client_chat
-    assert "openPaymentReport" not in client_chat
+    assert "openPaymentReport(chatOrderId)" in client_chat
     assert 'setView("report-payment")' not in payment_model
     assert 'setView("payment-instructions")' not in payment_model
     assert 'view === "payment-instructions"' not in payment_screen
@@ -111,24 +117,28 @@ def test_slice_50a_payment_action_stays_in_chat_without_intermediate_screen() ->
     assert "paymentInstructions.order.amount_usd" in payment_screen
     assert "readOnly" in payment_screen
     assert "selectedOrder.amount_usd" not in payment_screen
-    assert 'payment_reference: ""' in payment_model
-    assert 'payment_sender_name: ""' in payment_model
-    assert 'payment_sender_account_masked: ""' in payment_model
+    assert 'payment_reference: ""' in workspace_state
+    assert 'payment_sender_name: ""' in workspace_state
+    assert 'payment_sender_account_masked: ""' in workspace_state
     open_report_source = payment_model.split("async function openPaymentReport", 1)[1].split(
         "async function uploadPaymentEvidence", 1
     )[0]
+    load_instructions_source = payment_model.split(
+        "async function loadPaymentInstructionsForActiveOrder", 1
+    )[1].split("async function openPaymentReport", 1)[0]
     submit_report_source = payment_model.split("async function submitPaymentReport", 1)[1]
-    assert "await getPaymentInstructions" in open_report_source
-    assert "await getPaymentInstructions<PaymentInstructions>(request, orderId)" in submit_report_source
-    assert "chatOrderId" in submit_report_source
+    assert "loadPaymentInstructionsForActiveOrder(orderId)" in open_report_source
+    assert "loadPaymentInstructionsForActiveOrder(orderId)" in submit_report_source
+    assert "paymentOrderContextRef.current" in submit_report_source
     assert 'setView("order-chat")' not in open_report_source
-    assert "paymentReportTargetOrderIdRef.current = orderId" in open_report_source
-    assert "activeChatOrderIdRef.current === orderId" in payment_model
+    assert "paymentInstructionsRequestOrderIdRef.current = orderId" in load_instructions_source
+    assert "paymentOrderContextRef.current === orderId" in payment_model
+    assert "USDT por red TRC20 requiere el identificador de la transaccion." not in payment_model
     assert "openingChatOrderIdRef.current === null" in payment_model
     assert "activeViewRef.current === \"order-chat\"" in payment_model
-    assert "if (!paymentReportTargetIsCurrent(orderId))" in open_report_source
-    stale_guard = open_report_source.index("if (!paymentReportTargetIsCurrent(orderId))")
-    assert stale_guard < open_report_source.index("setPaymentInstructions(data)")
+    assert "!paymentActionIsCurrent(orderId)" in load_instructions_source
+    stale_guard = load_instructions_source.index("!paymentActionIsCurrent(orderId)")
+    assert stale_guard < load_instructions_source.index("setPaymentInstructions(data)")
     assert 'setView(' not in open_report_source.split("catch (error)", 1)[1]
     assert "FULL_PAYMENT_FIELD" not in payment_screen
 
@@ -174,7 +184,7 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
     assert "listOrderMessages<ChatThread<BusinessOrderSummary>>(request, targetOrderId, 50)" in chat_action_source
     assert "syncBusinessOrderFromChat(data.order)" in chat_action_source
     assert "refreshChat({ silent: true })" not in chat_action_source
-    assert "Zelle recibido" in business_chat
+    assert "Confirmar pago recibido" in business_chat
     assert "Pago Movil enviado" in business_chat
     assert "Confirmar pago" not in business_orders
     assert "Marcar enviado" not in business_orders
@@ -182,6 +192,25 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
     assert "El cliente escribe el Pago Movil por chat" in business_chat
     assert "businessChatAction" in business_chat
     assert "sortChatMessages" in chat_model
+
+
+def test_payment_report_state_is_scoped_to_the_active_chat_order() -> None:
+    payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
+    chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+
+    assert "const orderId = paymentOrderContextRef.current;" in payment_model
+    assert "paymentInstructions?.order.id === orderId ? paymentInstructions : null" in payment_model
+    assert "paymentActionIsCurrent(orderId)" in payment_model
+    assert "paymentInstructions?.order.id || selectedOrder?.id || chatOrderId" not in payment_model
+    assert "setPaymentInstructions(null)" in chat_model
+    assert "setPaymentEvidence(null)" in chat_model
+    assert "setPendingPaymentReportId(null)" in chat_model
+    assert "setPaymentReportForm(emptyPaymentReportForm())" in chat_model
+    assert "paymentOrderContextRef.current = orderId" in chat_model
+    assert "Espera a que carguen los datos de pago" in payment_model
+    assert "uploadingPaymentEvidence || submittingPaymentReport || loadingPaymentInstructions" in _read(
+        "apps/web/src/screens/client/ClientOrderChatScreen.tsx"
+    )
 
 
 def test_payment_evidence_upload_prepares_mobile_images_and_hides_raw_fetch_error() -> None:

@@ -7,12 +7,11 @@ import type { PaymentInstructions } from "../../types/payments";
 import { preparePaymentEvidenceFile } from "../../utils/paymentEvidenceFiles";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
-import type { ClientWorkspaceState } from "./useClientWorkspaceState";
+import { emptyPaymentReportForm, type ClientWorkspaceState } from "./useClientWorkspaceState";
 
 type PaymentReportState = Pick<
   ClientWorkspaceState,
-  | "selectedOrder"
-  | "chatOrderId"
+  | "paymentOrderContextRef"
   | "openingChatOrderId"
   | "view"
   | "paymentInstructions"
@@ -65,8 +64,7 @@ export function usePaymentReportModel(
     request,
     refreshMyOrdersAfterPaymentReport,
     refreshChatAfterPaymentReport,
-    selectedOrder,
-    chatOrderId,
+    paymentOrderContextRef,
     openingChatOrderId,
     view,
     paymentInstructions,
@@ -84,70 +82,96 @@ export function usePaymentReportModel(
     setUploadingPaymentEvidence
   } = state;
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
-  const openingPaymentReportRef = useRef(false);
-  const paymentReportTargetOrderIdRef = useRef<string | null>(null);
-  const activeChatOrderIdRef = useRef(chatOrderId);
+  const paymentInstructionsRequestOrderIdRef = useRef<string | null>(null);
   const openingChatOrderIdRef = useRef(openingChatOrderId);
   const activeViewRef = useRef(view);
-  activeChatOrderIdRef.current = chatOrderId;
   openingChatOrderIdRef.current = openingChatOrderId;
   activeViewRef.current = view;
 
-  function paymentReportTargetIsCurrent(orderId: string) {
+  function paymentActionIsCurrent(orderId: string) {
     return (
-      paymentReportTargetOrderIdRef.current === orderId
-      && activeChatOrderIdRef.current === orderId
+      paymentOrderContextRef.current === orderId
       && openingChatOrderIdRef.current === null
       && activeViewRef.current === "order-chat"
     );
   }
 
-  async function openPaymentReport(orderId: string) {
-    if (openingPaymentReportRef.current) {
-      return false;
+  function currentPaymentInstructions(orderId: string) {
+    return paymentInstructions?.order.id === orderId ? paymentInstructions : null;
+  }
+
+  async function loadPaymentInstructionsForActiveOrder(orderId: string) {
+    if (paymentInstructionsRequestOrderIdRef.current === orderId) {
+      return null;
     }
-    openingPaymentReportRef.current = true;
-    paymentReportTargetOrderIdRef.current = orderId;
-    const startedAt = actionStartedAt();
-    recordActionStarted("client_payment_instructions_open", "report-payment");
-    setNotice("");
+    paymentInstructionsRequestOrderIdRef.current = orderId;
     setLoadingPaymentInstructions(true);
     try {
       const data = await getPaymentInstructions<PaymentInstructions>(request, orderId);
-      if (!paymentReportTargetIsCurrent(orderId)) {
-        return false;
+      if (
+        paymentInstructionsRequestOrderIdRef.current !== orderId
+        || !paymentActionIsCurrent(orderId)
+      ) {
+        return null;
       }
       setPaymentInstructions(data);
+      setPaymentReportForm((current) => ({
+        ...current,
+        payment_amount: data.order.amount_usd
+      }));
+      return data;
+    } finally {
+      if (paymentInstructionsRequestOrderIdRef.current === orderId) {
+        paymentInstructionsRequestOrderIdRef.current = null;
+        setLoadingPaymentInstructions(false);
+      }
+    }
+  }
+
+  async function openPaymentReport(orderId: string) {
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_payment_instructions_open", "report-payment");
+    setNotice("");
+    try {
+      const data = await loadPaymentInstructionsForActiveOrder(orderId);
+      if (!data) {
+        return false;
+      }
       setPaymentEvidence(null);
       setPendingPaymentReportId(null);
-      setPaymentReportForm({
-        payment_reference: "",
-        payment_sender_name: "",
-        payment_sender_account_masked: "",
-        payment_amount: data.order.amount_usd,
-        tx_hash: ""
-      });
+      setPaymentReportForm(emptyPaymentReportForm(data.order.amount_usd));
       setNotice("");
       recordActionCompleted("client_payment_instructions_open", "report-payment", startedAt);
       return true;
     } catch (error) {
-      if (paymentReportTargetIsCurrent(orderId)) {
+      if (paymentActionIsCurrent(orderId)) {
         setNotice(error instanceof Error ? error.message : "Las instrucciones no estan disponibles para esta orden.");
       }
       recordActionFailed("client_payment_instructions_open", "report-payment", startedAt, error instanceof Error ? error.name : undefined);
       return false;
-    } finally {
-      if (paymentReportTargetOrderIdRef.current === orderId) {
-        paymentReportTargetOrderIdRef.current = null;
-      }
-      openingPaymentReportRef.current = false;
-      setLoadingPaymentInstructions(false);
     }
   }
 
   async function uploadPaymentEvidence(file: File | null) {
-    const orderId = paymentInstructions?.order.id || selectedOrder?.id || chatOrderId;
-    if (!orderId || !file) {
+    const orderId = paymentOrderContextRef.current;
+    if (!orderId || !file || !paymentActionIsCurrent(orderId)) {
+      return;
+    }
+    let resolvedInstructions = currentPaymentInstructions(orderId);
+    if (!resolvedInstructions) {
+      try {
+        resolvedInstructions = await loadPaymentInstructionsForActiveOrder(orderId);
+      } catch (error) {
+        if (paymentActionIsCurrent(orderId)) {
+          setNotice(error instanceof Error ? error.message : "Las instrucciones no estan disponibles para esta orden.");
+        }
+        return;
+      }
+    }
+    if (!resolvedInstructions || !paymentActionIsCurrent(orderId)) {
+      if (paymentActionIsCurrent(orderId)) {
+        setNotice("Espera a que carguen los datos de pago e intenta de nuevo.");
+      }
       return;
     }
     const startedAt = actionStartedAt();
@@ -170,12 +194,17 @@ export function usePaymentReportModel(
         })
       );
       clearIdempotencyKey(idempotencyScope);
+      if (!paymentActionIsCurrent(orderId)) {
+        return;
+      }
       setPaymentEvidence(data.file);
       setPendingPaymentReportId(data.pending_payment_report_id);
       setNotice("");
       recordActionCompleted("client_payment_evidence_upload", "report-payment", startedAt);
     } catch (error) {
-      setNotice(paymentEvidenceUploadErrorMessage(error));
+      if (paymentActionIsCurrent(orderId)) {
+        setNotice(paymentEvidenceUploadErrorMessage(error));
+      }
       recordActionFailed("client_payment_evidence_upload", "report-payment", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setUploadingPaymentEvidence(false);
@@ -183,38 +212,32 @@ export function usePaymentReportModel(
   }
 
   async function submitPaymentReport() {
-    const orderId = paymentInstructions?.order.id || selectedOrder?.id || chatOrderId;
-    if (!orderId) {
+    const orderId = paymentOrderContextRef.current;
+    if (!orderId || !paymentActionIsCurrent(orderId)) {
       setNotice("Selecciona una orden.");
       return;
     }
-    let resolvedInstructions = paymentInstructions;
+    let resolvedInstructions = currentPaymentInstructions(orderId);
     if (!resolvedInstructions) {
       try {
-        setLoadingPaymentInstructions(true);
-        resolvedInstructions = await getPaymentInstructions<PaymentInstructions>(request, orderId);
-        if (activeChatOrderIdRef.current !== orderId && selectedOrder?.id !== orderId) {
-          return;
-        }
-        setPaymentInstructions(resolvedInstructions);
+        resolvedInstructions = await loadPaymentInstructionsForActiveOrder(orderId);
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Las instrucciones no estan disponibles para esta orden.");
+        if (paymentActionIsCurrent(orderId)) {
+          setNotice(error instanceof Error ? error.message : "Las instrucciones no estan disponibles para esta orden.");
+        }
         return;
-      } finally {
-        setLoadingPaymentInstructions(false);
       }
     }
-    const paymentMethod = resolvedInstructions.payment_instructions.method_type || selectedOrder?.payment_method_snapshot;
-    const lockedPaymentAmount = resolvedInstructions.order.amount_usd || selectedOrder?.amount_usd;
+    if (!resolvedInstructions || !paymentActionIsCurrent(orderId)) {
+      return;
+    }
+    const paymentMethod = resolvedInstructions.payment_instructions.method_type;
+    const lockedPaymentAmount = resolvedInstructions.order.amount_usd;
     if (!paymentMethod || !lockedPaymentAmount) {
       setNotice("Selecciona una orden.");
       return;
     }
     const isZelle = paymentMethod === "zelle";
-    if (!isZelle && !paymentReportForm.tx_hash) {
-      setNotice("USDT por red TRC20 requiere el identificador de la transaccion.");
-      return;
-    }
     const startedAt = actionStartedAt();
     recordActionStarted("client_payment_report_submit", "report-payment");
     setSubmittingPaymentReport(true);
@@ -236,9 +259,13 @@ export function usePaymentReportModel(
             }
           : {
               payment_type: "usdt_trc20",
-              tx_hash: paymentReportForm.tx_hash,
-              network: "TRC20",
               payment_amount: lockedPaymentAmount,
+              ...(paymentReportForm.tx_hash
+                ? {
+                    tx_hash: paymentReportForm.tx_hash,
+                    network: "TRC20"
+                  }
+                : {}),
               proof_file_id: paymentEvidence?.id || undefined,
               pending_payment_report_id: pendingPaymentReportId || undefined
             },
@@ -257,22 +284,20 @@ export function usePaymentReportModel(
       setSelectedOrder((current) => (
         current?.id === orderId ? { ...current, status: data.order.status } : current
       ));
-      setPaymentInstructions(null);
-      setPaymentEvidence(null);
-      setPendingPaymentReportId(null);
-      setPaymentReportForm((current) => ({
-        ...current,
-        payment_reference: "",
-        payment_sender_name: "",
-        payment_sender_account_masked: "",
-        tx_hash: ""
-      }));
-      setNotice("");
-      await refreshChatAfterPaymentReport({ silent: true });
+      if (paymentActionIsCurrent(orderId)) {
+        setPaymentInstructions(null);
+        setPaymentEvidence(null);
+        setPendingPaymentReportId(null);
+        setPaymentReportForm(emptyPaymentReportForm());
+        setNotice("");
+        await refreshChatAfterPaymentReport({ silent: true });
+      }
       void refreshMyOrdersAfterPaymentReport();
       recordActionCompleted("client_payment_report_submit", "report-payment", startedAt);
     } catch (error) {
-      setNotice(paymentReportSubmitErrorMessage(error));
+      if (paymentActionIsCurrent(orderId)) {
+        setNotice(paymentReportSubmitErrorMessage(error));
+      }
       recordActionFailed("client_payment_report_submit", "report-payment", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setSubmittingPaymentReport(false);

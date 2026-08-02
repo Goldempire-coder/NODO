@@ -83,6 +83,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
     busy,
     business,
     canGoBack,
+    chatOrderId,
     consumeViewTransition,
     goBack,
     loadBusinessOrders,
@@ -106,7 +107,18 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
   const termsRequired = view === "business-terms";
   const canUseBusinessNav = accessState === "ready" && !termsRequired;
   const isNativeChatSurface = view === "business-chat" || (view === "business-support" && Boolean(selectedSupportTicket));
-  const attentionBannerItem = isNativeChatSurface ? null : attentionAlert;
+  const isViewingAttentionResource = Boolean(
+    attentionAlert && (
+      (attentionAlert.kind === "order" && view === "business-chat" && chatOrderId === attentionAlert.resource_id)
+      || (
+        attentionAlert.kind === "support"
+        && view === "business-support"
+        && selectedSupportTicket
+        && selectedSupportTicket.id === attentionAlert.resource_id
+      )
+    )
+  );
+  const attentionBannerItem = isViewingAttentionResource ? null : attentionAlert;
   const shellClassName = [
     "business-shell",
     keyboardActive ? "business-shell--keyboard-active" : "",
@@ -263,7 +275,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
 
       <AttentionBanner
         item={attentionBannerItem}
-        stale={attentionStale}
+        stale={isViewingAttentionResource ? false : attentionStale}
         onDismiss={dismissAttention}
         onOpen={() => void openAttentionAlert()}
       />

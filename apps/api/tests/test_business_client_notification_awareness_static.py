@@ -41,6 +41,7 @@ def test_surface_attention_polling_is_single_visible_non_overlapping_and_stale_s
     ).read_text(encoding="utf-8")
     assert "attentionStale" in awareness
     assert "acknowledgeAttention" in awareness
+    assert "attentionItems: pendingItems" in awareness
     assert "pendingAcknowledgementsRef" not in awareness
     assert "message.body" not in awareness
     assert "storage_path" not in awareness
@@ -105,6 +106,15 @@ def test_business_and_client_shells_show_actionable_badges_banner_and_stale_stat
 
     assert "attentionCounts.orders + attentionCounts.support" not in business_shell
     assert "count={attentionCounts.orders}" in business_shell
+    assert "isViewingAttentionResource" in business_shell
+    assert 'attentionAlert.kind === "order"' in business_shell
+    assert "chatOrderId === attentionAlert.resource_id" in business_shell
+    assert "selectedSupportTicket.id === attentionAlert.resource_id" in business_shell
+    assert "isNativeChatSurface ? null : attentionAlert" not in business_shell
+    assert "refreshActiveBusinessChatAttention" in business_model
+    assert "attentionItems.find" in business_model
+    assert "await chat.refreshChat({ silent: true })" in business_model
+    assert 'acknowledgeAttention("order", item.resource_id)' in business_model
     assert "openBusinessOrderWithAttention" in business_model
     assert "openBusinessSupportTicketWithAttention" in business_model
     assert "openClientOrderWithAttention" in client_model

@@ -101,6 +101,8 @@ class PaymentReportRequest(StrictRequestModel):
                 canonical_transaction_hash(self.tx_hash),
             )
         if self.payment_type == "usdt_trc20":
-            if not self.tx_hash or self.network != "TRC20":
-                raise ValueError("usdt_trc20 report requires tx_hash and TRC20 network")
+            if self.tx_hash and self.network != "TRC20":
+                raise ValueError("usdt_trc20 tx_hash requires TRC20 network")
+            if not self.tx_hash:
+                object.__setattr__(self, "network", None)
         return self

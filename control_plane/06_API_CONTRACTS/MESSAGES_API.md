@@ -79,7 +79,7 @@ Response:
     {
       "id": "system:negotiation-created:uuid",
       "sender_role": "system",
-      "body": "Negociacion creada. Coordinen por aqui. No envies Zelle hasta que el negocio comparta sus datos.",
+      "body": "Negociacion creada. Coordinen por aqui. No envies el pago hasta que el negocio comparta sus datos.",
       "attachments": []
     }
   ],
@@ -242,6 +242,17 @@ Rules:
 - Frases para sacar la operacion de NODO u otros contactos externos siguen
   generando la alerta conservadora.
 - Audit `business_zelle_shared` guarda IDs seguros, nunca el Zelle.
+
+Esta accion sigue siendo exclusiva de Zelle. Para `usdt_trc20`, la wallet
+configurada ya esta congelada en la orden y el cliente owner la revela mediante
+`GET /api/v1/orders/{id}/payment-instructions`; no se crea un segundo endpoint
+de chat ni se duplica la wallet en respuestas generales.
+
+La Mini App Cliente presenta ambos metodos con la misma experiencia compacta:
+una burbuja dentro del chat con el dato autorizado, monto y accion `Copiar`.
+Copiar ocurre localmente y no agrega el valor a logs, audit, telemetry o
+notificaciones. El reporte USDT puede enviarse sin `tx_hash`; si el cliente lo
+aporta, se valida como evidencia TRC20 canonica.
 - Telegram avisa que existe un mensaje nuevo, nunca copia su cuerpo.
 
 Errors:

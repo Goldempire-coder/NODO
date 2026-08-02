@@ -39,8 +39,9 @@ R-08 must:
 
 - call `POST /api/v1/orders/{id}/payment-evidence` when uploading evidence
 - call `POST /api/v1/orders/{id}/payment-report`
-- require Zelle reference/name/proof
-- require USDT tx_hash/network/payment amount
+- require locked payment amount
+- allow Zelle report without reference/name/proof
+- allow USDT report without tx_hash; if provided, require network/payment amount
 - show success as `payment_reported`
 - link toward R-09/slice 07 without building chat/tracking
 

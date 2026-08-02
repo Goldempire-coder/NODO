@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 BOT_TOKEN = "123456:test-bot-token"
 JWT_SECRET = "test-access-secret"
 JWT_REFRESH_SECRET = "test-refresh-secret"
+VALID_TRON_TEST_WALLET = "TLa2f6VPqDgRE67v" + "1736s7bJ8Ray5wYjU7"
 
 
 def _set_env(**overrides: str) -> None:
@@ -127,14 +128,18 @@ def _admin_login(client: TestClient, telegram_id: int = 14001) -> dict:
     return admin
 
 
-def _link_business(client: TestClient, admin: dict, business: dict, owner: dict, key: str = "link") -> dict:
+def _link_business_without_pin(client: TestClient, admin: dict, business: dict, owner: dict, key: str = "link") -> dict:
     response = client.post(
         f"/api/v1/admin/businesses/{business['id']}/access-links",
         headers={**_headers(admin, key), "Content-Type": "application/json"},
         json={"user_id": owner["user"]["id"], "role_in_business": "owner", "reason": "admin approved owner access"},
     )
     assert response.status_code == 201, response.text
-    link = response.json()["data"]["access_link"]
+    return response.json()["data"]["access_link"]
+
+
+def _link_business(client: TestClient, admin: dict, business: dict, owner: dict, key: str = "link") -> dict:
+    link = _link_business_without_pin(client, admin, business, owner, key)
     client.app.state.business_repository.set_access_link_pin_hash(link_id=link["id"], pin_hash=hash_pin("1234"))
     client.app.state.business_repository.mark_access_link_pin_verified(link_id=link["id"], unlocked_until=utc_now() + timedelta(minutes=15))
     return link
@@ -323,7 +328,7 @@ def test_business_can_self_manage_usdt_trc20_method_and_publish_ad() -> None:
     assert invalid.status_code == 400
     assert invalid.json()["error"]["code"] == "PAYMENT_METHOD_INVALID"
 
-    wallet = "TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7"
+    wallet = VALID_TRON_TEST_WALLET
     created = client.post(
         "/api/v1/business/payment-methods",
         headers={**_headers(owner, "create_usdt_trc20_method"), "Content-Type": "application/json"},
@@ -355,6 +360,66 @@ def test_business_can_self_manage_usdt_trc20_method_and_publish_ad() -> None:
     )
     assert ad.status_code == 201, ad.text
     assert ad.json()["data"]["ad"]["payment_method"] == "usdt_trc20"
+
+
+def test_usdt_method_creation_retries_after_first_pin_setup() -> None:
+    client = _client()
+    owner = _login(client, 14129, "owner_usdt_pin_setup")
+    business = _create_approved_business(client, owner)
+    admin = _admin_login(client, 14130)
+    _link_business_without_pin(client, admin, business, owner, key="link_usdt_pin_setup")
+    payload = {
+        "method_type": "usdt_trc20",
+        "account_value": VALID_TRON_TEST_WALLET,
+        "holder_name": "Wallet USDT Principal",
+    }
+    headers = {**_headers(owner, "create_usdt_after_pin_setup"), "Content-Type": "application/json"}
+
+    blocked = client.post("/api/v1/business/payment-methods", headers=headers, json=payload)
+    assert blocked.status_code == 423
+    assert blocked.json()["error"]["code"] == "BUSINESS_PIN_NOT_SET"
+
+    setup = client.post(
+        "/api/v1/business/security/pin/setup",
+        headers={**_bearer(owner, "setup_usdt_pin"), "Content-Type": "application/json"},
+        json={"pin": "1234"},
+    )
+    assert setup.status_code == 200, setup.text
+
+    created = client.post("/api/v1/business/payment-methods", headers=headers, json=payload)
+    assert created.status_code == 201, created.text
+    assert created.json()["data"]["payment_method"]["receive_method"] == "usdt_trc20"
+
+
+def test_usdt_method_creation_retries_after_pin_unlock() -> None:
+    client = _client()
+    owner = _login(client, 14131, "owner_usdt_pin_unlock")
+    business = _create_approved_business(client, owner)
+    admin = _admin_login(client, 14132)
+    _link_business(client, admin, business, owner, key="link_usdt_pin_unlock")
+    locked = client.post("/api/v1/business/security/pin/lock", headers=_bearer(owner, "lock_usdt_pin"))
+    assert locked.status_code == 200, locked.text
+    payload = {
+        "method_type": "usdt_trc20",
+        "account_value": VALID_TRON_TEST_WALLET,
+        "holder_name": "Wallet USDT Principal",
+    }
+    headers = {**_headers(owner, "create_usdt_after_pin_unlock"), "Content-Type": "application/json"}
+
+    blocked = client.post("/api/v1/business/payment-methods", headers=headers, json=payload)
+    assert blocked.status_code == 423
+    assert blocked.json()["error"]["code"] == "BUSINESS_PIN_REQUIRED"
+
+    unlocked = client.post(
+        "/api/v1/business/security/pin/verify",
+        headers={**_bearer(owner, "unlock_usdt_pin"), "Content-Type": "application/json"},
+        json={"pin": "1234"},
+    )
+    assert unlocked.status_code == 200, unlocked.text
+
+    created = client.post("/api/v1/business/payment-methods", headers=headers, json=payload)
+    assert created.status_code == 201, created.text
+    assert created.json()["data"]["payment_method"]["receive_method"] == "usdt_trc20"
 
 
 def test_business_pin_is_required_for_sensitive_business_mutations() -> None:

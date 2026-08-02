@@ -6,8 +6,9 @@
 - Locks the order and accepts only non-expired `waiting_payment`.
 - `payment_amount` must equal `orders.amount_usd`.
 - `payment_type` and network are canonicalized before persistence.
-- USDT TRC20 `tx_hash` must be 64 hexadecimal characters; an optional `0x`
-  prefix is accepted and removed before lowercase persistence.
+- USDT TRC20 `tx_hash` is optional in the simplified P2P negotiation report.
+  If provided, it must be 64 hexadecimal characters; an optional `0x` prefix is
+  accepted and removed before lowercase persistence.
 - A canonical `(network, tx_hash)`, proof file ID, and proof content SHA-256
   cannot be reused.
 - Uploaded proof files are bound to the `order_id` where they were created; a

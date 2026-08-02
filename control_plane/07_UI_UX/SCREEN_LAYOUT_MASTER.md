@@ -98,8 +98,8 @@ Payment Instructions:
 
 Report Payment:
 - method-specific form
-- Zelle requires screenshot
-- USDT requires TxID/hash
+- Zelle screenshot optional
+- USDT TxID/hash optional in P2P negotiation
 - USDT screenshot optional unless later approved
 
 Confirm Received:

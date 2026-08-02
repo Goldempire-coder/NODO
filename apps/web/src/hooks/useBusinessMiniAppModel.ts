@@ -120,7 +120,29 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     enabled: access.accessState === "ready" && hasAcceptedCurrentClientTerms(currentUser),
     request
   });
-  const { acknowledgeAttention, attentionAlert } = awareness;
+  const { acknowledgeAttention, attentionAlert, attentionItems } = awareness;
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshActiveBusinessChatAttention() {
+      if (view !== "business-chat" || !chat.chatOrderId) {
+        return;
+      }
+      const item = attentionItems.find(
+        (candidate) => candidate.kind === "order" && candidate.resource_id === chat.chatOrderId
+      );
+      if (!item) {
+        return;
+      }
+      const refreshed = await chat.refreshChat({ silent: true });
+      if (!cancelled && refreshed) {
+        void acknowledgeAttention("order", item.resource_id);
+      }
+    }
+    void refreshActiveBusinessChatAttention();
+    return () => {
+      cancelled = true;
+    };
+  }, [acknowledgeAttention, attentionItems, chat.chatOrderId, chat.refreshChat, view]);
   const openBusinessOrderWithAttention = useCallback(async (orderId: string) => {
     const opened = await orders.openBusinessOrder(orderId);
     if (opened) {

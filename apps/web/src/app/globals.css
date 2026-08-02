@@ -657,6 +657,44 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.business-order-chat-payment-details {
+  text-align: left;
+}
+
+.business-order-chat-payment-details__value {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.business-order-chat-payment-details__value code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--nodo-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.business-order-chat-payment-details__value button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgb(16 185 129 / 36%);
+  border-radius: 999px;
+  background: rgb(16 185 129 / 12%);
+  color: var(--nodo-text);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.business-order-chat-payment-details__error {
+  color: rgb(253 186 116);
+  font-size: 11px;
+}
+
 .business-order-chat-message__sender {
   color: var(--nodo-text);
   font-size: 11px;
@@ -808,21 +846,6 @@ textarea {
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-}
-
-.business-order-chat-action-dock__hash {
-  min-width: 205px;
-  max-width: 240px;
-  min-height: 34px;
-  flex: 1 1 205px;
-  border: 1px solid var(--nodo-line);
-  border-radius: 999px;
-  background: rgb(3 12 24 / 78%);
-  color: var(--nodo-text);
-  font: inherit;
-  font-size: 16px;
-  font-weight: 800;
-  padding: 0 10px;
 }
 
 .business-order-chat-payment-action {

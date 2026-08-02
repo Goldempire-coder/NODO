@@ -6,7 +6,7 @@ slice: slice_05_payment_instructions_reports
 status: DRAFT_CONTROLLED
 
 purpose:
-Submit Zelle proof or USDT TRC20 transaction hash for an own `waiting_payment` order.
+Mark payment sent for an own `waiting_payment` order, with optional proof or optional USDT TRC20 transaction hash.
 
 route:
 /orders/:id/report
@@ -24,7 +24,7 @@ data required:
 - authenticated user/session
 - order from `GET /api/v1/orders/{id}` or payment instructions context
 - payment method from order snapshot
-- evidence file when required by method
+- optional evidence file when the client chooses to attach it
 
 endpoint used:
 - POST /api/v1/orders/{id}/payment-evidence
@@ -55,8 +55,8 @@ validation:
 - own order
 - `order.status = waiting_payment`
 - order not expired
-- Zelle requires payment_reference, payment_sender_name, payment_amount and proof_file_id.
-- USDT TRC20 requires tx_hash, network = TRC20 and payment_amount.
+- Zelle requires the locked payment amount; proof and sender fields are optional.
+- USDT TRC20 requires the locked payment amount; tx_hash is optional and, if sent, requires network = TRC20.
 
 permissions:
 own order waiting_payment
@@ -88,4 +88,4 @@ slice boundary:
 - R-09 is only a next-step link/state for slice 07.
 
 QA checklist:
-Cannot submit expired order; cannot submit foreign order; Zelle evidence required; USDT tx_hash required; state changes to payment_reported; no credit consumption.
+Cannot submit expired order; cannot submit foreign order; Zelle can be reported without proof; USDT can be reported without tx_hash; optional evidence remains protected; state changes to payment_reported; no credit consumption.

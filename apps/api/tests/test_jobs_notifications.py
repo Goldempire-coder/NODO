@@ -307,7 +307,13 @@ def test_slice_36_immediate_order_notifications_are_enqueued_deduped_and_private
     assert len(created_notifications) == 1
     assert created_notifications[0].recipient_user_id == business_owner_id
     assert created_notifications[0].metadata_json["target_surface"] == "business_mini_app"
-    assert created_notifications[0].metadata_json["action_url"].endswith(f"/business/?view=business-order-detail&order_id={order['id']}")
+    assert created_notifications[0].metadata_json["action_url"].endswith(f"/business/?view=business-chat&order_id={order['id']}")
+    assert order["public_order_code"] in created_notifications[0].metadata_json["message_text"]
+    assert "50.00" not in created_notifications[0].metadata_json["message_text"]
+    assert "zelle" not in created_notifications[0].metadata_json["message_text"].lower()
+    assert "amount_usd" not in created_notifications[0].metadata_json
+    assert "payment_method" not in created_notifications[0].metadata_json
+    assert "delivery_method" not in created_notifications[0].metadata_json
 
     replay = client.post(
         "/api/v1/orders",

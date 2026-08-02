@@ -141,8 +141,8 @@ El MVP incluye:
 - Estado de orden.
 - Chat por orden.
 - Reporte de pago enviado.
-- Screenshot obligatorio para Zelle.
-- TxID/hash obligatorio para USDT TRC20.
+- Screenshot opcional para Zelle.
+- TxID/hash opcional para USDT TRC20 en negociacion P2P.
 - ConfirmaciÃ³n de pago por negocio.
 - ConfirmaciÃ³n de recepciÃ³n por remitente.
 - Rating.
@@ -609,7 +609,7 @@ Para Zelle debe enviar:
 Para USDT TRC20 debe enviar:
 
 * Red: USDT TRC20.
-* TxID/hash obligatorio.
+* TxID/hash opcional.
 * Wallet origen opcional.
 * Screenshot opcional/recomendado.
 
