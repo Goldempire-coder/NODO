@@ -45,8 +45,9 @@ Backend-only:
 
 - `APP_ENV=staging`
 - `APP_NAME=NODO`
-- `APP_VERSION`
-- `NODO_BUILD_ID`
+- `RAILWAY_GIT_COMMIT_SHA` (automatic and authoritative on GitHub-triggered deploys)
+- `APP_VERSION` (optional fallback outside Railway)
+- `NODO_BUILD_ID` (optional fallback outside Railway)
 - `API_CORS_ORIGINS`
 - `DATABASE_URL`
 - `REDIS_URL`
@@ -105,6 +106,10 @@ Test mode first:
 ## Required smoke evidence
 
 - `/health`, `/ready`, `/version` on Railway API
+- `/version` and `/api/v1/version` must identify the Git commit that triggered
+  the deploy; `/health` aliases must expose the same release metadata
+- a Railway deploy without Git metadata must report `staging-unknown` instead
+  of reusing an older commit label and is not traceable enough for staging signoff
 - Supabase migrations apply cleanly
 - Upstash Redis ping/locks/rate limits work
 - private storage upload + signed view URL works

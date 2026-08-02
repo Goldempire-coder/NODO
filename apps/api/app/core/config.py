@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -22,8 +23,9 @@ SECRET_ENV_KEYS = {
     "BASE_RPC_API_KEY",
 }
 
-REQUIRED_ENV_KEYS = ("APP_ENV", "APP_VERSION", "DATABASE_URL", "REDIS_URL")
+REQUIRED_ENV_KEYS = ("APP_ENV", "DATABASE_URL", "REDIS_URL")
 SUPABASE_STORAGE_ENV_KEYS = ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
+GIT_COMMIT_SHA_PATTERN = re.compile(r"^[0-9a-f]{40,64}$")
 
 
 class EnvValidationError(RuntimeError):
@@ -115,6 +117,21 @@ def _read_bool(source: Mapping[str, str], key: str, default: bool) -> bool:
     return raw_value.strip().lower() in {"1", "true", "on", "yes"}
 
 
+def _release_metadata(source: Mapping[str, str]) -> tuple[str, str]:
+    app_env = source.get("APP_ENV", "local")
+    railway_commit_sha = source.get("RAILWAY_GIT_COMMIT_SHA", "").strip().lower()
+    if GIT_COMMIT_SHA_PATTERN.fullmatch(railway_commit_sha):
+        return f"{app_env}-{railway_commit_sha[:7]}", railway_commit_sha
+    if source.get("RAILWAY_DEPLOYMENT_ID"):
+        return f"{app_env}-unknown", "unknown"
+
+    fallback = "local" if app_env in {"local", "test"} else "unknown"
+    return (
+        source.get("APP_VERSION", "").strip() or fallback,
+        source.get("NODO_BUILD_ID", "").strip() or fallback,
+    )
+
+
 def validate_env(environ: Mapping[str, str] | None = None) -> None:
     source = environ or os.environ
     missing = [key for key in REQUIRED_ENV_KEYS if not source.get(key)]
@@ -127,11 +144,12 @@ def validate_env(environ: Mapping[str, str] | None = None) -> None:
 def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
     source = environ or os.environ
     validate_env(source)
+    app_version, build_id = _release_metadata(source)
     return Settings(
         app_env=source.get("APP_ENV", "local"),
         app_name=source.get("APP_NAME", "NODO"),
-        app_version=source["APP_VERSION"],
-        build_id=source.get("NODO_BUILD_ID", "local"),
+        app_version=app_version,
+        build_id=build_id,
         database_url=source["DATABASE_URL"],
         redis_url=source["REDIS_URL"],
         bot_token=source.get("BOT_TOKEN") or None,

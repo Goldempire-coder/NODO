@@ -12,8 +12,9 @@ Secrets must never live in frontend code or repo.
 - API_CORS_ORIGINS
 - APP_ENV
 - APP_NAME
-- APP_VERSION
-- NODO_BUILD_ID
+- RAILWAY_GIT_COMMIT_SHA (Railway-provided release source when available)
+- APP_VERSION (manual fallback outside Railway)
+- NODO_BUILD_ID (manual fallback outside Railway)
 - TELEGRAM_WEB_APP_URL
 
 ## Supabase PostgreSQL
@@ -80,8 +81,9 @@ Railway must receive backend-only env vars:
 
 - APP_ENV
 - APP_NAME
-- APP_VERSION
-- NODO_BUILD_ID
+- RAILWAY_GIT_COMMIT_SHA (provided automatically for GitHub-triggered deploys)
+- APP_VERSION (optional non-Railway fallback)
+- NODO_BUILD_ID (optional non-Railway fallback)
 - DATABASE_URL
 - NODO_DB_POOL_MAX_SIZE
 - NODO_DB_POOL_TIMEOUT_SECONDS
@@ -111,6 +113,15 @@ Railway must receive backend-only env vars:
 - STRIPE_SECRET_KEY
 - STRIPE_WEBHOOK_SECRET
 - Storage backend secrets
+
+When `RAILWAY_GIT_COMMIT_SHA` is a valid commit SHA, it is authoritative over
+the manual fallback labels. Runtime metadata is exposed as
+`version=<APP_ENV>-<short_sha>` and `build_id=<full_sha>` by both root and
+`/api/v1` health/version routes. A Railway deployment without a valid Git SHA
+reports `<APP_ENV>-unknown` and `unknown` rather than reusing stale manual
+labels. Outside Railway, local/test environments fall back to `local`; other
+environments use explicit `APP_VERSION` and `NODO_BUILD_ID`, or `unknown` when
+those labels are absent.
 
 ## Cloudflare Pages env
 
