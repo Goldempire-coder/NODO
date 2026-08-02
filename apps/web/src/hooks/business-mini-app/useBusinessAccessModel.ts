@@ -97,9 +97,11 @@ export function useBusinessAccessModel({
 
   const resumePendingPinAction = useCallback(async (successNotice: string) => {
     const pendingDeleteId = paymentMethods.pendingPaymentMethodDeleteId;
+    const pendingSave = paymentMethods.pendingPaymentMethodSave;
     const pendingAvailability = availability.pendingAvailabilityTarget;
     const pendingCapacityAmount = capacity.pendingBusinessCapacityAmount;
     paymentMethods.clearPendingPaymentMethodDelete();
+    paymentMethods.clearPendingPaymentMethodSave();
     availability.clearPendingAvailabilityTarget();
     capacity.setPendingBusinessCapacityAmount(null);
     if (pendingDeleteId) {
@@ -108,6 +110,10 @@ export function useBusinessAccessModel({
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "PIN activo, pero no pudimos borrar el metodo.");
       }
+      return;
+    }
+    if (pendingSave) {
+      await paymentMethods.savePaymentMethodUnlocked(pendingSave);
       return;
     }
     if (pendingAvailability !== null) {

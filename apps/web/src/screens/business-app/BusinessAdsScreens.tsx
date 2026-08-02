@@ -250,7 +250,10 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
             value={paymentMethodForm.account_value}
             onChange={(event) => setPaymentMethodForm((current) => ({ ...current, account_value: event.target.value }))}
             autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
             inputMode="text"
+            spellCheck={false}
             placeholder={editingMethod ? `${paymentMethodName(editingMethod.receive_method)} nuevo opcional` : formMethodName}
           />
         </label>

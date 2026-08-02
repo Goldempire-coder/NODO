@@ -320,6 +320,11 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "queuePaymentMethodDeleteUntilPin" in payment_methods_model
     assert "deletePaymentMethodUnlocked" in payment_methods_model
     assert "await paymentMethods.deletePaymentMethodUnlocked(pendingDeleteId)" in access_model
+    assert "pendingPaymentMethodSave" in payment_methods_model
+    assert "setPendingPaymentMethodSave(saveInput)" in payment_methods_model
+    assert "savePaymentMethodUnlocked" in payment_methods_model
+    assert "const pendingSave = paymentMethods.pendingPaymentMethodSave" in access_model
+    assert "await paymentMethods.savePaymentMethodUnlocked(pendingSave)" in access_model
     assert "paymentMethods.loadPaymentMethods()" in access_model
     assert "capacity.refreshBusinessCapacity()" in access_model
     assert "refreshCreditWallet: credits.refreshCreditWallet" in business_model
@@ -738,6 +743,11 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert "PIN para borrar metodo" in pin_screen
     assert "Activar PIN y borrar metodo" in pin_screen
     assert "Borrar metodo" in pin_screen
+    assert "PIN para guardar metodo" in pin_screen
+    assert "Activar PIN y guardar metodo" in pin_screen
+    assert 'autoCapitalize="none"' in ads_screen
+    assert 'autoCorrect="off"' in ads_screen
+    assert 'spellCheck={false}' in ads_screen
     assert 'if (view === "my-ads")' in business_shell
     assert "deleteAd" in ads_model
     assert "republishAd" in ads_model

@@ -10,6 +10,14 @@ import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import { businessPinActionMessage, isBusinessPinError } from "./businessPinGuards";
 import { activeBusinessPaymentMethods, emptyPaymentMethodForm, paymentMethodDisplay, paymentMethodTelemetry } from "./businessPaymentMethodHelpers";
 
+type PaymentMethodSaveInput = {
+  accountValue: string;
+  editingPaymentMethodId: string | null;
+  holderName: string;
+  methodType: BusinessPaymentMethodFormState["method_type"];
+  returnView: BusinessMiniAppView | null;
+};
+
 export function useBusinessPaymentMethodsModel({
   business,
   handleBusinessPinError,
@@ -31,6 +39,7 @@ export function useBusinessPaymentMethodsModel({
   const [paymentMethodForm, setPaymentMethodForm] = useState<BusinessPaymentMethodFormState>(emptyPaymentMethodForm());
   const [editingPaymentMethodId, setEditingPaymentMethodId] = useState<string | null>(null);
   const [pendingPaymentMethodDeleteId, setPendingPaymentMethodDeleteId] = useState<string | null>(null);
+  const [pendingPaymentMethodSave, setPendingPaymentMethodSave] = useState<PaymentMethodSaveInput | null>(null);
   const [deletingPaymentMethodId, setDeletingPaymentMethodId] = useState<string | null>(null);
   const [savingPaymentMethodId, setSavingPaymentMethodId] = useState<string | null>(null);
   const [paymentMethodReturnView, setPaymentMethodReturnView] = useState<BusinessMiniAppView | null>(null);
@@ -88,33 +97,27 @@ export function useBusinessPaymentMethodsModel({
     return methods;
   }, [request, setAdForm]);
 
-  const createPaymentMethod = useCallback(async () => {
-    const accountValue = paymentMethodForm.account_value.trim();
-    const holderName = paymentMethodForm.holder_name.trim();
-    const editingMethod = editingPaymentMethodId ? paymentMethods.find((method) => method.id === editingPaymentMethodId) || null : null;
-    const methodType = editingMethod?.receive_method || paymentMethodForm.method_type;
+  const clearPendingPaymentMethodSave = useCallback(() => {
+    setPendingPaymentMethodSave(null);
+  }, []);
+
+  const savePaymentMethodUnlocked = useCallback(async (saveInput: PaymentMethodSaveInput) => {
+    const { accountValue, editingPaymentMethodId: paymentMethodId, holderName, methodType, returnView } = saveInput;
     const methodLabel = paymentMethodDisplay(methodType);
-    const action = editingPaymentMethodId ? `editar este ${methodLabel}` : `agregar ${methodLabel}`;
-    if ((!editingPaymentMethodId && !accountValue) || !holderName) {
-      setNotice(`Agrega ${methodLabel} y titular para guardar.`);
-      return;
-    }
-    if (!requireBusinessPinFor(action)) {
-      return;
-    }
-    const telemetryAction = paymentMethodTelemetry(methodType, editingPaymentMethodId ? "edit" : "add");
-    setSavingPaymentMethodId(editingPaymentMethodId || "new");
+    const action = paymentMethodId ? `editar este ${methodLabel}` : `agregar ${methodLabel}`;
+    const telemetryAction = paymentMethodTelemetry(methodType, paymentMethodId ? "edit" : "add");
+    setSavingPaymentMethodId(paymentMethodId || "new");
     recordActionBreadcrumb(telemetryAction, { screen: "payment-methods", status: "started" });
-    const idempotencyScope = editingPaymentMethodId
-      ? `business_payment_method_update_${editingPaymentMethodId}`
+    const idempotencyScope = paymentMethodId
+      ? `business_payment_method_update_${paymentMethodId}`
       : `business_payment_method_create_${methodType}`;
     try {
-      const data = editingPaymentMethodId
+      const data = paymentMethodId
         ? await updateBusinessPaymentMethod<{ payment_method: BusinessPaymentMethod }>(
           request,
-          editingPaymentMethodId,
+          paymentMethodId,
           accountValue ? { account_value: accountValue, holder_name: holderName } : { holder_name: holderName },
-          getIdempotencyKey(idempotencyScope, { paymentMethodId: editingPaymentMethodId, accountValue, holderName })
+          getIdempotencyKey(idempotencyScope, { paymentMethodId, accountValue, holderName })
         )
         : await createBusinessPaymentMethod<{ payment_method: BusinessPaymentMethod; created: boolean }>(request, {
           method_type: methodType,
@@ -137,22 +140,50 @@ export function useBusinessPaymentMethodsModel({
       }));
       setPaymentMethodForm(emptyPaymentMethodForm(methodType));
       setEditingPaymentMethodId(null);
-      setNotice(editingPaymentMethodId ? `${methodLabel} actualizado.` : "created" in data && data.created ? `${methodLabel} guardado.` : `Ese ${methodLabel} ya estaba guardado.`);
-      if (!editingPaymentMethodId && paymentMethodReturnView) {
-        setPaymentMethodReturnView(null);
-        setView(paymentMethodReturnView);
-      }
+      setPendingPaymentMethodSave(null);
+      setPaymentMethodReturnView(null);
+      setNotice(paymentMethodId ? `${methodLabel} actualizado.` : "created" in data && data.created ? `${methodLabel} guardado.` : `Ese ${methodLabel} ya estaba guardado.`);
+      setView(returnView || "payment-methods");
       recordActionBreadcrumb(telemetryAction, { screen: "payment-methods", status: "completed" });
+      return true;
     } catch (error) {
       recordActionBreadcrumb(telemetryAction, { screen: "payment-methods", status: "failed", errorCode: error instanceof ApiClientError ? error.code : undefined });
       if (handleBusinessPinError(error, action)) {
-        return;
+        setPendingPaymentMethodSave(saveInput);
+        return false;
       }
       setNotice(error instanceof Error ? error.message : `No pudimos guardar ${methodLabel}.`);
+      return false;
     } finally {
       setSavingPaymentMethodId(null);
     }
-  }, [clearIdempotencyKey, editingPaymentMethodId, getIdempotencyKey, handleBusinessPinError, paymentMethodForm.account_value, paymentMethodForm.holder_name, paymentMethodForm.method_type, paymentMethodReturnView, paymentMethods, request, requireBusinessPinFor, setAdForm, setNotice, setView]);
+  }, [clearIdempotencyKey, getIdempotencyKey, handleBusinessPinError, request, setAdForm, setNotice, setView]);
+
+  const createPaymentMethod = useCallback(async () => {
+    const accountValue = paymentMethodForm.account_value.trim();
+    const holderName = paymentMethodForm.holder_name.trim();
+    const editingMethod = editingPaymentMethodId ? paymentMethods.find((method) => method.id === editingPaymentMethodId) || null : null;
+    const methodType = editingMethod?.receive_method || paymentMethodForm.method_type;
+    const methodLabel = paymentMethodDisplay(methodType);
+    const action = editingPaymentMethodId ? `editar este ${methodLabel}` : `agregar ${methodLabel}`;
+    if ((!editingPaymentMethodId && !accountValue) || !holderName) {
+      setNotice(`Agrega ${methodLabel} y titular para guardar.`);
+      return;
+    }
+    const saveInput: PaymentMethodSaveInput = {
+      accountValue,
+      editingPaymentMethodId,
+      holderName,
+      methodType,
+      returnView: paymentMethodReturnView
+    };
+    if (!requireBusinessPinFor(action)) {
+      setPendingPaymentMethodSave(saveInput);
+      return;
+    }
+    setPendingPaymentMethodSave(null);
+    await savePaymentMethodUnlocked(saveInput);
+  }, [editingPaymentMethodId, paymentMethodForm.account_value, paymentMethodForm.holder_name, paymentMethodForm.method_type, paymentMethodReturnView, paymentMethods, requireBusinessPinFor, savePaymentMethodUnlocked, setNotice]);
 
   const editPaymentMethod = useCallback((method: BusinessPaymentMethod) => {
     setEditingPaymentMethodId(method.id);
@@ -253,6 +284,7 @@ export function useBusinessPaymentMethodsModel({
   return {
     cancelPaymentMethodEdit,
     clearPendingPaymentMethodDelete,
+    clearPendingPaymentMethodSave,
     createPaymentMethod,
     deletePaymentMethod,
     deletePaymentMethodUnlocked,
@@ -263,6 +295,8 @@ export function useBusinessPaymentMethodsModel({
     paymentMethodForm,
     paymentMethods,
     pendingPaymentMethodDeleteId,
+    pendingPaymentMethodSave,
+    savePaymentMethodUnlocked,
     savingPaymentMethodId,
     selectAdPaymentType,
     selectPaymentMethod,

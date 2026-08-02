@@ -6,22 +6,27 @@ function sanitizePin(value: string) {
 }
 
 export function BusinessPinScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { business, busy, goBack, pendingPaymentMethodDeleteId, pinForm, setPinForm, submitBusinessPinSetup, submitBusinessPinVerify } = model;
+  const { business, busy, goBack, pendingPaymentMethodDeleteId, pendingPaymentMethodSave, pinForm, setPinForm, submitBusinessPinSetup, submitBusinessPinVerify } = model;
   const access = business?.access_link;
   const isConfigured = Boolean(access?.pin_configured);
   const isUnlocked = Boolean(access?.pin_unlocked);
   const isLocked = Boolean(access?.pin_locked_until);
   const isDeletingPaymentMethod = Boolean(pendingPaymentMethodDeleteId);
+  const isSavingPaymentMethod = Boolean(pendingPaymentMethodSave);
   const canSubmitSetup = pinForm.pin.length >= 4 && pinForm.pin === pinForm.confirm_pin;
   const canSubmitVerify = pinForm.pin.length >= 4;
   const title = isDeletingPaymentMethod
     ? isConfigured
       ? "PIN para borrar metodo"
       : "Crear PIN para borrar metodo"
+    : isSavingPaymentMethod
+      ? isConfigured
+        ? "PIN para guardar metodo"
+        : "Crear PIN para guardar metodo"
     : isConfigured
       ? isUnlocked ? "PIN activo" : "Desbloquear"
       : "Crear PIN";
-  const submitLabel = isDeletingPaymentMethod ? "Borrar metodo" : "Entrar";
+  const submitLabel = isDeletingPaymentMethod ? "Borrar metodo" : isSavingPaymentMethod ? "Guardar metodo" : "Entrar";
 
   return (
     <div className="business-card">
@@ -62,7 +67,7 @@ export function BusinessPinScreen({ model }: { model: BusinessMiniAppModel }) {
             />
           </label>
           <Button mode="filled" stretched disabled={busy || isLocked || !canSubmitSetup} onClick={() => void submitBusinessPinSetup()}>
-            {isDeletingPaymentMethod ? "Activar PIN y borrar metodo" : "Activar PIN"}
+            {isDeletingPaymentMethod ? "Activar PIN y borrar metodo" : isSavingPaymentMethod ? "Activar PIN y guardar metodo" : "Activar PIN"}
           </Button>
         </>
       ) : (
