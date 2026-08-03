@@ -38,7 +38,7 @@ export function TelegramEntryPage({ surface }: { surface: string }) {
           <div className="auth-entry__copy">
             <Text className="auth-entry__eyebrow">NODO</Text>
             <Title level="2" className="auth-entry__title">
-              Cambio verificado
+              Directorio NODO
             </Title>
             {state === "authenticated" ? <Text className="auth-entry__message">Hola, {displayName}. Listo para cambiar.</Text> : null}
           </div>

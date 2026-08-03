@@ -182,7 +182,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
 
         {chatCapabilities.receiver_details_shared ? (
           <article className="business-order-chat-message">
-            <span className="business-order-chat-message__sender">Pago Movil seguro</span>
+            <span className="business-order-chat-message__sender">Pago Movil compartido</span>
             {receiverDetails ? (
               <p>{receiverDetails.bank} / {receiverDetails.phone} / {receiverDetails.document} / {receiverDetails.holder}</p>
             ) : (

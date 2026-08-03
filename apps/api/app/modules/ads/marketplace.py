@@ -214,7 +214,7 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
                 for ad in ranked
             ],
             "next_cursor": next_cursor,
-            "disclaimer": "Negocios verificados por NODO. Compara tasa, limites y disponibilidad antes de elegir.",
+            "disclaimer": "Compara perfiles registrados en NODO segun tasa, limites y disponibilidad.",
         }
         profile_mark(profile, "service:payload", stage_started)
         return response

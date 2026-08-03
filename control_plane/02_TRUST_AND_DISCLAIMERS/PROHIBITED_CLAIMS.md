@@ -17,10 +17,15 @@ Prohibido usar en UI, marketing, emails, notificaciones, admin o documentacion p
 - somos casa de cambio
 - procesamos remesas
 - aseguramos tu dinero
+- negocio verificado, sin describir que dato concreto fue revisado
+- verificado por NODO, sin describir el alcance de la revision
+- negocio seguro, confiable, recomendado, certificado, respaldado o avalado
 
 ## Frases permitidas
 
-- NODO verifica datos basicos del negocio.
+- NODO registra perfiles de negocio.
+- Identidad validada, solo cuando exista evidencia de revision documental del titular.
+- Perfil registrado en NODO.
 - NODO registra ordenes, evidencia, chat y reputacion.
 - NODO facilita la conexion entre remitente y negocio.
 - El pago se realiza directamente entre usuario y negocio.

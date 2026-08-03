@@ -10,9 +10,9 @@ NODO no puede declararse READY_FOR_OWNER_REVIEW si falla cualquiera de estos cri
 
 ## Confianza y disclaimers
 
-- Todas las pantallas de pago, orden, negocio y disputa muestran copy correcto: NODO verifica existencia y registra evidencia, pero no guarda fondos ni garantiza entrega.
+- Todas las pantallas de pago, orden, negocio y disputa muestran copy correcto: NODO registra perfiles y evidencia, pero no guarda fondos ni garantiza entrega.
 - No existe texto prohibido: escrow, fondos garantizados, dinero protegido, transaccion garantizada, entrega garantizada, liberamos fondos.
-- Verified business se explica como verificacion basica del negocio, no garantia financiera.
+- El copy publico usa `Perfil registrado`; `Identidad validada` solo aplica cuando existe evidencia de revision documental del titular.
 
 ## Seguridad
 

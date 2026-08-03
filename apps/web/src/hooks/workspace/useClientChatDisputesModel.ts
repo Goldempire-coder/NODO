@@ -301,7 +301,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       clearIdempotencyKey(scope);
       setReceiverDetailsMasked(data.receiver_details_masked);
       await refreshChat({ silent: true });
-      setNotice("Pago Movil compartido de forma segura.");
+      setNotice("Pago Movil compartido.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos compartir el Pago Movil.");
     } finally {

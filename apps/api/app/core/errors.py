@@ -162,7 +162,7 @@ ERROR_MESSAGES = {
     "JOB_NOT_FOUND": "No encontramos la ejecucion del job solicitada.",
     "JOB_CONFIG_INVALID": "La configuracion del job no es valida.",
     "ORDER_STATE_CHANGED_DURING_JOB": "La orden cambio de estado durante el procesamiento.",
-    "CREDIT_RELEASE_FAILED": "No se pudo liberar el hold de creditos de forma segura.",
+    "CREDIT_RELEASE_FAILED": "No se pudo liberar el hold de creditos. La operacion no se completo.",
     "NOTIFICATION_SEND_FAILED": "No se pudo enviar una notificacion temporalmente.",
     "TELEGRAM_RATE_LIMITED": "El canal de notificaciones esta limitado temporalmente.",
     "TELEGRAM_BOT_NOT_CONFIGURED": "El bot de Telegram no esta configurado.",

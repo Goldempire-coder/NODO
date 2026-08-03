@@ -33,10 +33,10 @@ export function paymentMethodInputError({
 }) {
   const normalizedAccount = normalizePaymentMethodAccount(methodType, accountValue);
   if (!editing && !normalizedAccount) {
-    return methodType === "usdt_trc20" ? "Escribe la wallet USDT TRC20." : "Escribe el Zelle.";
+    return methodType === "usdt_trc20" ? "Escribe la wallet USDT en red TRC20." : "Escribe el Zelle.";
   }
   if (normalizedAccount && methodType === "usdt_trc20" && !TRON_BASE58_ADDRESS.test(normalizedAccount)) {
-    return "La wallet USDT TRC20 debe comenzar con T y tener 34 caracteres validos.";
+    return "Esta direccion no es TRC20. Por ahora NODO solo admite wallets USDT en TRC20.";
   }
   if (normalizedAccount && methodType === "zelle" && normalizedAccount.length < 3) {
     return "Revisa el Zelle que escribiste.";
@@ -54,7 +54,7 @@ export function paymentMethodRequestError(
 ) {
   if (errorCode === "PAYMENT_METHOD_INVALID") {
     return methodType === "usdt_trc20"
-      ? "La wallet USDT TRC20 no es valida. Debe comenzar con T y tener 34 caracteres validos."
+      ? "Esta direccion no es TRC20. Por ahora NODO solo admite wallets USDT en TRC20."
       : "Revisa el Zelle y el nombre del titular.";
   }
   if (errorCode === "PAYMENT_METHOD_LIMIT_REACHED") {

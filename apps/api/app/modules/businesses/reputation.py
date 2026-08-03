@@ -12,7 +12,7 @@ PublicReputationStatus = Literal["withheld_pending_snapshot"]
 REPUTATION_TIER_LABELS: dict[ReputationTier, str] = {
     "new": "Nuevo",
     "active": "Activo",
-    "reliable": "Confiable",
+    "reliable": "Reputación alta",
     "elite": "Elite",
 }
 
@@ -116,7 +116,7 @@ def public_reputation_payload(business: BusinessRecord) -> PublicBusinessReputat
     _stored_tier(business.reputation_tier)
     return {
         "publication_status": "withheld_pending_snapshot",
-        "label": "Reputación protegida",
+        "label": "Reputación no publicada",
     }
 
 

@@ -117,7 +117,7 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
           <Text>{formatOrderMethodLine(businessOrderDetail.order.payment_method_snapshot, businessOrderDetail.order.delivery_method_snapshot)}</Text>
           {businessOrderDetail.order.capabilities.receiver_details_shared ? (
             <Text className="auth-entry__session-meta">
-              Pago Movil listo. Abre el chat para revelarlo de forma segura.
+              Pago Movil disponible. Abre el chat para consultarlo.
             </Text>
           ) : (
             <Text className="auth-entry__session-meta">

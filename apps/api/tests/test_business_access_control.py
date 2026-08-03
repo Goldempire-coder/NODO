@@ -328,6 +328,15 @@ def test_business_can_self_manage_usdt_trc20_method_and_publish_ad() -> None:
     assert invalid.status_code == 400
     assert invalid.json()["error"]["code"] == "PAYMENT_METHOD_INVALID"
 
+    ethereum_wallet = "0x" + ("a" * 40)
+    wrong_network = client.post(
+        "/api/v1/business/payment-methods",
+        headers={**_headers(owner, "reject_ethereum_wallet_as_trc20"), "Content-Type": "application/json"},
+        json={"method_type": "usdt_trc20", "account_value": ethereum_wallet, "holder_name": "Wallet Ethereum"},
+    )
+    assert wrong_network.status_code == 400
+    assert wrong_network.json()["error"]["code"] == "PAYMENT_METHOD_INVALID"
+
     wallet = VALID_TRON_TEST_WALLET
     created = client.post(
         "/api/v1/business/payment-methods",

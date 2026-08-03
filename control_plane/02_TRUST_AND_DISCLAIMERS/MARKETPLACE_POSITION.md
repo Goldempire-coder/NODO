@@ -1,10 +1,10 @@
 # MARKETPLACE_POSITION.md
 
-NODO es un marketplace tecnologico de negocios verificados para facilitar cambios/remesas entre usuarios y negocios.
+NODO es un directorio tecnologico de negocios registrados para facilitar el contacto entre usuarios y negocios.
 
 NODO:
 
-- publica negocios verificados.
+- publica perfiles de negocios registrados.
 - permite comparar tasa, limites, reputacion y disponibilidad.
 - registra ordenes.
 - conserva evidencia.
@@ -25,4 +25,4 @@ NODO no:
 
 ## Posicion en una frase
 
-`NODO conecta usuarios con negocios verificados y deja evidencia de la operacion; el pago y la entrega ocurren directamente entre las partes.`
+`NODO conecta usuarios con negocios registrados y deja evidencia de la operacion; el pago y la entrega ocurren directamente entre las partes.`

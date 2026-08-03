@@ -51,7 +51,7 @@ No expone datos privados completos del negocio ni instrucciones completas de pag
     },
     "reputation": {
       "publication_status": "withheld_pending_snapshot",
-      "label": "Reputación protegida"
+      "label": "Reputación no publicada"
     }
   },
   "payment_method": "zelle|usdt_trc20",
@@ -219,7 +219,7 @@ Response 200:
 {
   "data": {
     "ad": {},
-    "disclaimer": "Negocio verificado por NODO. La operacion final es entre usuario y negocio."
+    "disclaimer": "Perfil registrado en NODO. La operacion final es entre usuario y negocio."
   },
   "request_id": "req_..."
 }

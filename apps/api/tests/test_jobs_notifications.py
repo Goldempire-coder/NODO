@@ -546,6 +546,44 @@ def test_slice_36_sender_success_retryable_and_permanent_failures_are_stateful()
     assert permanent_notification.metadata_json["delivery_state"] == "failed_permanent"
 
 
+def test_each_new_order_on_same_ad_notifies_business_again_after_cancellation() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner, _, ad, remitter, first_order = _seed_order(client, owner_id=1126, remitter_id=1127)
+    adapter = _FakeTelegramAdapter()
+    worker = NotificationSenderWorker(
+        settings=client.app.state.settings,
+        job_repository=client.app.state.job_repository,
+        user_repository=client.app.state.user_repository,
+        adapter=adapter,
+    )
+
+    first_run = worker.run(now=utc_now(), request_id="req_repeat_order_first_notification")
+    cancelled = client.post(
+        f"/api/v1/business/orders/{first_order['id']}/cannot-attend",
+        headers=_headers(owner, "repeat_order_cancel"),
+    )
+    second_order = _create_order(client, remitter, ad["id"], key="repeat_order_second")
+    second_run = worker.run(now=utc_now(), request_id="req_repeat_order_second_notification")
+
+    notifications = _notifications_by_type(client, "order_created_business")
+    assert cancelled.status_code == 200, cancelled.text
+    assert second_order["id"] != first_order["id"]
+    assert len(notifications) == 2
+    assert len({notification.dedupe_key for notification in notifications}) == 2
+    assert first_run["counters"]["sent"] == 1
+    assert second_run["counters"]["sent"] == 2
+    assert len(adapter.sent) == 3
+    action_urls = [
+        sent["reply_markup"]["inline_keyboard"][0][0]["web_app"]["url"]
+        for sent in adapter.sent
+        if sent.get("reply_markup")
+    ]
+    assert any(
+        url.endswith(f"/business/?view=business-chat&order_id={second_order['id']}")
+        for url in action_urls
+    )
+
+
 def test_slice_36a_sender_scope_guard_only_claims_supported_immediate_telegram_jobs() -> None:
     client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
     owner, business, _, remitter, order = _seed_order(client, owner_id=1126, remitter_id=1127)

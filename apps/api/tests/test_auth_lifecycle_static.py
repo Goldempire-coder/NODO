@@ -779,7 +779,7 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert "window.confirm" not in ad_detail
     assert "paymentMethodTelemetry" in payment_method_helpers
     assert "paymentMethodInputError" in payment_method_helpers
-    assert "La wallet USDT TRC20 debe comenzar con T" in payment_method_helpers
+    assert "Por ahora NODO solo admite wallets USDT en TRC20." in payment_method_helpers
     assert "paymentMethodError" in payment_methods_model
     assert "paymentMethodError" in ads_screen
     assert 'disabled={isSavingPaymentMethod}' in ads_screen

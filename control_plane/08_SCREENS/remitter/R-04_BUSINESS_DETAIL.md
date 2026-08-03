@@ -60,7 +60,7 @@ states:
 - success where applicable
 
 disclaimer:
-Negocio verificado por NODO. La operacion final es entre usuario y negocio.
+Perfil registrado en NODO. La operacion final es entre usuario y negocio.
 
 privacy:
 - Do not reveal full payment instructions until order/payment instruction slice.
@@ -71,4 +71,4 @@ audit events:
 none
 
 QA checklist:
-Shows verified badge and disclaimer
+Shows registered-profile label and disclaimer

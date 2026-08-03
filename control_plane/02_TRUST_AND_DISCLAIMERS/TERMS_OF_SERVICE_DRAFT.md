@@ -57,7 +57,7 @@ El negocio es responsable de revisar pagos recibidos directamente, confirmar rec
 
 ## 7. Verificacion y reputacion
 
-`Negocio verificado` significa que NODO reviso informacion basica antes de permitir que el negocio aparezca en el marketplace. No significa garantia de solvencia, garantia de entrega, recomendacion financiera, aprobacion regulatoria, seguro financiero ni custodia de fondos.
+`Perfil registrado` significa que el negocio completo el proceso de registro definido por NODO antes de aparecer en el marketplace. No significa garantia de solvencia, garantia de entrega, recomendacion financiera, aprobacion regulatoria, seguro financiero ni custodia de fondos.
 
 Ratings, badges, metricas, historiales, disponibilidad, limites y senales de reputacion son referencias operativas. No son garantias.
 
@@ -154,4 +154,3 @@ Soporte: `[PLACEHOLDER_SUPPORT_CONTACT]`
 Legal: `[PLACEHOLDER_LEGAL_CONTACT]`
 
 Entidad operadora: `[PLACEHOLDER_LEGAL_ENTITY]`
-

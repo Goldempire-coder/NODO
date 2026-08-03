@@ -1938,6 +1938,8 @@ div.ad-row {
 .coin-badge {
   width: 28px;
   height: 28px;
+  flex: 0 0 28px;
+  margin-inline-start: 2px;
   display: grid;
   place-items: center;
   border-radius: 999px;

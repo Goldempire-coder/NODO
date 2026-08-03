@@ -13,7 +13,7 @@ from app.modules.users.models import UserRecord
 from app.services.health_service import HealthService
 
 
-ADMIN_DISCLAIMER = "Consola admin: revisa negocios, ordenes y actividad con datos protegidos y trazabilidad."
+ADMIN_DISCLAIMER = "Consola admin: revisa negocios, ordenes y actividad con datos limitados y trazabilidad."
 DEFAULT_ADMIN_REASON = "Sin nota del admin."
 
 

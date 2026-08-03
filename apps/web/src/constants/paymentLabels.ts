@@ -1,6 +1,6 @@
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   zelle: "Zelle",
-  usdt_trc20: "USDT TRC20"
+  usdt_trc20: "USDT"
 };
 
 const DELIVERY_METHOD_LABELS: Record<string, string> = {

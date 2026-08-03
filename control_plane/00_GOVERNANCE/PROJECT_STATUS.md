@@ -32,7 +32,7 @@ No significa que el producto este construido, probado, desplegado ni autorizado 
 
 El diseno debe soportar como minimo:
 
-- 200 negocios verificados.
+- 200 negocios registrados.
 - 10,000 clientes.
 - 2,000 ordenes activas/concurrentes.
 - picos de busqueda, chat, reportes de pago y notificaciones.

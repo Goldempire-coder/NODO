@@ -58,6 +58,22 @@ def test_chat_uses_one_compact_payment_details_flow_for_zelle_and_usdt() -> None
     assert 'className="business-card"' not in client_chat
 
 
+def test_usdt_copy_is_simple_but_the_order_network_remains_explicit() -> None:
+    marketplace = _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx")
+    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    payment_helpers = _read(
+        "apps/web/src/hooks/business-mini-app/businessPaymentMethodHelpers.ts"
+    )
+    globals_css = _read("apps/web/src/app/globals.css")
+
+    assert "USDT TRC20" not in marketplace
+    assert 'return method === "usdt_trc20" ? "USDT" : "Zelle";' in client_chat
+    assert "Confirma con el negocio que la red indicada en los datos de pago coincide" in client_chat
+    assert "currentPaymentInstructions.payment_instructions.network" in client_chat
+    assert "Por ahora NODO solo admite wallets USDT en TRC20." in payment_helpers
+    assert "margin-inline-start: 2px;" in globals_css
+
+
 def test_slice_50b2_payment_mobile_is_chat_first_not_blocking_form() -> None:
     client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
     chat_notifications = _read("apps/api/app/modules/notifications/chat_notifications.py")

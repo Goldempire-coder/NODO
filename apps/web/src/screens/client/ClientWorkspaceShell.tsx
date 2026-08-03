@@ -15,7 +15,7 @@ const TITLE_BY_VIEW: Partial<Record<ClientView, string>> = {
   profile: "Perfil",
   "marketplace-search": "Marketplace",
   "marketplace-list": "Negocios",
-  "marketplace-detail": "Negocio verificado",
+  "marketplace-detail": "Perfil registrado",
   "create-order": "Crear orden",
   "order-summary": "Resumen de orden",
   "report-payment": "Reportar pago",

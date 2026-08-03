@@ -9,7 +9,7 @@ Regla principal: ningun builder construye features sin contrato aprobado, eviden
 
 ## Producto objetivo
 
-NODO es un marketplace verificado para conectar remitentes con negocios de cambio. NODO verifica existencia basica del negocio, metodos publicados, reputacion, ordenes, chat, evidencias, creditos publicitarios y auditoria. NODO no recibe, retiene, transfiere ni garantiza fondos de usuarios; el pago y la entrega son responsabilidad entre remitente y negocio.
+NODO es un directorio tecnologico para conectar remitentes con negocios registrados. NODO organiza perfiles, metodos publicados, reputacion, ordenes, chat, evidencias, creditos publicitarios y auditoria. NODO no recibe, retiene, transfiere ni garantiza fondos de usuarios; el pago y la entrega son responsabilidad entre remitente y negocio.
 
 El producto se construye para uso masivo desde el inicio, no como demo. Capacidad minima de diseno: 200 negocios, 10,000 clientes y 2,000 ordenes activas/concurrentes bajo limites de riesgo, colas, locks, idempotencia y monitoreo.
 

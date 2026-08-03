@@ -193,7 +193,7 @@ def summarize_ux_events(events: list[dict[str, Any]], *, ingest_enabled: bool, w
         "api_failures": top_routes,
         "recent_friction": recent_friction,
         "recommended_actions": recommendations,
-        "disclaimer": "Panel UX: usa eventos seguros y agregados; no almacena IP, wallet, Zelle completo, PIN, tokens ni comprobantes.",
+        "disclaimer": "Panel UX: usa eventos limitados y agregados; no almacena IP, wallet, Zelle completo, PIN, tokens ni comprobantes.",
     }
 
 

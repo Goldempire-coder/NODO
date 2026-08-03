@@ -7,7 +7,7 @@ El MVP de NODO se construye como producto listo para uso masivo controlado, no c
 - Telegram Bot como entrada/notificador.
 - Telegram Mini App como interfaz principal.
 - Remitentes con Telegram auth.
-- Negocios verificados manualmente.
+- Negocios registrados con revision manual completada.
 - Admin panel funcional completo.
 - Anuncios Zelle -> pago movil Venezuela.
 - Anuncios USDT TRC20 -> pago movil Venezuela.

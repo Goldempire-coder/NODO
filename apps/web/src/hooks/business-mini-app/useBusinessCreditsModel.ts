@@ -289,7 +289,7 @@ export function useBusinessCreditsModel({
       if (data.credited) {
         await refreshCreditWallet();
       }
-      setNotice(data.credited ? "Pago verificado. Creditos acreditados." : "Tx hash recibido. NODO seguira verificando confirmaciones en Base.");
+      setNotice(data.credited ? "Pago confirmado en Base. Creditos acreditados." : "Tx hash recibido. NODO seguira revisando confirmaciones en Base.");
       recordBusinessActionCompleted("credit_tx_submit", "credit-payment-pending", startedAt);
     } catch (error) {
       if (handleBusinessPinError(error, action)) {

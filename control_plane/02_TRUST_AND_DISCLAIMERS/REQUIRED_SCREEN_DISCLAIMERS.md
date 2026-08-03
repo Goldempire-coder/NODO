@@ -6,11 +6,11 @@ Disclaimers obligatorios por pantalla. El builder no puede cambiarlos por textos
 
 Texto permitido:
 
-`Todos los negocios publicados pasan por verificacion basica de NODO. Revisa tasa, limites, reputacion e instrucciones antes de crear una orden.`
+`Compara perfiles registrados en NODO segun tasa, limites y disponibilidad. Cada negocio publica sus propias condiciones.`
 
 Texto corto permitido:
 
-`Negocio verificado por NODO. La operacion final es entre usuario y negocio.`
+`Perfil registrado en NODO. La operacion final es entre usuario y negocio.`
 
 ## Crear orden
 

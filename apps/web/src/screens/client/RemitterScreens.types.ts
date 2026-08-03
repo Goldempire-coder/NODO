@@ -81,10 +81,10 @@ export type RemitterScreensModel = {
 export function displayBusinessName(ad: AdSummary | null): string {
   const name = ad?.business?.business_name?.trim();
   if (!name) {
-    return "Negocio verificado";
+    return "Negocio registrado";
   }
   if (name.length > 34 || name.includes("_smoke_") || name.includes("concurrency")) {
-    return "Negocio verificado";
+    return "Negocio registrado";
   }
   return name;
 }

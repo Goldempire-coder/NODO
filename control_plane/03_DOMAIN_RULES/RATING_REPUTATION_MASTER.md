@@ -89,7 +89,7 @@ cumplirse:
 | Tier | Etiqueta | Completadas | Ratings | Rating | Success rate |
 |---|---|---:|---:|---:|---:|
 | `elite` | Elite | 100 | 30 | 4.50 | 97% |
-| `reliable` | Confiable | 25 | 10 | 4.20 | 95% |
+| `reliable` | Reputacion alta | 25 | 10 | 4.20 | 95% |
 | `active` | Activo | 5 | 3 | 4.00 | 90% |
 | `new` | Nuevo | base | 0 | n/a | n/a |
 
@@ -113,7 +113,7 @@ Publico/cliente:
 - id y nombre del negocio;
 - verificacion publica;
 - proyeccion estable `publication_status = withheld_pending_snapshot` y
-  etiqueta `Reputación protegida`.
+  etiqueta `Reputación no publicada`.
 - Prohibidos mientras no exista snapshot durable: `reputation_tier`,
   `rating_avg`, `ratings_count`, bandas derivadas y cualquier rating asociado a
   una orden o cliente.

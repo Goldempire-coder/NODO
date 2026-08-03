@@ -63,7 +63,11 @@ completed_auto NO es estado valido.
 
 ## 5. Posicion oficial NODO
 
-NODO verifica, registra y organiza.
+NODO registra y organiza perfiles, ordenes y evidencia.
+
+Cuando el proceso aplicable incluye revision documental, NODO registra ese
+resultado sin convertirlo en garantia, recomendacion ni certificacion del
+negocio.
 
 Las partes pagan y cumplen directamente entre ellas.
 

@@ -28,7 +28,7 @@ async function copyText(value: string) {
 }
 
 function paymentMethodLabel(method: string | null | undefined): string {
-  return method === "usdt_trc20" ? "USDT TRC20" : "Zelle";
+  return method === "usdt_trc20" ? "USDT" : "Zelle";
 }
 
 function chatSenderLabel(senderRole: string): string {
@@ -194,6 +194,12 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
           <p>Negociacion abierta con {selectedChatOrder?.business_name || "el negocio"}</p>
           <strong>{orderLabel(model)}</strong>
         </article>
+        {paymentReportMethod === "usdt_trc20" ? (
+          <article className="business-order-chat-message business-order-chat-message--system">
+            <span className="business-order-chat-message__sender">NODO</span>
+            <p>⚠️ Confirma con el negocio que la red indicada en los datos de pago coincide con la red de tu wallet antes de enviar USDT.</p>
+          </article>
+        ) : null}
         {chatMessages.length === 0 ? <Text className="business-order-chat-empty">Aun no hay mensajes en esta orden.</Text> : null}
         {chatMessages.map((message) => {
           const isAutomaticZelleDetails = currentPaymentInstructions?.payment_instructions.method_type === "zelle"

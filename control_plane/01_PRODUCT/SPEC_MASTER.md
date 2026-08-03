@@ -18,7 +18,7 @@ El acceso a Mini App Negocio se decide por backend mediante `GET /api/v1/surface
 El Bot Registro Negocios crea solicitudes pendientes para admin; no crea negocio activo, no publica anuncios, no autoriza acceso y no promete aprobacion.
 
 Soporte general/ticket no cambia estados de orden. Chat operativo no es disputa formal. Disputa formal conserva el flujo gobernado existente.
-# NODO â€” Marketplace de Cambio Verificado
+# NODO â€” Directorio de Negocios Registrados
 # Estado: DRAFT v0.1
 # PropÃ³sito: Fuente de verdad funcional, tÃ©cnica y operativa para construir NODO con AFOS/Codex/Cursor.
 
@@ -95,12 +95,12 @@ risk_level = control interno/riesgo.
 
 ## 0. Principio central
 
-NODO es una Telegram Mini App tipo marketplace de cambio verificado.
+NODO es una Telegram Mini App tipo directorio de negocios registrados.
 
 El sistema conecta:
 
 - Remitentes fuera de Venezuela que quieren vender USD.
-- Negocios verificados que reciben Zelle o USDT TRC20.
+- Negocios registrados que reciben Zelle o USDT TRC20.
 - Receptores en Venezuela que reciben bolÃ­vares por pago mÃ³vil.
 
 NODO NO es banco.  
@@ -108,11 +108,11 @@ NODO NO hace escrow.
 NODO NO toca fondos de la operaciÃ³n.  
 NODO NO procesa Zelle.  
 NODO NO garantiza entrega.  
-NODO registra Ã³rdenes, verifica negocios, muestra reputaciÃ³n, organiza el flujo, reduce riesgo y cobra crÃ©ditos a negocios por publicar anuncios.
+NODO registra Ã³rdenes, organiza perfiles y evidencia, muestra la reputaciÃ³n publicada y cobra crÃ©ditos a negocios por publicar anuncios.
 
 Tagline:
 
-> NODO â€” Cambio verificado.
+> NODO â€” Directorio de negocios registrados.
 
 ---
 
@@ -1241,7 +1241,7 @@ su orden. Negocio, marketplace, chat, Telegram, attention, Admin y Support no
 reciben ratings individuales. `rating_avg` y `ratings_count` exactos se
 conservan como read-models internos. `reputation_tier` tambien permanece
 interno hasta que exista un snapshot durable; publico y negocio reciben la
-proyeccion estable `Reputación protegida`.
+proyeccion estable `Reputación no publicada`.
 
 ### 13.11 disputes
 
@@ -1502,7 +1502,7 @@ Supabase PostgreSQL:
 Python Telegram Bot:
 
 * Simple.
-* Confiable.
+* Confiable como ecosistema tecnico.
 * Buen ecosistema.
 
 ### 16.3 Arquitectura modular
@@ -1705,13 +1705,13 @@ La mejor tasa no debe superar seÃ±ales de riesgo.
 Usar:
 
 ```txt
-negocio verificado
+negocio registrado
 orden registrada
 pago reportado
 pago confirmado por negocio
 entrega reportada
 historial pÃºblico
-cambio verificado
+perfil registrado
 ```
 
 ### 21.2 Lenguaje prohibido
@@ -1896,7 +1896,7 @@ El MVP se considera listo cuando:
 
 ```txt
 Nombre: NODO
-Tagline: Cambio verificado.
+Tagline: Directorio de negocios registrados.
 MVP: Telegram Mini App
 MÃ©todos: Zelle + USDT TRC20
 Entrega: pago mÃ³vil Venezuela

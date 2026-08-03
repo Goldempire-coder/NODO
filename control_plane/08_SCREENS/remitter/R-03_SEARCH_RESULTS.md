@@ -6,7 +6,7 @@ slice: remitter_app
 status: DRAFT_CONTROLLED
 
 purpose:
-Show compatible verified businesses.
+Show compatible registered businesses.
 
 route:
 /businesses
@@ -76,7 +76,7 @@ forbidden filters:
 - Retiro fisico
 
 disclaimer:
-Todos los negocios publicados pasan por verificacion basica de NODO. Revisa tasa, limites, disponibilidad e instrucciones antes de crear una orden.
+Compara perfiles registrados en NODO segun tasa, limites y disponibilidad. Cada negocio publica sus propias condiciones.
 
 privacy:
 - Show only public ad object from ADS_API.

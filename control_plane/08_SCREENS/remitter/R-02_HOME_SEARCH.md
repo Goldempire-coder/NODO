@@ -53,7 +53,7 @@ motion:
 - no fake data animation
 
 MainButton behavior:
-Ver negocios para $X; disabled if invalid
+Buscar negocios; disabled if invalid
 
 validation:
 amount >=20 <=2000; method zelle/usdt_trc20
@@ -70,7 +70,7 @@ states:
 - success where applicable
 
 disclaimer:
-Todos los negocios publicados pasan por verificacion basica de NODO. Revisa tasa, limites, reputacion e instrucciones antes de crear una orden.
+Compara perfiles registrados en NODO segun tasa, limites y disponibilidad. Cada negocio publica sus propias condiciones.
 
 privacy:
 - Do not show private business payment account values.

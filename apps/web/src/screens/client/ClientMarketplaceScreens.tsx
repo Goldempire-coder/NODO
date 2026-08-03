@@ -7,7 +7,7 @@ import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreen
 
 function businessReputationSummary(ad: AdSummary): string {
   const reputation = ad.business?.reputation;
-  return reputation?.label || "Negocio verificado";
+  return reputation?.label || "Perfil registrado";
 }
 
 function businessAvailabilitySummary(ad: AdSummary): string {
@@ -21,7 +21,7 @@ function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
       {searchResults.length === 0 ? (
         <div className="trusted-empty">
           <span className="status-dot status-dot--muted" aria-hidden="true" />
-          <Text>Busca un monto para ver negocios verificados por NODO.</Text>
+          <Text>Ingresa un monto para ver negocios registrados en NODO.</Text>
         </div>
       ) : null}
       {searchResults.map((ad) => (
@@ -64,7 +64,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
       {view === "marketplace-search" ? (
         <div className="marketplace-home">
           <div className="exchange-card">
-            <Text className="exchange-card__eyebrow">Busca negocios verificados</Text>
+            <Text className="exchange-card__eyebrow">Busca negocios registrados</Text>
             <Title level="2" className="exchange-card__title">¿Cuánto quieres cambiar?</Title>
             <div className="amount-input">
               <span>$</span>
@@ -79,7 +79,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               </button>
               <button className={searchForm.payment_method === "usdt_trc20" ? "is-active" : ""} type="button" onClick={() => setSearchForm((current) => ({ ...current, payment_method: "usdt_trc20" }))}>
                 <span className="coin-badge">T</span>
-                USDT TRC20
+                USDT
               </button>
             </div>
             <div className="receiver-note">
@@ -87,13 +87,13 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               <Text>Tu familiar recibe por pago móvil en Venezuela.</Text>
             </div>
             <Button mode="filled" stretched disabled={searchingMarketplace} onClick={() => void searchAds()}>
-              {searchingMarketplace ? "Buscando..." : `Ver negocios para $${searchForm.amount_usd || "0.00"}`}
+              {searchingMarketplace ? "Buscando..." : "Buscar negocios"}
             </Button>
           </div>
           {notice ? <Text className="auth-entry__session-meta">{notice}</Text> : null}
 
           <div className="marketplace-toolbar">
-            <Title level="3" className="business-shell__title">Negocios disponibles</Title>
+            <Title level="3" className="business-shell__title">Negocios registrados</Title>
             <Text className="auth-entry__session-meta">Ordenados por mejor tasa</Text>
           </div>
 
@@ -101,7 +101,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
           <div className="trust-banner">
             <span className="status-dot" aria-hidden="true" />
-            <Text>Negocios verificados por NODO. Compara tasa, limites y disponibilidad antes de elegir.</Text>
+            <Text>Compara perfiles registrados en NODO según tasa, límites y disponibilidad.</Text>
           </div>
         </div>
       ) : null}
@@ -150,7 +150,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
       {view === "marketplace-detail" ? (
         <div className="business-card marketplace-detail-card">
-          <Text className="business-card__label">Negocio verificado</Text>
+          <Text className="business-card__label">Perfil registrado</Text>
           {selectedAd ? (
             <>
               <Title level="3" className="business-shell__title">{displayBusinessName(selectedAd)}</Title>

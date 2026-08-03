@@ -39,6 +39,10 @@ solo queda habilitado despues de que el negocio comparte sus datos; USDT TRC20
 usa la wallet congelada al crear la orden. La respuesta completa no se copia a
 mensajes generales, audit, telemetry ni notificaciones.
 
+La interfaz puede mostrar el metodo como `USDT`, pero antes del envio debe
+mostrar la red estructurada y autoritativa de la orden. El chat incluye una
+advertencia compacta para confirmar que esa red coincide con la wallet de origen.
+
 Precondiciones:
 
 - usuario autenticado

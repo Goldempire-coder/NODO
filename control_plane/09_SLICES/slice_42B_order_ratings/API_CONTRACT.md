@@ -42,7 +42,7 @@ Response 201:
     },
     "business_reputation": {
       "publication_status": "withheld_pending_snapshot",
-      "label": "Reputación protegida"
+      "label": "Reputación no publicada"
     }
   },
   "request_id": "req_..."

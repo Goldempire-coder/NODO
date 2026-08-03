@@ -678,6 +678,9 @@ def test_search_detail_exclude_unapproved_expired_and_consumes_listing_credit() 
     )
     assert search.status_code == 200
     assert [item["id"] for item in search.json()["data"]["items"]] == [ad["id"]]
+    assert search.json()["data"]["disclaimer"] == (
+        "Compara perfiles registrados en NODO segun tasa, limites y disponibilidad."
+    )
     assert "account_value" not in search.text
 
     legacy_sort_results: dict[str, list[str]] = {}

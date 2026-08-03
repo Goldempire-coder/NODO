@@ -1,13 +1,17 @@
-# VERIFIED_BUSINESS_MEANING.md
+# REGISTERED_BUSINESS_LANGUAGE.md
 
-`Negocio verificado` significa que NODO reviso informacion basica del negocio antes de permitir que aparezca en el marketplace.
+`Negocio verificado` y `Verificado por NODO` quedan retirados del copy publico
+porque no describen con precision el alcance de la revision.
+
+El copy general usa `Negocio registrado` o `Perfil registrado`.
 
 ## Puede significar
 
-- NODO reviso identidad o datos comerciales declarados.
-- NODO reviso metodos oficiales de contacto/pago publicados.
-- NODO reviso que el negocio tenga informacion minima para operar dentro de la plataforma.
-- NODO puede monitorear reputacion, ordenes, reportes y disputas.
+- El perfil completo el proceso de registro definido por la plataforma.
+- NODO registra metodos de contacto/pago publicados.
+- NODO puede registrar reputacion, ordenes, reportes y disputas.
+- `Identidad validada` solo se usa cuando existe evidencia de revision
+  documental del titular.
 
 ## No significa
 
@@ -21,4 +25,4 @@
 
 ## Copy corto permitido
 
-`Verificado por NODO: datos basicos revisados. La operacion final es entre usuario y negocio.`
+`Perfil registrado en NODO. La operacion final es entre usuario y negocio.`

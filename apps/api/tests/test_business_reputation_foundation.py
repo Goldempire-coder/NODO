@@ -155,7 +155,7 @@ def test_marketplace_business_dto_exposes_reputation_without_internal_controls()
     }
     assert public_business["reputation"] == {
         "publication_status": "withheld_pending_snapshot",
-        "label": "Reputación protegida",
+        "label": "Reputación no publicada",
     }
     assert "rating_avg" not in public_business["reputation"]
     assert "ratings_count" not in public_business["reputation"]
@@ -177,7 +177,7 @@ def test_business_and_admin_dtos_have_distinct_internal_visibility() -> None:
     assert "risk_level" not in own_payload
     assert own_payload["reputation"] == {
         "publication_status": "withheld_pending_snapshot",
-        "label": "Reputación protegida",
+        "label": "Reputación no publicada",
     }
     assert "rating_avg" not in own_payload["reputation"]
     assert "ratings_count" not in own_payload["reputation"]
@@ -234,7 +234,7 @@ def test_public_reputation_stays_stable_when_internal_rating_aggregates_change()
     assert marketplace_before == marketplace_after
     assert business_after == {
         "publication_status": "withheld_pending_snapshot",
-        "label": "Reputación protegida",
+        "label": "Reputación no publicada",
     }
 
 

@@ -61,7 +61,7 @@ export function useTelegramAuth(surface?: string) {
         return;
       }
       setState("error");
-      setMessage(`Abre NODO desde Telegram para iniciar de forma segura. ${AUTH_BUILD_LABEL}`);
+      setMessage(`Abre NODO desde Telegram para iniciar sesion. ${AUTH_BUILD_LABEL}`);
       notifyTelegram("warning");
       return;
     }

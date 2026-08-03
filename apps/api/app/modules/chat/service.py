@@ -207,7 +207,7 @@ class ChatService:
                     "id": f"system:receiver-details-shared:{receiver_details.id}",
                     "order_id": order.id,
                     "sender_role": "system",
-                    "body": "Cliente compartio Pago Movil seguro.",
+                    "body": "Cliente compartio Pago Movil.",
                     "visibility": "parties",
                     "status": "visible",
                     "attachments": [],
