@@ -250,13 +250,13 @@ export function useRemitterOrdersModel(
     }
   }
 
-  async function submitRating(orderId: string) {
+  async function submitRating(orderId: string, surface: "order-summary" | "order-chat" = "order-summary") {
     if (selectedRatingStars < 1 || selectedRatingStars > 5) {
       setNotice("Selecciona de 1 a 5 estrellas.");
       return;
     }
     const startedAt = actionStartedAt();
-    recordActionStarted("client_order_rating_submit", "order-summary");
+    recordActionStarted("client_order_rating_submit", surface);
     setSubmittingRatingOrderId(orderId);
     const idempotencyScope = `order_rating_${orderId}`;
     try {
@@ -276,10 +276,10 @@ export function useRemitterOrdersModel(
       });
       setSelectedRatingStars(data.rating.stars);
       setNotice("Calificacion enviada.");
-      recordActionCompleted("client_order_rating_submit", "order-summary", startedAt);
+      recordActionCompleted("client_order_rating_submit", surface, startedAt);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No logramos enviar la calificacion.");
-      recordActionFailed("client_order_rating_submit", "order-summary", startedAt, error instanceof Error ? error.name : undefined);
+      recordActionFailed("client_order_rating_submit", surface, startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       setSubmittingRatingOrderId(null);
     }

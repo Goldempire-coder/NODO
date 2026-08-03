@@ -6,7 +6,11 @@ Estado contractual: `BUILD_APPROVED_SLICE_42B`
 
 Permitir que el cliente propietario califique una sola vez, con 1 a 5 estrellas,
 al negocio de una orden completada. El backend crea el rating y recalcula la
-reputacion del negocio en la misma operacion segura.
+reputacion del negocio en la misma operacion segura. El rating individual es
+privado: negocio y marketplace reciben una proyeccion estable, sin tier ni
+agregados que permitan atribuir un cambio a una calificacion reciente. El orden
+del marketplace tampoco usa metricas reputacionales vivas mientras no exista
+snapshot publico durable.
 
 ## Autoridad
 

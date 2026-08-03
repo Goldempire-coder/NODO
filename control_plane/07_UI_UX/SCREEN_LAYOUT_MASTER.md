@@ -72,9 +72,13 @@ Bottom Nav
 ```
 
 Allowed filter chips:
-- Mejor confianza
 - Mejor tasa
-- Mas rapido
+
+Compatibility note:
+- `sort=trust` y `sort=speed` permanecen como aliases API de `sort=rate` hasta
+  que exista snapshot publico durable.
+- La UI no presenta confianza o velocidad como criterios de orden mientras no
+  pueda respaldarlos sin metricas vivas.
 
 Forbidden filters in MVP:
 - Mas cercano

@@ -48,13 +48,8 @@ export type OrderRatingResult = {
     created_at: string;
   };
   business_reputation: {
-    tier: "new" | "active" | "reliable" | "elite";
+    publication_status: "withheld_pending_snapshot";
     label: string;
-    rating_avg: string | null;
-    ratings_count: number;
-    completed_orders_count: number;
-    success_rate: string | null;
-    average_delivery_seconds: number | null;
   };
 };
 

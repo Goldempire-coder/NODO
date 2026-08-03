@@ -1229,10 +1229,19 @@ order_id
 business_id
 rater_user_id
 stars
-comment
-rating_type
 created_at
 ```
+
+Contrato runtime vigente: una calificacion por orden, solo estrellas 1..5. Los
+campos legacy `comment` y `rating_type` no forman parte del slice 42B ni de su
+API publica.
+
+Privacidad runtime: el cliente propietario puede volver a ver sus estrellas en
+su orden. Negocio, marketplace, chat, Telegram, attention, Admin y Support no
+reciben ratings individuales. `rating_avg` y `ratings_count` exactos se
+conservan como read-models internos. `reputation_tier` tambien permanece
+interno hasta que exista un snapshot durable; publico y negocio reciben la
+proyeccion estable `Reputación protegida`.
 
 ### 13.11 disputes
 

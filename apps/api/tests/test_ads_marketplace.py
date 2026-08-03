@@ -680,10 +680,14 @@ def test_search_detail_exclude_unapproved_expired_and_consumes_listing_credit() 
     assert [item["id"] for item in search.json()["data"]["items"]] == [ad["id"]]
     assert "account_value" not in search.text
 
-    all_active = client.get("/api/v1/ads/search?sort=trust", headers=_bearer(remitter, "req_search_all"))
-    assert all_active.status_code == 200
-    assert ad["id"] in [item["id"] for item in all_active.json()["data"]["items"]]
-    assert "account_value" not in all_active.text
+    legacy_sort_results: dict[str, list[str]] = {}
+    for sort in ("trust", "speed", "rate"):
+        all_active = client.get(f"/api/v1/ads/search?sort={sort}", headers=_bearer(remitter, f"req_search_{sort}"))
+        assert all_active.status_code == 200
+        legacy_sort_results[sort] = [item["id"] for item in all_active.json()["data"]["items"]]
+        assert ad["id"] in legacy_sort_results[sort]
+        assert "account_value" not in all_active.text
+    assert legacy_sort_results["trust"] == legacy_sort_results["speed"] == legacy_sort_results["rate"]
 
     detail = client.get(f"/api/v1/ads/{ad['id']}", headers=_bearer(remitter, "req_detail"))
     assert detail.status_code == 200

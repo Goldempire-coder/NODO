@@ -47,8 +47,6 @@ def ad_payload(
                     else {}
                 ),
             },
-            "rating_avg": decimal_text(business.rating_avg) if business.rating_avg is not None else None,
-            "completed_orders_count": business.completed_orders_count,
             "reputation": public_reputation_payload(business),
         }
     if payment_method is not None:

@@ -23,16 +23,9 @@ export type AdSummary = {
       label: "Online" | "Offline";
       can_cover_requested_amount?: boolean;
     };
-    rating_avg?: string | null;
-    completed_orders_count?: number;
     reputation?: {
-      tier: "new" | "active" | "reliable" | "elite";
-      label: "Nuevo" | "Activo" | "Confiable" | "Elite";
-      rating_avg: string | null;
-      ratings_count: number;
-      completed_orders_count: number;
-      success_rate: string | null;
-      average_delivery_seconds: number | null;
+      publication_status: "withheld_pending_snapshot";
+      label: string;
     };
   };
   payment_method_details?: {

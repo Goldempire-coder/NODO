@@ -6,16 +6,18 @@ slice: slice_42B_order_ratings
 status: BUILD_APPROVED
 
 purpose:
-Rate the business with stars after an owned completed order.
+Rate the business with stars after an owned completed order without leaving the
+chat-first flow.
 
 route:
-/orders/:id/rating
+- compact action inside the completed order chat
+- compatible action in owned order detail
 
 entry points:
-Owned completed order detail or history
+Owned completed order chat or detail
 
 exit points:
-R-02_HOME_SEARCH
+The current chat/detail remains open after success or error.
 
 data required:
 - authenticated user/session
@@ -45,6 +47,13 @@ states:
 - already_rated
 - error
 - success
+
+presentation:
+- compact system bubble: `Como fue esta operacion?`
+- 1..5 stars and compact `Calificar` action
+- already rated copy: `Calificaste X de 5`
+- no dedicated screen is required
+- failed submit preserves the selected stars
 
 audit events:
 rating_created

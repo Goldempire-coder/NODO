@@ -8,7 +8,7 @@ import {
   uploadOrderMessageAttachment
 } from "../../api/chat";
 import type { AuthenticatedRequest } from "../../api/client";
-import { confirmOrderReceived as confirmOrderReceivedRequest, shareOrderReceiverDetails } from "../../api/orders";
+import { confirmOrderReceived as confirmOrderReceivedRequest, getOrder, shareOrderReceiverDetails } from "../../api/orders";
 import type { ChatAttachmentViewUrl, ChatMessage, ChatThread } from "../../types/chat";
 import type { OrderSummary, ReceiverDetailsInput, ReceiverDetailsMasked } from "../../types/orders";
 import { getTelegramWebApp } from "../../theme/telegramTheme";
@@ -49,6 +49,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     chatOrderId,
     chatBody,
     chatAttachments,
+    selectedOrder,
     paymentOrderContextRef,
     setChatOrderId,
     setChatMessages,
@@ -75,6 +76,8 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
   const refreshingChatRef = useRef(false);
   const chatOrderIdRef = useRef(chatOrderId);
   chatOrderIdRef.current = chatOrderId;
+  const selectedOrderRef = useRef(selectedOrder);
+  selectedOrderRef.current = selectedOrder;
   const [receiverDetailsForm, setReceiverDetailsForm] = useState<ReceiverDetailsInput>({
     bank: "0102",
     phone: "",
@@ -85,6 +88,22 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
   const [sharingReceiverDetails, setSharingReceiverDetails] = useState(false);
   const [confirmingOrderReceived, setConfirmingOrderReceived] = useState(false);
   const [chatAttachmentLink, setChatAttachmentLink] = useState<ChatAttachmentLink | null>(null);
+
+  const withRatingState = useCallback(async (order: OrderSummary): Promise<{ order: OrderSummary; ratingLoadFailed: boolean }> => {
+    if (order.status !== "completed") {
+      return { order, ratingLoadFailed: false };
+    }
+    const current = selectedOrderRef.current;
+    if (current?.id === order.id && current.rating) {
+      return { order: { ...order, rating: current.rating }, ratingLoadFailed: false };
+    }
+    try {
+      const data = await getOrder<{ order: OrderSummary }>(request, order.id);
+      return { order: { ...order, rating: data.order.rating }, ratingLoadFailed: false };
+    } catch {
+      return { order, ratingLoadFailed: true };
+    }
+  }, [request]);
 
   async function openOrderChat(orderId: string) {
     const startedAt = actionStartedAt();
@@ -101,7 +120,9 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     setOpeningChatOrderId(orderId);
     try {
       const data = await listOrderMessages<ChatThread<OrderSummary>>(request, orderId);
-      setSelectedOrder(data.order);
+      const hydrated = await withRatingState(data.order);
+      selectedOrderRef.current = hydrated.order;
+      setSelectedOrder(hydrated.order);
       setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       setChatAttachments([]);
@@ -109,7 +130,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setReceiverDetailsMasked(null);
       setChatAttachmentLink(null);
       setView("order-chat");
-      setNotice("");
+      setNotice(hydrated.ratingLoadFailed ? "Abrimos el chat, pero no pudimos cargar la calificacion." : "");
       recordActionCompleted("client_chat_open", "order-chat", startedAt);
     } catch (error) {
       setChatMessages([]);
@@ -153,9 +174,17 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       if (chatOrderIdRef.current !== targetOrderId) {
         return false;
       }
-      setSelectedOrder(data.order);
+      const hydrated = await withRatingState(data.order);
+      if (chatOrderIdRef.current !== targetOrderId) {
+        return false;
+      }
+      selectedOrderRef.current = hydrated.order;
+      setSelectedOrder(hydrated.order);
       setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
+      if (hydrated.ratingLoadFailed && !options?.silent) {
+        setNotice("No pudimos cargar el estado de la calificacion.");
+      }
       recordActionCompleted("client_chat_refresh", "order-chat", startedAt);
       return true;
     } catch (error) {
@@ -170,7 +199,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
         setRefreshingChat(false);
       }
     }
-  }, [request, setChatCapabilities, setChatMessages, setNotice, setRefreshingChat]);
+  }, [request, setChatCapabilities, setChatMessages, setNotice, setRefreshingChat, setSelectedOrder, withRatingState]);
 
   async function uploadChatAttachment(file: File | null) {
     if (uploadingChatAttachmentRef.current || !chatOrderId || !file) {
@@ -289,13 +318,18 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
     setConfirmingOrderReceived(true);
     const scope = `confirm_received_${chatOrderId}`;
     try {
-      const data = await confirmOrderReceivedRequest<{ order: OrderSummary }>(
+      const data = await confirmOrderReceivedRequest<{
+        order: OrderSummary;
+        rating?: OrderSummary["rating"];
+      }>(
         request,
         chatOrderId,
         getIdempotencyKey(scope, { orderId: chatOrderId, action: "manual_confirmed" })
       );
       clearIdempotencyKey(scope);
-      setSelectedOrder(data.order);
+      const completedOrder = { ...data.order, rating: data.rating };
+      selectedOrderRef.current = completedOrder;
+      setSelectedOrder(completedOrder);
       await refreshChat({ silent: true });
       setNotice("Recepcion confirmada. La orden quedo completada.");
     } catch (error) {

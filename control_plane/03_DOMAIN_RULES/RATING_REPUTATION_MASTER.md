@@ -11,8 +11,8 @@ contratos API y las pantallas a estas reglas antes de construir UI.
 ## Separacion obligatoria
 
 - `trust_level` controla limites y capacidad interna. No es reputacion publica.
-- `reputation_tier` resume reputacion visible: `new`, `active`, `reliable`,
-  `elite`.
+- `reputation_tier` resume reputacion calculada internamente: `new`, `active`,
+  `reliable`, `elite`. No se publica hasta que exista snapshot durable.
 - `risk_level` es una senal interna de seguridad. Nunca se expone en DTOs
   publicos, marketplace ni mensajes para clientes.
 - El negocio no puede editar rating, metricas agregadas ni `reputation_tier`.
@@ -40,8 +40,10 @@ contratos API y las pantallas a estas reglas antes de construir UI.
 ## Metricas canonicas
 
 - `rating_avg`: promedio de estrellas validas, con dos decimales; `null` sin
-  ratings.
-- `ratings_count`: cantidad de ratings validos.
+  ratings. Es un agregado interno y no forma parte de DTOs publicos o del
+  negocio.
+- `ratings_count`: cantidad exacta de ratings validos. Es interna y no forma
+  parte de DTOs publicos o del negocio mientras no exista snapshot durable.
 - `completed_orders_count`: ordenes completadas correctamente.
 - `business_failure_orders_count`: resultados atribuibles al negocio que
   cuentan contra success rate.
@@ -110,22 +112,43 @@ Publico/cliente:
 
 - id y nombre del negocio;
 - verificacion publica;
-- `reputation_tier`, etiqueta, `rating_avg`, `ratings_count`,
-  `completed_orders_count`, `success_rate`, `average_delivery_seconds`.
+- proyeccion estable `publication_status = withheld_pending_snapshot` y
+  etiqueta `Reputación protegida`.
+- Prohibidos mientras no exista snapshot durable: `reputation_tier`,
+  `rating_avg`, `ratings_count`, bandas derivadas y cualquier rating asociado a
+  una orden o cliente.
 - Prohibidos: `trust_level`, `risk_level`, contadores antifraude, causas de
   disputa y senales internas.
 
 Negocio propio autenticado:
 
-- sus metricas de reputacion;
+- la misma proyeccion estable publica, sin tier, agregados ni estrellas por
+  orden;
 - su capacidad/`trust_level` cuando el contrato propio lo requiera;
 - no puede mutar campos derivados ni recibir detalles internos de riesgo.
 
 Admin autorizado:
 
-- metricas de reputacion y campos internos necesarios, incluidos
+- agregados exactos de reputacion y campos internos necesarios, incluidos
   `trust_level`, `risk_level`, fallos atribuibles y disputas perdidas;
-- la vista admin no es autoridad para editar ratings.
+- la vista admin no es autoridad para editar ratings y este slice no expone
+  ratings individuales a Admin ni Support.
+
+## Privacidad e inferencia
+
+- El rating individual solo vuelve al cliente que lo creo y en el estado de su
+  propia orden.
+- No se crea mensaje de chat, attention item ni notificacion Telegram por un
+  rating.
+- Publicar tier, promedio, conteo o bandas inmediatamente permitiria atribuir
+  un cambio a una calificacion reciente. Esos valores quedan internos.
+- No existe scheduler ni campo de snapshot publico contratado. Hasta que un
+  slice posterior agregue persistencia, proceso singleton, lote y monitoreo, la
+  proyeccion publica permanece estable y no afirma que un snapshot corre.
+- El marketplace tampoco puede revelar cambios vivos mediante posicion. Hasta
+  que exista ese snapshot, todos los sorts publicos se resuelven por tasa y
+  fecha del anuncio; confianza, velocidad y metricas reputacionales no
+  participan en ranking ni desempates.
 
 ## Integridad y reconstruccion
 

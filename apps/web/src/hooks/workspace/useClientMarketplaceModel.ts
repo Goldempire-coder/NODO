@@ -174,7 +174,7 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
     }
   }
 
-  async function prefetchActiveMarketplace(sort: "trust" | "rate" | "speed" = "trust") {
+  async function prefetchActiveMarketplace(sort: "trust" | "rate" | "speed" = "rate") {
     const key = marketplaceSearchKey({ sort, limit: "50" });
     const cached = cacheRef.current[key];
     if (cached && Date.now() - cached.loadedAt < CLIENT_MARKETPLACE_CACHE_TTL_MS) {

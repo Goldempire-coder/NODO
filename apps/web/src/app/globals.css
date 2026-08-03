@@ -695,6 +695,54 @@ textarea {
   font-size: 11px;
 }
 
+.business-order-chat-rating {
+  gap: 7px;
+}
+
+.business-order-chat-rating__stars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.business-order-chat-rating__stars button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgb(148 163 184);
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.business-order-chat-rating__stars button.is-selected {
+  color: rgb(250 204 21);
+}
+
+.business-order-chat-rating__stars button:disabled {
+  opacity: 0.6;
+}
+
+.business-order-chat-rating__submit {
+  min-height: 32px;
+  justify-self: center;
+  padding: 0 14px;
+  border: 1px solid rgb(16 185 129 / 36%);
+  border-radius: 999px;
+  background: rgb(16 185 129 / 14%);
+  color: var(--nodo-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.business-order-chat-rating__submit:disabled {
+  opacity: 0.5;
+}
+
 .business-order-chat-message__sender {
   color: var(--nodo-text);
   font-size: 11px;

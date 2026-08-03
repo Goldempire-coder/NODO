@@ -16,7 +16,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.modules.businesses.models import BusinessRecord
+from app.modules.businesses.presenters import business_payload
+from app.modules.notifications.attention import BUSINESS_ORDER_ATTENTION_STATUSES, CLIENT_ORDER_ATTENTION_STATUSES
+from app.modules.notifications.notification_types import TELEGRAM_NOTIFICATION_TYPES
 from app.modules.orders.models import OrderRecord, utc_now
+from app.modules.orders.serializers import business_order_payload
 
 
 BOT_TOKEN = "123456:test-bot-token"
@@ -104,7 +108,7 @@ def _seed_completed_order(
     client: TestClient,
     *,
     telegram_id: int = 42001,
-    completion_reason: str | None = "auto_completed",
+    completion_reason: str | None = "manual_confirmed",
 ) -> tuple[dict, BusinessRecord, OrderRecord]:
     remitter = _login(client, telegram_id, f"remitter_{telegram_id}")
     now = utc_now()
@@ -160,6 +164,7 @@ def _post_rating(client: TestClient, login: dict, order_id: str, stars: object, 
 def test_owned_completed_order_rating_recalculates_public_reputation_once() -> None:
     client = _client()
     remitter, business, order = _seed_completed_order(client)
+    public_reputation_before = business_payload(business)["reputation"]
 
     detail_before = client.get(f"/api/v1/orders/{order.id}", headers=_headers(remitter, "detail"))
     assert detail_before.status_code == 200
@@ -176,13 +181,8 @@ def test_owned_completed_order_rating_recalculates_public_reputation_once() -> N
     assert data["rating"]["stars"] == 5
     assert data["rating"]["order_id"] == order.id
     assert data["business_reputation"] == {
-        "tier": "new",
-        "label": "Nuevo",
-        "rating_avg": "5.00",
-        "ratings_count": 1,
-        "completed_orders_count": 1,
-        "success_rate": "100.00",
-        "average_delivery_seconds": 540,
+        "publication_status": "withheld_pending_snapshot",
+        "label": "Reputación protegida",
     }
     assert not ({"risk_level", "trust_level", "business_failure_orders_count", "lost_disputes_count"} & set(data["business_reputation"]))
 
@@ -190,6 +190,18 @@ def test_owned_completed_order_rating_recalculates_public_reputation_once() -> N
     assert stored.rating_avg == Decimal("5.00")
     assert stored.ratings_count == 1
     assert stored.completed_orders_count == 1
+
+    business_owner = _login_as(client, 42013, "business_rating_owner", "business_owner")
+    stored.owner_user_id = business_owner["user"]["id"]
+    business_response = client.get("/api/v1/businesses/me", headers=_headers(business_owner, "business_me_after_rating"))
+    assert business_response.status_code == 200
+    business_reputation = business_response.json()["data"]["business"]["reputation"]
+    assert business_reputation == public_reputation_before
+    assert "rating_avg" not in business_reputation
+    assert "ratings_count" not in business_reputation
+    business_order = business_order_payload(order)
+    assert "rating" not in business_order
+    assert "stars" not in json.dumps(business_order).lower()
 
     detail_after = client.get(f"/api/v1/orders/{order.id}", headers=_headers(remitter, "detail_after"))
     assert detail_after.json()["data"]["order"]["rating"] == {
@@ -202,6 +214,11 @@ def test_owned_completed_order_rating_recalculates_public_reputation_once() -> N
 def test_admin_resolved_completed_order_requires_closed_dispute() -> None:
     client = _client()
     remitter, _, order = _seed_completed_order(client, telegram_id=42002, completion_reason="admin_resolved")
+
+    without_dispute = _post_rating(client, remitter, order.id, 4, "missing_dispute")
+    assert without_dispute.status_code == 409
+    assert without_dispute.json()["error"]["code"] == "RATING_NOT_ALLOWED"
+
     dispute = client.app.state.dispute_repository.create_dispute(
         order_id=order.id,
         opened_by_user_id=remitter["user"]["id"],
@@ -225,6 +242,38 @@ def test_admin_resolved_completed_order_requires_closed_dispute() -> None:
     assert allowed.status_code == 201, allowed.text
 
 
+@pytest.mark.parametrize("completion_reason", [None, "auto_completed", "legacy_completed"])
+def test_rating_rejects_completed_order_with_unapproved_completion_reason(completion_reason: str | None) -> None:
+    client = _client()
+    remitter, _, order = _seed_completed_order(
+        client,
+        telegram_id=42300 + len(completion_reason or "none"),
+        completion_reason=completion_reason,
+    )
+
+    detail = client.get(f"/api/v1/orders/{order.id}", headers=_headers(remitter, "invalid_reason_detail"))
+    response = _post_rating(client, remitter, order.id, 3, "invalid_reason_submit")
+
+    assert detail.status_code == 200
+    assert detail.json()["data"]["order"]["rating"]["can_rate"] is False
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "RATING_NOT_ALLOWED"
+    assert client.app.state.rating_repository.get_for_order(order.id) is None
+
+
+def test_automatic_completion_reason_can_be_rated() -> None:
+    client = _client()
+    remitter, _, order = _seed_completed_order(
+        client,
+        telegram_id=42320,
+        completion_reason="auto_completed_after_24h",
+    )
+
+    response = _post_rating(client, remitter, order.id, 4, "automatic_completion")
+
+    assert response.status_code == 201, response.text
+
+
 @pytest.mark.parametrize("status", ["waiting_payment", "payment_reported", "payment_confirmed", "delivered", "cancelled", "disputed"])
 def test_rating_rejects_orders_not_completed(status: str) -> None:
     client = _client()
@@ -237,18 +286,20 @@ def test_rating_rejects_orders_not_completed(status: str) -> None:
     assert response.json()["error"]["code"] == "RATING_NOT_ALLOWED"
 
 
-def test_foreign_business_and_admin_actors_cannot_create_rating() -> None:
+def test_foreign_business_admin_and_support_actors_cannot_create_rating() -> None:
     client = _client()
     owner, _, order = _seed_completed_order(client, telegram_id=42003)
     foreign = _login(client, 42004, "foreign")
     business = _login_as(client, 42005, "business", "business_owner")
     admin = _login_as(client, 42006, "admin", "admin")
+    support = _login_as(client, 42012, "support", "support")
 
     foreign_response = _post_rating(client, foreign, order.id, 5, "foreign")
     assert foreign_response.status_code == 404
     assert foreign_response.json()["error"]["code"] == "ORDER_NOT_FOUND"
     assert _post_rating(client, business, order.id, 5, "business").status_code == 403
     assert _post_rating(client, admin, order.id, 5, "admin").status_code == 403
+    assert _post_rating(client, support, order.id, 5, "support").status_code == 403
     assert _post_rating(client, owner, str(uuid4()), 5, "missing").status_code == 404
 
 
@@ -279,7 +330,12 @@ def test_rating_payload_forbids_comments_and_server_owned_fields() -> None:
     client = _client()
     remitter, business, order = _seed_completed_order(client, telegram_id=42007)
 
-    for extra in ({"comment": "texto"}, {"business_id": business.id}, {"rater_user_id": remitter["user"]["id"]}):
+    for extra in (
+        {"comment": "texto"},
+        {"rating_type": "business"},
+        {"business_id": business.id},
+        {"rater_user_id": remitter["user"]["id"]},
+    ):
         response = client.post(
             f"/api/v1/orders/{order.id}/rating",
             headers=_headers(remitter, f"extra_{next(iter(extra))}"),
@@ -340,6 +396,14 @@ def test_rating_audit_and_response_are_minimal_and_private() -> None:
     audit = next(event for event in client.app.state.audit_writer.events if event.event_type == "rating_created")
     assert set(audit.metadata_json or {}) == {"order_id", "business_id"}
     assert "stars" not in (audit.metadata_json or {})
+    assert client.app.state.chat_repository.messages == {}
+    assert not any(
+        "rating" in job.notification_type
+        for job in client.app.state.job_repository.notification_jobs.values()
+    )
+    assert not any("rating" in notification_type for notification_type in TELEGRAM_NOTIFICATION_TYPES)
+    assert "completed" not in BUSINESS_ORDER_ATTENTION_STATUSES
+    assert "completed" not in CLIENT_ORDER_ATTENTION_STATUSES
 
 
 def test_frontend_rating_is_backend_authoritative_and_has_own_action_state() -> None:
@@ -348,6 +412,8 @@ def test_frontend_rating_is_backend_authoritative_and_has_own_action_state() -> 
     actions = (ROOT / "apps" / "web" / "src" / "hooks" / "workspace" / "useClientActionState.ts").read_text(encoding="utf-8")
     model = (ROOT / "apps" / "web" / "src" / "hooks" / "workspace" / "useRemitterOrdersModel.ts").read_text(encoding="utf-8")
     screen = (ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientOrderScreens.tsx").read_text(encoding="utf-8")
+    chat_model = (ROOT / "apps" / "web" / "src" / "hooks" / "workspace" / "useClientChatDisputesModel.ts").read_text(encoding="utf-8")
+    chat_screen = (ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientOrderChatScreen.tsx").read_text(encoding="utf-8")
 
     assert "/api/v1/orders/${orderId}/rating" in api
     assert "can_rate" in types and "already_rated" in types and "stars" in types
@@ -355,6 +421,15 @@ def test_frontend_rating_is_backend_authoritative_and_has_own_action_state() -> 
     assert 'recordActionStarted("client_order_rating_submit"' in model
     assert "setSubmittingRatingOrderId(orderId)" in model
     assert "Calificar negocio" in screen
+    assert "rating?: OrderSummary[\"rating\"]" in chat_model
+    assert "rating: data.rating" in chat_model
+    assert "getOrder" in chat_model
+    assert "¿Cómo fue esta operación?" in chat_screen
+    assert "Calificaste" in chat_screen
+    assert "submitOrderRating" in chat_screen
+    assert 'setView("order-summary")' not in chat_screen
+    rating_submit_block = model.split("async function submitRating", 1)[1].split("async function prefetchMyOrders", 1)[0]
+    assert "setSelectedRatingStars(0)" not in rating_submit_block
     assert "calculateReputation" not in model
     assert "computeReputation" not in model
     assert "comment" not in api.lower()

@@ -12,6 +12,23 @@ from app.modules.orders.row_mappers import rating_from_row
 from app.shared.db.connection import pooled_connect
 
 
+RATING_COMPLETION_REASONS = frozenset(
+    {"manual_confirmed", "auto_completed_after_24h", "admin_resolved"}
+)
+
+
+def _completion_allows_rating(
+    *,
+    status: str,
+    completion_reason: str | None,
+    has_open_dispute: bool,
+    has_resolved_dispute: bool,
+) -> bool:
+    if status != "completed" or completion_reason not in RATING_COMPLETION_REASONS or has_open_dispute:
+        return False
+    return completion_reason != "admin_resolved" or has_resolved_dispute
+
+
 def _rating_average(stars: list[int]) -> Decimal | None:
     if not stars:
         return None
@@ -59,13 +76,19 @@ class InMemoryOrderRatingRepository:
             if rating is not None:
                 return {"can_rate": False, "already_rated": True, "stars": rating.stars}
             order = self._orders.get_by_id(order_id)
+            disputes = [item for item in self._disputes.disputes.values() if item.order_id == order_id]
+            business = self._businesses.get_business(order.business_id) if order else None
             can_rate = bool(
                 order
                 and order.remitter_user_id == rater_user_id
-                and order.status == "completed"
-                and self._disputes.get_open_for_order(order_id) is None
-                and (self._businesses.get_business(order.business_id) is not None)
-                and self._businesses.get_business(order.business_id).owner_user_id != rater_user_id
+                and _completion_allows_rating(
+                    status=order.status,
+                    completion_reason=order.completion_reason,
+                    has_open_dispute=any(item.status in {"open", "in_review"} for item in disputes),
+                    has_resolved_dispute=any(item.status == "resolved" for item in disputes),
+                )
+                and business is not None
+                and business.owner_user_id != rater_user_id
             )
             return {"can_rate": can_rate, "already_rated": False, "stars": None}
 
@@ -74,7 +97,13 @@ class InMemoryOrderRatingRepository:
             order = self._orders.get_by_id(order_id)
             if order is None or order.remitter_user_id != rater_user_id:
                 raise ApiError("ORDER_NOT_FOUND", status_code=404)
-            if order.status != "completed" or self._disputes.get_open_for_order(order.id) is not None:
+            disputes = [item for item in self._disputes.disputes.values() if item.order_id == order_id]
+            if not _completion_allows_rating(
+                status=order.status,
+                completion_reason=order.completion_reason,
+                has_open_dispute=any(item.status in {"open", "in_review"} for item in disputes),
+                has_resolved_dispute=any(item.status == "resolved" for item in disputes),
+            ):
                 raise ApiError("RATING_NOT_ALLOWED", status_code=409)
             business = self._businesses.get_business(order.business_id)
             if business is None or business.owner_user_id == rater_user_id:
@@ -154,11 +183,15 @@ class PostgresOrderRatingRepository:
                 return {"can_rate": False, "already_rated": True, "stars": rating.stars}
             row = conn.execute(
                 """
-                select o.status, o.remitter_user_id, b.owner_user_id,
+                select o.status, o.completion_reason, o.remitter_user_id, b.owner_user_id,
                        exists (
                            select 1 from disputes d
                            where d.order_id = o.id and d.status in ('open', 'in_review')
-                       ) as has_open_dispute
+                       ) as has_open_dispute,
+                       exists (
+                           select 1 from disputes d
+                           where d.order_id = o.id and d.status = 'resolved'
+                       ) as has_resolved_dispute
                 from orders o
                 join businesses b on b.id = o.business_id
                 where o.id = %s
@@ -169,8 +202,12 @@ class PostgresOrderRatingRepository:
             row
             and str(row["remitter_user_id"]) == rater_user_id
             and str(row["owner_user_id"]) != rater_user_id
-            and row["status"] == "completed"
-            and not row["has_open_dispute"]
+            and _completion_allows_rating(
+                status=row["status"],
+                completion_reason=row["completion_reason"],
+                has_open_dispute=bool(row["has_open_dispute"]),
+                has_resolved_dispute=bool(row["has_resolved_dispute"]),
+            )
         )
         return {"can_rate": can_rate, "already_rated": False, "stars": None}
 
@@ -186,7 +223,16 @@ class PostgresOrderRatingRepository:
                 "select 1 from disputes where order_id = %s and status in ('open', 'in_review') limit 1",
                 (order_id,),
             ).fetchone()
-            if order["status"] != "completed" or has_open_dispute:
+            has_resolved_dispute = conn.execute(
+                "select 1 from disputes where order_id = %s and status = 'resolved' limit 1",
+                (order_id,),
+            ).fetchone()
+            if not _completion_allows_rating(
+                status=order["status"],
+                completion_reason=order["completion_reason"],
+                has_open_dispute=bool(has_open_dispute),
+                has_resolved_dispute=bool(has_resolved_dispute),
+            ):
                 raise ApiError("RATING_NOT_ALLOWED", status_code=409)
             business = conn.execute(
                 "select * from businesses where id = %s for update",

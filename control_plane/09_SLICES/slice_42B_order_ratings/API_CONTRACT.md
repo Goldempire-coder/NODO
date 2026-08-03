@@ -19,6 +19,15 @@ Request:
 
 `stars` es entero estricto 1..5. No se aceptan comentarios ni campos extra.
 
+La orden debe estar `completed` con uno de estos motivos backend-authoritative:
+
+- `manual_confirmed`;
+- `auto_completed_after_24h`;
+- `admin_resolved`, solo si existe una disputa asociada ya resuelta y no queda
+  disputa `open|in_review`.
+
+Motivos ausentes, legacy o desconocidos devuelven `RATING_NOT_ALLOWED`.
+
 Response 201:
 
 ```json
@@ -32,21 +41,18 @@ Response 201:
       "created_at": "timestamp"
     },
     "business_reputation": {
-      "tier": "new",
-      "label": "Nuevo",
-      "rating_avg": "5.00",
-      "ratings_count": 1,
-      "completed_orders_count": 1,
-      "success_rate": "100.00",
-      "average_delivery_seconds": null
+      "publication_status": "withheld_pending_snapshot",
+      "label": "Reputación protegida"
     }
   },
   "request_id": "req_..."
 }
 ```
 
-El ejemplo devuelve las mismas 5 estrellas enviadas. La respuesta publica no
-incluye `risk_level`, `trust_level`, senales antifraude ni contadores internos.
+El ejemplo devuelve las mismas 5 estrellas enviadas solo al cliente que creo el
+rating. `business_reputation` es una proyeccion estable sin tier ni agregados
+dinamicos. La respuesta tampoco incluye `risk_level`, `trust_level`, senales
+antifraude ni contadores internos.
 
 Errores:
 
@@ -74,3 +80,16 @@ Agrega de forma compatible:
 
 `can_rate` y `already_rated` son calculados por backend. Si ya existe rating,
 `can_rate=false`, `already_rated=true` y `stars` contiene el entero guardado.
+Este bloque solo pertenece al detalle de la orden del cliente propietario; no
+se agrega a DTOs de orden del negocio.
+
+`confirm-received` conserva este bloque en su respuesta. La Mini App Cliente lo
+muestra como accion compacta dentro del chat completado y vuelve a consultarlo
+mediante este detalle cuando se reabre la conversacion.
+
+## Compatibilidad de orden marketplace
+
+`sort=trust` y `sort=speed` siguen aceptados por compatibilidad, pero hasta que
+exista snapshot publico durable son aliases de `sort=rate`. Ninguno usa
+agregados, tier, confianza o velocidad vivos. La regla completa permanece en
+`ADS_API.md`.

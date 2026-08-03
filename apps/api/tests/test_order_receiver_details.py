@@ -259,6 +259,11 @@ def test_confirm_received_completes_once_consumes_capacity_and_not_credit() -> N
     assert first.json()["data"] == replay.json()["data"]
     assert first.json()["data"]["order"]["status"] == "completed"
     assert first.json()["data"]["order"]["completion_reason"] == "manual_confirmed"
+    assert first.json()["data"]["rating"] == {
+        "can_rate": True,
+        "already_rated": False,
+        "stars": None,
+    }
     reservation = client.app.state.capacity_repository.get_reservation(order["id"])
     assert reservation.status == "consumed"
     assert client.app.state.ad_repository.get_wallet(business["id"]).consumed_credits == consumed_credits_before

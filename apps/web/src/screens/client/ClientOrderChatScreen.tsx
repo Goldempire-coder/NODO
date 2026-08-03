@@ -96,10 +96,14 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     confirmingOrderReceived,
     dismissChatAttachmentLink,
     refreshChat,
+    selectedRatingStars,
     sendChatMessage,
     sendingChatMessage,
+    setSelectedRatingStars,
+    submitOrderRating,
     submitPaymentReport,
     submittingPaymentReport,
+    submittingRatingOrderId,
     setChatBody,
     uploadPaymentEvidence,
     uploadingPaymentEvidence,
@@ -120,7 +124,13 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
   const chatIsTerminal = selectedChatOrder?.status === "cancelled" || selectedChatOrder?.status === "completed";
   const canReportPayment = chatCapabilities.can_report_payment && selectedChatOrder?.status === "waiting_payment";
   const canConfirmReceived = chatCapabilities.can_confirm_received && selectedChatOrder?.status === "delivered";
+  const completedRating = selectedChatOrder?.status === "completed" ? selectedChatOrder.rating : undefined;
+  const submittingRating = submittingRatingOrderId === selectedChatOrder?.id;
   const hasActionDock = canConfirmReceived || (canReportPayment && Boolean(chatOrderId));
+
+  useEffect(() => {
+    setSelectedRatingStars(completedRating?.stars || 0);
+  }, [completedRating?.already_rated, completedRating?.stars, selectedChatOrder?.id, setSelectedRatingStars]);
 
   useEffect(() => {
     if (!chatOrderId || model.view !== "order-chat") {
@@ -289,6 +299,40 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         ) : null}
         {paymentEvidence && canReportPayment ? (
           <small className="business-order-chat-attachment-ready">Comprobante listo para reportar.</small>
+        ) : null}
+        {completedRating?.already_rated && completedRating.stars ? (
+          <article className="business-order-chat-message business-order-chat-message--system business-order-chat-rating">
+            <span className="business-order-chat-message__sender">NODO</span>
+            <p>Calificaste {completedRating.stars} de 5</p>
+          </article>
+        ) : completedRating?.can_rate && selectedChatOrder ? (
+          <article className="business-order-chat-message business-order-chat-message--system business-order-chat-rating">
+            <span className="business-order-chat-message__sender">NODO</span>
+            <p>¿Cómo fue esta operación?</p>
+            <div className="business-order-chat-rating__stars" role="radiogroup" aria-label="Calificacion de la operacion">
+              {[1, 2, 3, 4, 5].map((stars) => (
+                <button
+                  key={stars}
+                  type="button"
+                  aria-label={`${stars} de 5 estrellas`}
+                  aria-pressed={selectedRatingStars === stars}
+                  className={selectedRatingStars >= stars ? "is-selected" : ""}
+                  disabled={submittingRating}
+                  onClick={() => setSelectedRatingStars(stars)}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <button
+              className="business-order-chat-rating__submit"
+              type="button"
+              disabled={submittingRating || selectedRatingStars < 1}
+              onClick={() => void submitOrderRating(selectedChatOrder.id, "order-chat")}
+            >
+              {submittingRating ? "Calificando..." : "Calificar"}
+            </button>
+          </article>
         ) : null}
         {chatIsTerminal ? (
           <Text className="auth-entry__session-meta business-order-chat-note">

@@ -6,9 +6,8 @@ import type { AdSummary } from "../../types/ads";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
 
 function businessReputationSummary(ad: AdSummary): string {
-  const rating = ad.business?.reputation?.rating_avg || ad.business?.rating_avg;
-  const completedOrders = ad.business?.reputation?.completed_orders_count ?? ad.business?.completed_orders_count ?? 0;
-  return `${rating ? `★ ${rating}` : "★ Verificado"} - ${completedOrders} órdenes`;
+  const reputation = ad.business?.reputation;
+  return reputation?.label || "Negocio verificado";
 }
 
 function businessAvailabilitySummary(ad: AdSummary): string {
@@ -47,8 +46,6 @@ function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
 
 export function ClientMarketplaceScreens({ model }: { model: RemitterScreensModel }) {
   const {
-    loadActiveMarketplace,
-    loadingMarketplace,
     notice,
     openingMarketplaceAdId,
     searchAds,
@@ -97,11 +94,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
           <div className="marketplace-toolbar">
             <Title level="3" className="business-shell__title">Negocios disponibles</Title>
-            <div className="sort-pills" aria-label="Ordenar negocios">
-              <button className={searchForm.sort === "trust" ? "is-active" : ""} type="button" onClick={() => setSearchForm((current) => ({ ...current, sort: "trust" }))}>Mejor confianza</button>
-              <button className={searchForm.sort === "rate" ? "is-active" : ""} type="button" onClick={() => setSearchForm((current) => ({ ...current, sort: "rate" }))}>Mejor tasa</button>
-              <button className={searchForm.sort === "speed" ? "is-active" : ""} type="button" onClick={() => setSearchForm((current) => ({ ...current, sort: "speed" }))}>Más rápido</button>
-            </div>
+            <Text className="auth-entry__session-meta">Ordenados por mejor tasa</Text>
           </div>
 
           <MarketplaceBusinessList model={model} />
@@ -120,16 +113,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               <Text className="exchange-card__eyebrow">Marketplace</Text>
               <Title level="3" className="business-shell__title">Negocios activos</Title>
             </div>
-            <div className="sort-pills" aria-label="Ordenar negocios">
-              {(["trust", "rate", "speed"] as const).map((sort) => (
-                <button key={sort} className={searchForm.sort === sort ? "is-active" : ""} type="button" onClick={() => {
-                  setSearchForm((current) => ({ ...current, sort }));
-                  void loadActiveMarketplace(sort);
-                }}>
-                  {loadingMarketplace && searchForm.sort === sort ? "Cargando..." : sort === "trust" ? "Mejor confianza" : sort === "rate" ? "Mejor tasa" : "Más rápido"}
-                </button>
-              ))}
-            </div>
+            <Text className="auth-entry__session-meta">Ordenados por mejor tasa</Text>
           </div>
 
           <div className="marketplace-list">

@@ -201,7 +201,7 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
             if self._ad_within_current_business_limits(ad=ad, business=businesses_by_id.get(ad.business_id))
             and self._ad_has_available_payment_method(ad)
         ]
-        ranked = self._rank(eligible_items, sort=sort, businesses_by_id=businesses_by_id)
+        ranked = self._rank(eligible_items, sort=sort)
         profile_mark(profile, "service:rank", stage_started)
         stage_started = time.perf_counter()
         response = {
@@ -252,20 +252,10 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
             "disclaimer": "Revisa monto, tasa y negocio antes de crear la orden. NODO organiza el proceso y guarda el respaldo de la operacion.",
         }
 
-    def _rank(self, items: list[AdRecord], *, sort: str | None, businesses_by_id: dict[str, BusinessRecord]) -> list[AdRecord]:
-        if sort == "rate":
-            return sorted(items, key=lambda ad: (ad.rate_bs_per_usd, ad.created_at), reverse=True)
-        if sort in {"trust", "speed"}:
-            return sorted(
-                items,
-                key=lambda ad: (
-                    businesses_by_id[ad.business_id].trust_level if ad.business_id in businesses_by_id else "new",
-                    businesses_by_id[ad.business_id].completed_orders_count if ad.business_id in businesses_by_id else 0,
-                    ad.rate_bs_per_usd,
-                ),
-                reverse=True,
-            )
-        return items
+    def _rank(self, items: list[AdRecord], *, sort: str | None) -> list[AdRecord]:
+        # Legacy trust/speed tokens remain accepted, but all public sorts use
+        # the same non-reputational order until a durable snapshot exists.
+        return sorted(items, key=lambda ad: (ad.rate_bs_per_usd, ad.created_at), reverse=True)
 
     def _ad_within_current_business_limits(self, *, ad: AdRecord, business: BusinessRecord | None) -> bool:
         if business is None:

@@ -32,7 +32,7 @@ export function useClientWorkspaceState(user: PublicUser) {
     amount_usd: "50.00",
     payment_method: "zelle",
     delivery_method: "pago_movil_ve",
-    sort: "trust"
+    sort: "rate"
   });
   const [searchResults, setSearchResults] = useState<AdSummary[]>([]);
   const [selectedAd, setSelectedAd] = useState<AdSummary | null>(null);

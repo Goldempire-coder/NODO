@@ -7,6 +7,7 @@ from app.modules.businesses.models import BusinessRecord
 
 
 ReputationTier = Literal["new", "active", "reliable", "elite"]
+PublicReputationStatus = Literal["withheld_pending_snapshot"]
 
 REPUTATION_TIER_LABELS: dict[ReputationTier, str] = {
     "new": "Nuevo",
@@ -17,6 +18,11 @@ REPUTATION_TIER_LABELS: dict[ReputationTier, str] = {
 
 
 class PublicBusinessReputation(TypedDict):
+    publication_status: PublicReputationStatus
+    label: str
+
+
+class AdminBusinessReputation(TypedDict):
     tier: ReputationTier
     label: str
     rating_avg: str | None
@@ -24,9 +30,6 @@ class PublicBusinessReputation(TypedDict):
     completed_orders_count: int
     success_rate: str | None
     average_delivery_seconds: int | None
-
-
-class AdminBusinessReputation(PublicBusinessReputation):
     business_failure_orders_count: int
     lost_disputes_count: int
     disputes_count: int
@@ -110,6 +113,18 @@ def _meets_tier(
 
 
 def public_reputation_payload(business: BusinessRecord) -> PublicBusinessReputation:
+    _stored_tier(business.reputation_tier)
+    return {
+        "publication_status": "withheld_pending_snapshot",
+        "label": "Reputación protegida",
+    }
+
+
+def own_reputation_payload(business: BusinessRecord) -> PublicBusinessReputation:
+    return public_reputation_payload(business)
+
+
+def admin_reputation_payload(business: BusinessRecord) -> AdminBusinessReputation:
     tier = _stored_tier(business.reputation_tier)
     return {
         "tier": tier,
@@ -119,16 +134,6 @@ def public_reputation_payload(business: BusinessRecord) -> PublicBusinessReputat
         "completed_orders_count": business.completed_orders_count,
         "success_rate": _decimal_text(business.success_rate),
         "average_delivery_seconds": business.average_delivery_seconds,
-    }
-
-
-def own_reputation_payload(business: BusinessRecord) -> PublicBusinessReputation:
-    return public_reputation_payload(business)
-
-
-def admin_reputation_payload(business: BusinessRecord) -> AdminBusinessReputation:
-    return {
-        **public_reputation_payload(business),
         "business_failure_orders_count": business.business_failure_orders_count,
         "lost_disputes_count": business.lost_disputes_count,
         "disputes_count": business.disputes_count,

@@ -49,16 +49,9 @@ No expone datos privados completos del negocio ni instrucciones completas de pag
       "label": "Online|Offline",
       "can_cover_requested_amount": true
     },
-    "rating_avg": "4.80|null",
-    "completed_orders_count": 12,
     "reputation": {
-      "tier": "new|active|reliable|elite",
-      "label": "Nuevo|Activo|Confiable|Elite",
-      "rating_avg": "4.80|null",
-      "ratings_count": 11,
-      "completed_orders_count": 12,
-      "success_rate": "96.50|null",
-      "average_delivery_seconds": 540
+      "publication_status": "withheld_pending_snapshot",
+      "label": "Reputación protegida"
     }
   },
   "payment_method": "zelle|usdt_trc20",
@@ -85,13 +78,15 @@ Reglas de privacidad del objeto publico:
   negocio este aprobado, activo y aceptando ordenes al momento del request.
 - `can_cover_requested_amount` solo confirma compatibilidad para el monto
   solicitado. Nunca expone capacidad declarada, reservada ni efectiva.
-- `rating_avg` y `completed_orders_count` en el nivel de `business` se conservan
-  como aliases publicos de compatibilidad para consumidores v1. Nuevos
-  consumidores deben usar `business.reputation`.
+- Tier, promedio, conteo, bandas y metricas recalculadas junto al rating no se
+  devuelven en el nivel de `business` ni dentro de `business.reputation`.
+- El backend conserva los agregados internamente. Hasta que exista snapshot
+  durable, la respuesta publica usa una etiqueta estable y no afirma que un job
+  reputacional corre.
 - Una restriccion o revision interna se representa como indisponibilidad segura;
   no se devuelve `under_review` al cliente.
-- El frontend presenta las metricas recibidas y no calcula tier, success rate ni
-  promedios.
+- El frontend presenta la proyeccion recibida y no calcula tier, success rate,
+  promedios, bandas ni conteos.
 
 ## Objeto de anuncio propio
 
@@ -173,15 +168,25 @@ Rules:
 - El filtro de capacidad ocurre en backend antes de cursor y `LIMIT`.
 - Sin `amount_usd`, el anuncio solo aparece si el negocio puede cubrir su
   minimo operativo.
-- Slice 42A no cambia el algoritmo de ranking. El token v1 `sort=trust`
-  conserva temporalmente la heuristica interna existente y no expone
-  `trust_level` en el DTO.
-- El ranking reputacional objetivo debe ser implementado y medido en un slice
-  posterior antes de sustituir esa heuristica:
+- Por compatibilidad v1 se aceptan `sort=trust` y `sort=speed`, pero mientras no
+  exista snapshot publico durable ambos son aliases de `sort=rate`.
+- `sort=null`, `sort=rate`, `sort=trust` y `sort=speed` usan el mismo orden
+  publico: `rate_bs_per_usd DESC`, `created_at DESC`.
+- Ningun orden publico puede usar, rankear ni desempatar con `rating_avg`,
+  `ratings_count`, `reputation_tier`, `trust_level`,
+  `completed_orders_count`, `success_rate`, `average_delivery_seconds` ni otra
+  metrica viva derivada de ratings, completions o disputas.
+- El cursor actual continua ligado a `created_at`. Un desempate compuesto por
+  `id` requiere un cambio compatible del cursor y queda fuera de este mini-fix.
+- El ranking reputacional objetivo requiere primero un snapshot publico durable
+  y medido. Queda prohibido ordenar con el tier o promedio interno vivo porque
+  el cambio de posicion permitiria atribuir una calificacion reciente.
+- Un slice posterior puede sustituir la heuristica solo usando valores del
+  snapshot publicado:
   1. compatibilidad exacta de monto/metodo
-  2. mayor `reputation_tier` calculado por backend
-  3. mejor `rating_avg`
-  4. mas `completed_orders_count`
+  2. mayor tier del snapshot publico
+  3. mejor promedio del snapshot publico cuando el contrato permita mostrarlo
+  4. mas ordenes completadas publicadas en ese snapshot
   5. menor riesgo aplicado solo como control backend
   6. mejor tasa
 - La mejor tasa no debe superar senales de riesgo.
