@@ -18,7 +18,7 @@ export function displayAdDate(value: string | null | undefined) {
 }
 
 export function paymentMethodDisplayName(methodType: string | null | undefined) {
-  return methodType === "usdt_trc20" ? "USDT TRC20" : "Zelle";
+  return methodType === "usdt_trc20" ? "USDT" : "Zelle";
 }
 
 export function paymentMethodLabel(ad: AdSummary, paymentMethods: BusinessPaymentMethod[]) {

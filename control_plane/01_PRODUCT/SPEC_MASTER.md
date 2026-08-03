@@ -100,7 +100,7 @@ NODO es una Telegram Mini App tipo directorio de negocios registrados.
 El sistema conecta:
 
 - Remitentes fuera de Venezuela que quieren vender USD.
-- Negocios registrados que reciben Zelle o USDT TRC20.
+- Negocios registrados que reciben Zelle o USDT.
 - Receptores en Venezuela que reciben bolÃ­vares por pago mÃ³vil.
 
 NODO NO es banco.  
@@ -132,7 +132,7 @@ El MVP incluye:
 - BÃºsqueda de anuncios por monto y mÃ©todo de pago.
 - MÃ©todos de pago del remitente:
   - Zelle
-  - USDT TRC20
+  - USDT
 - MÃ©todo de entrega al receptor:
   - Pago mÃ³vil en Venezuela
 - CÃ¡lculo automÃ¡tico de bolÃ­vares.
@@ -142,7 +142,7 @@ El MVP incluye:
 - Chat por orden.
 - Reporte de pago enviado.
 - Screenshot opcional para Zelle.
-- TxID/hash opcional para USDT TRC20 en negociacion P2P.
+- TxID/hash no se exige para USDT en negociacion P2P; si el negocio lo necesita, lo pide por chat.
 - ConfirmaciÃ³n de pago por negocio.
 - ConfirmaciÃ³n de recepciÃ³n por remitente.
 - Rating.
@@ -209,7 +209,7 @@ No puede:
 
 ### 2.2 Negocio
 
-Negocio/cambista verificado que recibe Zelle o USDT TRC20 y envÃ­a Bs por pago mÃ³vil al receptor.
+Negocio/cambista verificado que recibe Zelle o USDT y envÃ­a Bs por pago mÃ³vil al receptor.
 
 Puede:
 
@@ -414,7 +414,7 @@ Correcto:
 
 ```txt
 Anuncio A: Recibo Zelle -> envÃ­o pago mÃ³vil Bs
-Anuncio B: Recibo USDT TRC20 -> envÃ­o pago mÃ³vil Bs
+Anuncio B: Recibo USDT -> envÃ­o pago mÃ³vil Bs
 ```
 
 Incorrecto:
@@ -431,7 +431,7 @@ Cada anuncio debe tener:
 * MÃ©todo de pago:
 
   * Zelle
-  * USDT TRC20
+  * USDT
 * MÃ©todo de entrega:
 
   * Pago mÃ³vil
@@ -606,10 +606,10 @@ Para Zelle debe enviar:
 * NÃºmero de confirmaciÃ³n.
 * Screenshot obligatorio.
 
-Para USDT TRC20 debe enviar:
+Para USDT debe enviar:
 
-* Red: USDT TRC20.
-* TxID/hash opcional.
+* Debe confirmar por chat la red exacta con el negocio antes de enviar.
+* TxID/hash no requerido por NODO; el negocio puede pedirlo por chat si lo necesita.
 * Wallet origen opcional.
 * Screenshot opcional/recomendado.
 
@@ -887,12 +887,12 @@ Al revelar:
 * payment_data_revealed_by
 * audit_log
 
-### 10.2 USDT TRC20 del negocio
+### 10.2 USDT del negocio
 
 El negocio registra:
 
-* Wallet TRC20.
-* Red: TRC20.
+* Wallet USDT.
+* Red exacta a confirmar por chat entre cliente y negocio.
 * Estado verificado.
 * Activo/inactivo.
 
@@ -900,12 +900,12 @@ En orden:
 
 * Wallet enmascarada.
 * Advertencia de red.
-* ConfirmaciÃ³n de que el usuario entiende que debe enviar por TRC20.
+* ConfirmaciÃ³n de que el usuario entiende que debe confirmar la red exacta antes de enviar.
 
 Mensaje obligatorio:
 
 ```txt
-EnvÃ­a Ãºnicamente USDT TRC20. Si envÃ­as por otra red, el negocio podrÃ­a no recibir el pago.
+Antes de enviar USDT, confirma por chat la red exacta con el negocio. Si envÃ­as por una red distinta, el negocio podrÃ­a no recibir el pago.
 ```
 
 ---
@@ -1751,7 +1751,7 @@ El MVP se considera listo cuando:
 * Remitente puede entrar con Telegram y crear orden.
 * Negocio puede registrarse y ser aprobado.
 * Negocio puede publicar anuncio Zelle.
-* Negocio puede publicar anuncio USDT TRC20.
+* Negocio puede publicar anuncio USDT.
 * Remitente puede buscar por monto/mÃ©todo.
 * Remitente puede crear orden con pago mÃ³vil.
 * Sistema calcula Bs automÃ¡ticamente.
@@ -1898,7 +1898,7 @@ El MVP se considera listo cuando:
 Nombre: NODO
 Tagline: Directorio de negocios registrados.
 MVP: Telegram Mini App
-MÃ©todos: Zelle + USDT TRC20
+MÃ©todos: Zelle + USDT
 Entrega: pago mÃ³vil Venezuela
 Sin efectivo
 Sin ciudades

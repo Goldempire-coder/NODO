@@ -35,13 +35,14 @@ Revela instrucciones completas solo al remitente dueno de la orden.
 
 La Mini App puede invocar esta ruta desde el chat cuando
 `can_report_payment = true` para mostrar una burbuja compacta y copiable. Zelle
-solo queda habilitado despues de que el negocio comparte sus datos; USDT TRC20
-usa la wallet congelada al crear la orden. La respuesta completa no se copia a
+solo queda habilitado despues de que el negocio comparte sus datos; USDT usa la
+wallet congelada al crear la orden. La respuesta completa no se copia a
 mensajes generales, audit, telemetry ni notificaciones.
 
 La interfaz puede mostrar el metodo como `USDT`, pero antes del envio debe
-mostrar la red estructurada y autoritativa de la orden. El chat incluye una
-advertencia compacta para confirmar que esa red coincide con la wallet de origen.
+mostrar una advertencia compacta para que el cliente confirme por chat la red
+exacta con el negocio antes de enviar fondos. Si la orden trae `network`, puede
+mostrarse como ayuda, pero no reemplaza la confirmacion entre las partes.
 
 Precondiciones:
 
@@ -196,7 +197,7 @@ Precondiciones:
 - `payment_amount` debe coincidir exactamente con `orders.amount_usd`
 - para evidencia on-chain opcional, `network` y `tx_hash` se canonicalizan antes
   de persistir y el par canonico no puede pertenecer a otra orden
-- para USDT TRC20, el cliente puede marcar enviado sin `tx_hash`; si lo aporta,
+- para USDT, el cliente puede marcar enviado sin `tx_hash`; si lo aporta,
   debe tener 64 caracteres hexadecimales y el prefijo `0x` se acepta pero se
   remueve al persistir la forma canonica en minusculas
 - cuando se adjunta comprobante, `proof_file_id`, la identidad del reporte
@@ -251,7 +252,7 @@ Reglas:
   `proof_file_id.resource_id = pending_payment_report_id`
 - no guardar datos bancarios completos innecesarios
 
-### Payload USDT TRC20
+### Payload USDT
 
 Para `orders.payment_method_snapshot = usdt_trc20`:
 
@@ -265,8 +266,8 @@ Para `orders.payment_method_snapshot = usdt_trc20`:
 Reglas:
 
 - `tx_hash` opcional; no debe bloquear el boton compacto `USDT enviado`
-- si `tx_hash` se envia, `network = TRC20` es requerido y el hash debe cumplir
-  la forma canonica TRC20
+- `tx_hash` no se solicita en la UI; si un cliente legacy lo envia, se valida
+  como evidencia opcional y nunca sustituye la verificacion manual del negocio
 - `payment_amount` requerido
 - `proof_file_id` opcional; el negocio puede pedir comprobante dentro del chat
   si necesita mas contexto operativo

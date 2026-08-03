@@ -2,7 +2,7 @@
 
 NODO es una Telegram Mini App tipo directorio de negocios registrados.
 
-Conecta remitentes fuera de Venezuela con negocios registrados que reciben Zelle o USDT TRC20 y pagan bolivares por pago movil en Venezuela.
+Conecta remitentes fuera de Venezuela con negocios registrados que reciben Zelle o USDT y pagan bolivares por pago movil en Venezuela.
 
 NODO registra ordenes, evidencia, estados, chat, reputacion, auditoria, creditos publicitarios y reglas de riesgo.
 

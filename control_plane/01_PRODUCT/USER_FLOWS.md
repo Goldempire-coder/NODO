@@ -5,7 +5,7 @@
 1. Abre bot.
 2. Abre Mini App.
 3. Ingresa monto.
-4. Elige Zelle o USDT TRC20.
+4. Elige Zelle o USDT.
 5. Ve negocios.
 6. Selecciona negocio.
 7. Ingresa datos de receptor pago móvil.

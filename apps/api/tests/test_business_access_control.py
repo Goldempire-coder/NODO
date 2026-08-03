@@ -311,7 +311,7 @@ def test_business_owner_must_accept_terms_before_sensitive_preparation_actions()
     assert allowed.json()["data"]["payment_method"]["holder_name"] == "Owner Terms"
 
 
-def test_business_can_self_manage_usdt_trc20_method_and_publish_ad() -> None:
+def test_business_can_self_manage_usdt_method_and_publish_ad() -> None:
     client = _client()
     owner = _login(client, 14125, "owner_usdt_method")
     business = _create_approved_business(client, owner)
@@ -319,35 +319,39 @@ def test_business_can_self_manage_usdt_trc20_method_and_publish_ad() -> None:
     _link_business(client, admin, business, owner, key="link_usdt_method")
     client.app.state.ad_repository.grant_test_credits(business_id=business["id"], amount=2, created_by=owner["user"]["id"])
 
-    invalid_wallet = "T" + ("O" * 33)
+    invalid_wallet = "abc"
     invalid = client.post(
         "/api/v1/business/payment-methods",
-        headers={**_headers(owner, "create_invalid_usdt_trc20_method"), "Content-Type": "application/json"},
+        headers={**_headers(owner, "create_invalid_usdt_method"), "Content-Type": "application/json"},
         json={"method_type": "usdt_trc20", "account_value": invalid_wallet, "holder_name": "Wallet USDT Invalid"},
     )
     assert invalid.status_code == 400
     assert invalid.json()["error"]["code"] == "PAYMENT_METHOD_INVALID"
 
     ethereum_wallet = "0x" + ("a" * 40)
-    wrong_network = client.post(
+    evm_created = client.post(
         "/api/v1/business/payment-methods",
-        headers={**_headers(owner, "reject_ethereum_wallet_as_trc20"), "Content-Type": "application/json"},
+        headers={**_headers(owner, "create_evm_usdt_wallet"), "Content-Type": "application/json"},
         json={"method_type": "usdt_trc20", "account_value": ethereum_wallet, "holder_name": "Wallet Ethereum"},
     )
-    assert wrong_network.status_code == 400
-    assert wrong_network.json()["error"]["code"] == "PAYMENT_METHOD_INVALID"
+    assert evm_created.status_code == 201, evm_created.text
+    evm_method = evm_created.json()["data"]["payment_method"]
+    assert evm_method["receive_method"] == "usdt_trc20"
+    assert evm_method["receive_display"] == "USDT"
+    assert evm_method["network"] is None
+    assert evm_method["masked_account"].endswith("aaaa")
 
     wallet = VALID_TRON_TEST_WALLET
     created = client.post(
         "/api/v1/business/payment-methods",
-        headers={**_headers(owner, "create_usdt_trc20_method"), "Content-Type": "application/json"},
+        headers={**_headers(owner, "create_usdt_wallet_method"), "Content-Type": "application/json"},
         json={"method_type": "usdt_trc20", "account_value": wallet, "holder_name": "Wallet USDT Principal"},
     )
     assert created.status_code == 201, created.text
     method = created.json()["data"]["payment_method"]
     assert method["receive_method"] == "usdt_trc20"
-    assert method["receive_display"] == "USDT TRC20"
-    assert method["network"] == "TRC20"
+    assert method["receive_display"] == "USDT"
+    assert method["network"] is None
     assert method["masked_account"].endswith("YjU7")
     assert wallet not in created.text
 

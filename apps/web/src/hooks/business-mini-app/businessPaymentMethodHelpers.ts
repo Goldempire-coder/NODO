@@ -1,6 +1,6 @@
 import type { BusinessPaymentMethod, BusinessPaymentMethodFormState } from "../../types/business";
 
-const TRON_BASE58_ADDRESS = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
+const USDT_WALLET_ADDRESS = /^[A-Za-z0-9]{20,120}$/;
 
 export function activeBusinessPaymentMethods(methods: BusinessPaymentMethod[]) {
   return methods.filter((method) => method.is_available !== false);
@@ -11,7 +11,7 @@ export function emptyPaymentMethodForm(methodType: BusinessPaymentMethodFormStat
 }
 
 export function paymentMethodDisplay(methodType: BusinessPaymentMethodFormState["method_type"]) {
-  return methodType === "usdt_trc20" ? "USDT TRC20" : "Zelle";
+  return methodType === "usdt_trc20" ? "USDT" : "Zelle";
 }
 
 export function normalizePaymentMethodAccount(methodType: BusinessPaymentMethodFormState["method_type"], accountValue: string) {
@@ -33,10 +33,10 @@ export function paymentMethodInputError({
 }) {
   const normalizedAccount = normalizePaymentMethodAccount(methodType, accountValue);
   if (!editing && !normalizedAccount) {
-    return methodType === "usdt_trc20" ? "Escribe la wallet USDT en red TRC20." : "Escribe el Zelle.";
+    return methodType === "usdt_trc20" ? "Escribe la wallet USDT." : "Escribe el Zelle.";
   }
-  if (normalizedAccount && methodType === "usdt_trc20" && !TRON_BASE58_ADDRESS.test(normalizedAccount)) {
-    return "Esta direccion no es TRC20. Por ahora NODO solo admite wallets USDT en TRC20.";
+  if (normalizedAccount && methodType === "usdt_trc20" && !USDT_WALLET_ADDRESS.test(normalizedAccount)) {
+    return "Revisa la wallet USDT. Confirma la red exacta con el cliente por chat.";
   }
   if (normalizedAccount && methodType === "zelle" && normalizedAccount.length < 3) {
     return "Revisa el Zelle que escribiste.";
@@ -54,7 +54,7 @@ export function paymentMethodRequestError(
 ) {
   if (errorCode === "PAYMENT_METHOD_INVALID") {
     return methodType === "usdt_trc20"
-      ? "Esta direccion no es TRC20. Por ahora NODO solo admite wallets USDT en TRC20."
+      ? "Revisa la wallet USDT. Confirma la red exacta con el cliente por chat."
       : "Revisa el Zelle y el nombre del titular.";
   }
   if (errorCode === "PAYMENT_METHOD_LIMIT_REACHED") {

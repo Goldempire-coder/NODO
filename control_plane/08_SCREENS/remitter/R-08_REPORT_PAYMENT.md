@@ -6,7 +6,7 @@ slice: slice_05_payment_instructions_reports
 status: DRAFT_CONTROLLED
 
 purpose:
-Mark payment sent for an own `waiting_payment` order, with optional proof or optional USDT TRC20 transaction hash.
+Mark payment sent for an own `waiting_payment` order, with optional proof.
 
 route:
 /orders/:id/report
@@ -56,7 +56,7 @@ validation:
 - `order.status = waiting_payment`
 - order not expired
 - Zelle requires the locked payment amount; proof and sender fields are optional.
-- USDT TRC20 requires the locked payment amount; tx_hash is optional and, if sent, requires network = TRC20.
+- USDT requires the locked payment amount. The UI does not require a transaction hash; if the business needs extra evidence, it can ask for it in chat.
 
 permissions:
 own order waiting_payment

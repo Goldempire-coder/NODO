@@ -4,6 +4,7 @@ from typing import Any
 
 from app.core.errors import ApiError
 from app.modules.businesses.models import REQUIRED_DOCUMENT_TYPES
+from app.modules.businesses.payment_method_validation import normalize_payment_account, normalize_payment_holder, normalize_payment_network
 from app.modules.businesses.policy import require_business_owner
 from app.modules.businesses.presenters import business_payload, mask_account
 from app.modules.businesses.schemas import BusinessVerificationSubmitRequest
@@ -77,15 +78,21 @@ class LegacyBusinessSubmissionMixin:
             raise ApiError("BUSINESS_DOCUMENT_REQUIRED", status_code=400)
 
     def _add_submission_payment_method(self, *, business_id: str, method, user: UserRecord, request_id: str) -> None:  # type: ignore[no-untyped-def]
-        if method.method_type not in {"zelle", "usdt_trc20"} or (method.method_type == "usdt_trc20" and method.network != "trc20") or (method.method_type == "zelle" and method.network is not None):
+        if method.method_type not in {"zelle", "usdt_trc20"} or (method.method_type == "zelle" and method.network is not None):
+            raise ApiError("BUSINESS_VERIFICATION_REQUIRED", status_code=400)
+        try:
+            account_value = normalize_payment_account(method_type=method.method_type, account_value=method.account_value)
+            network = normalize_payment_network(method_type=method.method_type, network=method.network)
+            holder_name = normalize_payment_holder(method.holder_name)
+        except ApiError:
             raise ApiError("BUSINESS_VERIFICATION_REQUIRED", status_code=400)
         payment = self._repository.add_payment_method(  # type: ignore[attr-defined]
             business_id=business_id,
             method_type=method.method_type,
-            network=method.network,
-            account_value=method.account_value,
-            account_masked=mask_account(method.account_value),
-            holder_name=method.holder_name,
+            network=network,
+            account_value=account_value,
+            account_masked=mask_account(account_value),
+            holder_name=holder_name,
         )
         self._audit.write(  # type: ignore[attr-defined]
             event_type="payment_method_added",

@@ -23,7 +23,7 @@ Required regression coverage:
 - Zelle and USDT payment instructions render inside the chat with a local copy
   action; the USDT label is not shown as Zelle.
 - USDT wallet reveal remains participant-only and the report can be sent without
-  asking the client for a TRC20 transaction hash.
+  asking the client for a transaction hash.
 - Client and business initial chat loads return the latest bounded message
   window, including a newly shared Zelle after older history.
 - Business chat polling is visible-only, single-flight and preserves current

@@ -197,7 +197,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         {paymentReportMethod === "usdt_trc20" ? (
           <article className="business-order-chat-message business-order-chat-message--system">
             <span className="business-order-chat-message__sender">NODO</span>
-            <p>⚠️ Confirma con el negocio que la red indicada en los datos de pago coincide con la red de tu wallet antes de enviar USDT.</p>
+            <p>Confirma por chat la red exacta con el negocio antes de enviar USDT.</p>
           </article>
         ) : null}
         {chatMessages.length === 0 ? <Text className="business-order-chat-empty">Aun no hay mensajes en esta orden.</Text> : null}

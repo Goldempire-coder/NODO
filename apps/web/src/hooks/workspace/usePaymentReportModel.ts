@@ -260,12 +260,6 @@ export function usePaymentReportModel(
           : {
               payment_type: "usdt_trc20",
               payment_amount: lockedPaymentAmount,
-              ...(paymentReportForm.tx_hash
-                ? {
-                    tx_hash: paymentReportForm.tx_hash,
-                    network: "TRC20"
-                  }
-                : {}),
               proof_file_id: paymentEvidence?.id || undefined,
               pending_payment_report_id: pendingPaymentReportId || undefined
             },

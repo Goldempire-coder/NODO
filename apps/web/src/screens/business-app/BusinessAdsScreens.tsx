@@ -7,7 +7,7 @@ import { BusinessAdDetailPanel } from "./ads/BusinessAdDetailPanel";
 import { paymentMethodCanReceive } from "./ads/businessAdViewHelpers";
 
 function paymentMethodName(methodType: "zelle" | "usdt_trc20") {
-  return methodType === "usdt_trc20" ? "USDT TRC20" : "Zelle";
+  return methodType === "usdt_trc20" ? "USDT" : "Zelle";
 }
 
 function adRouteName(methodType: "zelle" | "usdt_trc20") {
@@ -23,9 +23,9 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
   const isSaving = savingAdId === "new";
   const selectedRouteName = adRouteName(adForm.payment_method);
   const selectedMethodName = paymentMethodName(adForm.payment_method);
-  const methodFieldLabel = adForm.payment_method === "usdt_trc20" ? "Wallet USDT TRC20 donde recibes" : "Zelle donde recibes";
+  const methodFieldLabel = adForm.payment_method === "usdt_trc20" ? "Wallet USDT donde recibes" : "Zelle donde recibes";
   const methodEmptyCopy = adForm.payment_method === "usdt_trc20"
-    ? "Agrega una wallet USDT TRC20 para publicar USDT -> Bs."
+    ? "Agrega una wallet USDT para publicar USDT -> Bs."
     : "Agrega un Zelle para publicar Zelle -> Bs.";
 
   return (
@@ -226,13 +226,13 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
     <div className="business-card">
       <Text className="business-card__label">Zelle / USDT</Text>
       <Title level="3" className="business-shell__title">Zelle y wallets USDT</Title>
-      <Text className="auth-entry__session-meta">Organiza tus Zelle y wallets USDT TRC20 antes de comprar creditos o publicar anuncios.</Text>
+      <Text className="auth-entry__session-meta">Organiza tus Zelle y wallets USDT antes de comprar creditos o publicar anuncios.</Text>
       <div className="business-shell__tabs business-shell__tabs--two">
         <Button mode={!editingPaymentMethodId && paymentMethodForm.method_type === "zelle" ? "filled" : "outline"} size="s" disabled={isSavingPaymentMethod} onClick={() => startPaymentMethodCreate("zelle")}>
           Zelle
         </Button>
         <Button mode={!editingPaymentMethodId && paymentMethodForm.method_type === "usdt_trc20" ? "filled" : "outline"} size="s" disabled={isSavingPaymentMethod} onClick={() => startPaymentMethodCreate("usdt_trc20")}>
-          USDT TRC20
+          USDT
         </Button>
         <span className="zelle-count-pill">
           {paymentMethods.length} guardado{paymentMethods.length === 1 ? "" : "s"}

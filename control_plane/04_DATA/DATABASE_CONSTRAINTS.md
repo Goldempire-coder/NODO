@@ -188,7 +188,7 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - `payment_reports.payment_type` CHECK IN (`zelle`, `usdt_trc20`).
 - `payment_reports.payment_amount > 0`.
 - Para Zelle: `payment_reference`, `payment_sender_name` y `proof_file_id` son opcionales en el flujo simplificado P2P.
-- Para USDT TRC20: `tx_hash` es opcional en el flujo simplificado P2P; si existe, `network = TRC20` y formato canonico son obligatorios.
+- Para USDT: `tx_hash` es opcional en el flujo simplificado P2P y no se solicita en la UI. Si existe por compatibilidad legacy, debe validarse como evidencia opcional.
 - Unique parcial: un `payment_reports.status = submitted` activo por `order_id`.
 - Unique parcial: `(reported_by_user_id, idempotency_key)` cuando `idempotency_key is not null`.
 - Debe existir `reported_by_user_id`, timestamp y metadata de archivo/comprobante cuando aplique.

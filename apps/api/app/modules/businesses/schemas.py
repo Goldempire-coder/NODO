@@ -33,12 +33,14 @@ class BusinessPaymentMethodInput(StrictRequestModel):
 
 class BusinessOwnPaymentMethodCreateRequest(StrictRequestModel):
     method_type: Literal["zelle", "usdt_trc20"] = "zelle"
+    network: str | None = Field(default=None, max_length=32)
     zelle_account: str | None = Field(default=None, min_length=3, max_length=180)
     account_value: str | None = Field(default=None, min_length=3, max_length=180)
     holder_name: str = Field(min_length=2, max_length=160)
 
 
 class BusinessOwnPaymentMethodUpdateRequest(StrictRequestModel):
+    network: str | None = Field(default=None, max_length=32)
     zelle_account: str | None = Field(default=None, min_length=3, max_length=180)
     account_value: str | None = Field(default=None, min_length=3, max_length=180)
     holder_name: str = Field(min_length=2, max_length=160)

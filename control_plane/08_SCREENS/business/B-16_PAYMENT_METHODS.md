@@ -6,10 +6,10 @@ slice: business_app
 status: DRAFT_CONTROLLED
 
 purpose:
-Manage Zelle and USDT TRC20 methods for the approved business.
+Manage Zelle and USDT methods for the approved business.
 
 scope note:
-The business can add, edit and delete its own Zelle and USDT TRC20 methods from the Mini App Negocio. Backend remains authoritative for approval status, ownership, PIN, idempotency and masking.
+The business can add, edit and delete its own Zelle and USDT methods from the Mini App Negocio. Backend remains authoritative for approval status, ownership, PIN, idempotency and masking. USDT is not limited to TRC20 in this screen; the exact network is confirmed by the parties in chat before funds are sent.
 
 route:
 /business/payment-methods

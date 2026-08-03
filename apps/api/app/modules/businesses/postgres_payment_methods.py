@@ -51,6 +51,7 @@ class PostgresBusinessPaymentMethodsMixin:
         self,
         payment_method_id: str,
         *,
+        network: str | None,
         account_value: str,
         account_masked: str,
         holder_name: str,
@@ -59,14 +60,15 @@ class PostgresBusinessPaymentMethodsMixin:
             row = conn.execute(
                 """
                 update business_payment_methods
-                   set account_value = %s,
+                   set network = %s,
+                       account_value = %s,
                        account_masked = %s,
                        holder_name = %s,
                        updated_at = now()
                  where id = %s
                 returning *
                 """,
-                (account_value, account_masked, holder_name, payment_method_id),
+                (network, account_value, account_masked, holder_name, payment_method_id),
             ).fetchone()
             conn.commit()
         if row is None:

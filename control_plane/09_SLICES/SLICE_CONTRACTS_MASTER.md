@@ -443,9 +443,10 @@ Reglas:
 - POST payment-report no consume creditos, no confirma negocio, no entrega y no completa orden.
 - Zelle requiere el monto bloqueado de la orden. El comprobante es opcional y
   el negocio puede solicitarlo dentro del chat.
-- USDT TRC20 requiere el monto bloqueado de la orden. El cliente puede marcar
-  enviado sin `tx_hash`; si lo aporta, `network = TRC20` y el hash canonico son
-  obligatorios.
+- USDT requiere el monto bloqueado de la orden. El cliente puede marcar enviado
+  sin `tx_hash`; si el negocio necesita hash o comprobante adicional, debe
+  pedirlo dentro del chat. El cliente debe confirmar por chat la red exacta
+  antes de enviar fondos.
 - Evidencia privada usa `file_assets`; no crear `payment_evidence_files` ni `storage_objects` en slice 05.
 
 Seguridad:

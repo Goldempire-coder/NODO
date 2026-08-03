@@ -42,6 +42,7 @@ class InMemoryBusinessPaymentMethodsMixin:
         self,
         payment_method_id: str,
         *,
+        network: str | None,
         account_value: str,
         account_masked: str,
         holder_name: str,
@@ -50,6 +51,7 @@ class InMemoryBusinessPaymentMethodsMixin:
             method = self.payment_methods.get(payment_method_id)  # type: ignore[attr-defined]
             if method is None:
                 return None
+            method.network = network
             method.account_value = account_value
             method.account_masked = account_masked
             method.holder_name = holder_name

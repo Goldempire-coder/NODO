@@ -58,7 +58,7 @@ payment method selector:
 - Visual selector, not free text.
 - Examples:
   - Recibo Zelle → Entrego Pago Móvil Bs.
-  - Recibo USDT TRC20 → Entrego Pago Móvil Bs.
+  - Recibo USDT → Entrego Pago Móvil Bs.
 - Shows receive method, delivery method, delivery currency, limits and masked account when available.
 - Empty state: "Aun no tienes metodos aprobados. Contacta a NODO para activar tus metodos de operacion."
 

@@ -57,7 +57,7 @@ Empty response:
 UI empty state:
 
 ```txt
-Aun no tienes metodos de cobro. Agrega Zelle o USDT TRC20 para publicar anuncios.
+Aun no tienes metodos de cobro. Agrega Zelle o USDT para publicar anuncios.
 ```
 
 Rules:
@@ -72,10 +72,13 @@ Rules:
 - `label` debe ser derivado por backend desde metodo recibido y metodo entregado.
 - Ejemplos de label:
   - `Recibo Zelle → Entrego Pago Móvil Bs.`
-  - `Recibo USDT TRC20 → Entrego Pago Móvil Bs.`
+  - `Recibo USDT → Entrego Pago Móvil Bs.`
 - Si el negocio no existe o no pertenece al actor, responder error seguro sin filtrar existencia ajena.
 - Si el negocio no esta aprobado/asociado, responder error seguro.
-- `POST /api/v1/business/payment-methods` permite al negocio agregar Zelle o USDT TRC20 propio con PIN desbloqueado e `Idempotency-Key`.
+- `POST /api/v1/business/payment-methods` permite al negocio agregar Zelle o USDT propio con PIN desbloqueado e `Idempotency-Key`.
+- Para USDT, `method_type` conserva el valor interno legacy `usdt_trc20`, pero la UI/API visible debe presentarlo como `USDT`.
+- Para USDT, `network` es opcional. Si no existe, cliente y negocio deben confirmar la red exacta dentro del chat antes de enviar fondos.
+- Para USDT, la wallet no se limita a TRC20; backend acepta wallets alfanumericas compactas y rechaza valores claramente incompletos.
 - `PATCH /api/v1/business/payment-methods/{id}` permite editar titular y cuenta/wallet propia con PIN desbloqueado e `Idempotency-Key`.
 - `DELETE /api/v1/business/payment-methods/{id}` desactiva el metodo propio con PIN desbloqueado e `Idempotency-Key`.
 - La aprobacion de negocio sigue siendo obligatoria y backend valida ownership; el frontend no aprueba metodos por si solo.

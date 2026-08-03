@@ -68,9 +68,10 @@ def test_usdt_copy_is_simple_but_the_order_network_remains_explicit() -> None:
 
     assert "USDT TRC20" not in marketplace
     assert 'return method === "usdt_trc20" ? "USDT" : "Zelle";' in client_chat
-    assert "Confirma con el negocio que la red indicada en los datos de pago coincide" in client_chat
+    assert "Confirma por chat la red exacta con el negocio antes de enviar USDT" in client_chat
     assert "currentPaymentInstructions.payment_instructions.network" in client_chat
-    assert "Por ahora NODO solo admite wallets USDT en TRC20." in payment_helpers
+    assert "Por ahora NODO solo admite wallets USDT en TRC20." not in payment_helpers
+    assert "Revisa la wallet USDT. Confirma la red exacta con el cliente por chat." in payment_helpers
     assert "margin-inline-start: 2px;" in globals_css
 
 

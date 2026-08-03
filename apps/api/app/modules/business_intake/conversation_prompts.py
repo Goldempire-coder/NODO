@@ -26,7 +26,7 @@ STEP_PROMPTS = {
     "awaiting_business_phone": "Escribe el telefono operativo del negocio.",
     "awaiting_operation": "Indica si el negocio compra USD, vende USD o ambas.",
     "awaiting_banks": "Indica los bancos con los que trabajas, separados por coma.",
-    "awaiting_methods": "Indica los metodos disponibles: Zelle, USDT TRC20 o ambos. NODO asigna de inicio 20 a 100 USD por operacion y 1000 USD diarios.",
+    "awaiting_methods": "Indica los metodos disponibles: Zelle, USDT o ambos. NODO asigna de inicio 20 a 100 USD por operacion y 1000 USD diarios.",
     "awaiting_min_amount": "NODO asigna automaticamente el rango inicial: 20 a 100 USD por operacion y 1000 USD diarios. Ahora comparte tus redes sociales obligatorias.",
     "awaiting_max_amount": "NODO asigna automaticamente el rango inicial: 20 a 100 USD por operacion y 1000 USD diarios. Ahora comparte tus redes sociales obligatorias.",
     "awaiting_schedule": "No necesitamos horario; el negocio decide cuando operar con el boton online/offline. Comparte tus redes sociales obligatorias.",

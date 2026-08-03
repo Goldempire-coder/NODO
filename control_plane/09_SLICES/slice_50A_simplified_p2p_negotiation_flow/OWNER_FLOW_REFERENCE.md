@@ -79,11 +79,12 @@ flowchart TD
    - writing that configured Zelle manually; or
    - using the compact action `Compartir datos de pago`.
 
-7. USDT TRC20 uses the wallet already configured by the business and frozen in
-   the order. The client sees it through the private payment-instructions
-   reveal, rendered with the same compact chat bubble and copy action as Zelle.
-   Reporting USDT does not require the client to provide the TRC20 transaction
-   hash; if provided, it remains optional evidence and must be canonical.
+7. USDT uses the wallet already configured by the business and frozen in the
+   order. The client sees it through the private payment-instructions reveal,
+   rendered with the same compact chat bubble and copy action as Zelle.
+   Reporting USDT does not require the client to provide a transaction hash.
+   The client must confirm the exact network with the business in chat before
+   sending funds.
 
 8. The client can cancel only before marking `Pago enviado`.
 

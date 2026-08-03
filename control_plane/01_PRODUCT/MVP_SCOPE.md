@@ -10,7 +10,7 @@ El MVP de NODO se construye como producto listo para uso masivo controlado, no c
 - Negocios registrados con revision manual completada.
 - Admin panel funcional completo.
 - Anuncios Zelle -> pago movil Venezuela.
-- Anuncios USDT TRC20 -> pago movil Venezuela.
+- Anuncios USDT -> pago movil Venezuela.
 - Ordenes persistentes con snapshot de tasa, limites e instrucciones.
 - Reporte de pago con evidencia.
 - Confirmacion de pago por negocio.
@@ -40,7 +40,7 @@ El MVP de NODO se construye como producto listo para uso masivo controlado, no c
 - Procesar pagos de remesas.
 - Garantizar entrega o solvencia.
 - Cash App / Venmo / Wise.
-- USDT redes distintas a TRC20.
+- Validacion automatica on-chain de USDT por red.
 - Wallet interna para clientes.
 - Smart contracts.
 - KYC automatico.

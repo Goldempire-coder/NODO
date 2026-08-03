@@ -251,8 +251,9 @@ de chat ni se duplica la wallet en respuestas generales.
 La Mini App Cliente presenta ambos metodos con la misma experiencia compacta:
 una burbuja dentro del chat con el dato autorizado, monto y accion `Copiar`.
 Copiar ocurre localmente y no agrega el valor a logs, audit, telemetry o
-notificaciones. El reporte USDT puede enviarse sin `tx_hash`; si el cliente lo
-aporta, se valida como evidencia TRC20 canonica.
+notificaciones. El reporte USDT se envia sin exigir `tx_hash`; si un cliente
+legacy lo aporta, se valida como evidencia opcional y no reemplaza la
+verificacion manual del negocio.
 - Telegram avisa que existe un mensaje nuevo, nunca copia su cuerpo.
 
 Errors:

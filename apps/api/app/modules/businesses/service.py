@@ -12,6 +12,7 @@ from app.modules.businesses.access_control import require_active_business_access
 from app.modules.businesses.admin_review_service import BusinessAdminReviewServiceMixin
 from app.modules.businesses.capacity_service import BusinessCapacityServiceMixin
 from app.modules.businesses.models import BusinessAccessLinkRecord, BusinessRecord, utc_now
+from app.modules.businesses.payment_method_validation import normalize_payment_account, normalize_payment_holder, normalize_payment_network
 from app.modules.businesses.pin_security import hash_pin, verify_pin
 from app.modules.businesses.presenters import business_payload, mask_account, payment_method_display
 from app.modules.businesses.schemas import BusinessAvailabilityUpdateRequest, BusinessOwnPaymentMethodCreateRequest, BusinessOwnPaymentMethodUpdateRequest, BusinessPinSetupRequest, BusinessPinVerifyRequest
@@ -22,7 +23,6 @@ from app.modules.users.models import UserRecord
 BUSINESS_PIN_UNLOCK_TTL_SECONDS = 900
 BUSINESS_PIN_MAX_FAILED_ATTEMPTS = 5
 BUSINESS_PIN_LOCK_SECONDS = 600
-TRON_BASE58_ALPHABET = set("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 
 
 class BusinessService(BusinessAccessLinkServiceMixin, BusinessAdminReviewServiceMixin, BusinessCapacityServiceMixin):
@@ -220,16 +220,10 @@ class BusinessService(BusinessAccessLinkServiceMixin, BusinessAdminReviewService
         return business
 
     def _normalize_payment_account(self, *, method_type: str, account_value: str | None) -> str:
-        raw_value = account_value or ""
-        if method_type == "usdt_trc20":
-            normalized = "".join(raw_value.strip().split())
-            if len(normalized) != 34 or not normalized.startswith("T") or any(char not in TRON_BASE58_ALPHABET for char in normalized):
-                raise ApiError("PAYMENT_METHOD_INVALID", status_code=400)
-            return normalized
-        normalized = " ".join(raw_value.strip().split())
-        if len(normalized) < 3:
-            raise ApiError("PAYMENT_METHOD_INVALID", status_code=400)
-        return normalized
+        return normalize_payment_account(method_type=method_type, account_value=account_value)
+
+    def _normalize_payment_network(self, *, method_type: str, network: str | None) -> str | None:
+        return normalize_payment_network(method_type=method_type, network=network)
 
     def _payment_duplicate_key(self, *, method_type: str, account_value: str) -> str:
         return account_value.casefold() if method_type == "zelle" else account_value
@@ -238,10 +232,9 @@ class BusinessService(BusinessAccessLinkServiceMixin, BusinessAdminReviewService
         method_type = payload.method_type
         raw_account = payload.account_value or payload.zelle_account
         account_value = self._normalize_payment_account(method_type=method_type, account_value=raw_account)
-        holder_name = " ".join(payload.holder_name.strip().split())
-        if len(holder_name) < 2:
-            raise ApiError("PAYMENT_METHOD_INVALID", status_code=400)
-        return method_type, account_value, "TRC20" if method_type == "usdt_trc20" else None, holder_name
+        network = self._normalize_payment_network(method_type=method_type, network=payload.network)
+        holder_name = normalize_payment_holder(payload.holder_name)
+        return method_type, account_value, network, holder_name
 
     def create_own_payment_method(
         self,
@@ -314,6 +307,7 @@ class BusinessService(BusinessAccessLinkServiceMixin, BusinessAdminReviewService
         if method is None or method.business_id != business.id or method.method_type not in {"zelle", "usdt_trc20"} or method.verified_status != "approved" or not method.active:
             raise ApiError("PAYMENT_METHOD_NOT_FOUND", status_code=404)
         account_value = method.account_value
+        network = self._normalize_payment_network(method_type=method.method_type, network=payload.network)
         raw_account = payload.account_value if payload.account_value is not None else payload.zelle_account
         if raw_account is not None:
             account_value = self._normalize_payment_account(method_type=method.method_type, account_value=raw_account)
@@ -334,6 +328,7 @@ class BusinessService(BusinessAccessLinkServiceMixin, BusinessAdminReviewService
         def compute() -> dict[str, Any]:
             updated = self._repository.update_payment_method(
                 payment_method_id,
+                network=network,
                 account_value=account_value,
                 account_masked=mask_account(account_value),
                 holder_name=holder_name,

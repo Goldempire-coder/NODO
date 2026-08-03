@@ -305,6 +305,45 @@ def test_submit_requires_all_required_documents_and_does_not_duplicate_pending_s
     assert duplicate.json()["error"]["code"] == "BUSINESS_ALREADY_SUBMITTED"
 
 
+def test_legacy_submit_accepts_usdt_wallet_without_forcing_trc20_network() -> None:
+    client = _client()
+    login = _login(client, 1181, "owner_usdt_submit")
+    business = _create_business(client, login, "create_usdt_submit")
+    file_ids = _upload_required_docs(client, login, business["id"])
+    wallet = "0x" + ("b" * 40)
+
+    submitted = client.post(
+        f"/api/v1/businesses/{business['id']}/submit-verification",
+        headers={**_headers(login, "submit_usdt_free_wallet"), "Content-Type": "application/json", "X-NODO-Test-Fixture": "business_create"},
+        json={
+            "submitted_data": {
+                "business_name": "Casa Cambio Centro",
+                "rif": "J-12345678-9",
+                "address": "Av Principal",
+                "phone": "+584121234567",
+                "country": "VE",
+                "document_file_ids": file_ids,
+                "payment_methods": [
+                    {
+                        "method_type": "usdt_trc20",
+                        "network": None,
+                        "account_value": wallet,
+                        "holder_name": "Wallet USDT Libre",
+                    }
+                ],
+            }
+        },
+    )
+
+    assert submitted.status_code == 200, submitted.text
+    methods = client.app.state.business_repository.list_payment_methods_for_business(business["id"])
+    assert len(methods) == 1
+    assert methods[0].method_type == "usdt_trc20"
+    assert methods[0].network is None
+    assert methods[0].account_value == wallet
+    assert wallet not in submitted.text
+
+
 def test_upload_rejects_invalid_mime_and_oversize_and_never_exposes_storage_path() -> None:
     client = _client()
     login = _login(client)

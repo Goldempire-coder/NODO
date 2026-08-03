@@ -177,7 +177,7 @@ Rules:
 - Solo negocio dueno.
 - Incluye `payment_report` submitted/accepted/rejected necesario para operar.
 - Incluye metadata publica de evidencia, nunca `storage_path`.
-- Puede mostrar `tx_hash` completo al negocio solo si es necesario para verificar USDT TRC20.
+- Puede mostrar `tx_hash` completo al negocio solo si existe evidencia legacy necesaria para verificar USDT.
 - Listados, audit y logs deben usar `tx_hash_masked`.
 - No expone `account_value` del negocio si no es necesario para operar.
 - Puede incluir timeline basico de `order_state_events`.

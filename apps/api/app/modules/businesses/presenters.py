@@ -40,7 +40,7 @@ def decimal_text(value: Decimal) -> str:
 
 
 def payment_method_display(method: BusinessPaymentMethodRecord, *, business: BusinessRecord) -> dict[str, str | bool | dict[str, str] | None]:
-    receive_display = "USDT TRC20" if method.method_type == "usdt_trc20" else "Zelle"
+    receive_display = "USDT" if method.method_type == "usdt_trc20" else "Zelle"
     delivery_display = "Pago Movil"
     delivery_currency = "Bs."
     return {

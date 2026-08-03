@@ -701,15 +701,15 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert "Anuncio abierto" in ad_detail
     assert "Consume el credito de esta publicacion" in ad_view_sources
     assert "Tasa" in ad_view_sources
-    assert "USDT TRC20" in ads_screen
+    assert "USDT TRC20" not in ads_screen
     assert "Zelle - Bs" in ads_screen
     assert "USDT - Bs" in ads_screen
-    assert "Wallet USDT TRC20 donde recibes" in ads_screen
+    assert "Wallet USDT donde recibes" in ads_screen
     assert "Zelle donde recibes" in ads_screen
     assert "routeMethods.map" in ads_screen
     assert "selectAdPaymentType" in ads_screen
     assert "selectAdPaymentType" in payment_methods_model
-    assert "Agrega una wallet USDT TRC20 para publicar USDT -> Bs." in ads_screen
+    assert "Agrega una wallet USDT para publicar USDT -> Bs." in ads_screen
     assert "Recibiras {previewAmount} USD y entregaras aprox. Bs." in ads_screen
     assert "Zelle y wallets USDT" in ads_screen
     assert "Si dejas Zelle o wallet vacio" in ads_screen
@@ -779,7 +779,8 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert "window.confirm" not in ad_detail
     assert "paymentMethodTelemetry" in payment_method_helpers
     assert "paymentMethodInputError" in payment_method_helpers
-    assert "Por ahora NODO solo admite wallets USDT en TRC20." in payment_method_helpers
+    assert "Por ahora NODO solo admite wallets USDT en TRC20." not in payment_method_helpers
+    assert "Revisa la wallet USDT. Confirma la red exacta con el cliente por chat." in payment_method_helpers
     assert "paymentMethodError" in payment_methods_model
     assert "paymentMethodError" in ads_screen
     assert 'disabled={isSavingPaymentMethod}' in ads_screen

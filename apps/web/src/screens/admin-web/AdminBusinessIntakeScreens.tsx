@@ -223,7 +223,7 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
             </label>
             <label>
               <span>Metodos</span>
-              <input disabled={!canManualEdit} value={draft.methods} onChange={(event) => updateDraft({ methods: event.target.value })} placeholder="Zelle, USDT TRC20" />
+              <input disabled={!canManualEdit} value={draft.methods} onChange={(event) => updateDraft({ methods: event.target.value })} placeholder="Zelle, USDT" />
             </label>
             <label>
               <span>Bancos</span>
