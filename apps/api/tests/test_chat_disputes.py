@@ -559,7 +559,7 @@ def test_slice_50a_business_share_zelle_is_owner_only_deduped_and_safe() -> None
     assert business["id"] in audit_text
 
 
-def test_usdt_wallet_is_available_to_order_client_without_public_leak() -> None:
+def test_usdt_wallet_requires_explicit_business_share_and_replay_is_deduped() -> None:
     client = _client()
     owner = _login(client, 7814, "payment_details_usdt_owner")
     business, method_id = _approved_business_with_method(
@@ -586,14 +586,38 @@ def test_usdt_wallet_is_available_to_order_client_without_public_leak() -> None:
         f"/api/v1/orders/{order['id']}/payment-instructions",
         headers=_bearer(remitter, "req_payment_details_usdt_reveal_before"),
     )
+    first_share = client.post(
+        f"/api/v1/orders/{order['id']}/share-payment-details",
+        headers=_headers(owner, "payment_details_usdt_share"),
+    )
+    replay_share = client.post(
+        f"/api/v1/orders/{order['id']}/share-payment-details",
+        headers=_headers(owner, "payment_details_usdt_share"),
+    )
+    chat_after = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_payment_details_usdt_after"),
+    )
+    reveal_after = client.get(
+        f"/api/v1/orders/{order['id']}/payment-instructions",
+        headers=_bearer(remitter, "req_payment_details_usdt_reveal_after"),
+    )
 
     assert chat.status_code == 200, chat.text
-    assert chat.json()["data"]["capabilities"]["can_report_payment"] is True
+    assert chat.json()["data"]["capabilities"]["can_report_payment"] is False
     assert chat.json()["data"]["capabilities"]["can_share_zelle"] is False
     assert "TFullWalletValue123456789" not in chat.text
-    assert reveal.status_code == 200, reveal.text
-    assert reveal.json()["data"]["payment_instructions"]["account_value"] == "TFullWalletValue123456789"
-    assert reveal.json()["data"]["payment_instructions"]["network"] == "TRC20"
+    assert reveal.status_code == 409, reveal.text
+    assert reveal.json()["error"]["code"] == "ORDER_PAYMENT_DETAILS_NOT_SHARED"
+    assert first_share.status_code == 201, first_share.text
+    assert replay_share.status_code == 201, replay_share.text
+    assert first_share.json()["data"]["message"]["id"] == replay_share.json()["data"]["message"]["id"]
+    assert "TFullWalletValue123456789" in first_share.json()["data"]["message"]["body"]
+    assert "Confirma con el negocio la red exacta antes de enviar." in first_share.json()["data"]["message"]["body"]
+    assert chat_after.json()["data"]["capabilities"]["can_report_payment"] is True
+    assert reveal_after.status_code == 200, reveal_after.text
+    assert reveal_after.json()["data"]["payment_instructions"]["account_value"] == "TFullWalletValue123456789"
+    assert reveal_after.json()["data"]["payment_instructions"]["network"] == "TRC20"
     audit_text = json.dumps(
         [event.__dict__ for event in client.app.state.audit_writer.events],
         default=str,

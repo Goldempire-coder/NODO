@@ -396,7 +396,7 @@ Response 200:
       "auto_complete_warning_23h_at": "timestamp",
       "auto_complete_at": "timestamp"
     },
-    "disclaimer": "Marcar entregado no completa la orden. El remitente puede confirmar recibido; el cierre automatico de respaldo requiere su slice operativo."
+    "disclaimer": "Marcar entregado no completa la orden. El remitente puede confirmar recibido; el cierre automatico de contingencia requiere su slice operativo."
   },
   "request_id": "req_..."
 }
@@ -407,10 +407,11 @@ Rules:
 - `Idempotency-Key` obligatorio.
 - Solo negocio dueno.
 - Requiere `orders.status = payment_confirmed`.
-- Pago Movil se coordina por chat entre participantes. El texto del chat no
-  cambia estado, monto ni tasa; solo este endpoint marca envio oficial.
-- El endpoint estructurado `PUT /api/v1/orders/{id}/receiver-details` puede
-  existir por compatibilidad, pero no es requisito para esta transicion.
+- Requiere datos estructurados creados mediante
+  `PUT /api/v1/orders/{id}/receiver-details` para la misma orden.
+- Pago Movil se coordina mediante la burbuja estructurada del chat. El texto
+  libre no satisface el requisito ni cambia estado, monto o tasa; solo este
+  endpoint marca envio oficial.
 - No se aceptan datos de receptor desde metadata libre, logs, telemetry o un
   payload enviado por el negocio para cambiar la orden.
 - Cambia `orders.status = delivered`.
@@ -427,6 +428,8 @@ Rules:
 - Mantiene la reserva de capacidad; completion la consume.
 
 Errores:
+
+- `ORDER_RECEIVER_DETAILS_REQUIRED`
 
 - `UNAUTHENTICATED`
 - `FORBIDDEN`

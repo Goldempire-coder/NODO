@@ -79,7 +79,7 @@ button and the absence of a file does not disable `Zelle enviado`.
 Sensitive actions keep explicit labels:
 
 - Client: `Zelle enviado` and `Recibi el pago`.
-- Business: `Compartir datos Zelle`, `Confirmar Zelle recibido` and
+- Business: `Compartir datos de pago`/`Compartir wallet`, `Confirmar pago recibido` and
   `Pago Movil enviado`.
 
 After a successful action, its chip disappears when the backend capability no

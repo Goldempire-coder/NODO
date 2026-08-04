@@ -1,10 +1,31 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Text } from "@telegram-apps/telegram-ui";
 import { PaperclipIcon, SendIcon } from "../../components/nodo/ChatComposerIcons";
 import { humanizeSenderRole } from "../../hooks/business-mini-app/helpers";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 
 const BUSINESS_ORDER_CHAT_REFRESH_MS = 5000;
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    if (!document.execCommand("copy")) {
+      throw new Error("CLIPBOARD_COPY_FAILED");
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
 
 function chatSenderLabel(senderRole: string): string {
   if (senderRole === "business_owner") {
@@ -86,6 +107,8 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
   } = model;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [copiedReceiverField, setCopiedReceiverField] = useState<string | null>(null);
+  const [receiverCopyFailed, setReceiverCopyFailed] = useState(false);
   const canSend = chatCapabilities.can_send_message && !sendingChatMessage && !uploadingChatAttachment;
   const canSubmitMessage = canSend && (chatBody.trim().length > 0 || chatAttachments.length > 0);
   const detailOrder = model.businessOrderDetail?.order;
@@ -95,10 +118,22 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
       ? detailOrder
       : null;
   const chatIsTerminal = currentOrder?.status === "cancelled" || currentOrder?.status === "completed";
-  const canSharePaymentDetails = chatCapabilities.can_share_zelle && currentOrder?.status === "waiting_payment";
+  const canSharePaymentDetails = chatCapabilities.can_share_payment_details && currentOrder?.status === "waiting_payment";
   const canConfirmPayment = chatCapabilities.can_confirm_payment && currentOrder?.status === "payment_reported";
   const canMarkDelivered = chatCapabilities.can_mark_delivered && currentOrder?.status === "payment_confirmed";
   const hasActionDock = canSharePaymentDetails || canConfirmPayment || canMarkDelivered;
+
+  const copyReceiverDetail = async (field: string, value: string) => {
+    setReceiverCopyFailed(false);
+    try {
+      await copyText(value);
+      setCopiedReceiverField(field);
+      window.setTimeout(() => setCopiedReceiverField(null), 1600);
+    } catch {
+      setCopiedReceiverField(null);
+      setReceiverCopyFailed(true);
+    }
+  };
 
   useEffect(() => {
     if (!chatOrderId || model.view !== "business-chat") {
@@ -176,7 +211,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
 
         {currentOrder?.status === "payment_confirmed" && !chatCapabilities.receiver_details_shared ? (
           <Text className="auth-entry__session-meta business-order-chat-note">
-            El cliente escribe el Pago Movil por chat. Cuando hayas enviado, toca Pago Movil enviado.
+            Pago Movil pendiente. Espera a que el cliente comparta sus datos.
           </Text>
         ) : null}
 
@@ -184,7 +219,33 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
           <article className="business-order-chat-message">
             <span className="business-order-chat-message__sender">Pago Movil compartido</span>
             {receiverDetails ? (
-              <p>{receiverDetails.bank} / {receiverDetails.phone} / {receiverDetails.document} / {receiverDetails.holder}</p>
+              <div className="business-order-chat-receiver-copy">
+                <p>{receiverDetails.bank}</p>
+                <p>{receiverDetails.phone}</p>
+                <p>{receiverDetails.document}</p>
+                <p>{receiverDetails.holder}</p>
+                <div className="business-order-chat-receiver-copy__actions">
+                  <button type="button" onClick={() => void copyReceiverDetail("telefono", receiverDetails.phone)}>
+                    {copiedReceiverField === "telefono" ? "Copiado" : "Copiar telefono"}
+                  </button>
+                  <button type="button" onClick={() => void copyReceiverDetail("cedula", receiverDetails.document)}>
+                    {copiedReceiverField === "cedula" ? "Copiado" : "Copiar cedula"}
+                  </button>
+                  <button type="button" onClick={() => void copyReceiverDetail("banco", receiverDetails.bank)}>
+                    {copiedReceiverField === "banco" ? "Copiado" : "Copiar banco"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyReceiverDetail(
+                      "todo",
+                      `${receiverDetails.bank}\n${receiverDetails.phone}\n${receiverDetails.document}\n${receiverDetails.holder}`
+                    )}
+                  >
+                    {copiedReceiverField === "todo" ? "Copiado" : "Copiar todo"}
+                  </button>
+                </div>
+                {receiverCopyFailed ? <small>No pudimos copiar. Manten presionado el dato.</small> : null}
+              </div>
             ) : (
               <p>Datos disponibles para esta orden.</p>
             )}
@@ -229,7 +290,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
 
         {chatIsTerminal ? (
           <Text className="auth-entry__session-meta business-order-chat-note">
-            Esta negociacion esta cerrada. El historial queda disponible como respaldo.
+            Esta negociación está cerrada. El historial queda disponible como registro de la conversación.
           </Text>
         ) : null}
 
@@ -246,7 +307,9 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
         <div className="business-order-chat-action-dock" aria-label="Acciones de la orden">
           {canSharePaymentDetails ? (
             <button className="business-order-chat-payment-action" type="button" disabled={sharingPaymentDetails} onClick={() => void shareConfiguredPaymentDetails()}>
-              {sharingPaymentDetails ? "Compartiendo..." : "Compartir datos de pago"}
+              {sharingPaymentDetails
+                ? "Compartiendo..."
+                : currentOrder?.payment_method_snapshot === "usdt_trc20" ? "Compartir wallet" : "Compartir datos de pago"}
             </button>
           ) : null}
           {canConfirmPayment ? (

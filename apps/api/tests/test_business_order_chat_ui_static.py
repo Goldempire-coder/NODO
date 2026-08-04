@@ -205,7 +205,9 @@ def test_order_chat_terminal_state_keeps_history_without_composer_or_dispute_cop
     for source in [business_chat, client_chat]:
         assert 'status === "cancelled"' in source
         assert 'status === "completed"' in source
-        assert "Esta negociacion esta cerrada." in source
+        assert "Esta negociación está cerrada." in source
+        assert "registro de la conversación" in source
+        assert "respaldo" not in source.lower()
         assert "!chatIsTerminal ? (" in source
         assert "business-order-chat-composer" in source
 

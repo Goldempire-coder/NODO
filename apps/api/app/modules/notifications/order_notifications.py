@@ -7,6 +7,10 @@ from app.core.config import Settings
 from app.core.logging import get_logger
 from app.modules.jobs.models import mask_metadata
 from app.modules.notifications.notification_types import ORDER_NOTIFICATION_TYPES
+from app.modules.notifications.order_notification_jobs import (
+    OrderCreatedBusinessNotificationPlan,
+    build_order_created_business_job,
+)
 from app.modules.orders.models import OrderRecord
 
 logger = get_logger(__name__)
@@ -51,16 +55,31 @@ class OrderNotificationService:
         if business is None:
             self._log_enqueue_skipped("order_created_business", order, "BUSINESS_NOT_FOUND", request_id)
             return
-        self._enqueue(
-            notification_type="order_created_business",
+        fields = build_order_created_business_job(
             order=order,
+            plan=self.order_created_business_plan(
+                business=business,
+                request_id=request_id,
+                correlation_id=correlation_id,
+                operation_id=operation_id,
+            ),
+        )
+        self._enqueue_fields(fields=fields, order=order, request_id=request_id)
+
+    def order_created_business_plan(
+        self,
+        *,
+        business,
+        request_id: str,
+        correlation_id: str | None = None,
+        operation_id: str | None = None,
+    ) -> OrderCreatedBusinessNotificationPlan:  # type: ignore[no-untyped-def]
+        return OrderCreatedBusinessNotificationPlan(
             recipient_user_id=business.owner_user_id,
-            target_surface="business_mini_app",
-            text=self._business_order_created_text(order),
-            action_url=self._business_order_chat_url(order.id),
+            web_app_base_url=self._settings.telegram_web_app_url,
             request_id=request_id,
-            correlation_id=correlation_id,
-            operation_id=operation_id,
+            correlation_id=correlation_id or self._correlation_id,
+            operation_id=operation_id or self._operation_id,
         )
 
     def payment_reported_business(self, *, order: OrderRecord, request_id: str, correlation_id: str | None = None, operation_id: str | None = None) -> None:
@@ -141,7 +160,7 @@ class OrderNotificationService:
             order=order,
             recipient_user_id=order.remitter_user_id,
             target_surface="client_mini_app",
-            text=f"Pago confirmado en la orden {order.public_order_code}. Comparte los datos de Pago Movil desde la orden para continuar.",
+            text=f"La orden {order.public_order_code} fue actualizada. Abre NODO para continuar.",
             action_url=self._client_order_url(order.id),
             request_id=request_id,
             correlation_id=correlation_id,
@@ -168,7 +187,7 @@ class OrderNotificationService:
             recipient_user_id=order.remitter_user_id,
             target_surface="client_mini_app",
             text=(
-                f"El negocio marco el pago movil como enviado en la orden {order.public_order_code}. "
+                f"La orden {order.public_order_code} fue actualizada. "
                 "Confirma la recepcion desde NODO o abre una disputa si corresponde."
             ),
             action_url=self._client_order_url(order.id),
@@ -199,7 +218,7 @@ class OrderNotificationService:
             order=order,
             recipient_user_id=business.owner_user_id,
             target_surface="business_mini_app",
-            text=f"El cliente compartio los datos de Pago Movil para la orden {order.public_order_code}. Abre la orden para continuar.",
+            text=f"La orden {order.public_order_code} fue actualizada. Abre NODO para continuar.",
             action_url=self._business_order_url(order.id),
             request_id=request_id,
             correlation_id=correlation_id,
@@ -306,18 +325,33 @@ class OrderNotificationService:
                 ),
             }
         )
+        self._enqueue_fields(
+            fields={
+                "notification_type": notification_type,
+                "recipient_user_id": recipient_user_id,
+                "recipient_role": recipient_role,
+                "order_id": order.id,
+                "business_id": order.business_id,
+                "dispute_id": dispute_id,
+                "scheduled_for": _now(),
+                "dedupe_key": dedupe_key,
+                "metadata_json": metadata,
+            },
+            order=order,
+            request_id=request_id,
+        )
+
+    def _enqueue_fields(
+        self,
+        *,
+        fields: dict[str, Any],
+        order: OrderRecord,
+        request_id: str,
+    ) -> None:
+        notification_type = str(fields["notification_type"])
+        logical_recipient = fields.get("recipient_user_id") or fields.get("recipient_role")
         try:
-            notification, created = self._jobs.enqueue_notification(
-                notification_type=notification_type,
-                recipient_user_id=recipient_user_id,
-                recipient_role=recipient_role,
-                order_id=order.id,
-                business_id=order.business_id,
-                dispute_id=dispute_id,
-                scheduled_for=_now(),
-                dedupe_key=dedupe_key,
-                metadata_json=metadata,
-            )
+            notification, created = self._jobs.enqueue_notification(**fields)
         except Exception as exc:
             logger.warning(
                 "notification_job_enqueue_failed",
@@ -373,6 +407,9 @@ class OrderNotificationService:
 
 
 class NoopOrderNotificationService:
+    def order_created_business_plan(self, **_: Any) -> None:
+        return None
+
     def order_created_business(self, **_: Any) -> None:
         return
 

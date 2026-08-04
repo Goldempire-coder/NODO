@@ -109,14 +109,22 @@ class OrderCreateFlow:
                 request_id=request_id,
                 idempotency_key=idempotency_key,
             )
+            notification_plan = None
+            if getattr(self._repository, "creates_order_created_notification_on_create_order", False):
+                notification_plan = self._notifications.order_created_business_plan(
+                    business=business,
+                    request_id=request_id,
+                )
             order = self._persist_create_order_plan(
                 ad=ad,
                 business=business,
                 plan=plan,
                 profile=profile,
+                notification_plan=notification_plan,
             )
             self._write_created_order_audit(plan=plan, order=order, profile=profile)
-            self._notifications.order_created_business(order=order, request_id=request_id)
+            if notification_plan is None:
+                self._notifications.order_created_business(order=order, request_id=request_id)
             stage_started = time.perf_counter()
             response = {"order": public_order_payload(order), "disclaimer": ORDER_DISCLAIMER}
             profile_mark(profile, "service:public_order_payload", stage_started)
@@ -282,7 +290,7 @@ class OrderCreateFlow:
         profile_mark(profile, "service:get_payment_method", stage_started)
         return payment
 
-    def _persist_create_order_plan(self, *, ad: AdRecord, business: BusinessRecord, plan, profile: list[dict[str, Any]] | None):  # type: ignore[no-untyped-def]
+    def _persist_create_order_plan(self, *, ad: AdRecord, business: BusinessRecord, plan, profile: list[dict[str, Any]] | None, notification_plan=None):  # type: ignore[no-untyped-def]
         stage_started = time.perf_counter()
         create_order_fields = dict(plan.create_order_fields)
         create_order_fields["capacity_reservation"] = {
@@ -294,6 +302,8 @@ class OrderCreateFlow:
             create_order_fields["initial_state_event"] = plan.initial_state_event
         if getattr(self._repository, "creates_audit_events_on_create_order", False):
             create_order_fields["audit_events"] = plan.audit_events
+        if notification_plan is not None:
+            create_order_fields["order_created_notification_plan"] = notification_plan
         order = self._repository.create_order(**create_order_fields)
         profile_mark(profile, "transaction:create_order_and_move_ad", stage_started)
         if not getattr(self._repository, "moves_ad_on_create_order", False):

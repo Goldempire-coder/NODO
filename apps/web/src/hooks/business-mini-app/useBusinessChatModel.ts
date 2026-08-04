@@ -6,7 +6,7 @@ import {
   listOrderMessages,
   openOrderMessageAttachment,
   sendOrderMessage,
-  shareConfiguredZelle as shareConfiguredPaymentDetailsRequest,
+  shareConfiguredPaymentDetails as shareConfiguredPaymentDetailsRequest,
   uploadOrderMessageAttachment
 } from "../../api/chat";
 import type { AuthenticatedRequest } from "../../api/client";
@@ -74,6 +74,7 @@ export function useBusinessChatModel({
     can_send_message: false,
     can_open_dispute: false,
     can_share_zelle: false,
+    can_share_payment_details: false,
     payment_details_shared: false,
     can_report_payment: false,
     receiver_details_shared: false,
@@ -128,6 +129,7 @@ export function useBusinessChatModel({
         can_send_message: false,
         can_open_dispute: false,
         can_share_zelle: false,
+        can_share_payment_details: false,
         payment_details_shared: false,
         can_report_payment: false,
         receiver_details_shared: false,
@@ -250,7 +252,7 @@ export function useBusinessChatModel({
   }, [request, setNotice]);
 
   const shareConfiguredPaymentDetails = useCallback(async () => {
-    if (!chatOrderId || sharingPaymentDetailsRef.current || !chatCapabilities.can_share_zelle) {
+    if (!chatOrderId || sharingPaymentDetailsRef.current || !chatCapabilities.can_share_payment_details) {
       return;
     }
     sharingPaymentDetailsRef.current = true;
@@ -272,7 +274,7 @@ export function useBusinessChatModel({
       setSharingPaymentDetails(false);
     }
   }, [
-    chatCapabilities.can_share_zelle,
+    chatCapabilities.can_share_payment_details,
     chatOrderId,
     clearIdempotencyKey,
     getIdempotencyKey,

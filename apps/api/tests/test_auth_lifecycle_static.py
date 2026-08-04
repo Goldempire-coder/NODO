@@ -383,7 +383,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert 'request<SurfaceAttentionSummary>("/api/v1/notifications/attention-summary"' in _read(
         "apps/web/src/api/notifications.ts"
     )
-    assert "ATTENTION_REFRESH_INTERVAL_MS = 30_000" in attention_model
+    assert "ATTENTION_REFRESH_INTERVAL_MS = 15_000" in attention_model
     assert 'document.visibilityState !== "visible"' in attention_model
     assert "refreshInFlightRef.current" in attention_model
     assert "window.setInterval" not in business_model

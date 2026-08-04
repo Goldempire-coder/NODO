@@ -46,6 +46,7 @@ export function useClientWorkspaceState(user: PublicUser) {
     can_send_message: false,
     can_open_dispute: false,
     can_share_zelle: false,
+    can_share_payment_details: false,
     payment_details_shared: false,
     can_report_payment: false,
     receiver_details_shared: false,

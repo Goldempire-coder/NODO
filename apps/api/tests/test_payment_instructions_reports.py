@@ -191,10 +191,10 @@ def _seed_order_context(
         ad["id"],
         key=f"order_{method}_{owner_id}_{remitter_id}",
     )
-    if method == "zelle" and share_zelle:
+    if share_zelle:
         shared = client.post(
-            f"/api/v1/orders/{order['id']}/share-zelle",
-            headers=_headers(owner, f"share_zelle_{owner_id}_{remitter_id}"),
+            f"/api/v1/orders/{order['id']}/share-payment-details",
+            headers=_headers(owner, f"share_payment_details_{owner_id}_{remitter_id}"),
         )
         assert shared.status_code == 201, shared.text
     return owner, business, ad, remitter, order
@@ -528,6 +528,38 @@ def test_report_usdt_allows_client_to_mark_sent_without_tx_hash() -> None:
     stored = client.app.state.order_repository.get_by_id(order["id"])
     assert stored.status == "payment_reported"
     assert stored.paid_reported_at is not None
+
+
+def test_report_usdt_is_blocked_until_business_shares_wallet() -> None:
+    client = _client()
+    owner, _, _, remitter, order = _seed_order_context(
+        client,
+        method="usdt_trc20",
+        owner_id=643,
+        remitter_id=644,
+        share_zelle=False,
+    )
+    payload = {"payment_type": "usdt_trc20", "payment_amount": "50.00"}
+
+    before = client.post(
+        f"/api/v1/orders/{order['id']}/payment-report",
+        headers={**_headers(remitter, "usdt_before_share"), "Content-Type": "application/json"},
+        json=payload,
+    )
+    shared = client.post(
+        f"/api/v1/orders/{order['id']}/share-payment-details",
+        headers=_headers(owner, "usdt_share_wallet"),
+    )
+    after = client.post(
+        f"/api/v1/orders/{order['id']}/payment-report",
+        headers={**_headers(remitter, "usdt_after_share"), "Content-Type": "application/json"},
+        json=payload,
+    )
+
+    assert before.status_code == 409, before.text
+    assert before.json()["error"]["code"] == "ORDER_PAYMENT_DETAILS_NOT_SHARED"
+    assert shared.status_code == 201, shared.text
+    assert after.status_code == 201, after.text
 
 
 def test_zelle_payment_report_allows_client_to_mark_paid_without_evidence() -> None:

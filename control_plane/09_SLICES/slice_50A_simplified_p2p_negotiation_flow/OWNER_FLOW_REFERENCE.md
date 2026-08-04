@@ -80,8 +80,9 @@ flowchart TD
    - using the compact action `Compartir datos de pago`.
 
 7. USDT uses the wallet already configured by the business and frozen in the
-   order. The client sees it through the private payment-instructions reveal,
-   rendered with the same compact chat bubble and copy action as Zelle.
+   order. The business must share it explicitly with `Compartir wallet` before
+   the client can reveal or report payment. It renders with the same compact
+   chat bubble and copy action as Zelle.
    Reporting USDT does not require the client to provide a transaction hash.
    The client must confirm the exact network with the business in chat before
    sending funds.
@@ -114,10 +115,8 @@ Preferred sequence:
 
 1. System: `Negociacion creada. Coordinen por aqui. No envies el pago hasta que el negocio comparta sus datos.`
 2. Business: any message means only that the business responded.
-3. Business shares its configured Zelle manually or with compact
-   `Compartir datos de pago`.
-   For USDT, the configured wallet is revealed privately in the same compact
-   presentation without a second business action.
+3. Business shares its configured Zelle with `Compartir datos de pago` or its
+   USDT wallet with `Compartir wallet`.
 4. Client sends the selected payment method outside NODO.
 5. Client optionally attaches proof and taps the method-specific compact action.
 6. Client report uses the locked order amount. USDT can be marked sent without

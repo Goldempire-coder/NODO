@@ -9,8 +9,11 @@ import type {
   SurfaceAttentionItem,
   SurfaceAttentionTruncated
 } from "../types/notifications";
+import { recordActionBreadcrumb } from "../observability/clientTelemetry";
 
-export const ATTENTION_REFRESH_INTERVAL_MS = 30_000;
+export const ATTENTION_REFRESH_INTERVAL_MS = 15_000;
+export const ATTENTION_MAX_BACKOFF_MS = 120_000;
+export const ATTENTION_JITTER_MS = 1_000;
 
 function newestItem(items: SurfaceAttentionItem[]): SurfaceAttentionItem | null {
   return [...items].sort((left, right) => right.occurred_at.localeCompare(left.occurred_at))[0] || null;
@@ -35,6 +38,7 @@ export function useSurfaceAttentionModel({
   const previousSignaturesRef = useRef<Set<string> | null>(null);
   const acknowledgedSignaturesRef = useRef(new Set<string>());
   const refreshInFlightRef = useRef(false);
+  const failureCountRef = useRef(0);
 
   const refreshAttention = useCallback(async () => {
     if (refreshInFlightRef.current) {
@@ -53,6 +57,12 @@ export function useSurfaceAttentionModel({
         )
       );
       const nextAlert = newestItem(alertCandidates);
+      if (nextAlert) {
+        recordActionBreadcrumb("surface_attention_visible", {
+          screen: nextAlert.kind === "order" ? "order-attention" : "support-attention",
+          status: "completed"
+        });
+      }
       setAttentionAlert((current) => {
         if (nextAlert) {
           return nextAlert;
@@ -69,8 +79,12 @@ export function useSurfaceAttentionModel({
       setItems(nextItems);
       setAttentionTruncated(summary.truncated);
       setAttentionStale(false);
+      failureCountRef.current = 0;
+      return true;
     } catch {
       setAttentionStale(true);
+      failureCountRef.current += 1;
+      return false;
     } finally {
       refreshInFlightRef.current = false;
     }
@@ -80,18 +94,45 @@ export function useSurfaceAttentionModel({
     if (!enabled || typeof document === "undefined") {
       return;
     }
-    const refreshIfVisible = () => {
+    let disposed = false;
+    let timeoutId: number | null = null;
+    const scheduleNext = () => {
+      if (disposed) {
+        return;
+      }
+      const backoff = Math.min(
+        ATTENTION_REFRESH_INTERVAL_MS * (2 ** failureCountRef.current),
+        ATTENTION_MAX_BACKOFF_MS
+      );
+      const delay = backoff + Math.floor(Math.random() * ATTENTION_JITTER_MS);
+      timeoutId = window.setTimeout(refreshIfVisible, delay);
+    };
+    const refreshIfVisible = async () => {
+      if (document.visibilityState !== "visible") {
+        scheduleNext();
+        return;
+      }
+      await refreshAttention();
+      scheduleNext();
+    };
+    const refreshOnVisibility = () => {
       if (document.visibilityState !== "visible") {
         return;
       }
-      void refreshAttention();
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      void refreshIfVisible();
     };
-    refreshIfVisible();
-    const interval = window.setInterval(refreshIfVisible, ATTENTION_REFRESH_INTERVAL_MS);
-    document.addEventListener("visibilitychange", refreshIfVisible);
+    void refreshIfVisible();
+    document.addEventListener("visibilitychange", refreshOnVisibility);
     return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", refreshIfVisible);
+      disposed = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+      document.removeEventListener("visibilitychange", refreshOnVisibility);
     };
   }, [enabled, refreshAttention]);
 

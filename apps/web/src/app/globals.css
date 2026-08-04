@@ -695,6 +695,45 @@ textarea {
   font-size: 11px;
 }
 
+.business-order-chat-receiver-details details {
+  width: 100%;
+}
+
+.business-order-chat-receiver-details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.business-order-chat-receiver-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.business-order-chat-receiver-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.business-order-chat-receiver-form input,
+.business-order-chat-receiver-form select {
+  min-width: 0;
+  width: 100%;
+  font-size: 16px;
+}
+
+.business-order-chat-receiver-form button,
+.business-order-chat-receiver-copy__actions button {
+  min-height: 36px;
+}
+
+.business-order-chat-receiver-copy__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .business-order-chat-rating {
   gap: 7px;
 }

@@ -32,6 +32,7 @@ class ExpireAndEscalateOrdersWorker(JobRunLifecycleMixin, JobWorkerSideEffectsMi
         self._jobs = job_repository
         self._locks = lock_manager
         self._orders = order_repository
+        self._businesses = business_repository
         self._audit = audit_writer
         self._order_processor = OrderExpirationProcessor(
             order_repository=order_repository,
@@ -152,6 +153,14 @@ class ExpireAndEscalateOrdersWorker(JobRunLifecycleMixin, JobWorkerSideEffectsMi
         stage_started = time.perf_counter()
         self._process_founders(now=now, batch_size=batch_size, dry_run=dry_run, request_id=request_id, counters=counters)
         profile_mark(profile, "worker:process_founders", stage_started)
+        stage_started = time.perf_counter()
+        self._process_public_reputation_snapshots(
+            now=now,
+            batch_size=batch_size,
+            dry_run=dry_run,
+            counters=counters,
+        )
+        profile_mark(profile, "worker:process_public_reputation_snapshots", stage_started)
 
     def _process_orders(self, *, now: datetime, batch_size: int, dry_run: bool, request_id: str, counters: JobCounters) -> None:
         self._order_processor.process_orders(now=now, batch_size=batch_size, dry_run=dry_run, request_id=request_id, counters=counters)
@@ -161,4 +170,23 @@ class ExpireAndEscalateOrdersWorker(JobRunLifecycleMixin, JobWorkerSideEffectsMi
 
     def _process_founders(self, *, now: datetime, batch_size: int, dry_run: bool, request_id: str, counters: JobCounters) -> None:
         self._ad_founder_processor.process_founders(now=now, batch_size=batch_size, dry_run=dry_run, request_id=request_id, counters=counters)
+
+    def _process_public_reputation_snapshots(
+        self,
+        *,
+        now: datetime,
+        batch_size: int,
+        dry_run: bool,
+        counters: JobCounters,
+    ) -> None:
+        business_ids = self._businesses.publish_due_public_reputation_snapshots(
+            current_time=now,
+            limit=batch_size,
+            dry_run=dry_run,
+        )
+        counters.processed += len(business_ids)
+        if dry_run:
+            counters.skipped += len(business_ids)
+        else:
+            counters.changed += len(business_ids)
 

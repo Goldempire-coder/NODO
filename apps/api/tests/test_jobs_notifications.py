@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import logging
 import os
 import time
 from datetime import timedelta
@@ -298,6 +297,11 @@ class _FakeTelegramAdapter:
         self.sent.append({"bot_token": bot_token, "chat_id": chat_id, "text": text, "reply_markup": reply_markup})
 
 
+class _FailingNotificationOutbox:
+    def enqueue_notification(self, **_fields):  # type: ignore[no-untyped-def]
+        raise RuntimeError("notification outbox unavailable")
+
+
 def test_slice_36_immediate_order_notifications_are_enqueued_deduped_and_private() -> None:
     client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
     owner, business, ad, remitter, order = _seed_order(client, owner_id=1100, remitter_id=1101)
@@ -314,6 +318,8 @@ def test_slice_36_immediate_order_notifications_are_enqueued_deduped_and_private
     assert "amount_usd" not in created_notifications[0].metadata_json
     assert "payment_method" not in created_notifications[0].metadata_json
     assert "delivery_method" not in created_notifications[0].metadata_json
+    assert created_notifications[0].metadata_json["order_created_at"] == order["created_at"]
+    assert created_notifications[0].metadata_json["job_enqueued_at"]
 
     replay = client.post(
         "/api/v1/orders",
@@ -333,6 +339,15 @@ def test_slice_36_immediate_order_notifications_are_enqueued_deduped_and_private
     assert len(_notifications_by_type(client, "payment_confirmed_client")) == 1
     _mark_delivered(client, owner, order["id"], "slice36_deliver")
     assert len(_notifications_by_type(client, "order_delivered_client")) == 1
+    for notification_type in (
+        "order_created_business",
+        "payment_reported_business",
+        "payment_confirmed_client",
+        "order_delivered_client",
+    ):
+        text = _notifications_by_type(client, notification_type)[0].metadata_json["message_text"].lower()
+        for forbidden in ("50.00", "zelle", "usdt", "wallet", "pago movil", "payment_method", "amount_usd"):
+            assert forbidden not in text
 
     owner2, _, _, remitter2, order2 = _seed_order(client, owner_id=1102, remitter_id=1103)
     _report_payment(client, remitter2, order2, key="slice36_reject_reported")
@@ -350,6 +365,40 @@ def test_slice_36_immediate_order_notifications_are_enqueued_deduped_and_private
     assert "storage_path" not in combined
     assert "signed_url" not in combined
     assert BOT_TOKEN not in combined
+
+
+def test_order_creation_fails_closed_when_transactional_notification_outbox_is_unavailable() -> None:
+    client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
+    owner = _login(client, 1190, "outbox_failure_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="outbox_failure_ad")
+    remitter = _login(client, 1191, "outbox_failure_client")
+    client.app.state.order_repository._jobs = _FailingNotificationOutbox()
+
+    response = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "outbox_failure_order"), "Content-Type": "application/json"},
+        json={
+            "ad_id": ad["id"],
+            "amount_usd": "50.00",
+            "receiver_data": {
+                "bank": "Banco",
+                "phone": "+584121234567",
+                "document": "V12345678",
+                "holder": "Receptor Test",
+            },
+        },
+    )
+
+    assert response.status_code == 503, response.text
+    assert response.json()["error"]["code"] == "NOTIFICATION_OUTBOX_UNAVAILABLE"
+    assert client.app.state.order_repository.get_by_idempotency_key(
+        remitter_user_id=remitter["user"]["id"],
+        idempotency_key="outbox_failure_order",
+    ) is None
+    assert client.app.state.capacity_repository.get_snapshot(
+        business=client.app.state.business_repository.get_business(business["id"]),
+    ).reserved_capacity_usd == Decimal("0.00")
 
 
 def test_slice_48a_manual_cancel_notifies_business_once_with_safe_metadata() -> None:
@@ -459,18 +508,16 @@ def test_slice_49a_business_cannot_attend_rejects_after_payment_report() -> None
     ) == []
 
 
-def test_slice_36_notification_enqueue_logging_does_not_break_success_response(caplog) -> None:  # type: ignore[no-untyped-def]
-    caplog.set_level(logging.INFO, logger="app.modules.notifications.order_notifications")
+def test_slice_48b4_order_create_returns_success_with_durable_notification_job() -> None:
     client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
     _, _, _, _, order = _seed_order(client, owner_id=1104, remitter_id=1105)
 
     assert order["public_order_code"].startswith("NODO-")
-    assert any(
-        record.name == "app.modules.notifications.order_notifications"
-        and record.getMessage() == "notification_job_enqueued"
-        and getattr(record, "notification_created", None) is True
-        for record in caplog.records
-    )
+    jobs = _notifications_by_type(client, "order_created_business")
+    assert len(jobs) == 1
+    assert jobs[0].order_id == order["id"]
+    assert jobs[0].metadata_json["order_created_at"]
+    assert jobs[0].metadata_json["job_enqueued_at"]
 
 
 def test_slice_36_dispute_enqueues_parties_and_admin_support_without_resolving() -> None:
@@ -511,6 +558,7 @@ def test_slice_36_sender_success_retryable_and_permanent_failures_are_stateful()
     assert notification.status == "sent"
     assert notification.attempts == 1
     assert notification.metadata_json["delivery_state"] == "sent"
+    assert notification.metadata_json["claimed_at"]
     assert success_adapter.sent[0]["reply_markup"]["inline_keyboard"][0][0]["text"] == "Abrir orden"
 
     client_retry = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
@@ -1179,6 +1227,30 @@ def test_ad_and_founder_expiration_admin_job_endpoints_and_lock_rbac() -> None:
     assert locked["job_run"]["status"] == "lock_not_acquired"
     assert locked["job_run"]["error_code"] == "JOB_LOCK_NOT_ACQUIRED"
     assert "job_failed" in _event_types(client)
+
+
+def test_existing_singleton_worker_publishes_due_public_reputation_snapshot() -> None:
+    client = _client()
+    business = client.app.state.business_repository.create_business(
+        owner_user_id="00000000-0000-0000-0000-000000000901",
+        business_name="Casa Snapshot Worker",
+        rif=None,
+        address=None,
+        phone=None,
+        country="VE",
+    )
+    now = utc_now()
+    business.rating_avg = Decimal("4.80")
+    business.ratings_count = 5
+    business.reputation_tier = "active"
+    business.reputation_calculated_at = now - timedelta(hours=24)
+
+    result = _run_job(client, now)
+
+    assert result["job_run"]["status"] == "finished"
+    assert client.app.state.business_repository.get_business(business.id).public_reputation_rating_avg == Decimal(
+        "4.80"
+    )
 
 
 def test_slice_10_migration_contract_closes_indexes_constraints_and_canonical_names() -> None:

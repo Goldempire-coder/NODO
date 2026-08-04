@@ -222,10 +222,12 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.business_intake_repository = InMemoryBusinessIntakeRepository()
     app.state.ad_repository = InMemoryAdRepository()
     app.state.dispute_repository = InMemoryDisputeRepository()
+    app.state.job_repository = InMemoryJobRepository()
     app.state.order_repository = InMemoryOrderRepository(
         capacity_repository=app.state.capacity_repository,
         audit_writer=app.state.audit_writer,
         dispute_repository=app.state.dispute_repository,
+        job_repository=app.state.job_repository,
     )
     app.state.chat_repository = InMemoryChatRepository()
     app.state.support_repository = InMemorySupportRepository()
@@ -236,7 +238,6 @@ def _configure_test_state(app: FastAPI) -> None:
         business_repository=app.state.business_repository,
         dispute_repository=app.state.dispute_repository,
     )
-    app.state.job_repository = InMemoryJobRepository()
     app.state.admin_notification_repository = InMemoryAdminNotificationRepository()
     app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)
     app.state.staff_repository = InMemoryStaffRepository(users=app.state.user_repository, audit_writer=app.state.audit_writer)
@@ -284,10 +285,12 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.capacity_repository = PostgresBusinessCapacityRepository(settings.database_url)
     app.state.business_intake_repository = PostgresBusinessIntakeRepository(settings.database_url)
     app.state.ad_repository = PostgresAdRepository(settings.database_url)
+    app.state.job_repository = PostgresJobRepository(settings.database_url)
     app.state.order_repository = PostgresOrderRepository(
         settings.database_url,
         capacity_repository=app.state.capacity_repository,
         ad_repository=app.state.ad_repository,
+        job_repository=app.state.job_repository,
     )
     app.state.chat_repository = PostgresChatRepository(settings.database_url)
     app.state.support_repository = PostgresSupportRepository(settings.database_url)
@@ -295,7 +298,6 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.credit_repository = PostgresCreditRepository(settings.database_url)
     app.state.dispute_repository = PostgresDisputeRepository(settings.database_url)
     app.state.rating_repository = PostgresOrderRatingRepository(settings.database_url)
-    app.state.job_repository = PostgresJobRepository(settings.database_url)
     app.state.admin_notification_repository = PostgresAdminNotificationRepository(settings.database_url)
     app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)
     app.state.staff_repository = PostgresStaffRepository(settings.database_url)

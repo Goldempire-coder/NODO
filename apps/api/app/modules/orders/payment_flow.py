@@ -74,8 +74,6 @@ class OrderPaymentFlow(PaymentEvidenceMixin, PaymentReportingMixin):
         }
 
     def _require_payment_details_shared(self, order) -> None:  # type: ignore[no-untyped-def]
-        if order.payment_method_snapshot != "zelle":
-            return
         account_value = str(
             (order.payment_instructions_snapshot or {}).get("account_value") or ""
         ).strip()

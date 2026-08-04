@@ -15,8 +15,9 @@ Slice additions:
    order participants.
 4. `GET /api/v1/orders/{id}/messages` returns the current allowlisted `order`,
    derived `system_messages` and payment-sharing capabilities.
-5. `POST /api/v1/orders/{id}/share-zelle` inserts the configured Zelle once.
-6. Zelle payment instructions and reporting fail with
+5. `POST /api/v1/orders/{id}/share-payment-details` inserts the configured
+   Zelle or USDT wallet once. `share-zelle` remains a legacy Zelle alias.
+6. Zelle and USDT payment instructions and reporting fail with
    `ORDER_PAYMENT_DETAILS_NOT_SHARED` until the configured account appears in a
    visible business-owner message.
 7. The initial chat page is the latest bounded window, ordered oldest-to-newest
@@ -25,7 +26,7 @@ Slice additions:
    opens a temporary URL only for the two order participants. It returns
    `Cache-Control: private, no-store` and never returns storage paths or
    permanent URLs.
-9. A Zelle `POST /api/v1/orders/{id}/payment-report` requires the locked order
+9. `POST /api/v1/orders/{id}/payment-report` requires the locked order
    amount. Uploaded proof is optional; if supplied, its order binding and
    single-use integrity rules still apply. Legacy sender name, reference and
    account fields remain optional compatibility inputs and must never be

@@ -35,8 +35,8 @@ Revela instrucciones completas solo al remitente dueno de la orden.
 
 La Mini App puede invocar esta ruta desde el chat cuando
 `can_report_payment = true` para mostrar una burbuja compacta y copiable. Zelle
-solo queda habilitado despues de que el negocio comparte sus datos; USDT usa la
-wallet congelada al crear la orden. La respuesta completa no se copia a
+y USDT solo quedan habilitados despues de que el negocio comparte la cuenta
+congelada mediante la accion de chat. La respuesta completa no se copia a
 mensajes generales, audit, telemetry ni notificaciones.
 
 La interfaz puede mostrar el metodo como `USDT`, pero antes del envio debe

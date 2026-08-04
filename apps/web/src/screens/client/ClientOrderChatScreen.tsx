@@ -4,6 +4,30 @@ import { PaperclipIcon, SendIcon } from "../../components/nodo/ChatComposerIcons
 import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
 
 const CLIENT_ORDER_CHAT_REFRESH_MS = 5000;
+const PAGO_MOVIL_BANK_OPTIONS = [
+  ["0102", "Banco de Venezuela"],
+  ["0105", "Mercantil Banco"],
+  ["0108", "BBVA Provincial"],
+  ["0114", "Bancaribe"],
+  ["0115", "Banco Exterior"],
+  ["0128", "Banco Caroni"],
+  ["0134", "Banesco"],
+  ["0137", "Banco Sofitasa"],
+  ["0138", "Banco Plaza"],
+  ["0151", "Banco Fondo Comun"],
+  ["0156", "100% Banco"],
+  ["0157", "DelSur Banco Universal"],
+  ["0163", "Banco del Tesoro"],
+  ["0166", "Banco Agricola de Venezuela"],
+  ["0168", "Bancrecer"],
+  ["0169", "Mi Banco"],
+  ["0171", "Banco Activo"],
+  ["0172", "Bancamiga"],
+  ["0174", "Banplus"],
+  ["0175", "Banco Bicentenario"],
+  ["0177", "Banfanb"],
+  ["0191", "Banco Nacional de Credito"]
+] as const;
 
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
@@ -96,6 +120,8 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     confirmingOrderReceived,
     dismissChatAttachmentLink,
     refreshChat,
+    receiverDetailsForm,
+    receiverDetailsMasked,
     selectedRatingStars,
     sendChatMessage,
     sendingChatMessage,
@@ -105,6 +131,9 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     submittingPaymentReport,
     submittingRatingOrderId,
     setChatBody,
+    setReceiverDetailsForm,
+    shareReceiverDetails,
+    sharingReceiverDetails,
     uploadPaymentEvidence,
     uploadingPaymentEvidence,
     uploadChatAttachment,
@@ -124,6 +153,8 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
   const chatIsTerminal = selectedChatOrder?.status === "cancelled" || selectedChatOrder?.status === "completed";
   const canReportPayment = chatCapabilities.can_report_payment && selectedChatOrder?.status === "waiting_payment";
   const canConfirmReceived = chatCapabilities.can_confirm_received && selectedChatOrder?.status === "delivered";
+  const canShareReceiverDetails = selectedChatOrder?.status === "payment_confirmed"
+    && !chatCapabilities.receiver_details_shared;
   const completedRating = selectedChatOrder?.status === "completed" ? selectedChatOrder.rating : undefined;
   const submittingRating = submittingRatingOrderId === selectedChatOrder?.id;
   const hasActionDock = canConfirmReceived || (canReportPayment && Boolean(chatOrderId));
@@ -197,7 +228,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         {paymentReportMethod === "usdt_trc20" ? (
           <article className="business-order-chat-message business-order-chat-message--system">
             <span className="business-order-chat-message__sender">NODO</span>
-            <p>Confirma por chat la red exacta con el negocio antes de enviar USDT.</p>
+            <p>Confirma con el negocio la red exacta antes de enviar.</p>
           </article>
         ) : null}
         {chatMessages.length === 0 ? <Text className="business-order-chat-empty">Aun no hay mensajes en esta orden.</Text> : null}
@@ -269,10 +300,78 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
             <p>Pago reportado. Esperando confirmacion del negocio.</p>
           </article>
         ) : null}
-        {selectedChatOrder?.status === "payment_confirmed" && !chatCapabilities.receiver_details_shared ? (
-          <Text className="auth-entry__session-meta business-order-chat-note">
-            Escribe tu Pago Movil en el chat.
-          </Text>
+        {canShareReceiverDetails ? (
+          <article className="business-order-chat-message business-order-chat-message--mine business-order-chat-receiver-details">
+            <span className="business-order-chat-message__sender">Pago Movil</span>
+            <details>
+              <summary>Compartir Pago Movil</summary>
+              <form
+                className="business-order-chat-receiver-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void shareReceiverDetails();
+                }}
+              >
+                <label>
+                  Banco
+                  <select
+                    value={receiverDetailsForm.bank}
+                    onChange={(event) => setReceiverDetailsForm({ ...receiverDetailsForm, bank: event.target.value })}
+                  >
+                    {PAGO_MOVIL_BANK_OPTIONS.map(([code, name]) => (
+                      <option key={code} value={code}>{name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Telefono
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="+584121234567"
+                    required
+                    value={receiverDetailsForm.phone}
+                    onChange={(event) => setReceiverDetailsForm({ ...receiverDetailsForm, phone: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Cedula
+                  <input
+                    type="text"
+                    autoCapitalize="characters"
+                    placeholder="V12345678"
+                    required
+                    value={receiverDetailsForm.document}
+                    onChange={(event) => setReceiverDetailsForm({ ...receiverDetailsForm, document: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Titular
+                  <input
+                    type="text"
+                    autoComplete="name"
+                    required
+                    value={receiverDetailsForm.holder}
+                    onChange={(event) => setReceiverDetailsForm({ ...receiverDetailsForm, holder: event.target.value })}
+                  />
+                </label>
+                <button type="submit" disabled={sharingReceiverDetails}>
+                  {sharingReceiverDetails ? "Compartiendo..." : "Compartir"}
+                </button>
+              </form>
+            </details>
+          </article>
+        ) : null}
+        {chatCapabilities.receiver_details_shared ? (
+          <article className="business-order-chat-message business-order-chat-message--mine">
+            <span className="business-order-chat-message__sender">Pago Movil compartido</span>
+            <p>
+              {receiverDetailsMasked
+                ? `${receiverDetailsMasked.bank} / ${receiverDetailsMasked.phone} / ${receiverDetailsMasked.document} / ${receiverDetailsMasked.holder}`
+                : "Datos guardados para esta orden."}
+            </p>
+          </article>
         ) : null}
         {selectedChatOrder?.status === "waiting_payment" && !chatCapabilities.payment_details_shared ? (
             <Text className="auth-entry__session-meta business-order-chat-note">
@@ -342,7 +441,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         ) : null}
         {chatIsTerminal ? (
           <Text className="auth-entry__session-meta business-order-chat-note">
-            Esta negociacion esta cerrada. El historial queda disponible como respaldo.
+            Esta negociación está cerrada. El historial queda disponible como registro de la conversación.
           </Text>
         ) : null}
         {model.notice ? (

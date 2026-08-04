@@ -27,7 +27,7 @@ business operational USD capacity reserved for the order.
 | `payment_reported` | `payment_rejected` | Business officially rejects/unrecognizes the report |
 | `payment_reported` | `disputed` | Participant or contracted timeout opens formal dispute |
 | `payment_rejected` | `disputed` | Participant opens formal dispute |
-| `payment_confirmed` | `delivered` | Business officially marks Pago Movil sent after coordinating receiver details in chat |
+| `payment_confirmed` | `delivered` | Business officially marks Pago Movil sent after the client shares structured receiver details for the order |
 | `payment_confirmed` | `disputed` | Participant or contracted timeout opens formal dispute |
 | `delivered` | `completed` | Remitter confirms receipt or 24-hour backup completes without open/in-review dispute |
 | `delivered` | `disputed` | Participant opens dispute before completion wins |

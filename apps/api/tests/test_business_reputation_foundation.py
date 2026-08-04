@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -11,6 +11,7 @@ from app.modules.ads.models import AdRecord
 from app.modules.ads.marketplace import AdMarketplaceMixin
 from app.modules.ads.presenters import ad_payload
 from app.modules.businesses.models import BusinessRecord
+from app.modules.businesses.memory_repository import InMemoryBusinessRepository
 from app.modules.businesses.presenters import business_payload
 from app.modules.businesses.reputation import (
     calculate_reputation_tier,
@@ -155,7 +156,7 @@ def test_marketplace_business_dto_exposes_reputation_without_internal_controls()
     }
     assert public_business["reputation"] == {
         "publication_status": "withheld_pending_snapshot",
-        "label": "Reputación no publicada",
+        "label": "Reputación aún no publicada",
     }
     assert "rating_avg" not in public_business["reputation"]
     assert "ratings_count" not in public_business["reputation"]
@@ -177,7 +178,7 @@ def test_business_and_admin_dtos_have_distinct_internal_visibility() -> None:
     assert "risk_level" not in own_payload
     assert own_payload["reputation"] == {
         "publication_status": "withheld_pending_snapshot",
-        "label": "Reputación no publicada",
+        "label": "Reputación aún no publicada",
     }
     assert "rating_avg" not in own_payload["reputation"]
     assert "ratings_count" not in own_payload["reputation"]
@@ -234,8 +235,99 @@ def test_public_reputation_stays_stable_when_internal_rating_aggregates_change()
     assert marketplace_before == marketplace_after
     assert business_after == {
         "publication_status": "withheld_pending_snapshot",
-        "label": "Reputación no publicada",
+        "label": "Reputación aún no publicada",
     }
+
+
+def test_public_reputation_snapshot_requires_five_ratings_and_waits_24_hours() -> None:
+    repository = InMemoryBusinessRepository()
+    business = repository.create_business(
+        owner_user_id="owner-public-snapshot",
+        business_name="Casa Snapshot",
+        rif=None,
+        address=None,
+        phone=None,
+        country="VE",
+    )
+    now = datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc)
+    business.rating_avg = Decimal("4.60")
+    business.ratings_count = 4
+    business.reputation_tier = "active"
+    business.reputation_calculated_at = now
+
+    assert repository.publish_due_public_reputation_snapshots(current_time=now, limit=100) == []
+    assert business_payload(business)["reputation"]["publication_status"] == "withheld_pending_snapshot"
+
+    business.ratings_count = 5
+    assert repository.publish_due_public_reputation_snapshots(current_time=now, limit=100) == []
+    published_at = now + timedelta(hours=24)
+    published = repository.publish_due_public_reputation_snapshots(current_time=published_at, limit=100)
+
+    assert published == [business.id]
+    assert business_payload(business)["reputation"] == {
+        "publication_status": "published_snapshot",
+        "label": "4.60 de 5 (5 calificaciones)",
+        "rating_avg": "4.60",
+        "ratings_count": 5,
+        "published_at": published_at.isoformat(),
+    }
+
+    business.rating_avg = Decimal("1.00")
+    business.ratings_count = 6
+    business.reputation_tier = "new"
+    business.reputation_calculated_at = published_at + timedelta(hours=1)
+
+    assert repository.publish_due_public_reputation_snapshots(
+        current_time=published_at + timedelta(hours=24), limit=100
+    ) == []
+    assert business_payload(business)["reputation"]["rating_avg"] == "4.60"
+
+    assert repository.publish_due_public_reputation_snapshots(
+        current_time=published_at + timedelta(hours=25), limit=100
+    ) == [business.id]
+    assert business_payload(business)["reputation"]["rating_avg"] == "1.00"
+    assert business_payload(business)["reputation"]["ratings_count"] == 6
+
+
+def test_marketplace_uses_published_snapshot_instead_of_live_aggregates() -> None:
+    published_at = datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc)
+    business = _business(
+        rating_avg=Decimal("1.00"),
+        ratings_count=6,
+        reputation_tier="new",
+        public_reputation_rating_avg=Decimal("4.60"),
+        public_reputation_ratings_count=5,
+        public_reputation_tier="active",
+        public_reputation_published_at=published_at,
+        public_reputation_source_calculated_at=published_at,
+    )
+    payload = ad_payload(
+        _ranking_ad(ad_id="ad-public-snapshot", business=business, seconds_after=0),
+        business=business,
+    )["business"]["reputation"]
+
+    assert payload == {
+        "publication_status": "published_snapshot",
+        "label": "4.60 de 5 (5 calificaciones)",
+        "rating_avg": "4.60",
+        "ratings_count": 5,
+        "published_at": published_at.isoformat(),
+    }
+    assert "tier" not in payload
+
+
+def test_public_reputation_snapshot_migration_is_reversible_and_durable() -> None:
+    up = (ROOT / "database" / "migrations" / "0045_public_reputation_snapshots.up.sql").read_text(encoding="utf-8")
+    down = (ROOT / "database" / "migrations" / "0045_public_reputation_snapshots.down.sql").read_text(
+        encoding="utf-8"
+    )
+
+    assert "create table if not exists business_public_reputation_snapshots" in up.lower()
+    assert "business_id uuid primary key" in up.lower()
+    assert "ratings_count >= 5" in up.lower()
+    assert "published_at" in up.lower()
+    assert "source_calculated_at" in up.lower()
+    assert "drop table if exists business_public_reputation_snapshots" in down.lower()
 
 
 def test_reputation_migration_is_reversible_and_has_no_text_review_fields() -> None:
@@ -270,14 +362,16 @@ def test_frontend_does_not_calculate_success_rate_or_receive_marketplace_risk() 
     assert "risk_level" not in marketplace_types
     assert "trust_level" not in marketplace_types
     assert "business_failure_orders_count" not in frontend
-    assert "rating_avg" not in marketplace_types
-    assert "ratings_count: number" not in marketplace_types
-    assert "rating_avg" not in business_types
-    assert "ratings_count: number" not in business_types
+    assert "rating_avg?: string" in marketplace_types
+    assert "ratings_count?: number" in marketplace_types
+    assert "rating_avg?: string" in business_types
+    assert "ratings_count?: number" in business_types
     assert "ratings_count_band" not in marketplace_types
     assert "ratings_count_band" not in business_types
     assert "withheld_pending_snapshot" in marketplace_types
+    assert "published_snapshot" in marketplace_types
     assert "withheld_pending_snapshot" in business_types
+    assert "published_snapshot" in business_types
     assert "rating_avg" not in marketplace_screen
     assert "Mejor confianza" not in marketplace_screen
     assert "Más rápido" not in marketplace_screen
@@ -377,4 +471,4 @@ def test_marketplace_cache_namespace_is_versioned_for_private_reputation_project
         encoding="utf-8"
     )
 
-    assert 'MARKETPLACE_CACHE_PREFIX = "marketplace:ads:v2:"' in cache_source
+    assert 'MARKETPLACE_CACHE_PREFIX = "marketplace:ads:v3:"' in cache_source

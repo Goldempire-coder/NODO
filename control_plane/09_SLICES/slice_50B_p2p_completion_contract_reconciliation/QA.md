@@ -18,10 +18,14 @@
 
 ## Secure Receiver Details
 
-- Remitter can submit optional structured receiver details only for own
+- Remitter can submit structured receiver details only for own
   `payment_confirmed` order.
-- Business can mark delivered from `payment_confirmed` after chat
-  coordination, even when no structured receiver details exist.
+- The client uses a compact structured chat UI; plain message text is never
+  parsed into receiver details.
+- After explicit reveal, the business can copy phone, document, bank or the
+  complete structured set locally.
+- Business cannot mark delivered from `payment_confirmed` until structured
+  receiver details exist for that same order.
 - Payload replay is idempotent; changed payload with same key conflicts.
 - A different key cannot replace already accepted receiver details.
 - A valid replay after the order advances returns the existing resource; it

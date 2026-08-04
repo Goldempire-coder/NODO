@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from app.modules.businesses.models import BusinessRecord
 
 
 ReputationTier = Literal["new", "active", "reliable", "elite"]
-PublicReputationStatus = Literal["withheld_pending_snapshot"]
+PublicReputationStatus = Literal["withheld_pending_snapshot", "published_snapshot"]
 
 REPUTATION_TIER_LABELS: dict[ReputationTier, str] = {
     "new": "Nuevo",
@@ -20,6 +20,9 @@ REPUTATION_TIER_LABELS: dict[ReputationTier, str] = {
 class PublicBusinessReputation(TypedDict):
     publication_status: PublicReputationStatus
     label: str
+    rating_avg: NotRequired[str]
+    ratings_count: NotRequired[int]
+    published_at: NotRequired[str]
 
 
 class AdminBusinessReputation(TypedDict):
@@ -114,9 +117,24 @@ def _meets_tier(
 
 def public_reputation_payload(business: BusinessRecord) -> PublicBusinessReputation:
     _stored_tier(business.reputation_tier)
+    if (
+        business.public_reputation_rating_avg is not None
+        and business.public_reputation_ratings_count is not None
+        and business.public_reputation_tier is not None
+        and business.public_reputation_published_at is not None
+    ):
+        _stored_tier(business.public_reputation_tier)
+        rating_avg = _decimal_text(business.public_reputation_rating_avg)
+        return {
+            "publication_status": "published_snapshot",
+            "label": f"{rating_avg} de 5 ({business.public_reputation_ratings_count} calificaciones)",
+            "rating_avg": rating_avg,
+            "ratings_count": business.public_reputation_ratings_count,
+            "published_at": business.public_reputation_published_at.isoformat(),
+        }
     return {
         "publication_status": "withheld_pending_snapshot",
-        "label": "Reputación no publicada",
+        "label": "Reputación aún no publicada",
     }
 
 

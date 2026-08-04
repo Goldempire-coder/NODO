@@ -249,7 +249,10 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
                 payment_method=payment,
                 can_cover_requested_amount=True,
             ),
-            "disclaimer": "Revisa monto, tasa y negocio antes de crear la orden. NODO organiza el proceso y guarda el respaldo de la operacion.",
+            "disclaimer": (
+                "NODO facilita el contacto entre usuarios y negocios registrados. "
+                "Los pagos se realizan directamente entre las partes."
+            ),
         }
 
     def _rank(self, items: list[AdRecord], *, sort: str | None) -> list[AdRecord]:

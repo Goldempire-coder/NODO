@@ -32,10 +32,16 @@ class PostgresOrderRepository(
         *,
         capacity_repository=None,
         ad_repository=None,
+        job_repository=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._database_url = database_url
         self._capacity = capacity_repository
         self._ads = ad_repository
+        self._jobs = job_repository
+
+    @property
+    def creates_order_created_notification_on_create_order(self) -> bool:
+        return self._jobs is not None
 
     def _connect(self):  # type: ignore[no-untyped-def]
         return pooled_connect(self._database_url)

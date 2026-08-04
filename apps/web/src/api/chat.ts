@@ -46,12 +46,12 @@ export function sendOrderMessage<T>(request: AuthenticatedRequest, orderId: stri
   });
 }
 
-export function shareConfiguredZelle<T>(
+export function shareConfiguredPaymentDetails<T>(
   request: AuthenticatedRequest,
   orderId: string,
   idempotencyKey: string
 ) {
-  return request<T>(`/api/v1/orders/${orderId}/share-zelle`, {
+  return request<T>(`/api/v1/orders/${orderId}/share-payment-details`, {
     method: "POST",
     headers: {
       "Idempotency-Key": idempotencyKey

@@ -30,6 +30,7 @@ export type ChatCapabilities = {
   can_send_message: boolean;
   can_open_dispute: boolean;
   can_share_zelle: boolean;
+  can_share_payment_details: boolean;
   payment_details_shared: boolean;
   can_report_payment: boolean;
   receiver_details_shared: boolean;

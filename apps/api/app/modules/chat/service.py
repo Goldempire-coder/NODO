@@ -19,7 +19,7 @@ from app.modules.orders.serializers import business_order_payload, public_order_
 from app.modules.users.models import UserRecord
 
 
-CHAT_DISCLAIMER = "Usa este chat para coordinar la orden y dejar un respaldo claro entre las partes."
+CHAT_DISCLAIMER = "Usa este chat para coordinar la orden y conservar el registro de la conversacion."
 NEGOTIATION_CREATED_MESSAGE = (
     "Negociacion creada. Coordinen por aqui. "
     "No envies el pago hasta que el negocio comparta sus datos."
@@ -142,16 +142,16 @@ class ChatService:
         }
 
     @staticmethod
-    def _configured_zelle_account(order: OrderRecord) -> str | None:
-        if order.payment_method_snapshot != "zelle":
+    def _configured_payment_account(order: OrderRecord) -> str | None:
+        if order.payment_method_snapshot not in {"zelle", "usdt_trc20"}:
             return None
         account_value = str((order.payment_instructions_snapshot or {}).get("account_value") or "").strip()
         return account_value or None
 
     def _payment_details_shared(self, order: OrderRecord) -> bool:
-        account_value = self._configured_zelle_account(order)
+        account_value = self._configured_payment_account(order)
         if account_value is None:
-            return order.payment_method_snapshot != "zelle"
+            return False
         return self._repository.has_business_message_containing(
             order_id=order.id,
             text=account_value,
@@ -292,19 +292,29 @@ class ChatService:
             "can_share_zelle": user.role == "business_owner"
             and user.status == "active"
             and waiting_payment
-            and self._configured_zelle_account(order) is not None
+            and order.payment_method_snapshot == "zelle"
+            and self._configured_payment_account(order) is not None
+            and not payment_details_shared,
+            "can_share_payment_details": user.role == "business_owner"
+            and user.status == "active"
+            and waiting_payment
+            and self._configured_payment_account(order) is not None
             and not payment_details_shared,
             "payment_details_shared": payment_details_shared,
             "can_report_payment": user.role == "remitter"
             and waiting_payment
             and payment_details_shared,
             "receiver_details_shared": receiver_details_shared,
-            "can_share_receiver_details": False,
+            "can_share_receiver_details": user.role == "remitter"
+            and user.status == "active"
+            and order.status == "payment_confirmed"
+            and not receiver_details_shared,
             "can_reveal_receiver_details": user.role == "business_owner"
             and user.status == "active"
             and order.status in {"payment_confirmed", "delivered", "disputed"}
             and receiver_details_shared,
-            "receiver_details_required": False,
+            "receiver_details_required": order.status == "payment_confirmed"
+            and not receiver_details_shared,
             "can_confirm_received": user.role == "remitter"
             and user.status == "active"
             and order.status == "delivered",
@@ -313,7 +323,8 @@ class ChatService:
             and order.status == "payment_reported",
             "can_mark_delivered": user.role == "business_owner"
             and user.status == "active"
-            and order.status == "payment_confirmed",
+            and order.status == "payment_confirmed"
+            and receiver_details_shared,
         }
 
     def _order_payload(self, *, user: UserRecord, order: OrderRecord) -> dict[str, Any]:
@@ -485,10 +496,28 @@ class ChatService:
         request_id: str,
         idempotency_key: str | None,
     ) -> dict[str, Any]:
+        order = self._order(order_id)
+        if order.payment_method_snapshot != "zelle":
+            raise ApiError("ORDER_PAYMENT_METHOD_UNAVAILABLE", status_code=409)
+        return self.share_configured_payment_details(
+            user=user,
+            order_id=order_id,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def share_configured_payment_details(
+        self,
+        *,
+        user: UserRecord,
+        order_id: str,
+        request_id: str,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
         if not idempotency_key:
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
         order = self._order(order_id)
-        self._rate_limit("share_zelle", user, order.id)
+        self._rate_limit("share_payment_details", user, order.id)
         require_message_state(order)
         if user.role != "business_owner":
             raise ApiError("ORDER_NOT_FOUND", status_code=404)
@@ -496,13 +525,24 @@ class ChatService:
         self._require_business_actor_access(user, order)
         if order.status != "waiting_payment":
             raise ApiError("ORDER_STATE_CONFLICT", status_code=409)
-        account_value = self._configured_zelle_account(order)
+        account_value = self._configured_payment_account(order)
         if account_value is None:
             raise ApiError("ORDER_PAYMENT_METHOD_UNAVAILABLE", status_code=409)
         holder_name = str(
             (order.payment_instructions_snapshot or {}).get("holder_name") or ""
         ).strip()
-        body = f"Zelle del negocio: {account_value}"
+        if order.payment_method_snapshot == "usdt_trc20":
+            network = str(
+                (order.payment_instructions_snapshot or {}).get("network") or ""
+            ).strip()
+            body = f"Wallet USDT del negocio: {account_value}"
+            if network:
+                body = f"{body}\nRed indicada: {network}"
+            body = (
+                f"{body}\nConfirma con el negocio la red exacta antes de enviar."
+            )
+        else:
+            body = f"Zelle del negocio: {account_value}"
         if holder_name:
             body = f"{body}\nTitular: {holder_name}"
 
@@ -516,7 +556,7 @@ class ChatService:
             )
             if created:
                 self._audit.write(
-                    event_type="business_zelle_shared",
+                    event_type="business_payment_details_shared",
                     actor_user_id=user.id,
                     actor_role=user.role,
                     resource_type="message",
@@ -546,15 +586,15 @@ class ChatService:
             }
 
         return self._idempotency.replay_or_store(
-            f"chat:share_zelle:{user.id}:{order.id}:{idempotency_key}",
-            payload={"order_id": order.id, "action": "share_configured_zelle"},
+            f"chat:share_payment_details:{user.id}:{order.id}:{idempotency_key}",
+            payload={"order_id": order.id, "action": "share_configured_payment_details"},
             compute=compute,
         )
 
     def _inspect_business_message_for_off_platform_solicitation(self, *, user: UserRecord, order: OrderRecord, message, request_id: str) -> None:  # type: ignore[no-untyped-def]
         if user.role != "business_owner":
             return
-        account_value = self._configured_zelle_account(order)
+        account_value = self._configured_payment_account(order)
         match = detect_off_platform_solicitation(
             message.body,
             allowed_contact_values=(account_value,) if account_value else (),

@@ -88,7 +88,8 @@ calcular badges.
 ### Politica De Refresh
 
 - Un solo scheduler por Mini App.
-- Intervalo de 30 segundos.
+- Intervalo objetivo de 15 segundos, con pausa oculta, no-overlap, backoff y
+  jitter.
 - Un solo endpoint consulta summaries de Ordenes y Soporte en el mismo ciclo.
 - No inicia un ciclo si el anterior sigue en curso.
 - Se pausa cuando `document.visibilityState` no es `visible`.
@@ -160,4 +161,4 @@ La respuesta inicial no debe incluir:
 - Un solo endpoint liviano debe alimentar badges globales.
 - Pantallas detalladas pueden refrescar solo cuando estan visibles.
 - No descargar adjuntos ni conversaciones completas para calcular badges.
-- Intervalo implementado: 30 segundos.
+- Intervalo implementado: 15 segundos en estado estable.

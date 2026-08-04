@@ -42,7 +42,7 @@ Response 201:
     },
     "business_reputation": {
       "publication_status": "withheld_pending_snapshot",
-      "label": "Reputación no publicada"
+      "label": "Reputación aún no publicada"
     }
   },
   "request_id": "req_..."
@@ -89,7 +89,7 @@ mediante este detalle cuando se reabre la conversacion.
 
 ## Compatibilidad de orden marketplace
 
-`sort=trust` y `sort=speed` siguen aceptados por compatibilidad, pero hasta que
-exista snapshot publico durable son aliases de `sort=rate`. Ninguno usa
-agregados, tier, confianza o velocidad vivos. La regla completa permanece en
+`sort=trust` y `sort=speed` siguen aceptados por compatibilidad y son aliases de
+`sort=rate`. Ninguno usa agregados, tier, confianza o velocidad vivos. Slice
+42C tampoco activa ranking por snapshot. La regla completa permanece en
 `ADS_API.md`.

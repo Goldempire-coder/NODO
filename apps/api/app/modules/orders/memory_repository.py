@@ -20,16 +20,21 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
     moves_ad_on_atomic_cancel = False
     creates_initial_state_event_on_create_order = False
 
-    def __init__(self, *, capacity_repository=None, audit_writer=None, dispute_repository=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, capacity_repository=None, audit_writer=None, dispute_repository=None, job_repository=None) -> None:  # type: ignore[no-untyped-def]
         self._lock = RLock()
         self._capacity = capacity_repository
         self._audit = audit_writer
         self._disputes = dispute_repository
+        self._jobs = job_repository
         self.orders: dict[str, OrderRecord] = {}
         self.events: list[OrderStateEventRecord] = []
         self.payment_reports: dict[str, PaymentReportRecord] = {}
         self.files: dict[str, FileAssetRecord] = {}
         self.receiver_details = {}
+
+    @property
+    def creates_order_created_notification_on_create_order(self) -> bool:
+        return self._jobs is not None
 
     def get_by_id(self, order_id: str) -> OrderRecord | None:
         return self.orders.get(order_id)
@@ -59,6 +64,7 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
     def create_order(self, **fields: Any) -> OrderRecord:
         with self._lock:
             capacity_reservation = fields.pop("capacity_reservation", None)
+            notification_plan = fields.pop("order_created_notification_plan", None)
             if capacity_reservation is not None:
                 business = capacity_reservation["business"]
                 if self.count_active_for_business(business.id) >= business.active_order_limit:
@@ -78,6 +84,20 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
                     amount_usd=capacity_reservation["amount_usd"],
                     reason=capacity_reservation["reason"],
                 )
+            if notification_plan is not None:
+                from app.modules.notifications.order_notification_jobs import build_order_created_business_job
+
+                try:
+                    self._jobs.enqueue_notification(  # type: ignore[union-attr]
+                        **build_order_created_business_job(order=order, plan=notification_plan)
+                    )
+                except Exception as exc:
+                    if capacity_reservation is not None and self._capacity is not None:
+                        self._capacity.release(
+                            order_id=order.id,
+                            reason="notification_outbox_unavailable",
+                        )
+                    raise ApiError("NOTIFICATION_OUTBOX_UNAVAILABLE", status_code=503) from exc
             self.orders[order.id] = order
             return order
 

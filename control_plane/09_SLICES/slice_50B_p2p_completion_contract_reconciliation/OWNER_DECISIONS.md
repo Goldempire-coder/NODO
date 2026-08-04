@@ -16,9 +16,9 @@ These decisions are approved and require no further product interpretation.
 6. A business has no casual cancellation after payment reporting. It may use
    only the official confirm, reject, dispute and delivery actions allowed by
    the current state.
-7. Pago Movil is chat-first in the normal P2P path. The optional structured
-   receiver-details endpoint may exist for compatible secure reveal flows, but
-   it is not required before business delivery.
+7. Pago Movil is chat-first in the normal P2P path. The structured
+   receiver-details resource is required before business delivery and is shown
+   as a compact chat bubble; free chat text never satisfies this requirement.
 8. Full receiver details are visible only to the two order participants.
    Admin/support access requires a future explicit, audited reveal contract.
 9. The remitter owner can confirm receipt only from `delivered`. The official

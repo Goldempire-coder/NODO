@@ -88,7 +88,12 @@ class PostgresJobRepository:
 
     def enqueue_notification(self, **fields: Any) -> tuple[NotificationJobRecord, bool]:
         with self._connect() as conn:
-            row = conn.execute(
+            notification, created = self.enqueue_notification_in_transaction(conn, **fields)
+            conn.commit()
+        return notification, created
+
+    def enqueue_notification_in_transaction(self, conn, **fields: Any) -> tuple[NotificationJobRecord, bool]:  # type: ignore[no-untyped-def]
+        row = conn.execute(
                 """
                 insert into notification_jobs (
                     notification_type, recipient_user_id, recipient_role, order_id,
@@ -112,11 +117,13 @@ class PostgresJobRepository:
                     fields["dedupe_key"],
                     jsonb_metadata(fields.get("metadata_json")),
                 ),
+        ).fetchone()
+        created = row is not None
+        if row is None:
+            row = conn.execute(
+                "select * from notification_jobs where dedupe_key = %s",
+                (fields["dedupe_key"],),
             ).fetchone()
-            created = row is not None
-            if row is None:
-                row = conn.execute("select * from notification_jobs where dedupe_key = %s", (fields["dedupe_key"],)).fetchone()
-            conn.commit()
         return notification_from_row(row), created
 
     def list_due_notifications(self, *, now: datetime, limit: int) -> list[NotificationJobRecord]:
@@ -178,7 +185,7 @@ class PostgresJobRepository:
                     *notification_types_tuple,
                     limit,
                     now + timedelta(minutes=5),
-                    jsonb_metadata({"delivery_state": "processing"}),
+                    jsonb_metadata({"delivery_state": "processing", "claimed_at": now.isoformat()}),
                 ),
             ).fetchall()
             conn.commit()

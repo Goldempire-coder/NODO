@@ -257,6 +257,11 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
                 businesses.average_delivery_seconds as business_average_delivery_seconds,
                 businesses.reputation_tier as business_reputation_tier,
                 businesses.reputation_calculated_at as business_reputation_calculated_at,
+                reputation_snapshot.rating_avg as business_public_reputation_rating_avg,
+                reputation_snapshot.ratings_count as business_public_reputation_ratings_count,
+                reputation_snapshot.reputation_tier as business_public_reputation_tier,
+                reputation_snapshot.published_at as business_public_reputation_published_at,
+                reputation_snapshot.source_calculated_at as business_public_reputation_source_calculated_at,
                 businesses.evasion_reports_count as business_evasion_reports_count,
                 businesses.referral_code as business_referral_code,
                 businesses.referral_credits_earned as business_referral_credits_earned,
@@ -269,6 +274,8 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             from ads
             join businesses on businesses.id = ads.business_id
             join business_payment_methods on business_payment_methods.id = ads.payment_method_id
+            left join business_public_reputation_snapshots reputation_snapshot
+              on reputation_snapshot.business_id = businesses.id
             left join business_capacity capacity on capacity.business_id = businesses.id
             left join lateral (
                 select
@@ -398,6 +405,15 @@ def _business_from_marketplace_row(row) -> BusinessRecord:  # type: ignore[no-un
         average_delivery_seconds=row["business_average_delivery_seconds"],
         reputation_tier=row["business_reputation_tier"],
         reputation_calculated_at=row["business_reputation_calculated_at"],
+        public_reputation_rating_avg=(
+            Decimal(str(row["business_public_reputation_rating_avg"]))
+            if row["business_public_reputation_rating_avg"] is not None
+            else None
+        ),
+        public_reputation_ratings_count=row["business_public_reputation_ratings_count"],
+        public_reputation_tier=row["business_public_reputation_tier"],
+        public_reputation_published_at=row["business_public_reputation_published_at"],
+        public_reputation_source_calculated_at=row["business_public_reputation_source_calculated_at"],
         evasion_reports_count=row["business_evasion_reports_count"],
         referral_code=row["business_referral_code"],
         referral_credits_earned=row["business_referral_credits_earned"],

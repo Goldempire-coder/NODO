@@ -9,8 +9,8 @@ al negocio de una orden completada. El backend crea el rating y recalcula la
 reputacion del negocio en la misma operacion segura. El rating individual es
 privado: negocio y marketplace reciben una proyeccion estable, sin tier ni
 agregados que permitan atribuir un cambio a una calificacion reciente. El orden
-del marketplace tampoco usa metricas reputacionales vivas mientras no exista
-snapshot publico durable.
+del marketplace tampoco usa metricas reputacionales vivas. Slice 42C agrega el
+snapshot durable sin cambiar ese ranking.
 
 ## Autoridad
 

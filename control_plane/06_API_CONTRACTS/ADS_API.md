@@ -50,8 +50,11 @@ No expone datos privados completos del negocio ni instrucciones completas de pag
       "can_cover_requested_amount": true
     },
     "reputation": {
-      "publication_status": "withheld_pending_snapshot",
-      "label": "Reputación no publicada"
+      "publication_status": "withheld_pending_snapshot|published_snapshot",
+      "label": "Reputación aún no publicada|4.60 de 5 (5 calificaciones)",
+      "rating_avg": "4.60 (solo snapshot publicado; opcional)",
+      "ratings_count": "5 (solo snapshot publicado; opcional)",
+      "published_at": "timestamp (solo snapshot publicado; opcional)"
     }
   },
   "payment_method": "zelle|usdt_trc20",
@@ -168,8 +171,8 @@ Rules:
 - El filtro de capacidad ocurre en backend antes de cursor y `LIMIT`.
 - Sin `amount_usd`, el anuncio solo aparece si el negocio puede cubrir su
   minimo operativo.
-- Por compatibilidad v1 se aceptan `sort=trust` y `sort=speed`, pero mientras no
-  exista snapshot publico durable ambos son aliases de `sort=rate`.
+- Por compatibilidad v1 se aceptan `sort=trust` y `sort=speed`; Slice 42C los
+  mantiene como aliases de `sort=rate` aun cuando exista snapshot publico.
 - `sort=null`, `sort=rate`, `sort=trust` y `sort=speed` usan el mismo orden
   publico: `rate_bs_per_usd DESC`, `created_at DESC`.
 - Ningun orden publico puede usar, rankear ni desempatar con `rating_avg`,
@@ -178,9 +181,9 @@ Rules:
   metrica viva derivada de ratings, completions o disputas.
 - El cursor actual continua ligado a `created_at`. Un desempate compuesto por
   `id` requiere un cambio compatible del cursor y queda fuera de este mini-fix.
-- El ranking reputacional objetivo requiere primero un snapshot publico durable
-  y medido. Queda prohibido ordenar con el tier o promedio interno vivo porque
-  el cambio de posicion permitiria atribuir una calificacion reciente.
+- El ranking reputacional queda fuera de Slice 42C. Queda prohibido ordenar con
+  tier o promedio interno vivo; el snapshot tampoco participa en ranking hasta
+  un contrato posterior con medicion de privacidad y costo.
 - Un slice posterior puede sustituir la heuristica solo usando valores del
   snapshot publicado:
   1. compatibilidad exacta de monto/metodo

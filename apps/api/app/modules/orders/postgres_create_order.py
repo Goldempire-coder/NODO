@@ -8,6 +8,7 @@ from app.modules.businesses.row_mappers import business_from_row, payment_method
 from app.modules.orders.create_order_builder import bind_created_order_to_audit_events
 from app.modules.orders.models import OrderRecord, new_public_order_code
 from app.modules.orders.row_mappers import jsonb, order_from_row
+from app.modules.notifications.order_notification_jobs import build_order_created_business_job
 
 
 BUSINESS_COLUMNS = (
@@ -155,6 +156,7 @@ class PostgresCreateOrderMixin:
         initial_state_event = fields.pop("initial_state_event", None)
         audit_events = fields.pop("audit_events", None)
         capacity_reservation = fields.pop("capacity_reservation", None)
+        notification_plan = fields.pop("order_created_notification_plan", None)
         with self._connect() as conn:  # type: ignore[attr-defined]
             if capacity_reservation is not None and self._capacity is not None:  # type: ignore[attr-defined]
                 self._capacity.lock_order_create_capacity_in_transaction(  # type: ignore[attr-defined]
@@ -175,6 +177,18 @@ class PostgresCreateOrderMixin:
                 self._insert_initial_state_event(conn, order_id=row["id"], initial_state_event=initial_state_event)
             if audit_events is not None:
                 self._insert_create_order_audit_events(conn, order_id=str(row["id"]), audit_events=audit_events)
+            if notification_plan is not None:
+                try:
+                    self._jobs.enqueue_notification_in_transaction(  # type: ignore[attr-defined]
+                        conn,
+                        **build_order_created_business_job(
+                            order=order_from_row(row),
+                            plan=notification_plan,
+                        ),
+                    )
+                except Exception as exc:
+                    conn.rollback()
+                    raise ApiError("NOTIFICATION_OUTBOX_UNAVAILABLE", status_code=503) from exc
             conn.commit()
         return order_from_row(row)
 

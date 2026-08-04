@@ -59,7 +59,8 @@ Cuando el Owner apruebe construir:
 - Un cambio posterior de estado vuelve a presentar el pendiente.
 - El aviso interno solo contiene copy generico y ruta local al recurso.
 - Un fallo temporal conserva el ultimo contador valido y marca `Sin actualizar`.
-- El scheduler corre cada 30 segundos, se pausa oculto y evita solapamientos.
+- El refresco estable tiene objetivo de 15 segundos, se pausa oculto, evita
+  solapamientos y aplica backoff/jitter en error.
 - No hay polling independiente por badge ni descarga de listas completas desde
   el frontend.
 - El endpoint combinado filtra por ownership y superficie antes del limite.

@@ -144,8 +144,8 @@ Antes de activar 50B1:
 - el runtime debe dejar de aceptar/persistir este payload legacy mediante un
   plan de deprecacion compatible;
 - un `receiver_data` legacy no reemplaza la coordinacion en chat;
-- el endpoint `PUT /api/v1/orders/{id}/receiver-details` queda como ruta
-  estructurada opcional, no como requisito para entregar.
+- el endpoint `PUT /api/v1/orders/{id}/receiver-details` es la ruta
+  estructurada requerida antes de que el negocio marque Pago Movil enviado.
 
 Response 201:
 
@@ -242,9 +242,9 @@ Errores:
 
 ## PUT /api/v1/orders/{id}/receiver-details
 
-Crea datos estructurados opcionales del receptor de Pago Movil. El flujo normal
-es chat-first y no requiere este recurso para que el negocio marque enviado.
-Aunque la UI los represente como una burbuja compacta, no son `messages.body`.
+Crea los datos estructurados del receptor de Pago Movil requeridos por el flujo
+chat-first antes de que el negocio marque enviado. Aunque la UI los represente
+como una burbuja compacta, no son `messages.body`.
 
 Request:
 

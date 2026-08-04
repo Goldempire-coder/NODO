@@ -79,8 +79,8 @@ No construir todavia:
 - Ordenes en estados accionables aparecen como pendientes segun la superficie.
 - Un aviso interno seguro permite abrir la orden o ticket exacto.
 - Abrir el recurso reconoce solo ese pendiente durante la sesion.
-- Un unico request de awareness corre cada 30 segundos, solo con la app visible
-  y sin refresh solapado.
+- Un unico request de awareness tiene objetivo de 15 segundos, solo con la app
+  visible, sin refresh solapado y con backoff/jitter ante fallos.
 - Si una consulta falla, se conserva el ultimo contador valido y se muestra
   `Sin actualizar`.
 - El ciclo de Negocio reemplaza el polling previo de ordenes cada 10 segundos.

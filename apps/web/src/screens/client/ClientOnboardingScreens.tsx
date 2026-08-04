@@ -41,7 +41,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
           <Title level="2" className="business-shell__title">Antes de cambiar</Title>
           <Text>NODO te permite comparar perfiles registrados según la información publicada.</Text>
           <Text>Tu pago se realiza directamente con el negocio que selecciones.</Text>
-          <Text>NODO organiza la orden y guarda el respaldo del proceso para soporte.</Text>
+          <Text>NODO registra la orden y su evidencia. El pago se realiza directamente entre las partes.</Text>
           <Text>Al continuar aceptas los terminos de uso vigentes y el registro de actividad de la orden.</Text>
           <Text className="auth-entry__session-meta">Version: {CURRENT_CLIENT_TERMS_VERSION}</Text>
           <Button mode="filled" stretched disabled={busy} onClick={() => void acceptTerms()}>

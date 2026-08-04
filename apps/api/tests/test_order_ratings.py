@@ -182,7 +182,7 @@ def test_owned_completed_order_rating_recalculates_public_reputation_once() -> N
     assert data["rating"]["order_id"] == order.id
     assert data["business_reputation"] == {
         "publication_status": "withheld_pending_snapshot",
-        "label": "Reputación no publicada",
+        "label": "Reputación aún no publicada",
     }
     assert not ({"risk_level", "trust_level", "business_failure_orders_count", "lost_disputes_count"} & set(data["business_reputation"]))
 

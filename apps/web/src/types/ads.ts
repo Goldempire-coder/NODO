@@ -24,8 +24,11 @@ export type AdSummary = {
       can_cover_requested_amount?: boolean;
     };
     reputation?: {
-      publication_status: "withheld_pending_snapshot";
+      publication_status: "withheld_pending_snapshot" | "published_snapshot";
       label: string;
+      rating_avg?: string;
+      ratings_count?: number;
+      published_at?: string;
     };
   };
   payment_method_details?: {

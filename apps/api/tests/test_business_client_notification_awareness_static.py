@@ -27,10 +27,15 @@ def test_surface_attention_polling_is_single_visible_non_overlapping_and_stale_s
         ROOT / "apps" / "web" / "src" / "types" / "notifications.ts"
     ).read_text(encoding="utf-8")
 
-    assert "ATTENTION_REFRESH_INTERVAL_MS = 30_000" in awareness
+    assert "ATTENTION_REFRESH_INTERVAL_MS = 15_000" in awareness
+    assert "ATTENTION_MAX_BACKOFF_MS" in awareness
+    assert "ATTENTION_JITTER_MS" in awareness
     assert 'document.visibilityState !== "visible"' in awareness
     assert "refreshInFlightRef.current" in awareness
-    assert awareness.count("window.setInterval") == 1
+    assert "window.setInterval" not in awareness
+    assert awareness.count("window.setTimeout") >= 1
+    assert "failureCountRef.current" in awareness
+    assert "Math.random()" in awareness
     assert "getSurfaceAttentionSummary(request)" in awareness
     assert "acknowledgeSurfaceAttention(request" in awareness
     assert "/api/v1/notifications/attention-summary" in (

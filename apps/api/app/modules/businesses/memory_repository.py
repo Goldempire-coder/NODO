@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from threading import RLock
 
 from app.core.errors import ApiError
@@ -84,6 +85,46 @@ class InMemoryBusinessRepository(
             if business.owner_user_id == owner_user_id:
                 return business
         return None
+
+    def publish_due_public_reputation_snapshots(
+        self,
+        *,
+        current_time: datetime,
+        limit: int,
+        minimum_ratings: int = 5,
+        publication_interval: timedelta = timedelta(hours=24),
+        dry_run: bool = False,
+    ) -> list[str]:
+        with self._lock:
+            candidates = []
+            for business in self.businesses.values():
+                if (
+                    business.ratings_count < minimum_ratings
+                    or business.rating_avg is None
+                    or business.reputation_calculated_at is None
+                ):
+                    continue
+                unpublished = business.public_reputation_published_at is None
+                due = unpublished or business.public_reputation_published_at <= current_time - publication_interval
+                source_is_old_enough = business.reputation_calculated_at <= current_time - publication_interval
+                changed = (
+                    business.public_reputation_source_calculated_at is None
+                    or business.reputation_calculated_at > business.public_reputation_source_calculated_at
+                )
+                if due and source_is_old_enough and changed:
+                    candidates.append(business)
+            candidates.sort(
+                key=lambda item: item.public_reputation_published_at or item.created_at
+            )
+            selected = candidates[:limit]
+            if not dry_run:
+                for business in selected:
+                    business.public_reputation_rating_avg = business.rating_avg
+                    business.public_reputation_ratings_count = business.ratings_count
+                    business.public_reputation_tier = business.reputation_tier
+                    business.public_reputation_published_at = current_time
+                    business.public_reputation_source_calculated_at = business.reputation_calculated_at
+            return [business.id for business in selected]
 
     def list_pending_businesses(self, *, cursor: str | None, limit: int) -> tuple[list[BusinessRecord], str | None]:
         items = sorted(

@@ -8,9 +8,10 @@ This slice implements only 50A1 and 50A2:
 - optional legacy `receiver_data`;
 - chat available in `waiting_payment`;
 - virtual negotiation-created message;
-- configured Zelle shared manually or with compact `Enviar Zelle`;
-- payment instructions and payment report blocked until configured Zelle is in
-  a visible business message;
+- configured Zelle or USDT wallet shared manually or with the compact business
+  action;
+- payment instructions and payment report blocked until the configured account
+  is in a visible business message;
 - client chat refreshes locally every five seconds only while its view is open
   and the document is visible;
 - compact `Pago enviado` validates instructions in the background and opens the
@@ -22,7 +23,8 @@ This slice implements only 50A1 and 50A2:
 - locked payment-report amount in the client UI.
 
 The Owner correction is authoritative: any first business message means only
-that the business responded. Only sharing the configured Zelle enables payment.
+that the business responded. Only sharing the configured Zelle or USDT wallet
+enables payment.
 
 No migration, deployment, credit rule, Base USDC flow, support rewrite,
 reputation change or expiration scheduler is part of this slice.

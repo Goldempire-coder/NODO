@@ -62,6 +62,21 @@ def business_from_row(row) -> BusinessRecord:  # type: ignore[no-untyped-def]
         average_delivery_seconds=_row_get(row, "average_delivery_seconds"),
         reputation_tier=_row_get(row, "reputation_tier", "new"),
         reputation_calculated_at=_datetime_from_row_value(_row_get(row, "reputation_calculated_at")),
+        public_reputation_rating_avg=(
+            Decimal(str(_row_get(row, "public_reputation_rating_avg")))
+            if _row_get(row, "public_reputation_rating_avg") is not None
+            else None
+        ),
+        public_reputation_ratings_count=(
+            int(_row_get(row, "public_reputation_ratings_count"))
+            if _row_get(row, "public_reputation_ratings_count") is not None
+            else None
+        ),
+        public_reputation_tier=_row_get(row, "public_reputation_tier"),
+        public_reputation_published_at=_datetime_from_row_value(_row_get(row, "public_reputation_published_at")),
+        public_reputation_source_calculated_at=_datetime_from_row_value(
+            _row_get(row, "public_reputation_source_calculated_at")
+        ),
         evasion_reports_count=row["evasion_reports_count"],
         referral_code=row["referral_code"],
         referral_credits_earned=row["referral_credits_earned"],

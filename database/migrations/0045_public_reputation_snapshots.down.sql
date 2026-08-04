@@ -1,0 +1,2 @@
+drop index if exists business_public_reputation_snapshots_published_at_idx;
+drop table if exists business_public_reputation_snapshots;

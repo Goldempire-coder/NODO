@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type SetStateAction } from "react";
 import {
   listOrderMessages,
   openOrderMessageAttachment,
@@ -22,6 +22,15 @@ type ChatAttachmentLink = {
   expiresInSeconds: number;
   mimeType: string;
 };
+
+function emptyReceiverDetailsForm(): ReceiverDetailsInput {
+  return {
+    bank: "0102",
+    phone: "",
+    document: "",
+    holder: ""
+  };
+}
 
 function openTemporaryAttachmentUrl(url: string) {
   try {
@@ -71,19 +80,28 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
   const sendingChatMessageRef = useRef(false);
   const uploadingChatAttachmentRef = useRef(false);
-  const sharingReceiverDetailsRef = useRef(false);
+  const receiverDetailsRequestsRef = useRef(new Set<string>());
   const confirmingOrderReceivedRef = useRef(false);
   const refreshingChatRef = useRef(false);
   const chatOrderIdRef = useRef(chatOrderId);
   chatOrderIdRef.current = chatOrderId;
   const selectedOrderRef = useRef(selectedOrder);
   selectedOrderRef.current = selectedOrder;
-  const [receiverDetailsForm, setReceiverDetailsForm] = useState<ReceiverDetailsInput>({
-    bank: "0102",
-    phone: "",
-    document: "",
-    holder: ""
-  });
+  const [receiverDetailsDraftsByOrder, setReceiverDetailsDraftsByOrder] = useState<Record<string, ReceiverDetailsInput>>({});
+  const receiverDetailsForm = chatOrderId
+    ? receiverDetailsDraftsByOrder[chatOrderId] || emptyReceiverDetailsForm()
+    : emptyReceiverDetailsForm();
+  const setReceiverDetailsForm = useCallback((update: SetStateAction<ReceiverDetailsInput>) => {
+    const targetOrderId = chatOrderId;
+    if (!targetOrderId) {
+      return;
+    }
+    setReceiverDetailsDraftsByOrder((current) => {
+      const previous = current[targetOrderId] || emptyReceiverDetailsForm();
+      const next = typeof update === "function" ? update(previous) : update;
+      return { ...current, [targetOrderId]: next };
+    });
+  }, [chatOrderId]);
   const [receiverDetailsMasked, setReceiverDetailsMasked] = useState<ReceiverDetailsMasked | null>(null);
   const [sharingReceiverDetails, setSharingReceiverDetails] = useState(false);
   const [confirmingOrderReceived, setConfirmingOrderReceived] = useState(false);
@@ -116,6 +134,8 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setPaymentEvidence(null);
       setPendingPaymentReportId(null);
       setPaymentReportForm(emptyPaymentReportForm());
+      setReceiverDetailsMasked(null);
+      setSharingReceiverDetails(receiverDetailsRequestsRef.current.has(orderId));
     }
     setOpeningChatOrderId(orderId);
     try {
@@ -140,6 +160,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
         can_send_message: false,
         can_open_dispute: false,
         can_share_zelle: false,
+        can_share_payment_details: false,
         payment_details_shared: false,
         can_report_payment: false,
         receiver_details_shared: false,
@@ -283,30 +304,46 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
   }
 
   async function shareReceiverDetails() {
-    if (sharingReceiverDetailsRef.current || !chatOrderId) {
+    const targetOrderId = chatOrderId;
+    if (
+      !targetOrderId
+      || chatOrderIdRef.current !== targetOrderId
+      || receiverDetailsRequestsRef.current.has(targetOrderId)
+    ) {
       return;
     }
-    sharingReceiverDetailsRef.current = true;
+    const targetReceiverDetails = receiverDetailsForm;
+    receiverDetailsRequestsRef.current.add(targetOrderId);
     setSharingReceiverDetails(true);
-    const scope = `receiver_details_${chatOrderId}`;
+    const scope = `receiver_details_${targetOrderId}`;
     try {
       const data = await shareOrderReceiverDetails<{
         receiver_details_masked: ReceiverDetailsMasked;
       }>(
         request,
-        chatOrderId,
-        receiverDetailsForm,
-        getIdempotencyKey(scope, { orderId: chatOrderId, ...receiverDetailsForm })
+        targetOrderId,
+        targetReceiverDetails,
+        getIdempotencyKey(scope, { orderId: targetOrderId, ...targetReceiverDetails })
       );
       clearIdempotencyKey(scope);
+      if (chatOrderIdRef.current !== targetOrderId) {
+        return;
+      }
       setReceiverDetailsMasked(data.receiver_details_masked);
       await refreshChat({ silent: true });
+      if (chatOrderIdRef.current !== targetOrderId) {
+        return;
+      }
       setNotice("Pago Movil compartido.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos compartir el Pago Movil.");
+      if (chatOrderIdRef.current === targetOrderId) {
+        setNotice(error instanceof Error ? error.message : "No pudimos compartir el Pago Movil.");
+      }
     } finally {
-      sharingReceiverDetailsRef.current = false;
-      setSharingReceiverDetails(false);
+      receiverDetailsRequestsRef.current.delete(targetOrderId);
+      if (chatOrderIdRef.current === targetOrderId) {
+        setSharingReceiverDetails(false);
+      }
     }
   }
 

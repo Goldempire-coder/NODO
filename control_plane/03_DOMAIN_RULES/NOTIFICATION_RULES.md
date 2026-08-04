@@ -152,11 +152,11 @@ Tipos canonicos:
 | order_cancelled_business_unavailable | remitente | negocio declara que no puede atender antes del reporte de pago | El negocio no puede atender la orden. La orden fue cancelada antes de reportar pago. |
 | order_business_response_warning | negocio | 2h despues de `payment_reported` sin respuesta | Hay una orden con pago reportado pendiente de revisar. |
 | order_disputed_business_no_payment_confirmation | remitente, negocio, admin/support | 6h despues de `payment_reported` sin respuesta | La orden paso a disputa por falta de respuesta del negocio. |
-| order_delivery_warning | negocio | 30 min despues de `payment_confirmed` sin entrega | Confirma el envio del pago movil antes del limite. |
-| order_disputed_business_confirmed_payment_but_not_delivered | remitente, negocio, admin/support | 2h despues de `payment_confirmed` sin entrega | La orden paso a disputa porque el pago movil no fue marcado como enviado a tiempo. |
+| order_delivery_warning | negocio | 30 min despues de `payment_confirmed` sin entrega | La orden sigue pendiente de accion. Abre NODO para continuar. |
+| order_disputed_business_confirmed_payment_but_not_delivered | remitente, negocio, admin/support | 2h despues de `payment_confirmed` sin entrega | La orden paso a disputa por falta de avance dentro del plazo. |
 | order_receiver_details_shared_business | negocio | remitente comparte receptor estructurado en `payment_confirmed` | El cliente compartio los datos del receptor. Abre la orden para revisarlos. |
-| delivered_reminder_immediate | remitente | al pasar a `delivered` | El negocio marco el pago movil como enviado. Si tu receptor no recibio, abre disputa antes de que la orden cierre automaticamente. |
-| delivered_reminder_12h | remitente | 12h despues de `delivered` | Si el receptor no recibio el pago movil, abre disputa antes del cierre automatico. |
+| delivered_reminder_immediate | remitente | al pasar a `delivered` | La orden fue actualizada. Si hay un problema, abre disputa antes de que cierre automaticamente. |
+| delivered_reminder_12h | remitente | 12h despues de `delivered` | Si hay un problema con la orden, abre disputa antes del cierre automatico. |
 | delivered_reminder_23h | remitente | 23h despues de `delivered` | Ultimo aviso antes del cierre automatico de la orden. |
 | order_auto_completed_after_24h | remitente y negocio | 24h despues de `delivered` sin disputa | La orden se cerro automaticamente porque no se abrio disputa dentro del plazo. |
 | order_completed | negocio | remitente confirma recibido; dedupe separado del auto-complete | El cliente confirmo la recepcion y la orden fue completada. |

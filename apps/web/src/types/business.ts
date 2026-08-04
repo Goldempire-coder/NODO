@@ -7,8 +7,11 @@ export type BusinessSummary = {
   verification_status: string;
   trust_level?: string;
   reputation?: {
-    publication_status: "withheld_pending_snapshot";
+    publication_status: "withheld_pending_snapshot" | "published_snapshot";
     label: string;
+    rating_avg?: string;
+    ratings_count?: number;
+    published_at?: string;
   };
   min_order_amount_usd?: string;
   max_order_amount_usd?: string;

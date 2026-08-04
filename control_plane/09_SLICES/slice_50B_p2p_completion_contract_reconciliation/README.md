@@ -10,7 +10,8 @@ This slice defines one authoritative contract for:
 - publication-credit consumption;
 - operational-capacity reservation, release and consumption;
 - cancellation boundaries;
-- chat-first Pago Movil coordination with optional structured receiver details;
+- chat-first Pago Movil coordination with a compact structured receiver-details
+  bubble and explicit participant-only reveal;
 - manual receipt confirmation;
 - automatic completion as a backup;
 - disputes, rating, notifications and audit.

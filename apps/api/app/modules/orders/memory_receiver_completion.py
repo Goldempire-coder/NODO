@@ -119,6 +119,8 @@ class InMemoryOrderReceiverCompletionMixin:
                 raise ApiError("ORDER_NOT_FOUND", status_code=404)
             if order.status != "payment_confirmed":
                 raise ApiError("DELIVERY_NOT_ALLOWED", status_code=409)
+            if order_id not in self.receiver_details:  # type: ignore[attr-defined]
+                raise ApiError("ORDER_RECEIVER_DETAILS_REQUIRED", status_code=409)
             order.status = "delivered"
             order.delivered_at = delivered_at
             order.auto_complete_warning_12h_at = warning_12h_at

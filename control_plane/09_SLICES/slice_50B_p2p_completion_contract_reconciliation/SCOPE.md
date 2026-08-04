@@ -5,8 +5,8 @@
 - Reconcile the eight persisted order states used by the final P2P flow.
 - Define the exact credit and operational-capacity effects of each transition.
 - Define `POST /api/v1/orders/{id}/confirm-received`.
-- Define chat-first Pago Movil coordination and keep the structured
-  receiver-data resource as an optional compatibility path.
+- Define chat-first Pago Movil coordination using the structured receiver-data
+  resource as the required source before business delivery.
 - Define the 24-hour automatic-completion backup contract.
 - Reconcile dispute, rating, notification, audit and waiting-payment chat rules.
 - Assign future implementation work to 50B1 and later operational slices.
@@ -22,9 +22,9 @@
 
 ## Future Build Boundary
 
-- 50B1 may implement optional secure receiver details and manual receipt
-  confirmation, but delivery must not depend on the structured receiver
-  resource in the normal chat-first flow.
+- 50B1 implements secure receiver details and manual receipt confirmation;
+  delivery depends on the structured receiver resource in the normal
+  chat-first flow.
 - Before real-use activation, legacy order-creation `receiver_data` should be
   deprecated and legacy receiver values removed from general business-order
   detail.

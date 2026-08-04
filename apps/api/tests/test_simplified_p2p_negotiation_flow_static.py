@@ -43,7 +43,10 @@ def test_chat_uses_one_compact_payment_details_flow_for_zelle_and_usdt() -> None
     assert "chatCapabilities.can_report_payment" in client_chat
     assert 'paymentReportMethod === "usdt_trc20" ? "USDT enviado" : "Zelle enviado"' in client_chat
     assert "No envies el pago" in client_chat
-    assert "const canSharePaymentDetails = chatCapabilities.can_share_zelle" in business_chat
+    assert "const canSharePaymentDetails = chatCapabilities.can_share_payment_details" in business_chat
+    assert 'currentOrder?.payment_method_snapshot === "usdt_trc20" ? "Compartir wallet"' in business_chat
+    assert "/share-payment-details" in _read("apps/web/src/api/chat.ts")
+    assert "Confirma con el negocio la red exacta antes de enviar." in client_chat
     assert "Compartir datos de pago" in business_chat
     assert "shareConfiguredPaymentDetails" in business_chat_model
     assert "Copiar" in client_chat
@@ -68,24 +71,24 @@ def test_usdt_copy_is_simple_but_the_order_network_remains_explicit() -> None:
 
     assert "USDT TRC20" not in marketplace
     assert 'return method === "usdt_trc20" ? "USDT" : "Zelle";' in client_chat
-    assert "Confirma por chat la red exacta con el negocio antes de enviar USDT" in client_chat
+    assert "Confirma con el negocio la red exacta antes de enviar." in client_chat
     assert "currentPaymentInstructions.payment_instructions.network" in client_chat
     assert "Por ahora NODO solo admite wallets USDT en TRC20." not in payment_helpers
     assert "Revisa la wallet USDT. Confirma la red exacta con el cliente por chat." in payment_helpers
     assert "margin-inline-start: 2px;" in globals_css
 
 
-def test_slice_50b2_payment_mobile_is_chat_first_not_blocking_form() -> None:
+def test_slice_50b2_payment_mobile_is_structured_inside_compact_chat_ui() -> None:
     client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
     chat_notifications = _read("apps/api/app/modules/notifications/chat_notifications.py")
     chat_service = _read("apps/api/app/modules/chat/service.py")
 
     assert "Pago movil:\\nBanco:\\nTelefono:\\nCedula:\\nTitular:" not in client_chat
-    assert "Comparte Pago Movil" not in client_chat
-    assert "receiverDetailsForm" not in client_chat
-    assert "shareReceiverDetails" not in client_chat
-    assert "Banco de Venezuela" not in client_chat
-    assert "Escribe tu Pago Movil en el chat." in client_chat
+    assert "receiverDetailsForm" in client_chat
+    assert "shareReceiverDetails" in client_chat
+    assert "Compartir Pago Movil" in client_chat
+    assert "Banco de Venezuela" in client_chat
+    assert 'type="tel"' in client_chat
     assert "can_mark_delivered" in chat_service
     assert 'order.status == "payment_confirmed"' in chat_service
     assert "message.body" not in chat_notifications
@@ -206,7 +209,7 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
     assert "Confirmar pago" not in business_orders
     assert "Marcar enviado" not in business_orders
     assert "shouldHandleInChat" in business_orders
-    assert "El cliente escribe el Pago Movil por chat" in business_chat
+    assert "Pago Movil pendiente. Espera a que el cliente comparta sus datos." in business_chat
     assert "businessChatAction" in business_chat
     assert "sortChatMessages" in chat_model
 
@@ -228,6 +231,25 @@ def test_payment_report_state_is_scoped_to_the_active_chat_order() -> None:
     assert "uploadingPaymentEvidence || submittingPaymentReport || loadingPaymentInstructions" in _read(
         "apps/web/src/screens/client/ClientOrderChatScreen.tsx"
     )
+
+
+def test_receiver_details_state_and_async_result_are_scoped_to_the_chat_order() -> None:
+    chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+
+    assert "receiverDetailsDraftsByOrder" in chat_model
+    assert "receiverDetailsRequestsRef" in chat_model
+    assert "const targetOrderId = chatOrderId;" in chat_model
+    assert "const targetReceiverDetails = receiverDetailsForm;" in chat_model
+
+    share_source = chat_model.split("async function shareReceiverDetails()", 1)[1].split(
+        "async function confirmOrderReceived()", 1
+    )[0]
+    assert "shareOrderReceiverDetails" in share_source
+    assert "targetOrderId" in share_source
+    assert "chatOrderIdRef.current !== targetOrderId" in share_source
+    stale_guard = share_source.index("chatOrderIdRef.current !== targetOrderId")
+    assert stale_guard < share_source.index("setReceiverDetailsMasked(")
+    assert stale_guard < share_source.index('setNotice("Pago Movil compartido.")')
 
 
 def test_payment_evidence_upload_prepares_mobile_images_and_hides_raw_fetch_error() -> None:

@@ -6,6 +6,7 @@ Contrato API canonico para mensajes y adjuntos privados de orden.
 
 - GET /api/v1/orders/{id}/messages
 - POST /api/v1/orders/{id}/messages
+- POST /api/v1/orders/{id}/share-payment-details
 - POST /api/v1/orders/{id}/share-zelle
 - POST /api/v1/orders/{id}/message-attachments
 
@@ -24,9 +25,10 @@ Contrato API canonico para mensajes y adjuntos privados de orden.
 - No filtrar existencia de ordenes ajenas.
 - Rate limit obligatorio por usuario, orden, IP y ruta.
 - No exponer `storage_path`, signed URLs, tokens ni secretos.
-- El Zelle completo solo puede aparecer dentro de un mensaje privado de la
-  orden despues de que el negocio lo comparta manualmente o con la accion
-  autorizada. No se copia a logs, audit, Telegram o admin notifications.
+- El Zelle o wallet USDT completo solo puede aparecer dentro de un mensaje
+  privado de la orden despues de que el negocio lo comparta manualmente o con
+  la accion autorizada. No se copia a logs, audit, Telegram o admin
+  notifications.
 - Mensajes deben sanitizarse antes de mostrarse.
 - En el flujo normal, el cliente puede escribir Pago Movil en el chat. Ese
   texto no cambia estado, monto, tasa ni entrega. El endpoint estructurado de
@@ -86,7 +88,7 @@ Response:
   "capabilities": {
     "can_send_message": true,
     "can_open_dispute": false,
-    "can_share_zelle": false,
+    "can_share_payment_details": false,
     "payment_details_shared": false,
     "can_report_payment": false
   },
@@ -226,27 +228,27 @@ Errors:
 - UNAUTHENTICATED
 - VALIDATION_ERROR
 
-## POST /api/v1/orders/{id}/share-zelle
+## POST /api/v1/orders/{id}/share-payment-details
 
-Accion compacta exclusiva del owner del negocio.
+Accion compacta exclusiva del owner del negocio para Zelle o USDT. La ruta
+`share-zelle` se conserva como alias legacy exclusivo de Zelle.
 
 Rules:
 
 - `Idempotency-Key` requerido.
-- Orden propia del negocio, `waiting_payment`, metodo `zelle`.
-- Inserta una sola vez un mensaje privado con el Zelle configurado congelado en
-  la orden y el titular cuando existe.
+- Orden propia del negocio, `waiting_payment`, metodo `zelle|usdt_trc20`.
+- Inserta una sola vez un mensaje privado con la cuenta configurada congelada
+  en la orden y el titular cuando existe.
 - Un retry con otra key tampoco duplica el mensaje.
 - El cliente queda con `can_report_payment = true`.
-- El Zelle configurado no dispara alerta anti-evasion.
+- La cuenta configurada no dispara alerta anti-evasion.
 - Frases para sacar la operacion de NODO u otros contactos externos siguen
   generando la alerta conservadora.
-- Audit `business_zelle_shared` guarda IDs seguros, nunca el Zelle.
+- Audit `business_payment_details_shared` guarda IDs seguros, nunca la cuenta.
 
-Esta accion sigue siendo exclusiva de Zelle. Para `usdt_trc20`, la wallet
-configurada ya esta congelada en la orden y el cliente owner la revela mediante
-`GET /api/v1/orders/{id}/payment-instructions`; no se crea un segundo endpoint
-de chat ni se duplica la wallet en respuestas generales.
+Para `usdt_trc20`, el cliente no puede revelar la wallet ni reportar pago hasta
+que el negocio use esta accion. La UI muestra `Compartir wallet` y advierte:
+`Confirma con el negocio la red exacta antes de enviar.`
 
 La Mini App Cliente presenta ambos metodos con la misma experiencia compacta:
 una burbuja dentro del chat con el dato autorizado, monto y accion `Copiar`.

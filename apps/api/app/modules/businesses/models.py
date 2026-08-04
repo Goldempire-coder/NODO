@@ -54,6 +54,11 @@ class BusinessRecord:
     average_delivery_seconds: int | None = None
     reputation_tier: str = "new"
     reputation_calculated_at: datetime | None = None
+    public_reputation_rating_avg: Decimal | None = None
+    public_reputation_ratings_count: int | None = None
+    public_reputation_tier: str | None = None
+    public_reputation_published_at: datetime | None = None
+    public_reputation_source_calculated_at: datetime | None = None
     evasion_reports_count: int = 0
     referral_code: str | None = None
     referral_credits_earned: int = 0

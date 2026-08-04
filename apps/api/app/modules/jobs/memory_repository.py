@@ -52,6 +52,9 @@ class InMemoryJobRepository:
             self.notification_jobs[notification.id] = notification
             return notification, True
 
+    def enqueue_notification_in_transaction(self, _conn=None, **fields: Any) -> tuple[NotificationJobRecord, bool]:  # type: ignore[no-untyped-def]
+        return self.enqueue_notification(**fields)
+
     def list_due_notifications(self, *, now: datetime, limit: int) -> list[NotificationJobRecord]:
         with self._lock:
             items = [
@@ -63,7 +66,11 @@ class InMemoryJobRepository:
             claimed = items[:limit]
             for item in claimed:
                 item.scheduled_for = now + timedelta(minutes=5)
-                item.metadata_json = {**(item.metadata_json or {}), "delivery_state": "processing"}
+                item.metadata_json = {
+                    **(item.metadata_json or {}),
+                    "delivery_state": "processing",
+                    "claimed_at": now.isoformat(),
+                }
                 item.updated_at = utc_now()
             return claimed
 
@@ -82,7 +89,11 @@ class InMemoryJobRepository:
             claimed = items[:limit]
             for item in claimed:
                 item.scheduled_for = now + timedelta(minutes=5)
-                item.metadata_json = {**(item.metadata_json or {}), "delivery_state": "processing"}
+                item.metadata_json = {
+                    **(item.metadata_json or {}),
+                    "delivery_state": "processing",
+                    "claimed_at": now.isoformat(),
+                }
                 item.updated_at = utc_now()
             return claimed
 

@@ -1,6 +1,6 @@
 # RATING_REPUTATION_MASTER.md
 
-Estado: `OFFICIAL_SLICE_42B_RATING_WRITE`
+Estado: `OFFICIAL_SLICE_42C_PUBLIC_SNAPSHOT`
 
 ## Autoridad
 
@@ -12,7 +12,7 @@ contratos API y las pantallas a estas reglas antes de construir UI.
 
 - `trust_level` controla limites y capacidad interna. No es reputacion publica.
 - `reputation_tier` resume reputacion calculada internamente: `new`, `active`,
-  `reliable`, `elite`. No se publica hasta que exista snapshot durable.
+  `reliable`, `elite`. Solo su copia de snapshot puede publicarse.
 - `risk_level` es una senal interna de seguridad. Nunca se expone en DTOs
   publicos, marketplace ni mensajes para clientes.
 - El negocio no puede editar rating, metricas agregadas ni `reputation_tier`.
@@ -42,8 +42,8 @@ contratos API y las pantallas a estas reglas antes de construir UI.
 - `rating_avg`: promedio de estrellas validas, con dos decimales; `null` sin
   ratings. Es un agregado interno y no forma parte de DTOs publicos o del
   negocio.
-- `ratings_count`: cantidad exacta de ratings validos. Es interna y no forma
-  parte de DTOs publicos o del negocio mientras no exista snapshot durable.
+- `ratings_count`: cantidad exacta de ratings validos. El valor vivo es interno;
+  solo la copia durable publicada puede formar parte del DTO publico.
 - `completed_orders_count`: ordenes completadas correctamente.
 - `business_failure_orders_count`: resultados atribuibles al negocio que
   cuentan contra success rate.
@@ -112,18 +112,17 @@ Publico/cliente:
 
 - id y nombre del negocio;
 - verificacion publica;
-- proyeccion estable `publication_status = withheld_pending_snapshot` y
-  etiqueta `Reputación no publicada`.
-- Prohibidos mientras no exista snapshot durable: `reputation_tier`,
-  `rating_avg`, `ratings_count`, bandas derivadas y cualquier rating asociado a
-  una orden o cliente.
+- `publication_status = withheld_pending_snapshot` y etiqueta
+  `Reputacion aun no publicada` mientras haya menos de cinco ratings elegibles;
+- con snapshot durable: `publication_status = published_snapshot`, promedio,
+  cantidad y `published_at` copiados en lote, nunca valores vivos;
+- prohibido cualquier rating asociado a una orden o cliente.
 - Prohibidos: `trust_level`, `risk_level`, contadores antifraude, causas de
   disputa y senales internas.
 
 Negocio propio autenticado:
 
-- la misma proyeccion estable publica, sin tier, agregados ni estrellas por
-  orden;
+- la misma proyeccion de snapshot publico, sin estrellas por orden;
 - su capacidad/`trust_level` cuando el contrato propio lo requiera;
 - no puede mutar campos derivados ni recibir detalles internos de riesgo.
 
@@ -140,21 +139,25 @@ Admin autorizado:
   propia orden.
 - No se crea mensaje de chat, attention item ni notificacion Telegram por un
   rating.
-- Publicar tier, promedio, conteo o bandas inmediatamente permitiria atribuir
-  un cambio a una calificacion reciente. Esos valores quedan internos.
-- No existe scheduler ni campo de snapshot publico contratado. Hasta que un
-  slice posterior agregue persistencia, proceso singleton, lote y monitoreo, la
-  proyeccion publica permanece estable y no afirma que un snapshot corre.
-- El marketplace tampoco puede revelar cambios vivos mediante posicion. Hasta
-  que exista ese snapshot, todos los sorts publicos se resuelven por tasa y
-  fecha del anuncio; confianza, velocidad y metricas reputacionales no
-  participan en ranking ni desempates.
+- Publicar tier, promedio o conteo inmediatamente permitiria atribuir un cambio
+  a una calificacion reciente. Esos valores vivos quedan internos.
+- `business_public_reputation_snapshots` conserva la copia publica durable. El
+  worker singleton existente publica como maximo una vez cada 24 horas, solo
+  desde cinco ratings elegibles y cuando el calculo fuente tiene al menos 24
+  horas. La existencia del runner no demuestra que un scheduler externo este
+  activo en staging o produccion.
+- El marketplace tampoco puede revelar cambios vivos mediante posicion. Slice
+  42C mantiene todos los sorts publicos por tasa y fecha del anuncio; confianza,
+  velocidad y metricas reputacionales, vivas o de snapshot, no participan en
+  ranking ni desempates.
 
 ## Integridad y reconstruccion
 
 - `ratings` es la fuente de estrellas por orden.
 - Ordenes, eventos y disputas son la fuente de resultados operativos.
 - Los campos agregados de `businesses` son read-models reconstruibles.
+- `business_public_reputation_snapshots` es la unica fuente de reputacion para
+  marketplace y perfil del negocio.
 - `reputation_calculated_at = null` indica que el agregado aun no fue
   recalculado por un proceso contratado.
 - Slice 42A no hace backfill ni activa recalculo automatico; eso requiere un

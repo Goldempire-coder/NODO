@@ -5,7 +5,7 @@ from decimal import Decimal
 from app.core.errors import ApiError
 from app.modules.users.models import UserRecord
 
-MARKETPLACE_CACHE_PREFIX = "marketplace:ads:v2:"
+MARKETPLACE_CACHE_PREFIX = "marketplace:ads:v3:"
 MARKETPLACE_ORDER_INVALIDATION_DEBOUNCE_SECONDS = 2
 
 
