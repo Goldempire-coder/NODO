@@ -6,6 +6,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 UP = ROOT / "database" / "migrations" / "0046_supabase_public_schema_rls_lockdown.up.sql"
 DOWN = ROOT / "database" / "migrations" / "0046_supabase_public_schema_rls_lockdown.down.sql"
+AUDIT_TRIGGER_UP = ROOT / "database" / "migrations" / "0047_audit_log_trigger_search_path_hardening.up.sql"
+AUDIT_TRIGGER_DOWN = ROOT / "database" / "migrations" / "0047_audit_log_trigger_search_path_hardening.down.sql"
 
 
 def test_supabase_public_schema_lockdown_migration_exists() -> None:
@@ -58,3 +60,20 @@ def test_supabase_public_schema_lockdown_down_does_not_reopen_public_access() ->
     ]
     for fragment in forbidden:
         assert fragment not in sql
+
+
+def test_audit_log_trigger_uses_fixed_search_path() -> None:
+    assert AUDIT_TRIGGER_UP.exists()
+    sql = AUDIT_TRIGGER_UP.read_text(encoding="utf-8").lower()
+
+    assert "create or replace function prevent_audit_logs_mutation()" in sql
+    assert "set search_path = pg_catalog" in sql
+    assert "audit_logs are append-only" in sql
+
+
+def test_audit_log_trigger_down_does_not_reintroduce_mutable_search_path() -> None:
+    assert AUDIT_TRIGGER_DOWN.exists()
+    sql = AUDIT_TRIGGER_DOWN.read_text(encoding="utf-8").lower()
+
+    assert "create or replace function prevent_audit_logs_mutation()" not in sql
+    assert "reset" not in sql
