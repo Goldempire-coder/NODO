@@ -329,7 +329,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
                     type="tel"
                     inputMode="tel"
                     autoComplete="tel"
-                    placeholder="+584121234567"
+                    placeholder="0414 1234567 o +58 414 1234567"
                     required
                     value={receiverDetailsForm.phone}
                     onChange={(event) => setReceiverDetailsForm({ ...receiverDetailsForm, phone: event.target.value })}

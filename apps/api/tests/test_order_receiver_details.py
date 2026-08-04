@@ -173,6 +173,63 @@ def test_receiver_details_validate_payload_and_reject_extra_fields() -> None:
     assert invalid.json()["error"]["code"] == "ORDER_RECEIVER_DETAILS_INVALID"
 
 
+@pytest.mark.parametrize(
+    "phone",
+    [
+        "0414 1234567",
+        "0416-123-4567",
+        "+58 (414) 123-4567",
+    ],
+)
+def test_receiver_details_accept_common_phone_formats_without_forcing_country_code(phone: str) -> None:
+    client = _client()
+    owner, _, _, remitter, order = _seed_reported_order(
+        client,
+        owner_id=5350 + len(phone),
+        remitter_id=5450 + len(phone),
+    )
+    _confirm_payment(client, owner, order["id"], key=f"receiver_local_phone_confirm_{len(phone)}")
+
+    shared = _share_receiver_details(
+        client,
+        remitter,
+        order["id"],
+        key=f"receiver_local_phone_share_{len(phone)}",
+        payload={**RECEIVER_DETAILS, "phone": phone},
+    )
+    revealed = client.get(
+        f"/api/v1/orders/{order['id']}/receiver-details",
+        headers=_bearer(remitter, f"receiver_local_phone_reveal_{len(phone)}"),
+    )
+
+    assert shared.status_code == 200, shared.text
+    assert revealed.status_code == 200, revealed.text
+    assert revealed.json()["data"]["phone"] == phone
+    assert not shared.json()["data"]["receiver_details_masked"]["phone"].startswith("+58")
+
+
+@pytest.mark.parametrize("phone", ["123", "telefono 0414", "<04141234567>"])
+def test_receiver_details_reject_unusable_or_unsafe_phone_values(phone: str) -> None:
+    client = _client()
+    owner, _, _, remitter, order = _seed_reported_order(
+        client,
+        owner_id=5550 + len(phone),
+        remitter_id=5650 + len(phone),
+    )
+    _confirm_payment(client, owner, order["id"], key=f"receiver_bad_phone_confirm_{len(phone)}")
+
+    response = _share_receiver_details(
+        client,
+        remitter,
+        order["id"],
+        key=f"receiver_bad_phone_share_{len(phone)}",
+        payload={**RECEIVER_DETAILS, "phone": phone},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "ORDER_RECEIVER_DETAILS_INVALID"
+
+
 def test_receiver_details_reveal_is_participant_only_audited_and_no_store() -> None:
     client = _client()
     owner, _, _, remitter, order = _seed_reported_order(
@@ -412,6 +469,8 @@ def test_slice_50b2_frontend_uses_structured_compact_chat_ui_and_copy_controls()
     assert "setReceiverDetailsForm" in client_chat
     assert "Compartir Pago Movil" in client_chat
     assert "Pago Movil compartido" in client_chat
+    assert "0414 1234567" in client_chat
+    assert 'placeholder="+584121234567"' not in client_chat
     assert 'type="text"' in client_chat
     assert 'type="tel"' in client_chat
     assert "confirmOrderReceived" in client_chat

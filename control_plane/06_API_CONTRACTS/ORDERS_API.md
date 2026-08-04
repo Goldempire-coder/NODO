@@ -251,7 +251,7 @@ Request:
 ```json
 {
   "bank": "allowlisted bank code or normalized label",
-  "phone": "+584121234567",
+  "phone": "0414 1234567",
   "document": "V12345678",
   "holder": "Receiver name"
 }
@@ -264,7 +264,9 @@ Rules:
 - `Idempotency-Key` obligatorio.
 - Validacion y normalizacion backend:
   - `bank`: codigo del catalogo backend de bancos Pago Movil;
-  - `phone`: `+58` seguido por diez digitos;
+  - `phone`: formato usual del participante, incluyendo `04xx` local o `+58`,
+    con espacios, parentesis o guiones opcionales; requiere al menos siete
+    digitos y rechaza markup/caracteres de control;
   - `document`: `V|E|J|G|P` mayuscula seguida por 6..10 digitos;
   - `holder`: espacios normalizados, 2..120 caracteres, sin markup de control.
 - Campos extra o metadata libre son rechazados.

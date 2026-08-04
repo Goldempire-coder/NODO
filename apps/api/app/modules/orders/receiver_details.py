@@ -33,7 +33,7 @@ PAGO_MOVIL_BANKS = {
     "0177": "Banfanb",
     "0191": "Banco Nacional de Credito",
 }
-PHONE_PATTERN = re.compile(r"^\+58\d{10}$")
+PHONE_FORMAT_PATTERN = re.compile(r"^[0-9+()./\-\s]+$")
 DOCUMENT_PATTERN = re.compile(r"^[VEJGP]\d{6,10}$")
 UNSAFE_HOLDER_PATTERN = re.compile(r"[<>\x00-\x1f\x7f]")
 
@@ -46,9 +46,15 @@ def normalize_bank(value: str) -> str:
 
 
 def normalize_phone(value: str) -> str:
-    normalized = re.sub(r"[\s()-]", "", value)
-    if not PHONE_PATTERN.fullmatch(normalized):
-        raise ValueError("phone must use canonical +58 format")
+    normalized = " ".join(value.split())
+    digit_count = sum(character.isdigit() for character in normalized)
+    if (
+        len(normalized) < 7
+        or len(normalized) > 32
+        or digit_count < 7
+        or not PHONE_FORMAT_PATTERN.fullmatch(normalized)
+    ):
+        raise ValueError("phone format is invalid")
     return normalized
 
 
@@ -73,9 +79,10 @@ def receiver_payload_hash(payload: dict[str, str]) -> str:
 
 def masked_receiver_details(record: OrderReceiverDetailsRecord) -> dict[str, Any]:
     holder_masked = " ".join(f"{part[0]}***" for part in record.holder.split() if part)
+    phone_digits = "".join(character for character in record.phone if character.isdigit())
     return {
         "bank": PAGO_MOVIL_BANKS[record.bank_code],
-        "phone": f"+58*******{record.phone[-3:]}",
+        "phone": f"*******{phone_digits[-3:]}",
         "document": f"{record.document[0]}***{record.document[-3:]}",
         "holder": holder_masked,
     }

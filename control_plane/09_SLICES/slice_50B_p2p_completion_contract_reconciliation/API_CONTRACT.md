@@ -22,7 +22,7 @@ Request:
 ```json
 {
   "bank": "allowlisted bank code or normalized label",
-  "phone": "+584121234567",
+  "phone": "0414 1234567",
   "document": "V12345678",
   "holder": "Receiver name"
 }
@@ -38,7 +38,7 @@ Response 200:
     "shared_at": "timestamp",
     "receiver_details_masked": {
       "bank": "Banco",
-      "phone": "+58*******567",
+      "phone": "*******567",
       "document": "V***678",
       "holder": "N*** R***"
     }
@@ -53,7 +53,9 @@ Rules:
 - First creation requires `payment_confirmed`.
 - Validate and normalize each field server-side; reject unknown extra fields:
   - `bank`: code from the backend-authoritative Pago Movil bank catalog;
-  - `phone`: canonical `+58` followed by ten digits;
+  - `phone`: 7..32 characters in the participant's usual format, including
+    local `04xx`, `+58`, spaces, parentheses or hyphens; at least seven digits
+    are required and markup/control characters are rejected;
   - `document`: uppercase `V|E|J|G|P` plus 6..10 digits after removing allowed
     presentation separators;
   - `holder`: normalized whitespace, 2..120 characters, no control markup.
@@ -120,7 +122,7 @@ Response fields:
   "data": {
     "order_id": "uuid",
     "bank": "Banco",
-    "phone": "+584121234567",
+    "phone": "0414 1234567",
     "document": "V12345678",
     "holder": "Receiver name",
     "shared_at": "timestamp"
