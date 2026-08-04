@@ -76,6 +76,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
     attentionTruncated,
     busy,
     canGoBack,
+    chatOrderId,
     dismissAttention,
     goBack,
     loadActiveMarketplace,
@@ -83,6 +84,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
     loadSupportTickets,
     notice,
     openAttentionAlert,
+    selectedOrder,
     selectedSupportTicket,
     setSelectedSupportTicket,
     setSupportReply,
@@ -95,13 +97,19 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
   const previousViewRef = useRef<ClientView | null>(null);
   const viewStartedAtRef = useRef<number | null>(null);
   const isOnboardingView = view === "welcome" || view === "terms" || view === "client-profile-setup";
+  const selectedOrderBelongsToChat = Boolean(chatOrderId) && selectedOrder?.id === chatOrderId;
+  const isTerminalOrderChat = view === "order-chat" && selectedOrderBelongsToChat && (
+    selectedOrder?.status === "completed" || selectedOrder?.status === "cancelled"
+  );
   const isNativeChatSurface = view === "order-chat" || (view === "support" && Boolean(selectedSupportTicket));
+  const shouldShowPrimaryNav = !isOnboardingView && (!isNativeChatSurface || isTerminalOrderChat);
   const shouldShowNotice = Boolean(notice) && !isNativeChatSurface && !["welcome", "terms", "client-profile-setup", "marketplace-search", "create-order", "marketplace-detail"].includes(view);
   const attentionBannerItem = isNativeChatSurface ? null : attentionAlert;
   const shellClassName = [
     "business-shell",
     keyboardActive ? "business-shell--keyboard-active" : "",
-    isNativeChatSurface ? "business-shell--native-chat" : ""
+    isNativeChatSurface ? "business-shell--native-chat" : "",
+    isTerminalOrderChat ? "business-shell--terminal-chat-nav" : ""
   ].filter(Boolean).join(" ");
 
   useEffect(() => {
@@ -182,7 +190,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
         </div>
       ) : null}
 
-      {!isOnboardingView && !isNativeChatSurface ? (
+      {shouldShowPrimaryNav ? (
         <div className={keyboardActive ? "primary-nav primary-nav--hidden" : "primary-nav"}>
           <button className={activeNav === "home" ? "nav-button is-active" : "nav-button"} type="button" onClick={() => {
             setActiveNav("home");

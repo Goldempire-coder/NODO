@@ -163,6 +163,27 @@ def test_slice_50a_payment_action_stays_in_chat_without_intermediate_screen() ->
     assert "FULL_PAYMENT_FIELD" not in payment_screen
 
 
+def test_terminal_client_order_chat_restores_primary_navigation() -> None:
+    client_shell = _read("apps/web/src/screens/client/ClientWorkspaceShell.tsx")
+    global_css = _read("apps/web/src/app/globals.css")
+
+    assert 'view === "order-chat"' in client_shell
+    assert (
+        "const selectedOrderBelongsToChat = Boolean(chatOrderId) "
+        "&& selectedOrder?.id === chatOrderId;"
+    ) in client_shell
+    assert (
+        'view === "order-chat" && selectedOrderBelongsToChat && ('
+        in client_shell
+    )
+    assert 'selectedOrder?.status === "completed"' in client_shell
+    assert 'selectedOrder?.status === "cancelled"' in client_shell
+    assert "isTerminalOrderChat" in client_shell
+    assert "shouldShowPrimaryNav" in client_shell
+    assert "business-shell--terminal-chat-nav" in client_shell
+    assert ".business-shell--terminal-chat-nav .business-order-chat-messages" in global_css
+
+
 def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() -> None:
     client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
     payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")

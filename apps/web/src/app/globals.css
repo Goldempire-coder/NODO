@@ -624,6 +624,10 @@ textarea {
   padding-bottom: 66px;
 }
 
+.business-shell--terminal-chat-nav .business-order-chat-messages {
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
+
 .business-order-chat-message {
   width: min(82%, 360px);
   display: grid;
