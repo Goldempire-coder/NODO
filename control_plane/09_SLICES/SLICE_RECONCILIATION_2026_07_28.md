@@ -38,6 +38,7 @@ migraciones ni datos.
 | 47D cost/noise control | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
 | 47E forensic audit/evidence trail | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
 | 47F recovery/rollback/game day | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
+| 47G preproduction security launch gate | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first antes de cualquier autorizacion de produccion |
 
 ## Lista de reparaciones antes de tocar Dashboard
 
@@ -51,6 +52,9 @@ migraciones ni datos.
 8. Registrar bugs concretos de Dashboard solo despues de esos smokes.
 9. Ejecutar 47A-47F uno por uno, empezando por 47A, sin mezclar operabilidad,
    alertas, jobs, costo, auditoria forense y recuperacion en un solo paquete.
+10. Ejecutar 47G como gate final antes de produccion: rotacion de secretos,
+    Telegram Web, Supabase/RLS, storage, IDOR, headers, dependencias y smoke
+    autenticado.
 
 ## No autorizado por este documento
 
