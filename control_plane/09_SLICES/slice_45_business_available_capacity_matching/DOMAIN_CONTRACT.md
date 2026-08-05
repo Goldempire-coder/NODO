@@ -27,6 +27,27 @@ Cliente pide: 80.00
 Resultado: no puede abrir orden con ese negocio
 ```
 
+La disponibilidad declarada tambien limita el catalogo activo. Un negocio puede
+tener un anuncio `active` Zelle y uno USDT, pero la suma de sus
+`amount_max_usd` no puede superar `declared_available_capacity_usd`.
+
+```txt
+Disponible declarado: 100.00
+Zelle activo: maximo 50.00
+USDT activo: maximo 50.00
+Total anunciado: 100.00
+Resultado: permitido
+
+Disponible declarado: 100.00
+Zelle activo: maximo 100.00
+USDT activo: maximo 100.00
+Total anunciado: 200.00
+Resultado: rechazado
+```
+
+Publicar esos anuncios no crea reservas. La reserva real nace cuando el backend
+crea una orden.
+
 ### Capacidad reservada
 
 `reserved_capacity_usd` es la suma de montos de ordenes abiertas que todavia pueden requerir que el negocio cumpla.
@@ -78,6 +99,9 @@ business.status = approved and not suspended/blocked
 el dia UTC. Liberar o cancelar una orden antes de que exista obligacion del
 negocio restaura capacidad efectiva y cupo diario. El presupuesto diario se
 reinicia al cambiar el dia UTC.
+
+Zelle y USDT comparten este limite. Publicar, editar o republicar anuncios no lo
+consume; cada orden creada lo revalida y reserva por su monto.
 
 ## Matching cliente-negocio
 

@@ -6,6 +6,7 @@ import json
 import os
 import time
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -745,13 +746,28 @@ def test_platform_emergency_mode_blocks_new_operations_but_keeps_existing_order_
     client = _client()
     owner = _login(client, 980, "emergency_owner")
     business, method_id = _approved_business_with_method(client, owner, credits=5)
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("600.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+    usdt_method = client.app.state.business_repository.add_payment_method(
+        business_id=business["id"],
+        method_type="usdt_trc20",
+        network="TRC20",
+        account_value="TEmergencyWalletAddress",
+        account_masked="TEme...ress",
+        holder_name="Owner Test",
+    )
+    usdt_method.verified_status = "approved"
+    usdt_method.active = True
     active_ad = _create_ad(client, owner, method_id, key="emergency_active_ad")
     second_ad_response = client.post(
         "/api/v1/business/ads",
         headers={**_headers(owner, "emergency_second_ad"), "Content-Type": "application/json"},
         json={
-            "payment_method_id": method_id,
-            "payment_method": "zelle",
+            "payment_method_id": usdt_method.id,
+            "payment_method": "usdt_trc20",
             "delivery_method": "pago_movil_ve",
             "rate_bs_per_usd": "39.5000",
             "amount_min_usd": "101.00",

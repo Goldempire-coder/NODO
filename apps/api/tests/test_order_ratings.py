@@ -413,7 +413,13 @@ def test_frontend_rating_is_backend_authoritative_and_has_own_action_state() -> 
     model = (ROOT / "apps" / "web" / "src" / "hooks" / "workspace" / "useRemitterOrdersModel.ts").read_text(encoding="utf-8")
     screen = (ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientOrderScreens.tsx").read_text(encoding="utf-8")
     chat_model = (ROOT / "apps" / "web" / "src" / "hooks" / "workspace" / "useClientChatDisputesModel.ts").read_text(encoding="utf-8")
-    chat_screen = (ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientOrderChatScreen.tsx").read_text(encoding="utf-8")
+    chat_screen = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientOrderChatScreen.tsx",
+            ROOT / "apps" / "web" / "src" / "screens" / "client" / "chat" / "ClientOrderRatingBubble.tsx",
+        )
+    )
 
     assert "/api/v1/orders/${orderId}/rating" in api
     assert "can_rate" in types and "already_rated" in types and "stars" in types

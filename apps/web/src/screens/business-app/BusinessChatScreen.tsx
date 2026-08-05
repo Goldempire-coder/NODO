@@ -1,72 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { Text } from "@telegram-apps/telegram-ui";
-import { PaperclipIcon, SendIcon } from "../../components/nodo/ChatComposerIcons";
-import { humanizeSenderRole } from "../../hooks/business-mini-app/helpers";
+import { useEffect, useRef } from "react";
+import { useBusinessChatPolling } from "../../hooks/business-mini-app/chat/useBusinessChatPolling";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
-
-const BUSINESS_ORDER_CHAT_REFRESH_MS = 5000;
-
-async function copyText(value: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-  const textarea = document.createElement("textarea");
-  textarea.value = value;
-  textarea.setAttribute("readonly", "true");
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    if (!document.execCommand("copy")) {
-      throw new Error("CLIPBOARD_COPY_FAILED");
-    }
-  } finally {
-    document.body.removeChild(textarea);
-  }
-}
-
-function chatSenderLabel(senderRole: string): string {
-  if (senderRole === "business_owner") {
-    return "Tu";
-  }
-  if (senderRole === "remitter" || senderRole === "client") {
-    return "Cliente";
-  }
-  if (senderRole === "admin" || senderRole === "support" || senderRole === "super_admin") {
-    return "Soporte NODO";
-  }
-  if (senderRole === "system") {
-    return "NODO";
-  }
-  return humanizeSenderRole(senderRole);
-}
-
-function chatTimestamp(value: string): string {
-  return new Date(value).toLocaleString();
-}
-
-function attachmentLabel(mimeType: string): string {
-  if (mimeType.startsWith("image/")) {
-    return "Ver imagen";
-  }
-  if (mimeType === "application/pdf") {
-    return "Abrir PDF";
-  }
-  return "Abrir adjunto";
-}
-
-function attachmentMeta(mimeType: string, sizeBytes: number): string {
-  const sizeKb = Math.max(1, Math.round(sizeBytes / 1024));
-  if (mimeType.startsWith("image/")) {
-    return `Imagen PNG/JPG - ${sizeKb} KB`;
-  }
-  if (mimeType === "application/pdf") {
-    return `PDF - ${sizeKb} KB`;
-  }
-  return `${sizeKb} KB`;
-}
+import { BusinessChatActionDock } from "./chat/BusinessChatActionDock";
+import { BusinessChatComposer } from "./chat/BusinessChatComposer";
+import { BusinessChatMessageList } from "./chat/BusinessChatMessageList";
 
 function orderLabel(model: BusinessMiniAppModel): string {
   if (model.chatOrder?.id === model.chatOrderId && model.chatOrder.public_order_code) {
@@ -105,12 +42,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     uploadingChatAttachment,
     uploadChatAttachment
   } = model;
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const [copiedReceiverField, setCopiedReceiverField] = useState<string | null>(null);
-  const [receiverCopyFailed, setReceiverCopyFailed] = useState(false);
-  const canSend = chatCapabilities.can_send_message && !sendingChatMessage && !uploadingChatAttachment;
-  const canSubmitMessage = canSend && (chatBody.trim().length > 0 || chatAttachments.length > 0);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const detailOrder = model.businessOrderDetail?.order;
   const currentOrder = chatOrder?.id === chatOrderId
     ? chatOrder
@@ -123,34 +55,13 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
   const canMarkDelivered = chatCapabilities.can_mark_delivered && currentOrder?.status === "payment_confirmed";
   const hasActionDock = canSharePaymentDetails || canConfirmPayment || canMarkDelivered;
 
-  const copyReceiverDetail = async (field: string, value: string) => {
-    setReceiverCopyFailed(false);
-    try {
-      await copyText(value);
-      setCopiedReceiverField(field);
-      window.setTimeout(() => setCopiedReceiverField(null), 1600);
-    } catch {
-      setCopiedReceiverField(null);
-      setReceiverCopyFailed(true);
-    }
-  };
-
-  useEffect(() => {
-    if (!chatOrderId || model.view !== "business-chat") {
-      return;
-    }
-    const interval = window.setInterval(() => {
-      if (
-        document.visibilityState !== "visible"
-        || sendingChatMessage
-        || uploadingChatAttachment
-      ) {
-        return;
-      }
-      void refreshChat({ silent: true });
-    }, BUSINESS_ORDER_CHAT_REFRESH_MS);
-    return () => window.clearInterval(interval);
-  }, [chatOrderId, model.view, refreshChat, sendingChatMessage, uploadingChatAttachment]);
+  useBusinessChatPolling({
+    chatOrderId,
+    isChatView: model.view === "business-chat",
+    sendingChatMessage,
+    uploadingChatAttachment,
+    refreshChat
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
@@ -158,226 +69,47 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
 
   return (
     <section className={hasActionDock ? "business-order-chat business-order-chat--has-actions" : "business-order-chat"} aria-label="Chat con cliente">
-      <div className="business-order-chat-messages" aria-label="Mensajes de la orden" aria-live="polite">
-        <article className="business-order-chat-message business-order-chat-message--system business-order-chat-system-bubble">
-          <span className="business-order-chat-message__sender">NODO</span>
-          <p>Negociacion abierta con cliente</p>
-          <strong>{orderLabel(model)}</strong>
-        </article>
+      <BusinessChatMessageList
+        orderLabel={orderLabel(model)}
+        currentOrder={currentOrder}
+        chatMessages={chatMessages}
+        chatCapabilities={chatCapabilities}
+        receiverDetails={receiverDetails}
+        revealingReceiverDetails={revealingReceiverDetails}
+        chatAttachmentLink={chatAttachmentLink}
+        attachmentCount={chatAttachments.length}
+        uploadingChatAttachment={uploadingChatAttachment}
+        notice={model.notice}
+        messagesEndRef={messagesEndRef}
+        openChatAttachment={openChatAttachment}
+        revealReceiverDetails={revealReceiverDetails}
+        dismissChatAttachmentLink={dismissChatAttachmentLink}
+        refreshChat={refreshChat}
+      />
 
-        {chatMessages.length === 0 ? <Text className="business-order-chat-empty">Aun no hay mensajes en esta orden.</Text> : null}
-        {chatMessages.map((message) => {
-          const isMine = message.sender_role === "business_owner";
-          const isSystem = message.sender_role === "system";
-          return (
-            <article
-              className={
-                isSystem
-                  ? "business-order-chat-message business-order-chat-message--system"
-                  : isMine
-                    ? "business-order-chat-message business-order-chat-message--mine"
-                    : "business-order-chat-message"
-              }
-              key={message.id}
-            >
-              <span className="business-order-chat-message__sender">{chatSenderLabel(message.sender_role)}</span>
-              {message.body ? <p>{message.body}</p> : null}
-              {message.attachments.length ? (
-                <div className="business-order-chat-attachments" aria-label="Adjuntos del mensaje">
-                  {message.attachments.map((attachment) => (
-                    <button
-                      className="business-order-chat-attachment__button"
-                      type="button"
-                      key={attachment.id}
-                      onClick={() => void openChatAttachment(attachment.id, attachment.mime_type)}
-                    >
-                      <span>{attachmentLabel(attachment.mime_type)}</span>
-                      <small>{attachmentMeta(attachment.mime_type, attachment.size_bytes)}</small>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-              <small>{chatTimestamp(message.created_at)}</small>
-            </article>
-          );
-        })}
-
-        {currentOrder?.status === "payment_reported" ? (
-          <article className="business-order-chat-message business-order-chat-message--system">
-            <span className="business-order-chat-message__sender">NODO</span>
-            <p>El cliente reporto el pago. Confirma solo cuando lo hayas recibido.</p>
-          </article>
-        ) : null}
-
-        {currentOrder?.status === "payment_confirmed" && !chatCapabilities.receiver_details_shared ? (
-          <Text className="auth-entry__session-meta business-order-chat-note">
-            Pago Movil pendiente. Espera a que el cliente comparta sus datos.
-          </Text>
-        ) : null}
-
-        {chatCapabilities.receiver_details_shared ? (
-          <article className="business-order-chat-message">
-            <span className="business-order-chat-message__sender">Pago Movil compartido</span>
-            {receiverDetails ? (
-              <div className="business-order-chat-receiver-copy">
-                <p>{receiverDetails.bank}</p>
-                <p>{receiverDetails.phone}</p>
-                <p>{receiverDetails.document}</p>
-                <p>{receiverDetails.holder}</p>
-                <div className="business-order-chat-receiver-copy__actions">
-                  <button type="button" onClick={() => void copyReceiverDetail("telefono", receiverDetails.phone)}>
-                    {copiedReceiverField === "telefono" ? "Copiado" : "Copiar telefono"}
-                  </button>
-                  <button type="button" onClick={() => void copyReceiverDetail("cedula", receiverDetails.document)}>
-                    {copiedReceiverField === "cedula" ? "Copiado" : "Copiar cedula"}
-                  </button>
-                  <button type="button" onClick={() => void copyReceiverDetail("banco", receiverDetails.bank)}>
-                    {copiedReceiverField === "banco" ? "Copiado" : "Copiar banco"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void copyReceiverDetail(
-                      "todo",
-                      `${receiverDetails.bank}\n${receiverDetails.phone}\n${receiverDetails.document}\n${receiverDetails.holder}`
-                    )}
-                  >
-                    {copiedReceiverField === "todo" ? "Copiado" : "Copiar todo"}
-                  </button>
-                </div>
-                {receiverCopyFailed ? <small>No pudimos copiar. Manten presionado el dato.</small> : null}
-              </div>
-            ) : (
-              <p>Datos disponibles para esta orden.</p>
-            )}
-            {!receiverDetails && chatCapabilities.can_reveal_receiver_details ? (
-              <button
-                className="business-order-chat-payment-action"
-                type="button"
-                disabled={revealingReceiverDetails}
-                onClick={() => void revealReceiverDetails()}
-              >
-                {revealingReceiverDetails ? "Revelando..." : "Ver Pago Movil"}
-              </button>
-            ) : null}
-          </article>
-        ) : null}
-
-        {chatAttachmentLink ? (
-          <div className="business-order-chat-attachment-preview" role="status">
-            <div className="business-order-chat-attachment-preview__copy">
-              <strong>{chatAttachmentLink.mimeType.startsWith("image/") ? "Imagen lista" : "Adjunto listo"}</strong>
-              <small>Disponible por {chatAttachmentLink.expiresInSeconds}s.</small>
-            </div>
-            {chatAttachmentLink.mimeType.startsWith("image/") ? (
-              <a href={chatAttachmentLink.url} target="_blank" rel="noopener noreferrer" aria-label="Abrir imagen">
-                <img src={chatAttachmentLink.url} alt="Vista previa del adjunto" referrerPolicy="no-referrer" />
-              </a>
-            ) : null}
-            <div className="business-order-chat-attachment-preview__actions">
-              <a href={chatAttachmentLink.url} target="_blank" rel="noopener noreferrer">
-                {chatAttachmentLink.mimeType.startsWith("image/") ? "Abrir imagen" : "Abrir adjunto"}
-              </a>
-              <button type="button" onClick={dismissChatAttachmentLink}>Cerrar</button>
-            </div>
-          </div>
-        ) : null}
-
-        {chatAttachments.length || uploadingChatAttachment ? (
-          <small className="business-order-chat-attachment-ready">
-            {uploadingChatAttachment ? "Subiendo adjunto..." : `${chatAttachments.length} adjunto(s) listo(s) para enviar`}
-          </small>
-        ) : null}
-
-        {chatIsTerminal ? (
-          <Text className="auth-entry__session-meta business-order-chat-note">
-            Esta negociación está cerrada. El historial queda disponible como registro de la conversación.
-          </Text>
-        ) : null}
-
-        {model.notice ? (
-          <div className="native-chat-inline-notice" role="status">
-            <span>{model.notice}</span>
-            {model.notice.startsWith("No ") ? <button type="button" onClick={() => void refreshChat()}>Actualizar</button> : null}
-          </div>
-        ) : null}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {hasActionDock ? (
-        <div className="business-order-chat-action-dock" aria-label="Acciones de la orden">
-          {canSharePaymentDetails ? (
-            <button className="business-order-chat-payment-action" type="button" disabled={sharingPaymentDetails} onClick={() => void shareConfiguredPaymentDetails()}>
-              {sharingPaymentDetails
-                ? "Compartiendo..."
-                : currentOrder?.payment_method_snapshot === "usdt_trc20" ? "Compartir wallet" : "Compartir datos de pago"}
-            </button>
-          ) : null}
-          {canConfirmPayment ? (
-            <button
-              className="business-order-chat-payment-action"
-              type="button"
-              disabled={businessChatAction === "confirm-payment"}
-              onClick={() => void confirmBusinessPaymentInChat()}
-            >
-              {businessChatAction === "confirm-payment" ? "Confirmando..." : "Confirmar pago recibido"}
-            </button>
-          ) : null}
-          {canMarkDelivered ? (
-            <button
-              className="business-order-chat-payment-action"
-              type="button"
-              disabled={businessChatAction === "mark-delivered"}
-              onClick={() => void markBusinessDeliveredInChat()}
-            >
-              {businessChatAction === "mark-delivered" ? "Marcando..." : "Pago Movil enviado"}
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      <BusinessChatActionDock
+        currentOrder={currentOrder}
+        canSharePaymentDetails={canSharePaymentDetails}
+        canConfirmPayment={canConfirmPayment}
+        canMarkDelivered={canMarkDelivered}
+        businessChatAction={businessChatAction}
+        sharingPaymentDetails={sharingPaymentDetails}
+        shareConfiguredPaymentDetails={shareConfiguredPaymentDetails}
+        confirmBusinessPaymentInChat={confirmBusinessPaymentInChat}
+        markBusinessDeliveredInChat={markBusinessDeliveredInChat}
+      />
 
       {!chatIsTerminal ? (
-        <form
-          className="business-order-chat-composer"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void sendChatMessage();
-          }}
-        >
-          <button
-            className="business-support-clip"
-            type="button"
-            aria-label="Adjuntar comprobante o soporte"
-            disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <PaperclipIcon />
-          </button>
-          <textarea
-            className="business-order-chat-composer__input"
-            aria-label="Mensaje para cliente"
-            disabled={!chatCapabilities.can_send_message || sendingChatMessage}
-            maxLength={2000}
-            placeholder={uploadingChatAttachment ? "Subiendo adjunto..." : "Escribir mensaje..."}
-            rows={1}
-            value={chatBody}
-            onChange={(event) => setChatBody(event.target.value)}
-          />
-          <input
-            ref={fileInputRef}
-            className="business-support-file-input"
-            accept="image/*,application/pdf"
-            disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
-            type="file"
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0] || null;
-              event.currentTarget.value = "";
-              void uploadChatAttachment(file);
-            }}
-          />
-          <button className="business-support-send" type="submit" aria-label="Enviar" disabled={!canSubmitMessage}>
-            {sendingChatMessage ? "..." : <SendIcon />}
-          </button>
-        </form>
+        <BusinessChatComposer
+          chatBody={chatBody}
+          canSendMessage={chatCapabilities.can_send_message}
+          sendingChatMessage={sendingChatMessage}
+          uploadingChatAttachment={uploadingChatAttachment}
+          hasAttachments={chatAttachments.length > 0}
+          setChatBody={setChatBody}
+          sendChatMessage={sendChatMessage}
+          uploadChatAttachment={uploadChatAttachment}
+        />
       ) : null}
     </section>
   );

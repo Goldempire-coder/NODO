@@ -13,8 +13,10 @@
 - No existen comentarios, titulo, cuerpo de resena ni endpoint business/admin.
 - El rating individual no aparece en ordenes del negocio, chat, attention,
   Telegram, marketplace ni `/businesses/me`.
-- Tier, promedio, conteo y bandas derivados son internos. Publico y negocio
-  reciben una etiqueta estable hasta que exista snapshot durable.
+- Tier y agregados vivos son internos. Publico y negocio reciben exclusivamente
+  la proyeccion de Slice 42C: etiqueta retenida sin snapshot elegible o promedio
+  y conteo copiados desde un snapshot durable publicado a partir de cinco
+  ratings elegibles.
 - El orden del marketplace no usa rating, tier, confianza, conteos, completions
   ni velocidad vivos. Los aliases legacy se resuelven por tasa/fecha.
 - La cache del marketplace usa un namespace de proyeccion versionado para no

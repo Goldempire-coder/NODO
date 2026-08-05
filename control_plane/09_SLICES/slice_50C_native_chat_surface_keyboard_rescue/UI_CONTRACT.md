@@ -90,6 +90,15 @@ Successful client and business order actions refresh the active chat and order
 state in place. Background order-list synchronization must never navigate away
 from the open chat.
 
+The client copies Zelle or USDT inside chat. NODO does not launch a bank or
+wallet application. If the client leaves Telegram manually, returning to the
+Mini App keeps the approved chat-first route; reporting payment does not open a
+separate payment screen.
+
+Terminal client chats do not require a reopen action from the order list. The
+list keeps the public order code so the client can reference it from the normal
+Support section.
+
 Visible labels must use complete words. In particular, do not render shortened
 internal ticket/order IDs or the abbreviated `Tx hash` label.
 

@@ -42,7 +42,12 @@ Client UI behavior:
   visible. Refreshes do not overlap and a silent failure preserves current
   order, messages and capabilities.
 - `Pago enviado` calls `GET /payment-instructions` in the background to preserve
-  the existing reveal/audit contract, then opens `report-payment` directly.
+  the existing reveal/audit contract, then submits from the active order chat.
+- `report-payment` is a compatibility view, not the primary client flow. The
+  normal flow does not navigate to it.
+- NODO does not launch a bank or wallet application. Copying the configured
+  value is a local chat action; leaving Telegram and returning is controlled by
+  the client and must not discard the active order context.
 - Failure to load instructions leaves the client in the chat.
 - A late instructions response is discarded if the client changed chat or
   started opening another order.
@@ -50,3 +55,5 @@ Client UI behavior:
 - Success toasts and attention banners are suppressed while the participant is
   already inside the order chat.
 - Image/PDF chat attachments render as compact open actions inside the chat.
+- Completed and cancelled chats are not required to reopen from the client
+  order list. This does not change the backend participant-history contract.

@@ -64,6 +64,8 @@ privacy:
 - Do not reveal full payment instructions.
 - Link to R-07 for full payment instructions only when order is own `waiting_payment` and not expired.
 - Link/state to R-09 belongs to slice 07.
+- Active order chats may be opened from this list. Completed and cancelled
+  orders keep their public order code but do not require a reopen-chat action.
 - Do not expose account_value, storage paths or private business data.
 
 QA checklist:

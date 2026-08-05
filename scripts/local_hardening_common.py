@@ -15,15 +15,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ENV_FILE = ROOT / ".env.local.example"
 RESULTS_DIR = ROOT / "evidence" / "slice_runs"
 
-SECRET_KEYS = {
-    "BOT_TOKEN",
-    "JWT_SECRET",
-    "JWT_REFRESH_SECRET",
+SENSITIVE_KEY_PATTERNS = (
+    "TOKEN",
+    "SECRET",
+    "KEY",
+    "PASSWORD",
     "DATABASE_URL",
     "REDIS_URL",
-    "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
-}
+    "WEBHOOK_SECRET",
+    "PRIVATE",
+    "CREDENTIAL",
+)
 
 
 def add_api_path() -> None:
@@ -55,8 +57,16 @@ def configure_env(path: Path = DEFAULT_ENV_FILE, *, overrides: dict[str, str] | 
     return values
 
 
+def _is_sensitive_key(key: str) -> bool:
+    normalized_key = key.upper()
+    return any(pattern in normalized_key for pattern in SENSITIVE_KEY_PATTERNS)
+
+
 def redacted(values: dict[str, str]) -> dict[str, str]:
-    return {key: "[REDACTED]" if key in SECRET_KEYS else value for key, value in values.items()}
+    return {
+        key: "[REDACTED]" if _is_sensitive_key(key) else value
+        for key, value in values.items()
+    }
 
 
 def assert_local_database_url(database_url: str) -> None:

@@ -23,6 +23,12 @@ class PostgresAdPublishMixin:
         use_founder_access: bool,
     ) -> AdRecord:
         with self._connect() as conn:  # type: ignore[attr-defined]
+            self._require_active_candidate_in_transaction(  # type: ignore[attr-defined]
+                conn,
+                business_id=business_id,
+                payment_method=payment_method,
+                amount_max_usd=amount_max_usd,
+            )
             wallet_row = self._wallet_for_ad_publish(conn, business_id=business_id)
             self._ensure_publish_credit_balance(conn, wallet_row, required_credits=required_credits, use_founder_access=use_founder_access)
             ad_row = self._insert_active_ad(

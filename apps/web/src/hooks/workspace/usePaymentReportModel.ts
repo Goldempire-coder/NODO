@@ -3,7 +3,6 @@
 import { useRef } from "react";
 import type { AuthenticatedRequest } from "../../api/client";
 import { getPaymentInstructions, submitOrderPaymentReport, uploadPaymentEvidence as uploadOrderPaymentEvidence } from "../../api/paymentReports";
-import type { PaymentInstructions } from "../../types/payments";
 import { preparePaymentEvidenceFile } from "../../utils/paymentEvidenceFiles";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
@@ -107,7 +106,7 @@ export function usePaymentReportModel(
     paymentInstructionsRequestOrderIdRef.current = orderId;
     setLoadingPaymentInstructions(true);
     try {
-      const data = await getPaymentInstructions<PaymentInstructions>(request, orderId);
+      const data = await getPaymentInstructions(request, orderId);
       if (
         paymentInstructionsRequestOrderIdRef.current !== orderId
         || !paymentActionIsCurrent(orderId)
@@ -180,7 +179,7 @@ export function usePaymentReportModel(
     const idempotencyScope = `payment_evidence_${orderId}`;
     try {
       const preparedFile = await preparePaymentEvidenceFile(file);
-      const data = await uploadOrderPaymentEvidence<any>(
+      const data = await uploadOrderPaymentEvidence(
         request,
         orderId,
         preparedFile,
@@ -243,7 +242,7 @@ export function usePaymentReportModel(
     setSubmittingPaymentReport(true);
     const idempotencyScope = `payment_report_${orderId}`;
     try {
-      const data = await submitOrderPaymentReport<any>(
+      const data = await submitOrderPaymentReport(
         request,
         orderId,
         isZelle

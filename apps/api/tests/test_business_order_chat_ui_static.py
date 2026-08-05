@@ -8,9 +8,55 @@ def _read(relative_path: str) -> str:
     return (ROOT / relative_path).read_text(encoding="utf-8")
 
 
+def _read_client_chat_surface() -> str:
+    paths = (
+        "apps/web/src/screens/client/ClientOrderChatScreen.tsx",
+        "apps/web/src/screens/client/chat/ClientChatMessageList.tsx",
+        "apps/web/src/screens/client/chat/ClientPaymentDetailsBubble.tsx",
+        "apps/web/src/screens/client/chat/ClientReceiverDetailsBubble.tsx",
+        "apps/web/src/screens/client/chat/ClientOrderRatingBubble.tsx",
+        "apps/web/src/hooks/workspace/useClientOrderChatSync.ts",
+    )
+    return "\n".join(_read(path) for path in paths)
+
+
+def _read_client_chat_model() -> str:
+    return "\n".join(
+        _read(path)
+        for path in (
+            "apps/web/src/hooks/workspace/useClientChatDisputesModel.ts",
+            "apps/web/src/hooks/workspace/useClientChatComposerModel.ts",
+        )
+    )
+
+
+def _read_business_chat_surface() -> str:
+    paths = (
+        "apps/web/src/screens/business-app/BusinessChatScreen.tsx",
+        "apps/web/src/screens/business-app/chat/BusinessChatMessageList.tsx",
+        "apps/web/src/screens/business-app/chat/BusinessReceiverDetailsBubble.tsx",
+        "apps/web/src/screens/business-app/chat/BusinessChatActionDock.tsx",
+        "apps/web/src/screens/business-app/chat/BusinessChatComposer.tsx",
+    )
+    return "\n".join(_read(path) for path in paths)
+
+
+def _read_business_chat_model() -> str:
+    paths = (
+        "apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatSession.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatComposer.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatAttachments.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessPaymentShareActions.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatOrderActions.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatPolling.ts",
+    )
+    return "\n".join(_read(path) for path in paths)
+
+
 def test_business_order_chat_uses_native_chat_surface_not_table_rows() -> None:
-    chat_screen = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    chat_screen = _read_business_chat_surface()
+    client_chat = _read_client_chat_surface()
     business_shell = _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
     client_shell = _read("apps/web/src/screens/client/ClientWorkspaceShell.tsx")
     global_css = _read("apps/web/src/app/globals.css")
@@ -43,8 +89,8 @@ def test_business_order_chat_uses_native_chat_surface_not_table_rows() -> None:
 
 
 def test_business_order_chat_has_compact_attachment_and_keyboard_safe_typing_mode() -> None:
-    chat_screen = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    chat_screen = _read_business_chat_surface()
+    client_chat = _read_client_chat_surface()
     global_css = _read("apps/web/src/app/globals.css")
 
     assert "PaperclipIcon" in chat_screen
@@ -100,21 +146,22 @@ def test_client_and_business_support_keep_stable_layout_when_keyboard_opens() ->
 
 
 def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations() -> None:
-    chat_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
-    chat_screen = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
+    chat_model = _read_business_chat_model()
+    chat_screen = _read_business_chat_surface()
     chat_types = _read("apps/web/src/types/chat.ts")
     app_model = _read("apps/web/src/hooks/useBusinessMiniAppModel.ts")
 
-    assert "BUSINESS_ORDER_CHAT_REFRESH_MS = 5000" in chat_screen
-    assert "void refreshChat({ silent: true });" in chat_screen
-    assert 'model.view !== "business-chat"' in chat_screen
-    assert 'document.visibilityState !== "visible"' in chat_screen
+    assert "BUSINESS_ORDER_CHAT_REFRESH_MS = 5000" in chat_model
+    assert "void refreshChat({ silent: true });" in chat_model
+    assert 'isChatView: model.view === "business-chat"' in chat_screen
+    assert "if (!chatOrderId || !isChatView)" in chat_model
+    assert 'document.visibilityState !== "visible"' in chat_model
     assert "const refreshChat = useCallback(async (options?: { silent?: boolean })" in chat_model
     assert "if (!options?.silent)" in chat_model
     assert "listOrderMessages<ChatThread<BusinessOrderSummary>>(request, orderId, 50)" in chat_model
-    assert "listOrderMessages<ChatThread<BusinessOrderSummary>>(request, targetOrderId, 50)" in chat_model
+    assert "reloadChatSession(targetOrderId, targetSessionEpoch)" in chat_model
     assert "refreshingChatRef.current" in chat_model
-    assert "chatOrderIdRef.current !== targetOrderId" in chat_model
+    assert "isCurrentChatSession(targetOrderId, targetSessionEpoch)" in chat_model
     assert "sendingChatMessageRef.current" in chat_model
     assert "uploadingChatAttachmentRef.current" in chat_model
     assert "openingOrderDisputeRef.current" not in chat_model
@@ -122,11 +169,15 @@ def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations
     assert "ChatThread<BusinessOrderSummary>" in chat_model
     assert "order: TOrder" in chat_types
     assert "syncBusinessOrderFromChat: orders.syncBusinessOrderFromChat" in app_model
-    assert "const body = chatBody.trim();" in chat_model
-    assert "(!body && chatAttachments.length === 0)" in chat_model
-    assert 'setChatBody("")' in chat_model
-    refresh_source = chat_model.split("const refreshChat", 1)[1].split(
-        "const uploadChatAttachment", 1
+    assert "chatDraftsByOrderRef.current[targetOrderId]" in chat_model
+    assert "(!body && attachmentIds.length === 0)" in chat_model
+    assert "clearSubmittedChatDraft(targetOrderId, body)" in chat_model
+    assert "clearSubmittedChatAttachments(targetOrderId, attachmentIds)" in chat_model
+    session_model = _read(
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatSession.ts"
+    )
+    refresh_source = session_model.split("const refreshChatSession", 1)[1].split(
+        "const refreshChat =", 1
     )[0]
     refresh_catch = refresh_source.split("catch (error)", 1)[1].split(
         "} finally", 1
@@ -138,9 +189,9 @@ def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations
 def test_order_chat_suppresses_global_attention_and_success_toasts_while_open() -> None:
     business_shell = _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
     client_shell = _read("apps/web/src/screens/client/ClientWorkspaceShell.tsx")
-    business_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
-    client_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    business_model = _read_business_chat_model()
+    client_model = _read_client_chat_model()
+    client_chat = _read_client_chat_surface()
 
     assert 'view === "business-chat"' in business_shell
     assert "attentionBannerItem" in business_shell
@@ -157,10 +208,10 @@ def test_order_chat_suppresses_global_attention_and_success_toasts_while_open() 
 
 
 def test_order_chat_keeps_visible_attachment_fallback_for_telegram_webview() -> None:
-    business_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
-    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
-    client_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    business_model = _read_business_chat_model()
+    business_chat = _read_business_chat_surface()
+    client_model = _read_client_chat_model()
+    client_chat = _read_client_chat_surface()
     telegram_theme = _read("apps/web/src/theme/telegramTheme.ts")
     global_css = _read("apps/web/src/app/globals.css")
 
@@ -195,9 +246,9 @@ def test_business_order_list_marks_new_and_actionable_orders_green() -> None:
 
 
 def test_order_chat_terminal_state_keeps_history_without_composer_or_dispute_copy() -> None:
-    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
-    business_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
+    business_chat = _read_business_chat_surface()
+    client_chat = _read_client_chat_surface()
+    business_model = _read_business_chat_model()
 
     assert "const [chatOrder, setChatOrder]" in business_model
     assert "setChatOrder(data.order)" in business_model
@@ -213,8 +264,8 @@ def test_order_chat_terminal_state_keeps_history_without_composer_or_dispute_cop
 
 
 def test_order_chat_uses_compact_role_correct_actions_and_composer_attachment() -> None:
-    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    business_chat = _read_business_chat_surface()
+    client_chat = _read_client_chat_surface()
 
     assert "business-order-chat-action-dock" in business_chat
     assert "Compartir datos de pago" in business_chat
@@ -232,10 +283,10 @@ def test_order_chat_uses_compact_role_correct_actions_and_composer_attachment() 
 
 
 def test_order_chat_has_no_support_or_dispute_entry_points() -> None:
-    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
-    business_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
-    client_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    business_chat = _read_business_chat_surface()
+    client_chat = _read_client_chat_surface()
+    business_model = _read_business_chat_model()
+    client_model = _read_client_chat_model()
 
     for source in [business_chat, client_chat, business_model, client_model]:
         assert "openOrderDispute" not in source
@@ -258,9 +309,9 @@ def test_order_chat_actions_refresh_in_place_without_abbreviated_identifiers() -
     payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
     orders_model = _read("apps/web/src/hooks/workspace/useRemitterOrdersModel.ts")
     client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
-    business_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
-    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    business_model = _read_business_chat_model()
+    business_chat = _read_business_chat_surface()
+    client_chat = _read_client_chat_surface()
     business_support = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
     client_support = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
     client_payment = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
@@ -278,7 +329,7 @@ def test_order_chat_actions_refresh_in_place_without_abbreviated_identifiers() -
     )[0]
     assert "setView(" not in silent_refresh
     assert "const mutation = await mutateBusinessOrderRequest" in business_model
-    assert "setChatOrder(mutation.order)" in business_model
+    assert "session.setCurrentChatOrder(targetOrderId, targetSessionEpoch, mutation.order)" in business_model
     assert 'chatCapabilities.can_report_payment && selectedChatOrder?.status === "waiting_payment"' in client_chat
     assert 'chatCapabilities.can_confirm_received && selectedChatOrder?.status === "delivered"' in client_chat
     assert 'chatCapabilities.can_confirm_payment && currentOrder?.status === "payment_reported"' in business_chat

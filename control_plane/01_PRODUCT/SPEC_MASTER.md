@@ -499,15 +499,21 @@ credits = consumed
 
 El anuncio cumpliÃ³ su funciÃ³n y muere.
 
-### 5.7 Duplicados
+### 5.7 Limite de anuncios activos
 
-Un negocio no puede tener dos anuncios activos o en hold con la misma combinaciÃ³n:
+Un negocio puede tener como maximo dos anuncios activos:
 
-* business_id
-* payment_method
-* delivery_method
-* amount_min_usd
-* amount_max_usd
+* un anuncio Zelle;
+* un anuncio USDT.
+
+No puede tener dos anuncios activos del mismo metodo, aunque los rangos sean
+distintos. La suma de `amount_max_usd` de los anuncios activos no puede superar
+la disponibilidad declarada del negocio.
+
+Publicar anuncios no crea operaciones y no consume `daily_limit_usd`. El monto
+se reserva contra capacidad y limite diario cuando el cliente confirma la
+seleccion y el backend crea una orden. Zelle y USDT comparten ese mismo limite
+diario.
 
 ---
 
@@ -1240,8 +1246,11 @@ Privacidad runtime: el cliente propietario puede volver a ver sus estrellas en
 su orden. Negocio, marketplace, chat, Telegram, attention, Admin y Support no
 reciben ratings individuales. `rating_avg` y `ratings_count` exactos se
 conservan como read-models internos. `reputation_tier` tambien permanece
-interno hasta que exista un snapshot durable; publico y negocio reciben la
-proyeccion estable `Reputación no publicada`.
+interno. Publico y negocio reciben la proyeccion de snapshot durable: menos de
+cinco ratings elegibles muestra `Reputacion aun no publicada`; desde cinco, el
+promedio y conteo pueden publicarse solo cuando el calculo fuente tenga al menos
+24 horas. Marketplace no usa reputacion viva ni de snapshot para ordenar hasta
+que un contrato posterior lo autorice.
 
 ### 13.11 disputes
 

@@ -53,7 +53,10 @@ def test_sensitive_actions_use_stable_idempotency_keys_without_timestamp_headers
     hook_paths = (
         "apps/web/src/hooks/business-mini-app/useBusinessAdActionsModel.ts",
         "apps/web/src/hooks/business-mini-app/useBusinessAvailabilityModel.ts",
-        "apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatAttachments.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatComposer.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessPaymentShareActions.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatOrderActions.ts",
         "apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts",
         "apps/web/src/hooks/business-mini-app/useBusinessOrdersModel.ts",
         "apps/web/src/hooks/business-mini-app/useBusinessPaymentMethodsModel.ts",
@@ -72,13 +75,24 @@ def test_sensitive_actions_use_stable_idempotency_keys_without_timestamp_headers
 
 
 def test_sensitive_action_state_is_scoped_away_from_one_global_busy_flag() -> None:
-    business_chat = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
+    business_chat = "\n".join(
+        _read(path)
+        for path in (
+            "apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts",
+            "apps/web/src/hooks/business-mini-app/chat/useBusinessChatAttachments.ts",
+            "apps/web/src/hooks/business-mini-app/chat/useBusinessChatComposer.ts",
+            "apps/web/src/hooks/business-mini-app/chat/useBusinessPaymentShareActions.ts",
+            "apps/web/src/hooks/business-mini-app/chat/useBusinessChatOrderActions.ts",
+        )
+    )
     business_credits = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
     business_orders = _read("apps/web/src/hooks/business-mini-app/useBusinessOrdersModel.ts")
     business_payment_methods = _read("apps/web/src/hooks/business-mini-app/useBusinessPaymentMethodsModel.ts")
     client_action_state = _read("apps/web/src/hooks/workspace/useClientActionState.ts")
+    client_chat_composer = _read("apps/web/src/hooks/workspace/useClientChatComposerModel.ts")
     client_workspace_state = _read("apps/web/src/hooks/workspace/useClientWorkspaceState.ts")
 
+    client_action_surface = "\n".join((client_action_state, client_chat_composer))
     for expected_state in (
         "sendingChatMessage",
         "uploadingChatAttachment",
@@ -100,4 +114,4 @@ def test_sensitive_action_state_is_scoped_away_from_one_global_busy_flag() -> No
         "submittingPaymentReport",
         "sendingChatMessage",
     ):
-        assert expected_state in client_action_state
+        assert expected_state in client_action_surface

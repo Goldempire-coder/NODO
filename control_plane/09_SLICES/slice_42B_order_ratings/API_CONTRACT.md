@@ -50,9 +50,11 @@ Response 201:
 ```
 
 El ejemplo devuelve las mismas 5 estrellas enviadas solo al cliente que creo el
-rating. `business_reputation` es una proyeccion estable sin tier ni agregados
-dinamicos. La respuesta tampoco incluye `risk_level`, `trust_level`, senales
-antifraude ni contadores internos.
+rating. `business_reputation` usa la proyeccion publica estable gobernada por
+Slice 42C: puede estar retenida o contener un snapshot publicado elegible, pero
+nunca valores vivos ni un rating asociado a una orden o cliente. La respuesta
+tampoco incluye `risk_level`, `trust_level`, senales antifraude ni contadores
+internos.
 
 Errores:
 

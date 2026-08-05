@@ -38,12 +38,16 @@
 - Client and business order chat contain no direct Support action or route.
 - Problems are opened from the normal Support section outside the order chat.
 - Reporting payment does not call a navigation-producing order-list loader.
+- Reporting payment does not navigate to `report-payment` or launch a bank or
+  wallet application.
 - Business confirmation/delivery applies the returned order in place before a
   full conversation refresh.
 - Chat and support never derive visible identifiers by truncating internal
   UUIDs.
 - The transaction identifier label is written in full.
 - The floating back control uses a quiet shadow.
+- Completed and cancelled client orders do not expose a reopen-chat action in
+  the client order list.
 
 ## Manual Smoke
 
@@ -87,6 +91,11 @@ git diff --check
 ```
 
 Also run Secret Guard over touched files.
+
+Current client UI regressions are source-level pytest checks. Async A-to-B race
+behavior in a real React/browser harness remains `NOT_TESTED` until a dedicated
+frontend test runner is approved and installed; static checks must not be
+reported as proof of browser concurrency behavior.
 
 ## Staging Gate
 

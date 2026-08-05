@@ -817,7 +817,8 @@ autorizado. Usa `Cache-Control: private, no-store`.
 
 Actualiza solo `declared_available_capacity_usd` con `Idempotency-Key` y motivo
 opcional. No modifica limites, creditos ni pagos. Rechaza montos menores a lo
-reservado o mayores al limite diario. Audita `business_capacity_updated`.
+reservado, menores a la suma de `amount_max_usd` de anuncios `active` o mayores
+al limite diario. Audita `business_capacity_updated`.
 
 ## POST /api/v1/admin/businesses/{id}/reject
 

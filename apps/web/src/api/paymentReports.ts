@@ -1,10 +1,16 @@
 import type { AuthenticatedRequest } from "./client";
+import type {
+  PaymentEvidenceUploadResult,
+  PaymentInstructions,
+  PaymentReportPayload,
+  PaymentReportResult
+} from "../types/payments";
 
-export function getPaymentInstructions<T>(request: AuthenticatedRequest, orderId: string) {
-  return request<T>(`/api/v1/orders/${orderId}/payment-instructions`);
+export function getPaymentInstructions(request: AuthenticatedRequest, orderId: string) {
+  return request<PaymentInstructions>(`/api/v1/orders/${orderId}/payment-instructions`);
 }
 
-export function uploadPaymentEvidence<T>(
+export function uploadPaymentEvidence(
   request: AuthenticatedRequest,
   orderId: string,
   file: File,
@@ -17,7 +23,7 @@ export function uploadPaymentEvidence<T>(
   if (pendingPaymentReportId) {
     body.append("pending_payment_report_id", pendingPaymentReportId);
   }
-  return request<T>(`/api/v1/orders/${orderId}/payment-evidence`, {
+  return request<PaymentEvidenceUploadResult>(`/api/v1/orders/${orderId}/payment-evidence`, {
     method: "POST",
     headers: {
       "Idempotency-Key": idempotencyKey
@@ -26,8 +32,13 @@ export function uploadPaymentEvidence<T>(
   });
 }
 
-export function submitOrderPaymentReport<T>(request: AuthenticatedRequest, orderId: string, payload: Record<string, unknown>, idempotencyKey: string) {
-  return request<T>(`/api/v1/orders/${orderId}/payment-report`, {
+export function submitOrderPaymentReport(
+  request: AuthenticatedRequest,
+  orderId: string,
+  payload: PaymentReportPayload,
+  idempotencyKey: string
+) {
+  return request<PaymentReportResult>(`/api/v1/orders/${orderId}/payment-report`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

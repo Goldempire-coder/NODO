@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Header, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Header, Query, Request, Response, UploadFile
 
 from app.auth.dependencies import require_current_user
 from app.modules.support.models import MAX_SUPPORT_ATTACHMENT_SIZE_BYTES
@@ -18,7 +18,11 @@ from app.modules.users.models import UserRecord
 from app.shared.observability import get_correlation_id, get_operation_id
 from app.shared.validation import read_limited_upload
 
-router = APIRouter(tags=["support"])
+def _private_no_store(response: Response) -> None:
+    response.headers["Cache-Control"] = "private, no-store"
+
+
+router = APIRouter(tags=["support"], dependencies=[Depends(_private_no_store)])
 
 
 def _request_id(request: Request) -> str:

@@ -36,7 +36,7 @@ type RemitterOrdersState = Pick<
 export function useRemitterOrdersModel(
   state: RemitterOrdersState & {
     request: AuthenticatedRequest;
-    openOrderChat: (orderId: string) => Promise<void>;
+    openOrderChat: (orderId: string) => Promise<boolean>;
     searchFreshForAmount: (amountUsd: string) => Promise<void>;
   }
 ) {
@@ -61,6 +61,8 @@ export function useRemitterOrdersModel(
     setView
   } = state;
   const ordersCacheRef = useRef<{ items: OrderSummary[]; loadedAt: number } | null>(null);
+  const orderListRequestIdRef = useRef(0);
+  const orderDetailRequestIdRef = useRef(0);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   function rememberOrder(order: OrderSummary) {
@@ -119,6 +121,8 @@ export function useRemitterOrdersModel(
   }
 
   async function loadMyOrders(targetView: "my-orders" | "messages" = "my-orders") {
+    const requestId = orderListRequestIdRef.current + 1;
+    orderListRequestIdRef.current = requestId;
     const screen = targetView === "messages" ? "messages" : "my-orders";
     const startedAt = actionStartedAt();
     recordActionStarted("client_orders_load", screen);
@@ -140,15 +144,23 @@ export function useRemitterOrdersModel(
     }
     try {
       const data = await listMyOrders<{ items: OrderSummary[] }>(request);
+      if (orderListRequestIdRef.current !== requestId) {
+        return;
+      }
       ordersCacheRef.current = { items: data.items, loadedAt: Date.now() };
       setMyOrders(data.items);
       setNotice(data.items.length ? "" : targetView === "messages" ? "Todavia no tienes conversaciones." : "Todavia no tienes ordenes.");
       recordActionCompleted("client_orders_load", screen, startedAt);
     } catch (error) {
+      if (orderListRequestIdRef.current !== requestId) {
+        return;
+      }
       setNotice(error instanceof Error ? error.message : "No logramos cargar tus ordenes.");
       recordActionFailed("client_orders_load", screen, startedAt, error instanceof Error ? error.name : undefined);
     } finally {
-      setLoadingOrders(false);
+      if (orderListRequestIdRef.current === requestId) {
+        setLoadingOrders(false);
+      }
     }
   }
 
@@ -163,6 +175,8 @@ export function useRemitterOrdersModel(
   }
 
   async function openOrderDetail(orderId: string) {
+    const requestId = orderDetailRequestIdRef.current + 1;
+    orderDetailRequestIdRef.current = requestId;
     const startedAt = actionStartedAt();
     recordActionStarted("client_order_detail_open", "order-summary");
     const optimisticOrder = ordersCacheRef.current?.items.find((order) => order.id === orderId);
@@ -171,11 +185,15 @@ export function useRemitterOrdersModel(
       setSelectedRatingStars(optimisticOrder.rating?.stars || 0);
       setView("order-summary");
       setNotice("");
+      setOpeningOrderId(null);
     } else {
       setOpeningOrderId(orderId);
     }
     try {
       const data = await getOrder<{ order: OrderSummary }>(request, orderId);
+      if (orderDetailRequestIdRef.current !== requestId) {
+        return false;
+      }
       setSelectedOrder(data.order);
       setSelectedRatingStars(data.order.rating?.stars || 0);
       rememberOrder(data.order);
@@ -184,11 +202,14 @@ export function useRemitterOrdersModel(
       recordActionCompleted("client_order_detail_open", "order-summary", startedAt);
       return true;
     } catch (error) {
+      if (orderDetailRequestIdRef.current !== requestId) {
+        return false;
+      }
       setNotice(error instanceof Error ? error.message : "No logramos abrir la orden.");
       recordActionFailed("client_order_detail_open", "order-summary", startedAt, error instanceof Error ? error.name : undefined);
       return false;
     } finally {
-      if (!optimisticOrder) {
+      if (!optimisticOrder && orderDetailRequestIdRef.current === requestId) {
         setOpeningOrderId(null);
       }
     }

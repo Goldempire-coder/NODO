@@ -3,10 +3,11 @@
 SCREEN_ID: R-08_REPORT_PAYMENT
 actor: remitter
 slice: slice_05_payment_instructions_reports
-status: DRAFT_CONTROLLED
+status: LEGACY_EMBEDDED_IN_R-09
 
 purpose:
-Mark payment sent for an own `waiting_payment` order, with optional proof.
+Describe the payment-report mutation now invoked from the active R-09 chat,
+with optional proof. It is not the primary standalone client route.
 
 route:
 /orders/:id/report
@@ -15,10 +16,10 @@ route note:
 This is a frontend route. API calls must use `/api/v1`.
 
 entry points:
-Payment instructions
+Compact `Zelle enviado` or `USDT enviado` action in R-09_ORDER_TRACKING_CHAT
 
 exit points:
-R-09_ORDER_TRACKING_CHAT link/state toward slice 07 only.
+Remain in R-09_ORDER_TRACKING_CHAT after success or controlled failure.
 
 data required:
 - authenticated user/session
@@ -49,7 +50,7 @@ Telegram UI rules:
 - Use MainButton only for primary CTA.
 
 MainButton behavior:
-Confirmar y enviar
+None. The compact chat action owns the submission.
 
 validation:
 - own order
@@ -86,6 +87,7 @@ slice boundary:
 - Does not consume credits.
 - Does not build chat/disputes.
 - R-09 is only a next-step link/state for slice 07.
+- The compatibility route must not become the normal navigation path again.
 
 QA checklist:
 Cannot submit expired order; cannot submit foreign order; Zelle can be reported without proof; USDT can be reported without tx_hash; optional evidence remains protected; state changes to payment_reported; no credit consumption.

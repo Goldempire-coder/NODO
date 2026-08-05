@@ -14,8 +14,8 @@ This slice implements only 50A1 and 50A2:
   is in a visible business message;
 - client chat refreshes locally every five seconds only while its view is open
   and the document is visible;
-- compact `Pago enviado` validates instructions in the background and opens the
-  report form directly;
+- compact `Pago enviado` validates instructions and submits the report from the
+  active order chat without navigating to a separate payment screen;
 - Zelle can be reported without a photo; proof remains optional and may be
   requested by the business in the order chat;
 - missing legacy receiver data is shown as pending coordination in chat, never
@@ -28,3 +28,12 @@ enables payment.
 
 No migration, deployment, credit rule, Base USDC flow, support rewrite,
 reputation change or expiration scheduler is part of this slice.
+
+Owner-approved navigation rule:
+
+- NODO displays and copies the configured Zelle or USDT value inside chat;
+- NODO does not open a bank or external wallet application;
+- the client may leave Telegram manually and return to the same order chat;
+- reporting payment, Pago Movil and rating keep the client in that chat;
+- terminal chats do not need a reopen action in the client order list. The
+  order number remains available for support and operational follow-up.

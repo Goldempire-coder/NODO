@@ -116,6 +116,8 @@ Publico/cliente:
   `Reputacion aun no publicada` mientras haya menos de cinco ratings elegibles;
 - con snapshot durable: `publication_status = published_snapshot`, promedio,
   cantidad y `published_at` copiados en lote, nunca valores vivos;
+- una etiqueta permitida es `4.8 ★ · 12 opiniones`; promedio y cantidad
+  siempre pertenecen al mismo snapshot y no identifican una orden ni un cliente;
 - prohibido cualquier rating asociado a una orden o cliente.
 - Prohibidos: `trust_level`, `risk_level`, contadores antifraude, causas de
   disputa y senales internas.

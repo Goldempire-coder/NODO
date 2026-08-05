@@ -2,6 +2,7 @@ import os
 import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from threading import RLock
 
 import anyio
 import anyio.to_thread
@@ -218,9 +219,14 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.audit_writer = InMemoryAuditWriter()
     app.state.user_repository = InMemoryUserRepository()
     app.state.business_repository = InMemoryBusinessRepository()
-    app.state.capacity_repository = InMemoryBusinessCapacityRepository()
+    ad_capacity_lock = RLock()
+    app.state.ad_repository = InMemoryAdRepository(lock=ad_capacity_lock)
+    app.state.capacity_repository = InMemoryBusinessCapacityRepository(
+        lock=ad_capacity_lock,
+        ad_repository=app.state.ad_repository,
+    )
+    app.state.ad_repository.bind_capacity_repository(app.state.capacity_repository)
     app.state.business_intake_repository = InMemoryBusinessIntakeRepository()
-    app.state.ad_repository = InMemoryAdRepository()
     app.state.dispute_repository = InMemoryDisputeRepository()
     app.state.job_repository = InMemoryJobRepository()
     app.state.order_repository = InMemoryOrderRepository(

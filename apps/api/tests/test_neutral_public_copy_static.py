@@ -16,6 +16,10 @@ def test_public_runtime_copy_uses_neutral_non_custodial_language() -> None:
         ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientOnboardingScreens.tsx",
         ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientOrderChatScreen.tsx",
         ROOT / "apps" / "web" / "src" / "screens" / "business-app" / "BusinessChatScreen.tsx",
+        ROOT / "apps" / "web" / "src" / "screens" / "business-app" / "chat" / "BusinessChatMessageList.tsx",
+        ROOT / "apps" / "web" / "src" / "screens" / "business-app" / "chat" / "BusinessReceiverDetailsBubble.tsx",
+        ROOT / "apps" / "web" / "src" / "screens" / "business-app" / "chat" / "BusinessChatActionDock.tsx",
+        ROOT / "apps" / "web" / "src" / "screens" / "business-app" / "chat" / "BusinessChatComposer.tsx",
     ]
     source = "\n".join(path.read_text(encoding="utf-8") for path in paths)
 

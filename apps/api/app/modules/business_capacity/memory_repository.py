@@ -21,11 +21,29 @@ from app.modules.businesses.models import BusinessRecord
 
 
 class InMemoryBusinessCapacityRepository:
-    def __init__(self, *, default_declared_capacity_usd: Decimal = ZERO_USD) -> None:
-        self._lock = RLock()
+    def __init__(
+        self,
+        *,
+        default_declared_capacity_usd: Decimal = ZERO_USD,
+        lock=None,  # type: ignore[no-untyped-def]
+        ad_repository=None,  # type: ignore[no-untyped-def]
+    ) -> None:
+        self._lock = lock or RLock()
+        self._ad_repository = ad_repository
         self._default_declared_capacity_usd = money(default_declared_capacity_usd)
         self.capacities: dict[str, BusinessCapacityRecord] = {}
         self.reservations: dict[str, BusinessCapacityReservationRecord] = {}
+
+    def declared_capacity_usd(self, *, business_id: str) -> Decimal:
+        with self._lock:
+            return self._capacity(business_id).declared_available_capacity_usd
+
+    def _committed_ad_max_total(self, business_id: str) -> Decimal:
+        if self._ad_repository is None:
+            return ZERO_USD
+        return money(
+            self._ad_repository.committed_ad_max_total(business_id=business_id)
+        )
 
     def _capacity(self, business_id: str) -> BusinessCapacityRecord:
         capacity = self.capacities.get(business_id)
@@ -153,6 +171,8 @@ class InMemoryBusinessCapacityRepository:
             reserved = self._reserved(business_id)
             if amount < reserved:
                 raise ApiError("BUSINESS_CAPACITY_BELOW_RESERVED", status_code=409)
+            if amount < self._committed_ad_max_total(business_id):
+                raise ApiError("BUSINESS_CAPACITY_BELOW_ACTIVE_ADS", status_code=409)
             capacity = self._capacity(business_id)
             capacity.declared_available_capacity_usd = amount
             capacity.updated_by_user_id = actor_user_id

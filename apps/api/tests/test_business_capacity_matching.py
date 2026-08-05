@@ -166,13 +166,14 @@ def _create_ad(
     *,
     amount_min_usd: str = "20.00",
     amount_max_usd: str = "100.00",
+    payment_method: str = "zelle",
 ) -> dict:
     response = client.post(
         "/api/v1/business/ads",
         headers={**_headers(owner, key), "Content-Type": "application/json"},
         json={
             "payment_method_id": payment_method_id,
-            "payment_method": "zelle",
+            "payment_method": payment_method,
             "delivery_method": "pago_movil_ve",
             "rate_bs_per_usd": "39.5000",
             "amount_min_usd": amount_min_usd,
@@ -181,6 +182,20 @@ def _create_ad(
     )
     assert response.status_code == 201, response.text
     return response.json()["data"]["ad"]
+
+
+def _add_approved_usdt_method(client: TestClient, *, business_id: str, suffix: str) -> str:
+    method = client.app.state.business_repository.add_payment_method(
+        business_id=business_id,
+        method_type="usdt_trc20",
+        network="trc20",
+        account_value=f"T{suffix}WalletAddress",
+        account_masked=f"T{suffix[:4]}...ress",
+        holder_name="Owner Test",
+    )
+    method.verified_status = "approved"
+    method.active = True
+    return method.id
 
 
 def _create_order(client: TestClient, remitter: dict, ad_id: str, amount: str, key: str):
@@ -276,11 +291,17 @@ def test_marketplace_filters_capacity_and_does_not_expose_exact_amounts() -> Non
     owner = _login(client, 45002, "market_owner")
     remitter = _login(client, 45003, "market_remitter")
     business, payment_method_id = _approved_business(client, owner)
-    ad = _create_ad(client, owner, payment_method_id, "capacity_ad")
     client.app.state.capacity_repository.set_declared_capacity(
         business_id=business.id,
         amount_usd=Decimal("40.00"),
         actor_user_id=owner["user"]["id"],
+    )
+    ad = _create_ad(
+        client,
+        owner,
+        payment_method_id,
+        "capacity_ad",
+        amount_max_usd="40.00",
     )
 
     covered = client.get(
@@ -379,11 +400,17 @@ def test_create_order_reserves_and_idempotency_does_not_duplicate() -> None:
     owner = _login(client, 45004, "reserve_owner")
     remitter = _login(client, 45005, "reserve_remitter")
     business, payment_method_id = _approved_business(client, owner)
-    ad = _create_ad(client, owner, payment_method_id, "reserve_ad")
     client.app.state.capacity_repository.set_declared_capacity(
         business_id=business.id,
         amount_usd=Decimal("40.00"),
         actor_user_id=owner["user"]["id"],
+    )
+    ad = _create_ad(
+        client,
+        owner,
+        payment_method_id,
+        "reserve_ad",
+        amount_max_usd="40.00",
     )
 
     first = _create_order(client, remitter, ad["id"], "30.00", "reserve_order")
@@ -403,9 +430,14 @@ def test_active_order_limit_counts_all_open_obligations() -> None:
     remitter = _login(client, 45016, "active_limit_remitter")
     business, payment_method_id = _approved_business(client, owner)
     business.active_order_limit = 1
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business.id,
+        suffix="ActiveLimit",
+    )
     client.app.state.capacity_repository.set_declared_capacity(
         business_id=business.id,
-        amount_usd=Decimal("100.00"),
+        amount_usd=Decimal("200.00"),
         actor_user_id=owner["user"]["id"],
     )
     first_ad = _create_ad(
@@ -428,10 +460,11 @@ def test_active_order_limit_counts_all_open_obligations() -> None:
     second_ad = _create_ad(
         client,
         owner,
-        payment_method_id,
+        usdt_method_id,
         "active_limit_second_ad",
         amount_min_usd="50.00",
         amount_max_usd="70.00",
+        payment_method="usdt_trc20",
     )
 
     second_order = _create_order(
@@ -479,6 +512,10 @@ def test_order_lifecycle_releases_keeps_or_consumes_capacity_once() -> None:
     )
     assert cancelled.status_code == 200, cancelled.text
     assert client.app.state.capacity_repository.get_reservation(cancelled_order["id"]).status == "released"
+    client.app.state.ad_repository.set_status(
+        client.app.state.ad_repository.get_ad(cancel_ad["id"]),
+        "paused",
+    )
 
     completed_ad = _create_ad(
         client,
@@ -486,7 +523,7 @@ def test_order_lifecycle_releases_keeps_or_consumes_capacity_once() -> None:
         payment_method_id,
         "completed_capacity_ad",
         amount_min_usd="50.00",
-        amount_max_usd="100.00",
+        amount_max_usd="60.00",
     )
     completed_order = _create_order(
         client,
@@ -546,7 +583,13 @@ def test_expired_order_releases_capacity_once() -> None:
         amount_usd=Decimal("40.00"),
         actor_user_id=owner["user"]["id"],
     )
-    ad = _create_ad(client, owner, payment_method_id, "expiry_capacity_ad")
+    ad = _create_ad(
+        client,
+        owner,
+        payment_method_id,
+        "expiry_capacity_ad",
+        amount_max_usd="40.00",
+    )
     order = _create_order(
         client,
         remitter,
@@ -586,11 +629,17 @@ def test_create_order_above_effective_capacity_returns_specific_error() -> None:
     owner = _login(client, 45008, "insufficient_owner")
     remitter = _login(client, 45009, "insufficient_remitter")
     business, payment_method_id = _approved_business(client, owner)
-    ad = _create_ad(client, owner, payment_method_id, "insufficient_ad")
     client.app.state.capacity_repository.set_declared_capacity(
         business_id=business.id,
-        amount_usd=Decimal("25.00"),
+        amount_usd=Decimal("100.00"),
         actor_user_id=owner["user"]["id"],
+    )
+    ad = _create_ad(client, owner, payment_method_id, "insufficient_ad")
+    client.app.state.capacity_repository.reserve(
+        order_id="capacity-preexisting-reservation",
+        business=business,
+        amount_usd=Decimal("75.00"),
+        reason="test_existing_obligation",
     )
 
     response = _create_order(
@@ -603,7 +652,9 @@ def test_create_order_above_effective_capacity_returns_specific_error() -> None:
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "BUSINESS_CAPACITY_INSUFFICIENT"
-    assert client.app.state.capacity_repository.reservations == {}
+    assert set(client.app.state.capacity_repository.reservations) == {
+        "capacity-preexisting-reservation"
+    }
 
 
 def test_two_concurrent_reservations_cannot_spend_same_capacity() -> None:
@@ -654,6 +705,11 @@ def test_slice_49a_concurrent_orders_revalidate_active_limit_inside_final_write(
     second_remitter = _login(client, 45019, "active_limit_race_second")
     business, payment_method_id = _approved_business(client, owner)
     business.active_order_limit = 1
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business.id,
+        suffix="ActiveLimitRace",
+    )
     client.app.state.capacity_repository.set_declared_capacity(
         business_id=business.id,
         amount_usd=Decimal("200.00"),
@@ -670,10 +726,11 @@ def test_slice_49a_concurrent_orders_revalidate_active_limit_inside_final_write(
     second_ad = _create_ad(
         client,
         owner,
-        payment_method_id,
+        usdt_method_id,
         "active_limit_race_second_ad",
         amount_min_usd="50.00",
         amount_max_usd="70.00",
+        payment_method="usdt_trc20",
     )
 
     def create(args: tuple[dict, str, str, str]):  # type: ignore[no-untyped-def]

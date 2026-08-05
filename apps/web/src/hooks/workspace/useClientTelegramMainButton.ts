@@ -8,14 +8,12 @@ export function useClientTelegramMainButton({
   view,
   createOrder,
   submitPaymentReport,
-  busy,
-  dependencies
+  busy
 }: {
   view: ClientView;
   createOrder: () => void | Promise<void>;
   submitPaymentReport: () => void | Promise<void>;
   busy: boolean;
-  dependencies: unknown[];
 }) {
   const handlePrimaryAction = useCallback(() => {
     getTelegramWebApp()?.HapticFeedback?.impactOccurred?.("light");
@@ -25,8 +23,7 @@ export function useClientTelegramMainButton({
     if (view === "report-payment") {
       void submitPaymentReport();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, ...dependencies]);
+  }, [createOrder, submitPaymentReport, view]);
 
   useEffect(() => {
     const mainButton = getTelegramWebApp()?.MainButton;

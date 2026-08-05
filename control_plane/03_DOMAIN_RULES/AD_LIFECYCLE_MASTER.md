@@ -30,10 +30,46 @@ Un anuncio es una publicacion de negocio con metodo de pago, metodo de entrega, 
 - Crear, editar, reactivar o republicar debe respetar la capacidad actual del negocio:
   - `amount_min_usd >= business.min_order_amount_usd`
   - `amount_max_usd <= business.max_order_amount_usd`
-  - la exposicion abierta total (`active` + `in_order`) no puede superar `business.daily_limit_usd`.
+  - solo puede existir un anuncio `active` Zelle y un anuncio `active` USDT por negocio;
+  - la suma de `amount_max_usd` de todos los anuncios `active|in_order`, incluido
+    el que se crea, edita, reactiva o republica, no puede superar
+    `declared_available_capacity_usd`;
   - si no cumple, responder `AD_LIMIT_NOT_ALLOWED`.
-- Si se supera `business.daily_limit_usd`, responder `BUSINESS_DAILY_LIMIT_EXCEEDED`.
-- Si admin baja la capacidad, anuncios fuera del rango actual no deben seguir ofreciendose en marketplace.
+- Un negocio puede tener como maximo dos anuncios `active`: uno Zelle y uno
+  USDT. Dos anuncios `active` del mismo metodo estan prohibidos aunque sus
+  rangos no se solapen.
+- Publicar, editar, reactivar o republicar un anuncio no reserva capacidad y no
+  consume `business.daily_limit_usd`. El limite diario se revalida cuando un
+  cliente confirma la seleccion y el backend crea la orden.
+- Zelle y USDT comparten la misma capacidad declarada y el mismo limite diario;
+  no existen cupos diarios separados por metodo.
+- Un anuncio `in_order` ya no es una publicacion activa. Su orden conserva la
+  reserva de capacidad y el efecto diario definido por el contrato de ordenes.
+  Conserva el cupo de su metodo y su `amount_max_usd` dentro de la envolvente
+  declarada para que una cancelacion o expiracion pueda reactivarlo sin superar
+  la disponibilidad ni terminar con dos anuncios `active` Zelle o dos USDT.
+  Esta envolvente no consume `daily_limit_usd`; la reserva real de la orden
+  sigue siendo la autoridad operativa.
+- No se puede bajar `declared_available_capacity_usd` por debajo de la suma de
+  `amount_max_usd` de los anuncios `active|in_order`; primero deben pausarse,
+  ajustarse o terminar la orden aplicable.
+- Si datos historicos o una carrera dejan un anuncio fuera de la capacidad
+  vigente, marketplace debe excluirlo y las mutaciones deben fallar cerrado.
+
+## Reconciliacion B0.1
+
+Quedan sustituidas y prohibidas como regla vigente:
+
+- validar solo solapamiento de rangos para permitir varios anuncios `active` del
+  mismo metodo;
+- sumar anuncios `active` o `in_order` para descontar `daily_limit_usd` al
+  publicar;
+- asignar limites diarios separados a Zelle y USDT;
+- tratar un anuncio publicado como si ya fuera una operacion real.
+
+El codigo de error legacy `AD_OVERLAP_NOT_ALLOWED` puede conservarse por
+compatibilidad, pero no sustituye la regla mas estricta de un anuncio `active`
+por metodo.
 
 ## Click, orden y hold
 

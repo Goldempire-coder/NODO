@@ -126,7 +126,7 @@ export function useClientWorkspaceModel({
   const prefetchActiveMarketplaceRef = useRef<() => Promise<void>>(async () => undefined);
   const prefetchMyOrdersRef = useRef<() => Promise<void>>(async () => undefined);
   const openOrderDetailRef = useRef<(orderId: string) => Promise<void>>(async () => undefined);
-  const openOrderChatRef = useRef<(orderId: string) => Promise<void>>(async () => undefined);
+  const openOrderChatRef = useRef<(orderId: string) => Promise<boolean>>(async () => false);
   const openSupportTicketRef = useRef<(ticketId: string) => Promise<void>>(async () => undefined);
   const mainActionBusy = state.busy || state.creatingOrder || state.submittingPaymentReport;
 
@@ -195,15 +195,7 @@ export function useClientWorkspaceModel({
     view,
     createOrder: remitterOrders.createOrder,
     submitPaymentReport: paymentReport.submitPaymentReport,
-    busy: mainActionBusy,
-    dependencies: [
-      state.selectedAd,
-      state.orderForm,
-      state.paymentReportForm,
-      state.paymentEvidence,
-      state.pendingPaymentReportId,
-      state.selectedOrder
-    ]
+    busy: mainActionBusy
   });
 
   return {
@@ -239,13 +231,13 @@ export function useClientWorkspaceModel({
     chatOrderId: state.chatOrderId,
     chatMessages: state.chatMessages,
     chatCapabilities: state.chatCapabilities,
-    chatBody: state.chatBody,
-    setChatBody: state.setChatBody,
-    chatAttachments: state.chatAttachments,
+    chatBody: chatDisputes.chatBody,
+    setChatBody: chatDisputes.setChatBody,
+    chatAttachments: chatDisputes.chatAttachments,
     openingChatOrderId: state.openingChatOrderId,
     refreshingChat: state.refreshingChat,
-    uploadingChatAttachment: state.uploadingChatAttachment,
-    sendingChatMessage: state.sendingChatMessage,
+    uploadingChatAttachment: chatDisputes.uploadingChatAttachment,
+    sendingChatMessage: chatDisputes.sendingChatMessage,
     orderForm: state.orderForm,
     setOrderForm: state.setOrderForm,
     paymentInstructions: state.paymentInstructions,

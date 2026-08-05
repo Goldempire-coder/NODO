@@ -75,7 +75,7 @@ export type RemitterScreensModel = {
     paymentNotSentConfirmed: boolean
   ) => Promise<boolean>;
   submitOrderRating: (orderId: string) => void | Promise<void>;
-  openOrderChat: (orderId: string) => void | Promise<void>;
+  openOrderChat: (orderId: string) => void | Promise<boolean>;
 };
 
 export function displayBusinessName(ad: AdSummary | null): string {

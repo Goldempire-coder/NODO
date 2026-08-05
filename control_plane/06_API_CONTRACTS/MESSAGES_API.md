@@ -30,10 +30,15 @@ Contrato API canonico para mensajes y adjuntos privados de orden.
   la accion autorizada. No se copia a logs, audit, Telegram o admin
   notifications.
 - Mensajes deben sanitizarse antes de mostrarse.
-- En el flujo normal, el cliente puede escribir Pago Movil en el chat. Ese
-  texto no cambia estado, monto, tasa ni entrega. El endpoint estructurado de
-  `ORDERS_API.md` queda como ruta opcional de compatibilidad y no es requisito
-  para marcar envio.
+- Pago Movil se comparte mediante el recurso estructurado `receiver-details`
+  contratado en `ORDERS_API.md`. La UI puede representarlo como una burbuja
+  dentro del chat, pero sus valores no se persisten en `messages.body`.
+- Un mensaje libre con telefono, documento, banco o titular no crea ni reemplaza
+  `receiver-details`, no autoriza reveal y no satisface el requisito para que el
+  negocio marque Pago Movil enviado.
+- El reveal completo pertenece solo a cliente y negocio participantes mediante
+  el endpoint autorizado. Admin y Support requieren un contrato separado con
+  RBAC y auditoria; este endpoint general de mensajes no concede ese acceso.
 
 ## GET /api/v1/orders/{id}/messages
 

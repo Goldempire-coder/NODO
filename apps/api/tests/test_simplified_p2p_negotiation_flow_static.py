@@ -10,6 +10,52 @@ def _read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
+def _read_client_chat_surface() -> str:
+    paths = (
+        "apps/web/src/screens/client/ClientOrderChatScreen.tsx",
+        "apps/web/src/screens/client/chat/ClientChatMessageList.tsx",
+        "apps/web/src/screens/client/chat/ClientPaymentDetailsBubble.tsx",
+        "apps/web/src/screens/client/chat/ClientReceiverDetailsBubble.tsx",
+        "apps/web/src/screens/client/chat/ClientOrderRatingBubble.tsx",
+        "apps/web/src/hooks/workspace/useClientOrderChatSync.ts",
+    )
+    return "\n".join(_read(path) for path in paths)
+
+
+def _read_client_chat_model() -> str:
+    return "\n".join(
+        _read(path)
+        for path in (
+            "apps/web/src/hooks/workspace/useClientChatDisputesModel.ts",
+            "apps/web/src/hooks/workspace/useClientChatComposerModel.ts",
+        )
+    )
+
+
+def _read_business_chat_surface() -> str:
+    paths = (
+        "apps/web/src/screens/business-app/BusinessChatScreen.tsx",
+        "apps/web/src/screens/business-app/chat/BusinessChatMessageList.tsx",
+        "apps/web/src/screens/business-app/chat/BusinessReceiverDetailsBubble.tsx",
+        "apps/web/src/screens/business-app/chat/BusinessChatActionDock.tsx",
+        "apps/web/src/screens/business-app/chat/BusinessChatComposer.tsx",
+    )
+    return "\n".join(_read(path) for path in paths)
+
+
+def _read_business_chat_model() -> str:
+    paths = (
+        "apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts",
+        "apps/web/src/hooks/business-mini-app/chat/businessChatShared.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatSession.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatComposer.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatAttachments.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessPaymentShareActions.ts",
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatOrderActions.ts",
+    )
+    return "\n".join(_read(path) for path in paths)
+
+
 def test_slice_50a_client_confirms_minimal_quote_before_post_and_opens_chat() -> None:
     marketplace = _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx")
     orders_screen = _read("apps/web/src/screens/client/ClientOrderScreens.tsx")
@@ -34,23 +80,41 @@ def test_slice_50a_client_confirms_minimal_quote_before_post_and_opens_chat() ->
     )[0]
 
 
+def test_client_payment_flow_uses_explicit_types_and_react_dependencies() -> None:
+    payment_types = _read("apps/web/src/types/payments.ts")
+    payment_api = _read("apps/web/src/api/paymentReports.ts")
+    payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
+    main_button = _read("apps/web/src/hooks/workspace/useClientTelegramMainButton.ts")
+    workspace_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
+
+    assert "PaymentReportPayload" in payment_types
+    assert "PaymentEvidenceUploadResult" in payment_types
+    assert "PaymentReportResult" in payment_types
+    assert "payload: PaymentReportPayload" in payment_api
+    assert "<any>" not in payment_model
+    assert "dependencies: unknown[]" not in main_button
+    assert "...dependencies" not in main_button
+    assert "dependencies:" not in workspace_model
+
+
 def test_chat_uses_one_compact_payment_details_flow_for_zelle_and_usdt() -> None:
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
-    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
-    business_chat_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
+    client_chat = _read_client_chat_surface()
+    business_chat = _read_business_chat_surface()
+    business_chat_model = _read_business_chat_model()
     payment_screen = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
 
     assert "chatCapabilities.can_report_payment" in client_chat
     assert 'paymentReportMethod === "usdt_trc20" ? "USDT enviado" : "Zelle enviado"' in client_chat
     assert "No envies el pago" in client_chat
     assert "const canSharePaymentDetails = chatCapabilities.can_share_payment_details" in business_chat
-    assert 'currentOrder?.payment_method_snapshot === "usdt_trc20" ? "Compartir wallet"' in business_chat
+    assert 'currentOrder?.payment_method_snapshot === "usdt_trc20"' in business_chat
+    assert '"Compartir wallet"' in business_chat
     assert "/share-payment-details" in _read("apps/web/src/api/chat.ts")
     assert "Confirma con el negocio la red exacta antes de enviar." in client_chat
     assert "Compartir datos de pago" in business_chat
     assert "shareConfiguredPaymentDetails" in business_chat_model
     assert "Copiar" in client_chat
-    assert "currentPaymentInstructions.payment_instructions.account_value" in client_chat
+    assert "instructions.payment_instructions.account_value" in client_chat
     assert "isAutomaticZelleDetails" in client_chat
     assert "business-order-chat-action-dock__hash" not in client_chat
     assert "Identificador de transaccion" not in client_chat
@@ -63,23 +127,23 @@ def test_chat_uses_one_compact_payment_details_flow_for_zelle_and_usdt() -> None
 
 def test_usdt_copy_is_simple_but_the_order_network_remains_explicit() -> None:
     marketplace = _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx")
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    client_chat = _read_client_chat_surface()
     payment_helpers = _read(
         "apps/web/src/hooks/business-mini-app/businessPaymentMethodHelpers.ts"
     )
     globals_css = _read("apps/web/src/app/globals.css")
 
     assert "USDT TRC20" not in marketplace
-    assert 'return method === "usdt_trc20" ? "USDT" : "Zelle";' in client_chat
+    assert 'method_type === "usdt_trc20" ? "USDT" : "Zelle"' in client_chat
     assert "Confirma con el negocio la red exacta antes de enviar." in client_chat
-    assert "currentPaymentInstructions.payment_instructions.network" in client_chat
+    assert "instructions.payment_instructions.network" in client_chat
     assert "Por ahora NODO solo admite wallets USDT en TRC20." not in payment_helpers
     assert "Revisa la wallet USDT. Confirma la red exacta con el cliente por chat." in payment_helpers
     assert "margin-inline-start: 2px;" in globals_css
 
 
 def test_slice_50b2_payment_mobile_is_structured_inside_compact_chat_ui() -> None:
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    client_chat = _read_client_chat_surface()
     chat_notifications = _read("apps/api/app/modules/notifications/chat_notifications.py")
     chat_service = _read("apps/api/app/modules/chat/service.py")
 
@@ -96,14 +160,14 @@ def test_slice_50b2_payment_mobile_is_structured_inside_compact_chat_ui() -> Non
 
 
 def test_slice_50a_client_chat_refreshes_silently_only_while_visible() -> None:
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
-    chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    client_chat_sync = _read("apps/web/src/hooks/workspace/useClientOrderChatSync.ts")
+    chat_model = _read_client_chat_model()
 
-    assert "CLIENT_ORDER_CHAT_REFRESH_MS" in client_chat
-    assert 'model.view !== "order-chat"' in client_chat
-    assert 'document.visibilityState !== "visible"' in client_chat
-    assert "refreshChat({ silent: true })" in client_chat
-    assert "window.clearInterval(interval)" in client_chat
+    assert "CLIENT_ORDER_CHAT_REFRESH_MS" in client_chat_sync
+    assert 'view !== "order-chat"' in client_chat_sync
+    assert 'document.visibilityState !== "visible"' in client_chat_sync
+    assert "refreshChat({ silent: true })" in client_chat_sync
+    assert "window.clearInterval(interval)" in client_chat_sync
     assert "refreshingChatRef.current" in chat_model
     assert "refreshingChatRef.current = true" in chat_model
     assert "refreshingChatRef.current = false" in chat_model
@@ -118,7 +182,7 @@ def test_slice_50a_client_chat_refreshes_silently_only_while_visible() -> None:
 
 
 def test_slice_50a_payment_action_stays_in_chat_without_intermediate_screen() -> None:
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    client_chat = _read_client_chat_surface()
     payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
     workspace_state = _read("apps/web/src/hooks/workspace/useClientWorkspaceState.ts")
     payment_screen = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
@@ -185,13 +249,13 @@ def test_terminal_client_order_chat_restores_primary_navigation() -> None:
 
 
 def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() -> None:
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    client_chat = _read_client_chat_surface()
     payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
     payment_screen = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
-    business_chat = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
-    business_chat_model = _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
+    business_chat = _read_business_chat_surface()
+    business_chat_model = _read_business_chat_model()
     business_orders = _read("apps/web/src/screens/business-app/BusinessOrdersScreens.tsx")
-    chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    chat_model = _read_client_chat_model()
     chat_types = _read("apps/web/src/types/chat.ts")
 
     assert 'setView("my-orders")' not in payment_model
@@ -222,8 +286,8 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
     assert "routeBusinessPinError" in business_chat_model
     assert "business: access.business" in _read("apps/web/src/hooks/useBusinessMiniAppModel.ts")
     chat_action_source = business_chat_model.split("await mutateBusinessOrderRequest", 1)[1].split("} catch", 1)[0]
-    assert "listOrderMessages<ChatThread<BusinessOrderSummary>>(request, targetOrderId, 50)" in chat_action_source
-    assert "syncBusinessOrderFromChat(data.order)" in chat_action_source
+    assert "session.reloadChatSession(targetOrderId, targetSessionEpoch)" in chat_action_source
+    assert "syncBusinessOrderFromChat(mutation.order)" in chat_action_source
     assert "refreshChat({ silent: true })" not in chat_action_source
     assert "Confirmar pago recibido" in business_chat
     assert "Pago Movil enviado" in business_chat
@@ -237,7 +301,7 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
 
 def test_payment_report_state_is_scoped_to_the_active_chat_order() -> None:
     payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
-    chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    chat_model = _read_client_chat_model()
 
     assert "const orderId = paymentOrderContextRef.current;" in payment_model
     assert "paymentInstructions?.order.id === orderId ? paymentInstructions : null" in payment_model
@@ -255,7 +319,7 @@ def test_payment_report_state_is_scoped_to_the_active_chat_order() -> None:
 
 
 def test_receiver_details_state_and_async_result_are_scoped_to_the_chat_order() -> None:
-    chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    chat_model = _read_client_chat_model()
 
     assert "receiverDetailsDraftsByOrder" in chat_model
     assert "receiverDetailsRequestsRef" in chat_model
@@ -273,10 +337,148 @@ def test_receiver_details_state_and_async_result_are_scoped_to_the_chat_order() 
     assert stale_guard < share_source.index('setNotice("Pago Movil compartido.")')
 
 
+def test_client_chat_open_discards_a_late_response_from_another_order() -> None:
+    chat_model = _read_client_chat_model()
+    open_source = chat_model.split("async function openOrderChat", 1)[1].split(
+        "const refreshChat", 1
+    )[0]
+
+    assert "openChatRequestIdRef" in chat_model
+    assert "const targetOrderId = orderId;" in open_source
+    assert "const requestId = openChatRequestIdRef.current + 1;" in open_source
+    assert "chatOrderIdRef.current !== targetOrderId" in open_source
+    assert "openChatRequestIdRef.current !== requestId" in open_source
+    stale_guard = open_source.index("openChatRequestIdRef.current !== requestId")
+    assert stale_guard < open_source.index("setSelectedOrder(hydrated.order)")
+    assert stale_guard < open_source.index("setChatMessages(sortChatMessages")
+
+
+def test_client_chat_composer_and_uploads_are_scoped_by_order() -> None:
+    chat_model = _read_client_chat_model()
+    workspace_state = _read("apps/web/src/hooks/workspace/useClientWorkspaceState.ts")
+    upload_source = chat_model.split("async function uploadChatAttachment", 1)[1].split(
+        "async function sendChatMessage", 1
+    )[0]
+    send_source = chat_model.split("async function sendChatMessage", 1)[1].split(
+        "async function openChatAttachment", 1
+    )[0]
+
+    assert "composerDraftsByOrder" in chat_model
+    assert "updateComposerDraftForOrder" in chat_model
+    assert "const targetOrderId = chatOrderIdRef.current;" in upload_source
+    assert "updateComposerDraftForOrder(targetOrderId" in upload_source
+    assert "const targetOrderId = chatOrderIdRef.current;" in send_source
+    assert "const targetDraft = composerDraftsRef.current[targetOrderId]" in send_source
+    assert "clearSentComposerDraft(targetOrderId, targetDraft)" in send_source
+    assert "chatAttachmentLink?.orderId === chatOrderId" in chat_model
+    assert "setChatBody" not in workspace_state
+    assert "setChatAttachments" not in workspace_state
+
+
+def test_client_chat_refresh_discards_late_errors_from_another_order() -> None:
+    chat_model = _read_client_chat_model()
+    refresh_source = chat_model.split("const refreshChat", 1)[1].split(
+        "const composer", 1
+    )[0]
+    catch_source = refresh_source.split("} catch (error) {", 1)[1]
+
+    stale_guard = catch_source.index("chatOrderIdRef.current !== targetOrderId")
+    assert stale_guard < catch_source.index('setNotice(error instanceof Error')
+
+
+def test_client_chat_completion_discards_a_late_response_from_another_order() -> None:
+    chat_model = _read_client_chat_model()
+    confirm_source = chat_model.split("async function confirmOrderReceived", 1)[1].split(
+        "return {", 1
+    )[0]
+
+    assert "const targetOrderId = chatOrderIdRef.current;" in confirm_source
+    assert "chatOrderIdRef.current !== targetOrderId" in confirm_source
+    stale_guard = confirm_source.index("chatOrderIdRef.current !== targetOrderId")
+    assert stale_guard < confirm_source.index("setSelectedOrder(completedOrder)")
+
+
+def test_client_marketplace_discards_late_search_and_detail_responses() -> None:
+    marketplace_model = _read("apps/web/src/hooks/workspace/useClientMarketplaceModel.ts")
+    search_source = marketplace_model.split("async function searchAds()", 1)[1].split(
+        "async function searchFreshForAmount", 1
+    )[0]
+    fresh_source = marketplace_model.split("async function searchFreshForAmount", 1)[1].split(
+        "async function loadActiveMarketplace", 1
+    )[0]
+    list_source = marketplace_model.split("async function loadActiveMarketplace", 1)[1].split(
+        "async function openAdDetail", 1
+    )[0]
+    detail_source = marketplace_model.split("async function openAdDetail", 1)[1].split(
+        "async function prefetchActiveMarketplace", 1
+    )[0]
+
+    assert "marketplaceRequestIdRef" in marketplace_model
+    for source in (search_source, fresh_source, list_source):
+        assert "const requestId = marketplaceRequestIdRef.current + 1;" in source
+        assert "marketplaceRequestIdRef.current = requestId;" in source
+        assert "marketplaceRequestIdRef.current !== requestId" in source
+        stale_guard = source.index("marketplaceRequestIdRef.current !== requestId")
+        assert stale_guard < source.index("setSearchResults(data.items)")
+
+    assert "adDetailRequestIdRef" in marketplace_model
+    assert "const requestId = adDetailRequestIdRef.current + 1;" in detail_source
+    assert "adDetailRequestIdRef.current = requestId;" in detail_source
+    optimistic_detail_source = detail_source.split("if (optimisticAd) {", 1)[1].split(
+        "if (!optimisticAd)", 1
+    )[0]
+    assert "setOpeningMarketplaceAdId(null)" in optimistic_detail_source
+    assert "adDetailRequestIdRef.current !== requestId" in detail_source
+    stale_guard = detail_source.index("adDetailRequestIdRef.current !== requestId")
+    assert stale_guard < detail_source.index("setSelectedAd(data.ad)")
+
+
+def test_client_orders_discards_late_list_and_detail_responses() -> None:
+    orders_model = _read("apps/web/src/hooks/workspace/useRemitterOrdersModel.ts")
+    list_source = orders_model.split("async function loadMyOrders", 1)[1].split(
+        "async function refreshMyOrdersSilently", 1
+    )[0]
+    detail_source = orders_model.split("async function openOrderDetail", 1)[1].split(
+        "async function extendOrder", 1
+    )[0]
+
+    assert "orderListRequestIdRef" in orders_model
+    assert "const requestId = orderListRequestIdRef.current + 1;" in list_source
+    assert "orderListRequestIdRef.current = requestId;" in list_source
+    assert "orderListRequestIdRef.current !== requestId" in list_source
+    stale_list_guard = list_source.index("orderListRequestIdRef.current !== requestId")
+    assert stale_list_guard < list_source.index("setMyOrders(data.items)")
+
+    assert "orderDetailRequestIdRef" in orders_model
+    assert "const requestId = orderDetailRequestIdRef.current + 1;" in detail_source
+    assert "orderDetailRequestIdRef.current = requestId;" in detail_source
+    optimistic_detail_source = detail_source.split("if (optimisticOrder) {", 1)[1].split(
+        "} else {", 1
+    )[0]
+    assert "setOpeningOrderId(null)" in optimistic_detail_source
+    assert "orderDetailRequestIdRef.current !== requestId" in detail_source
+    stale_detail_guard = detail_source.index("orderDetailRequestIdRef.current !== requestId")
+    assert stale_detail_guard < detail_source.index("setSelectedOrder(data.order)")
+
+
+def test_chat_first_contract_has_no_required_external_or_legacy_navigation() -> None:
+    slice_50a_dir = "slice_50A_" + "simplified_" + "p2p_" + "negotiation_" + "flow"
+    slice_50c_dir = "slice_50C_" + "native_" + "chat_surface_" + "keyboard_rescue"
+    slice_50a = _read("/".join(("control_plane", "09_SLICES", slice_50a_dir, "API_CONTRACT.md")))
+    slice_50c = _read("/".join(("control_plane", "09_SLICES", slice_50c_dir, "UI_CONTRACT.md")))
+    orders_screen = _read("apps/web/src/screens/client/ClientOrderScreens.tsx")
+
+    assert "then opens `report-payment` directly" not in slice_50a
+    assert "does not launch a bank or wallet application" in slice_50a
+    assert "reporting payment does not open a\nseparate payment screen" in slice_50c
+    assert '"completed"' not in orders_screen.split("const CHAT_STATUSES", 1)[1].split("]", 1)[0]
+    assert '"cancelled"' not in orders_screen.split("const CHAT_STATUSES", 1)[1].split("]", 1)[0]
+
+
 def test_payment_evidence_upload_prepares_mobile_images_and_hides_raw_fetch_error() -> None:
     payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
     payment_file = _read("apps/web/src/utils/paymentEvidenceFiles.ts")
-    client_chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+    client_chat = _read_client_chat_surface()
 
     assert "preparePaymentEvidenceFile(file)" in payment_model
     assert "paymentEvidenceUploadErrorMessage(error)" in payment_model

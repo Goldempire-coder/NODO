@@ -28,8 +28,10 @@ Required regression coverage:
   window, including a newly shared Zelle after older history.
 - Business chat polling is visible-only, single-flight and preserves current
   messages and capabilities after a silent failure.
-- `Pago enviado` opens the compact report form directly; there is no
-  intermediate instructions screen.
+- `Pago enviado` submits from the active chat; there is no required navigation
+  to `report-payment` or an intermediate instructions screen.
+- Copying Zelle or USDT does not launch a bank or wallet application, and
+  returning to Telegram preserves the active order chat.
 - A late payment-instructions response cannot replace state after the client
   changes chat or begins opening another order.
 - Opening another report clears the prior order's sender, reference and
@@ -53,6 +55,8 @@ Required regression coverage:
   attention banners do not cover the conversation.
 - Chat headers remain compact and typing mode keeps the message composer
   visible on mobile.
+- Completed and cancelled chats are not exposed as reopen actions in the client
+  order list.
 
 Commands:
 

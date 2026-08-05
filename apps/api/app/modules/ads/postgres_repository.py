@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from decimal import Decimal
 
+from app.modules.ads.active_guard import require_active_ad_candidate
 from app.modules.ads.models import AdRecord
 from app.modules.ads.postgres_credit_holds import PostgresAdCreditHoldsMixin
 from app.modules.ads.postgres_publish import PostgresAdPublishMixin
@@ -24,6 +25,66 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
         with self._connect() as conn:
             row = conn.execute("select * from ads where id = %s", (ad_id,)).fetchone()
         return ad_from_row(row) if row else None
+
+    def _lock_declared_capacity_for_active_ad(self, conn, *, business_id: str) -> Decimal:  # type: ignore[no-untyped-def]
+        conn.execute(
+            """
+            insert into business_capacity (
+                business_id, declared_available_capacity_usd, created_at, updated_at
+            )
+            values (%s, 0.00, now(), now())
+            on conflict (business_id) do nothing
+            """,
+            (business_id,),
+        )
+        row = conn.execute(
+            """
+            select declared_available_capacity_usd
+            from business_capacity
+            where business_id = %s
+            for update
+            """,
+            (business_id,),
+        ).fetchone()
+        return Decimal(str(row["declared_available_capacity_usd"]))
+
+    def _require_active_candidate_in_transaction(
+        self,
+        conn,
+        *,
+        business_id: str,
+        payment_method: str,
+        amount_max_usd: Decimal,
+        exclude_ad_id: str | None = None,
+    ) -> None:  # type: ignore[no-untyped-def]
+        declared = self._lock_declared_capacity_for_active_ad(
+            conn,
+            business_id=business_id,
+        )
+        sql = """
+            select
+                count(*) filter (where status = 'active') as active_count,
+                count(*) filter (
+                    where payment_method = %s and status in ('active', 'in_order')
+                ) as active_method_count,
+                coalesce(sum(amount_max_usd) filter (
+                    where status in ('active', 'in_order')
+                ), 0.00) as committed_max_total
+            from ads
+            where business_id = %s
+        """
+        params: list[object] = [payment_method, business_id]
+        if exclude_ad_id is not None:
+            sql += " and id <> %s"
+            params.append(exclude_ad_id)
+        row = conn.execute(sql, params).fetchone()
+        require_active_ad_candidate(
+            active_count=int(row["active_count"]),
+            active_method_count=int(row["active_method_count"]),
+            committed_max_total_usd=Decimal(str(row["committed_max_total"])),
+            candidate_max_usd=amount_max_usd,
+            declared_available_capacity_usd=declared,
+        )
 
     def has_overlapping_ad(
         self,
@@ -99,13 +160,51 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
                 params.append(value)
         params.append(ad.id)
         with self._connect() as conn:
+            self._lock_declared_capacity_for_active_ad(conn, business_id=ad.business_id)
+            current_row = conn.execute(
+                "select * from ads where id = %s for update",
+                (ad.id,),
+            ).fetchone()
+            current = ad_from_row(current_row)
+            if current.status == "active":
+                self._require_active_candidate_in_transaction(
+                    conn,
+                    business_id=current.business_id,
+                    payment_method=current.payment_method,
+                    amount_max_usd=(
+                        amount_max_usd
+                        if amount_max_usd is not None
+                        else current.amount_max_usd
+                    ),
+                    exclude_ad_id=current.id,
+                )
             row = conn.execute(f"update ads set {', '.join(assignments)}, updated_at = now() where id = %s returning *", params).fetchone()
             conn.commit()
         return ad_from_row(row)
 
     def set_status(self, ad: AdRecord, status: str) -> AdRecord:
         with self._connect() as conn:
-            row = conn.execute("update ads set status = %s, updated_at = now() where id = %s returning *", (status, ad.id)).fetchone()
+            if status == "active":
+                self._lock_declared_capacity_for_active_ad(
+                    conn,
+                    business_id=ad.business_id,
+                )
+                current_row = conn.execute(
+                    "select * from ads where id = %s for update",
+                    (ad.id,),
+                ).fetchone()
+                current = ad_from_row(current_row)
+                self._require_active_candidate_in_transaction(
+                    conn,
+                    business_id=current.business_id,
+                    payment_method=current.payment_method,
+                    amount_max_usd=current.amount_max_usd,
+                    exclude_ad_id=current.id,
+                )
+            row = conn.execute(
+                "update ads set status = %s, updated_at = now() where id = %s returning *",
+                (status, ad.id),
+            ).fetchone()
             conn.commit()
         return ad_from_row(row)
 

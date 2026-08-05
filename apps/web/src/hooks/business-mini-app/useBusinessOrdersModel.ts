@@ -1,10 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import { declineBusinessOrder, getBusinessOrder, listBusinessOrders, mutateBusinessOrder as mutateBusinessOrderRequest } from "../../api/businessOrders";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
 import type { BusinessOrderDetail, BusinessOrderSummary } from "../../types/orders";
 import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
+
+type BusinessOrderAction = "confirm-payment" | "reject-payment-report" | "mark-delivered" | "cannot-attend";
 
 export function useBusinessOrdersModel({
   request,
@@ -21,34 +23,70 @@ export function useBusinessOrdersModel({
   const [businessOrderDetail, setBusinessOrderDetail] = useState<BusinessOrderDetail | null>(null);
   const [businessOrderReason, setBusinessOrderReason] = useState("");
   const [businessOrderFilter, setBusinessOrderFilter] = useState<string>("open");
-  const [businessOrderAction, setBusinessOrderAction] = useState<"confirm-payment" | "reject-payment-report" | "mark-delivered" | "cannot-attend" | null>(null);
+  const [businessOrderAction, setBusinessOrderAction] = useState<BusinessOrderAction | null>(null);
+  const businessOrderListRequestIdRef = useRef(0);
+  const businessOrderFilterRef = useRef("open");
+  const businessOrderRefreshInFlightRef = useRef(false);
+  const businessOrderDetailEpochRef = useRef(0);
+  const businessOrderDetailIdRef = useRef<string | null>(null);
+  const businessOrderActionsRef = useRef(new Map<string, BusinessOrderAction>());
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
+
+  useEffect(() => {
+    businessOrderFilterRef.current = businessOrderFilter;
+  }, [businessOrderFilter]);
+
+  const isCurrentBusinessOrderDetail = useCallback((orderId: string, requestEpoch: number) => (
+    businessOrderDetailIdRef.current === orderId
+    && businessOrderDetailEpochRef.current === requestEpoch
+  ), []);
 
   const loadBusinessOrders = useCallback(async (status?: string) => {
     const requestedStatus = status || "open";
+    const targetListRequestId = businessOrderListRequestIdRef.current + 1;
+    const previousFilter = businessOrderFilterRef.current;
+    businessOrderListRequestIdRef.current = targetListRequestId;
+    businessOrderFilterRef.current = requestedStatus;
     setView("business-orders");
     setBusy(true);
     try {
       const data = await listBusinessOrders<{ items: BusinessOrderSummary[] }>(request, requestedStatus);
+      if (businessOrderListRequestIdRef.current !== targetListRequestId) {
+        return;
+      }
       setBusinessOrders(data.items);
       setBusinessOrderDetail(null);
       setBusinessOrderFilter(requestedStatus);
       setNotice(data.items.length ? "Ordenes del negocio cargadas." : requestedStatus === "history" ? "No hay ordenes completadas todavia." : "No hay ordenes abiertas por ahora.");
     } catch (error) {
+      if (businessOrderListRequestIdRef.current !== targetListRequestId) {
+        return;
+      }
+      businessOrderFilterRef.current = previousFilter;
       setNotice(error instanceof Error ? error.message : "No logramos cargar las ordenes del negocio.");
     } finally {
-      setBusy(false);
+      if (businessOrderListRequestIdRef.current === targetListRequestId) {
+        setBusy(false);
+      }
     }
   }, [request, setBusy, setNotice, setView]);
 
   const refreshBusinessOrders = useCallback(async () => {
+    if (businessOrderFilterRef.current !== "open" || businessOrderRefreshInFlightRef.current) {
+      return false;
+    }
+    businessOrderRefreshInFlightRef.current = true;
     try {
       const data = await listBusinessOrders<{ items: BusinessOrderSummary[] }>(request, "open");
+      if (businessOrderFilterRef.current !== "open") {
+        return false;
+      }
       setBusinessOrders(data.items);
       return true;
     } catch {
-      setBusinessOrders([]);
       return false;
+    } finally {
+      businessOrderRefreshInFlightRef.current = false;
     }
   }, [request]);
 
@@ -63,33 +101,55 @@ export function useBusinessOrdersModel({
   }, []);
 
   const openBusinessOrder = useCallback(async (orderId: string) => {
+    const targetRequestEpoch = businessOrderDetailEpochRef.current + 1;
+    businessOrderDetailEpochRef.current = targetRequestEpoch;
+    businessOrderDetailIdRef.current = orderId;
     setBusinessOrderDetail(null);
     setBusinessOrderReason("");
+    setBusinessOrderAction(businessOrderActionsRef.current.get(orderId) ?? null);
     setView("business-order-detail");
     setBusy(true);
     try {
       const data = await getBusinessOrder<BusinessOrderDetail>(request, orderId);
+      if (!isCurrentBusinessOrderDetail(orderId, targetRequestEpoch)) {
+        return false;
+      }
       setBusinessOrderDetail(data);
       setBusinessOrderReason("");
       setNotice(data.disclaimer || "Orden lista para operar desde el negocio.");
       return true;
     } catch (error) {
+      if (!isCurrentBusinessOrderDetail(orderId, targetRequestEpoch)) {
+        return false;
+      }
       setBusinessOrderDetail(null);
       setNotice(error instanceof Error ? error.message : "No logramos abrir la orden del negocio.");
       return false;
     } finally {
-      setBusy(false);
+      if (isCurrentBusinessOrderDetail(orderId, targetRequestEpoch)) {
+        setBusy(false);
+      }
     }
-  }, [request, setBusy, setNotice, setView]);
+  }, [isCurrentBusinessOrderDetail, request, setBusy, setNotice, setView]);
 
-  const mutateBusinessOrder = useCallback(async (action: "confirm-payment" | "reject-payment-report" | "mark-delivered" | "cannot-attend") => {
+  const mutateBusinessOrder = useCallback(async (action: BusinessOrderAction) => {
     if (!businessOrderDetail) {
       return;
     }
-    if (action === "reject-payment-report" && !businessOrderReason.trim()) {
+    const targetOrderId = businessOrderDetail.order.id;
+    const targetRequestEpoch = businessOrderDetailEpochRef.current;
+    const targetReason = businessOrderReason.trim();
+    if (
+      !isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)
+      || businessOrderActionsRef.current.has(targetOrderId)
+    ) {
+      return;
+    }
+    if (action === "reject-payment-report" && !targetReason) {
       setNotice("Para rechazar un reporte, escribe el motivo. Los creditos quedan bloqueados mientras se revisa.");
       return;
     }
+    businessOrderActionsRef.current.set(targetOrderId, action);
     setBusinessOrderAction(action);
     const telemetryAction = action === "confirm-payment"
       ? "business_order_confirm_payment"
@@ -100,52 +160,77 @@ export function useBusinessOrdersModel({
           : "business_order_reject_payment_report";
     const startedAt = actionStartedAt();
     recordBusinessActionStarted(telemetryAction, "business-order-detail");
-    const idempotencyScope = `business_order_${action}_${businessOrderDetail.order.id}`;
+    const idempotencyScope = `business_order_${action}_${targetOrderId}`;
     try {
       const idempotencyKey = getIdempotencyKey(
         idempotencyScope,
         {
-          orderId: businessOrderDetail.order.id,
+          orderId: targetOrderId,
           action,
-          reason: action === "cannot-attend" ? undefined : businessOrderReason || undefined
+          reason: action === "cannot-attend" ? undefined : targetReason || undefined
         }
       );
       if (action === "cannot-attend") {
         await declineBusinessOrder(
           request,
-          businessOrderDetail.order.id,
+          targetOrderId,
           idempotencyKey
         );
       } else {
         await mutateBusinessOrderRequest(
           request,
-          businessOrderDetail.order.id,
+          targetOrderId,
           action,
-          businessOrderReason || undefined,
+          targetReason || undefined,
           idempotencyKey
         );
       }
       clearIdempotencyKey(idempotencyScope);
-      const data = await getBusinessOrder<BusinessOrderDetail>(request, businessOrderDetail.order.id);
-      setBusinessOrderDetail(data);
-      setBusinessOrderReason("");
-      setNotice(
-        action === "confirm-payment"
-          ? "Pago confirmado. Se consumieron los creditos del anuncio."
-          : action === "mark-delivered"
-            ? "Pago movil marcado como enviado."
-            : action === "cannot-attend"
-              ? "Orden cancelada antes de reportar pago. El cliente fue avisado."
-              : "Reporte rechazado y enviado a revision."
-      );
       recordBusinessActionCompleted(telemetryAction, "business-order-detail", startedAt);
+      if (!isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
+        return;
+      }
+      try {
+        const data = await getBusinessOrder<BusinessOrderDetail>(request, targetOrderId);
+        if (!isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
+          return;
+        }
+        setBusinessOrderDetail(data);
+        setBusinessOrderReason("");
+        setNotice(
+          action === "confirm-payment"
+            ? "Pago confirmado. Se consumieron los creditos del anuncio."
+            : action === "mark-delivered"
+              ? "Pago movil marcado como enviado."
+              : action === "cannot-attend"
+                ? "Orden cancelada antes de reportar pago. El cliente fue avisado."
+                : "Reporte rechazado y enviado a revision."
+        );
+      } catch {
+        if (isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
+          setNotice("La accion fue aplicada, pero no pudimos actualizar el detalle. Toca Actualizar.");
+        }
+      }
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos operar la orden.");
+      if (isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
+        setNotice(error instanceof Error ? error.message : "No pudimos operar la orden.");
+      }
       recordBusinessActionFailed(telemetryAction, "business-order-detail", startedAt, error instanceof ApiClientError ? error.code : undefined);
     } finally {
-      setBusinessOrderAction(null);
+      businessOrderActionsRef.current.delete(targetOrderId);
+      if (businessOrderDetailIdRef.current === targetOrderId) {
+        setBusinessOrderAction(null);
+      }
     }
-  }, [businessOrderDetail, businessOrderReason, clearIdempotencyKey, getIdempotencyKey, request, setNotice]);
+  }, [
+    businessOrderDetail,
+    businessOrderReason,
+    clearIdempotencyKey,
+    getIdempotencyKey,
+    isCurrentBusinessOrderDetail,
+    request,
+    setNotice
+  ]);
 
   return {
     businessOrderAction,

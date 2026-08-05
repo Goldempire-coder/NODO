@@ -353,6 +353,9 @@ Rules:
 - Requiere negocio aprobado, acceso owner activo, PIN desbloqueado e
   `Idempotency-Key`.
 - No permite bajar el declarado por debajo de reservas activas.
+- No permite bajar el declarado por debajo de la suma de `amount_max_usd` de
+  los anuncios `active|in_order`; el negocio debe pausar o ajustar los activos,
+  o terminar la orden aplicable, antes de bajarlo.
 - No permite declarar mas que `daily_limit_usd`.
 - Capacidad y disponibilidad se actualizan en una operacion backend.
 - Respuestas usan `Cache-Control: private, no-store`.
@@ -368,6 +371,7 @@ Rules:
 - BUSINESS_VERIFICATION_REQUIRED
 - BUSINESS_DOCUMENT_REQUIRED
 - BUSINESS_DOCUMENT_INVALID
+- BUSINESS_CAPACITY_BELOW_ACTIVE_ADS
 - FORBIDDEN
 - UNAUTHENTICATED
 - RATE_LIMITED

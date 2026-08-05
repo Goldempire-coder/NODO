@@ -17,8 +17,6 @@ export function useClientActionState() {
   const [submittingPaymentReport, setSubmittingPaymentReport] = useState(false);
   const [openingChatOrderId, setOpeningChatOrderId] = useState<string | null>(null);
   const [refreshingChat, setRefreshingChat] = useState(false);
-  const [uploadingChatAttachment, setUploadingChatAttachment] = useState(false);
-  const [sendingChatMessage, setSendingChatMessage] = useState(false);
   const [submittingRatingOrderId, setSubmittingRatingOrderId] = useState<string | null>(null);
 
   return {
@@ -50,10 +48,6 @@ export function useClientActionState() {
     setOpeningChatOrderId,
     refreshingChat,
     setRefreshingChat,
-    uploadingChatAttachment,
-    setUploadingChatAttachment,
-    sendingChatMessage,
-    setSendingChatMessage,
     submittingRatingOrderId,
     setSubmittingRatingOrderId
   };

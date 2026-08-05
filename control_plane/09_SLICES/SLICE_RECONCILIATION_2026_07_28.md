@@ -39,6 +39,7 @@ migraciones ni datos.
 | 47E forensic audit/evidence trail | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
 | 47F recovery/rollback/game day | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first |
 | 47G preproduction security launch gate | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first antes de cualquier autorizacion de produccion |
+| 47H architecture foundation quality gate | CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW | slice documental creado | inspeccion Builder report-first para detectar drift arquitectonico antes de produccion |
 
 ## Lista de reparaciones antes de tocar Dashboard
 
@@ -55,6 +56,9 @@ migraciones ni datos.
 10. Ejecutar 47G como gate final antes de produccion: rotacion de secretos,
     Telegram Web, Supabase/RLS, storage, IDOR, headers, dependencias y smoke
     autenticado.
+11. Ejecutar 47H como gate de cimientos: problema, dominio, modulos, datos,
+    carga, costos, observabilidad, recuperacion, pruebas y gobernanza. Debe
+    producir reparaciones por slices, no megapatches.
 
 ## No autorizado por este documento
 

@@ -33,7 +33,11 @@ PAGO_MOVIL_BANKS = {
     "0177": "Banfanb",
     "0191": "Banco Nacional de Credito",
 }
-PHONE_FORMAT_PATTERN = re.compile(r"^[0-9+()./\-\s]+$")
+PHONE_FORMAT_PATTERN = re.compile(r"^[0-9+()\-\s]+$")
+PHONE_SEPARATORS_PATTERN = re.compile(r"[()\-\s]")
+VENEZUELAN_MOBILE_PATTERN = re.compile(
+    r"^(?:0(?:412|414|416|424|426)\d{7}|\+58(?:412|414|416|424|426)\d{7})$"
+)
 DOCUMENT_PATTERN = re.compile(r"^[VEJGP]\d{6,10}$")
 UNSAFE_HOLDER_PATTERN = re.compile(r"[<>\x00-\x1f\x7f]")
 
@@ -47,12 +51,12 @@ def normalize_bank(value: str) -> str:
 
 def normalize_phone(value: str) -> str:
     normalized = " ".join(value.split())
-    digit_count = sum(character.isdigit() for character in normalized)
+    compact = PHONE_SEPARATORS_PATTERN.sub("", normalized)
     if (
-        len(normalized) < 7
+        not normalized
         or len(normalized) > 32
-        or digit_count < 7
         or not PHONE_FORMAT_PATTERN.fullmatch(normalized)
+        or not VENEZUELAN_MOBILE_PATTERN.fullmatch(compact)
     ):
         raise ValueError("phone format is invalid")
     return normalized

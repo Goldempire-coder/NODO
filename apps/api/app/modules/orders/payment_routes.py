@@ -10,17 +10,19 @@ from app.modules.orders.schemas import PaymentReportRequest
 from app.modules.users.models import UserRecord
 from app.shared.validation import read_limited_upload
 
-router = APIRouter(tags=["orders"])
+def _private_no_store(response: Response) -> None:
+    response.headers["Cache-Control"] = "private, no-store"
+
+
+router = APIRouter(tags=["orders"], dependencies=[Depends(_private_no_store)])
 
 
 @router.get("/orders/{order_id}/payment-instructions")
 def payment_instructions(
     order_id: str,
     request: Request,
-    response: Response,
     user: UserRecord = Depends(require_current_user),
 ) -> dict:
-    response.headers["Cache-Control"] = "private, no-store"
     return {
         "data": order_service(request).payment_instructions(
             user=user,

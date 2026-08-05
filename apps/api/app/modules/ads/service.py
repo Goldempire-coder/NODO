@@ -126,16 +126,6 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             raise ApiError("AD_LIMIT_NOT_ALLOWED", status_code=409)
         return required_credits
 
-    def _ensure_no_overlapping_ad(self, *, business: BusinessRecord, payload: AdCreateRequest) -> None:
-        if self._repository.has_overlapping_ad(
-            business_id=business.id,
-            payment_method=payload.payment_method,
-            delivery_method=payload.delivery_method,
-            amount_min_usd=payload.amount_min_usd,
-            amount_max_usd=payload.amount_max_usd,
-        ):
-            raise ApiError("AD_OVERLAP_NOT_ALLOWED", status_code=409)
-
     def _publish_ad(self, *, user: UserRecord, business: BusinessRecord, payload: AdCreateRequest, required_credits: int, founder_access_used: bool) -> AdRecord:
         return self._repository.publish_ad(
             business_id=business.id,
@@ -177,9 +167,6 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             stage_started = time.perf_counter()
             self._payment_or_invalid(business, payload.payment_method_id, payload.payment_method)
             profile_mark(profile, "service:get_payment_method", stage_started)
-            stage_started = time.perf_counter()
-            self._ensure_no_overlapping_ad(business=business, payload=payload)
-            profile_mark(profile, "repo:has_overlapping_ad", stage_started)
             stage_started = time.perf_counter()
             founder_access_used = self._founder_access_valid(business)
             profile_mark(profile, "service:founder_access_valid", stage_started)

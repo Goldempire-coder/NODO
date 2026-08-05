@@ -54,6 +54,8 @@ Este documento gobierna estados, tiempos, cancelaciones, disputas, creditos y an
 - Toda transicion pasa por state machine.
 - Auto-cierre a completed usa `completion_reason`, no estado nuevo.
 - Click al anuncio no crea orden, no cambia estado y no afecta creditos.
+- Publicar un anuncio no crea una operacion, no reserva capacidad y no consume
+  `daily_limit_usd`.
 - Crear orden pone el anuncio/disponibilidad en hold operativo.
 - Los creditos del anuncio ya estan bloqueados desde publicacion.
 - Los creditos se consumen cuando el negocio confirma pago recibido o cuando el anuncio llega a 7 dias sin venta confirmada.
@@ -67,15 +69,18 @@ Credito publicitario y capacidad operativa son conceptos distintos:
   ejecuta la confirmacion oficial `payment_reported -> payment_confirmed`;
 - reportar pago y escribir `recibido` en chat no consumen credito;
 - la capacidad operativa se reserva al crear la orden;
+- Zelle y USDT usan la misma capacidad operativa y el mismo `daily_limit_usd`;
 - cancelacion/expiracion antes de reporte libera capacidad una vez;
 - `payment_reported`, `payment_rejected`, `payment_confirmed`, `delivered` y
   `disputed` mantienen la reserva;
 - `completed` consume la capacidad una vez y no consume credito otra vez.
 
-Pago Movil se coordina por chat en el flujo normal. El texto no cambia estado,
-monto ni tasa. El negocio marca `payment_confirmed -> delivered` mediante la
-accion oficial cuando ya envio el Pago Movil. El payload estructurado queda
-como ruta opcional de compatibilidad, no como requisito de entrega.
+Pago Movil se coordina dentro del chat mediante `receiver-details` estructurado.
+La UI puede mostrar ese recurso como una burbuja, pero no se guarda como
+`messages.body`. El texto libre no cambia estado, monto ni tasa y no satisface
+el requisito de entrega. El negocio solo puede ejecutar la accion oficial
+`payment_confirmed -> delivered` despues de que el cliente comparta
+`receiver-details` validos para esa misma orden.
 
 ## 1. Cliente crea orden pero no marca Ya pague
 

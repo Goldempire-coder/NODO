@@ -5,16 +5,68 @@ from decimal import Decimal
 from threading import RLock
 
 from app.core.errors import ApiError
+from app.modules.ads.active_guard import METHOD_SLOT_STATUSES, require_active_ad_candidate
 from app.modules.ads.memory_credits import InMemoryAdCreditsMixin
 from app.modules.ads.models import AdRecord, CreditLedgerRecord, CreditWalletRecord, new_id, utc_now
 
 
 class InMemoryAdRepository(InMemoryAdCreditsMixin):
-    def __init__(self) -> None:
-        self._lock = RLock()
+    def __init__(self, *, lock=None) -> None:  # type: ignore[no-untyped-def]
+        self._lock = lock or RLock()
+        self._capacity_repository = None
         self.ads: dict[str, AdRecord] = {}
         self.wallets: dict[str, CreditWalletRecord] = {}
         self.ledger: dict[str, CreditLedgerRecord] = {}
+
+    def bind_capacity_repository(self, capacity_repository) -> None:  # type: ignore[no-untyped-def]
+        self._capacity_repository = capacity_repository
+
+    def committed_ad_max_total(self, *, business_id: str) -> Decimal:
+        with self._lock:
+            return sum(
+                (
+                    ad.amount_max_usd
+                    for ad in self.ads.values()
+                    if ad.business_id == business_id
+                    and ad.status in METHOD_SLOT_STATUSES
+                ),
+                Decimal("0.00"),
+            )
+
+    def _require_active_candidate(
+        self,
+        *,
+        business_id: str,
+        payment_method: str,
+        amount_max_usd: Decimal,
+        exclude_ad_id: str | None = None,
+    ) -> None:
+        if self._capacity_repository is None:
+            raise ApiError("AD_LIMIT_NOT_ALLOWED", status_code=409)
+        relevant = [
+            ad
+            for ad in self.ads.values()
+            if ad.business_id == business_id and ad.id != exclude_ad_id
+        ]
+        require_active_ad_candidate(
+            active_count=sum(ad.status == "active" for ad in relevant),
+            active_method_count=sum(
+                ad.payment_method == payment_method and ad.status in METHOD_SLOT_STATUSES
+                for ad in relevant
+            ),
+            committed_max_total_usd=sum(
+                (
+                    ad.amount_max_usd
+                    for ad in relevant
+                    if ad.status in METHOD_SLOT_STATUSES
+                ),
+                Decimal("0.00"),
+            ),
+            candidate_max_usd=amount_max_usd,
+            declared_available_capacity_usd=self._capacity_repository.declared_capacity_usd(
+                business_id=business_id
+            ),
+        )
 
     def get_ad(self, ad_id: str) -> AdRecord | None:
         return self.ads.get(ad_id)
@@ -61,6 +113,11 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
         use_founder_access: bool,
     ) -> AdRecord:
         with self._lock:
+            self._require_active_candidate(
+                business_id=business_id,
+                payment_method=payment_method,
+                amount_max_usd=amount_max_usd,
+            )
             wallet = self.ensure_wallet(business_id)
             if not use_founder_access and wallet.available_credits < required_credits:
                 raise ApiError("CREDIT_BALANCE_INSUFFICIENT", status_code=409)
@@ -111,6 +168,14 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
         amount_max_usd: Decimal | None,
     ) -> AdRecord:
         with self._lock:
+            next_max = amount_max_usd if amount_max_usd is not None else ad.amount_max_usd
+            if ad.status == "active":
+                self._require_active_candidate(
+                    business_id=ad.business_id,
+                    payment_method=ad.payment_method,
+                    amount_max_usd=next_max,
+                    exclude_ad_id=ad.id,
+                )
             if payment_method_id is not None:
                 ad.payment_method_id = payment_method_id
             if rate_bs_per_usd is not None:
@@ -125,6 +190,13 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
 
     def set_status(self, ad: AdRecord, status: str) -> AdRecord:
         with self._lock:
+            if status == "active":
+                self._require_active_candidate(
+                    business_id=ad.business_id,
+                    payment_method=ad.payment_method,
+                    amount_max_usd=ad.amount_max_usd,
+                    exclude_ad_id=ad.id,
+                )
             ad.status = status
             ad.updated_at = utc_now()
             return ad

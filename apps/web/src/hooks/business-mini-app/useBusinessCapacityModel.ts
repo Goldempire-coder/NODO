@@ -89,9 +89,11 @@ export function useBusinessCapacityModel({
       }
       const message = error instanceof ApiClientError && error.code === "BUSINESS_CAPACITY_BELOW_RESERVED"
         ? "No puedes bajar el disponible por debajo del monto reservado."
-        : error instanceof Error
-          ? error.message
-          : "No pudimos actualizar la capacidad.";
+        : error instanceof ApiClientError && error.code === "BUSINESS_CAPACITY_BELOW_ACTIVE_ADS"
+          ? "Pausa o ajusta tus anuncios activos, o termina las negociaciones abiertas, antes de bajar el disponible."
+          : error instanceof Error
+            ? error.message
+            : "No pudimos actualizar la capacidad.";
       setNotice(message);
       recordBusinessActionFailed(
         "business_capacity_update",

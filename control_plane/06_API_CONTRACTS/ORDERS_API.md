@@ -264,9 +264,12 @@ Rules:
 - `Idempotency-Key` obligatorio.
 - Validacion y normalizacion backend:
   - `bank`: codigo del catalogo backend de bancos Pago Movil;
-  - `phone`: formato usual del participante, incluyendo `04xx` local o `+58`,
-    con espacios, parentesis o guiones opcionales; requiere al menos siete
-    digitos y rechaza markup/caracteres de control;
+  - `phone`: movil venezolano con prefijo `0412`, `0414`, `0416`, `0424` o
+    `0426`, o su equivalente `+58`; admite espacios, parentesis o guiones de
+    presentacion y exige exactamente siete digitos despues del prefijo;
+    numeros extranjeros, otros prefijos y cualquier otro caracter se rechazan;
+  - la presentacion normalizada del participante se conserva al persistir; la
+    base valida la misma allowlist y no obliga a reescribir el valor como `+58`;
   - `document`: `V|E|J|G|P` mayuscula seguida por 6..10 digitos;
   - `holder`: espacios normalizados, 2..120 caracteres, sin markup de control.
 - Campos extra o metadata libre son rechazados.

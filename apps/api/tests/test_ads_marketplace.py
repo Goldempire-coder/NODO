@@ -6,8 +6,10 @@ import json
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from decimal import Decimal
+from threading import RLock
 from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
@@ -47,6 +49,9 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.core.errors import ApiError  # noqa: E402
+from app.modules.ads.repository import InMemoryAdRepository  # noqa: E402
+from app.modules.business_capacity import InMemoryBusinessCapacityRepository  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 
@@ -164,6 +169,11 @@ def _approved_business_with_method(client: TestClient, login: dict, *, credits: 
     payment.active = True
     if credits:
         client.app.state.ad_repository.grant_test_credits(business_id=business["id"], amount=credits, created_by=login["user"]["id"])
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("2000.00"),
+        actor_user_id=login["user"]["id"],
+    )
     return business, payment.id
 
 
@@ -182,6 +192,43 @@ def _create_ad(client: TestClient, login: dict, payment_method_id: str, *, key: 
     )
     assert response.status_code == 201, response.text
     return response.json()["data"]["ad"]
+
+
+def _add_approved_usdt_method(client: TestClient, *, business_id: str, suffix: str) -> str:
+    method = client.app.state.business_repository.add_payment_method(
+        business_id=business_id,
+        method_type="usdt_trc20",
+        network="trc20",
+        account_value=f"T{suffix}WalletAddress",
+        account_masked=f"T{suffix[:4]}...ress",
+        holder_name="Owner Test",
+    )
+    method.verified_status = "approved"
+    method.active = True
+    return method.id
+
+
+def _create_usdt_ad_response(
+    client: TestClient,
+    login: dict,
+    payment_method_id: str,
+    *,
+    key: str,
+    amount_min: str = "20.00",
+    amount_max: str = "100.00",
+):  # type: ignore[no-untyped-def]
+    return client.post(
+        "/api/v1/business/ads",
+        headers={**_headers(login, key), "Content-Type": "application/json"},
+        json={
+            "payment_method_id": payment_method_id,
+            "payment_method": "usdt_trc20",
+            "delivery_method": "pago_movil_ve",
+            "rate_bs_per_usd": "39.5000",
+            "amount_min_usd": amount_min,
+            "amount_max_usd": amount_max,
+        },
+    )
 
 
 def _event_types(client: TestClient) -> list[str]:
@@ -218,7 +265,15 @@ def test_credit_cost_ranges_hold_and_insufficient_balance() -> None:
     client.app.state.business_repository.get_business(business["id"]).daily_limit_usd = Decimal("5000.00")
 
     ad_one = _create_ad(client, owner, method_id, key="ad_one", amount_min="20.00", amount_max="100.00")
+    client.app.state.ad_repository.set_status(
+        client.app.state.ad_repository.get_ad(ad_one["id"]),
+        "paused",
+    )
     ad_two = _create_ad(client, owner, method_id, key="ad_two", amount_min="101.00", amount_max="500.00")
+    client.app.state.ad_repository.set_status(
+        client.app.state.ad_repository.get_ad(ad_two["id"]),
+        "paused",
+    )
     ad_three = _create_ad(client, owner, method_id, key="ad_three", amount_min="501.00", amount_max="2000.00")
     assert [ad_one["required_credits"], ad_two["required_credits"], ad_three["required_credits"]] == [1, 2, 3]
     wallet = client.app.state.ad_repository.get_wallet(business["id"])
@@ -284,6 +339,11 @@ def test_business_daily_limit_does_not_sum_advertised_ranges() -> None:
     stored_business = client.app.state.business_repository.get_business(business["id"])
     stored_business.max_order_amount_usd = Decimal("1000.00")
     stored_business.daily_limit_usd = Decimal("1000.00")
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("1000.00"),
+        actor_user_id=owner["user"]["id"],
+    )
     usdt_method = client.app.state.business_repository.add_payment_method(
         business_id=business["id"],
         method_type="usdt_trc20",
@@ -307,11 +367,465 @@ def test_business_daily_limit_does_not_sum_advertised_ranges() -> None:
             "delivery_method": "pago_movil_ve",
             "rate_bs_per_usd": "39.5",
             "amount_min_usd": "20.00",
-            "amount_max_usd": "600.00",
+            "amount_max_usd": "500.00",
         },
     )
     assert second_ad.status_code == 201, second_ad.text
     assert second_ad.json()["data"]["ad"]["payment_method"] == "usdt_trc20"
+    snapshot = client.app.state.capacity_repository.get_snapshot(business=stored_business)
+    assert snapshot.daily_reserved_usd == Decimal("0.00")
+    assert snapshot.daily_consumed_usd == Decimal("0.00")
+    assert snapshot.daily_remaining_usd == Decimal("1000.00")
+
+
+def test_active_ads_allow_zelle_50_and_usdt_50_with_declared_capacity_100() -> None:
+    client = _client()
+    owner = _login(client, 715, "shared_capacity_owner")
+    business, zelle_method_id = _approved_business_with_method(client, owner, credits=4)
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="SharedCapacity",
+    )
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("100.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+
+    zelle = _create_ad(
+        client,
+        owner,
+        zelle_method_id,
+        key="shared_capacity_zelle",
+        amount_max="50.00",
+    )
+    usdt = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="shared_capacity_usdt",
+        amount_max="50.00",
+    )
+
+    assert zelle["amount_max_usd"] == "50.00"
+    assert usdt.status_code == 201, usdt.text
+
+
+def test_active_ads_reject_zelle_100_plus_usdt_100_with_declared_capacity_100() -> None:
+    client = _client()
+    owner = _login(client, 716, "over_capacity_owner")
+    business, zelle_method_id = _approved_business_with_method(client, owner, credits=4)
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="OverCapacity",
+    )
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("100.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+    _create_ad(client, owner, zelle_method_id, key="over_capacity_zelle")
+
+    usdt = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="over_capacity_usdt",
+    )
+
+    assert usdt.status_code == 409
+    assert usdt.json()["error"]["code"] == "AD_LIMIT_NOT_ALLOWED"
+
+
+def test_active_ads_reject_second_active_ad_for_same_method_even_without_overlap() -> None:
+    client = _client()
+    owner = _login(client, 717, "method_limit_owner")
+    business, first_zelle_method_id = _approved_business_with_method(client, owner, credits=4)
+    second_zelle_method = client.app.state.business_repository.add_payment_method(
+        business_id=business["id"],
+        method_type="zelle",
+        network=None,
+        account_value="second-owner@example.com",
+        account_masked="***.com",
+        holder_name="Owner Test",
+    )
+    second_zelle_method.verified_status = "approved"
+    second_zelle_method.active = True
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("100.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+    _create_ad(
+        client,
+        owner,
+        first_zelle_method_id,
+        key="first_zelle_method",
+        amount_min="20.00",
+        amount_max="40.00",
+    )
+
+    second = client.post(
+        "/api/v1/business/ads",
+        headers={**_headers(owner, "second_zelle_method"), "Content-Type": "application/json"},
+        json={
+            "payment_method_id": second_zelle_method.id,
+            "payment_method": "zelle",
+            "delivery_method": "pago_movil_ve",
+            "rate_bs_per_usd": "39.5000",
+            "amount_min_usd": "60.00",
+            "amount_max_usd": "100.00",
+        },
+    )
+
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "AD_LIMIT_NOT_ALLOWED"
+
+
+def test_in_order_ad_keeps_its_method_slot_for_safe_reactivation() -> None:
+    client = _client()
+    owner = _login(client, 727, "in_order_method_owner")
+    business, first_zelle_method_id = _approved_business_with_method(
+        client,
+        owner,
+        credits=4,
+    )
+    second_zelle_method = client.app.state.business_repository.add_payment_method(
+        business_id=business["id"],
+        method_type="zelle",
+        network=None,
+        account_value="in-order-owner@example.com",
+        account_masked="***.com",
+        holder_name="Owner Test",
+    )
+    second_zelle_method.verified_status = "approved"
+    second_zelle_method.active = True
+    first = _create_ad(
+        client,
+        owner,
+        first_zelle_method_id,
+        key="in_order_first_zelle",
+        amount_max="40.00",
+    )
+    client.app.state.ad_repository.set_status(
+        client.app.state.ad_repository.get_ad(first["id"]),
+        "in_order",
+    )
+
+    second = client.post(
+        "/api/v1/business/ads",
+        headers={
+            **_headers(owner, "in_order_second_zelle"),
+            "Content-Type": "application/json",
+        },
+        json={
+            "payment_method_id": second_zelle_method.id,
+            "payment_method": "zelle",
+            "delivery_method": "pago_movil_ve",
+            "rate_bs_per_usd": "39.5000",
+            "amount_min_usd": "60.00",
+            "amount_max_usd": "100.00",
+        },
+    )
+
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "AD_LIMIT_NOT_ALLOWED"
+
+
+def test_in_order_ad_keeps_its_maximum_in_the_shared_declared_envelope() -> None:
+    client = _client()
+    owner = _login(client, 728, "in_order_envelope_owner")
+    business, zelle_method_id = _approved_business_with_method(
+        client,
+        owner,
+        credits=4,
+    )
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="InOrderEnvelope",
+    )
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("100.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+    zelle = _create_ad(
+        client,
+        owner,
+        zelle_method_id,
+        key="in_order_envelope_zelle",
+        amount_max="60.00",
+    )
+    client.app.state.ad_repository.set_status(
+        client.app.state.ad_repository.get_ad(zelle["id"]),
+        "in_order",
+    )
+
+    usdt = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="in_order_envelope_usdt",
+        amount_max="50.00",
+    )
+    lowered = client.put(
+        "/api/v1/business/capacity",
+        headers={
+            **_headers(owner, "in_order_envelope_lower"),
+            "Content-Type": "application/json",
+        },
+        json={
+            "availability_status": "online",
+            "declared_available_capacity_usd": "59.00",
+        },
+    )
+
+    assert usdt.status_code == 409
+    assert usdt.json()["error"]["code"] == "AD_LIMIT_NOT_ALLOWED"
+    assert lowered.status_code == 409
+    assert lowered.json()["error"]["code"] == "BUSINESS_CAPACITY_BELOW_ACTIVE_ADS"
+
+
+def test_publishing_ad_does_not_consume_or_reserve_daily_capacity() -> None:
+    client = _client()
+    owner = _login(client, 718, "daily_neutral_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=2)
+    stored_business = client.app.state.business_repository.get_business(business["id"])
+    stored_business.daily_limit_usd = Decimal("100.00")
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("100.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+
+    before = client.app.state.capacity_repository.get_snapshot(business=stored_business)
+    _create_ad(client, owner, method_id, key="daily_neutral_ad")
+    after = client.app.state.capacity_repository.get_snapshot(business=stored_business)
+
+    assert after.daily_reserved_usd == before.daily_reserved_usd == Decimal("0.00")
+    assert after.daily_consumed_usd == before.daily_consumed_usd == Decimal("0.00")
+    assert after.daily_remaining_usd == before.daily_remaining_usd == Decimal("100.00")
+
+
+def test_capacity_cannot_be_lowered_below_active_ad_maximums() -> None:
+    client = _client()
+    owner = _login(client, 719, "capacity_lower_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=2)
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("100.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+    _create_ad(
+        client,
+        owner,
+        method_id,
+        key="capacity_lower_ad",
+        amount_max="100.00",
+    )
+
+    response = client.put(
+        "/api/v1/business/capacity",
+        headers={**_headers(owner, "capacity_lower"), "Content-Type": "application/json"},
+        json={
+            "availability_status": "online",
+            "declared_available_capacity_usd": "99.00",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "BUSINESS_CAPACITY_BELOW_ACTIVE_ADS"
+
+
+def test_single_usdt_100_is_allowed_and_second_active_usdt_is_rejected() -> None:
+    client = _client()
+    owner = _login(client, 720, "usdt_method_limit_owner")
+    business, _ = _approved_business_with_method(client, owner, credits=4)
+    first_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="FirstUsdt",
+    )
+    second_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="SecondUsdt",
+    )
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("100.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+
+    first = _create_usdt_ad_response(
+        client,
+        owner,
+        first_method_id,
+        key="first_active_usdt",
+    )
+    second = _create_usdt_ad_response(
+        client,
+        owner,
+        second_method_id,
+        key="second_active_usdt",
+    )
+
+    assert first.status_code == 201, first.text
+    assert first.json()["data"]["ad"]["amount_max_usd"] == "100.00"
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "AD_LIMIT_NOT_ALLOWED"
+
+
+def test_active_ad_update_cannot_raise_shared_maximum_above_declared_capacity() -> None:
+    client = _client()
+    owner = _login(client, 725, "active_update_capacity_owner")
+    business, zelle_method_id = _approved_business_with_method(client, owner, credits=4)
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="UpdateCapacity",
+    )
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("100.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+    zelle = _create_ad(
+        client,
+        owner,
+        zelle_method_id,
+        key="update_capacity_zelle",
+        amount_max="50.00",
+    )
+    usdt = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="update_capacity_usdt",
+        amount_max="50.00",
+    )
+    assert usdt.status_code == 201, usdt.text
+
+    response = client.put(
+        f"/api/v1/business/ads/{zelle['id']}",
+        headers={**_headers(owner, "update_capacity_over"), "Content-Type": "application/json"},
+        json={"amount_max_usd": "60.00"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "AD_LIMIT_NOT_ALLOWED"
+
+
+def test_reactivate_rejects_method_slot_already_held_by_an_active_ad() -> None:
+    client = _client()
+    owner = _login(client, 726, "reactivate_method_owner")
+    business, first_method_id = _approved_business_with_method(client, owner, credits=4)
+    second_method = client.app.state.business_repository.add_payment_method(
+        business_id=business["id"],
+        method_type="zelle",
+        network=None,
+        account_value="reactivate-owner@example.com",
+        account_masked="***.com",
+        holder_name="Owner Test",
+    )
+    second_method.verified_status = "approved"
+    second_method.active = True
+    first = _create_ad(
+        client,
+        owner,
+        first_method_id,
+        key="reactivate_first",
+        amount_max="50.00",
+    )
+    client.app.state.ad_repository.set_status(
+        client.app.state.ad_repository.get_ad(first["id"]),
+        "paused",
+    )
+    _create_ad(
+        client,
+        owner,
+        second_method.id,
+        key="reactivate_second",
+        amount_max="50.00",
+    )
+
+    response = client.post(
+        f"/api/v1/business/ads/{first['id']}/reactivate",
+        headers={**_headers(owner, "reactivate_conflict"), "Content-Type": "application/json"},
+        json={"reason": "Volver a publicar"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "AD_LIMIT_NOT_ALLOWED"
+
+
+def test_memory_repository_serializes_active_method_and_shared_capacity_guards() -> None:
+    lock = RLock()
+    ads = InMemoryAdRepository(lock=lock)
+    capacity = InMemoryBusinessCapacityRepository(lock=lock, ad_repository=ads)
+    ads.bind_capacity_repository(capacity)
+    business_id = "business-active-ad-race"
+    capacity.set_declared_capacity(
+        business_id=business_id,
+        amount_usd=Decimal("100.00"),
+        actor_user_id="owner-active-ad-race",
+    )
+    ads.grant_test_credits(
+        business_id=business_id,
+        amount=10,
+        created_by="owner-active-ad-race",
+    )
+
+    def publish(candidate: tuple[str, str, Decimal]) -> str:
+        payment_method_id, payment_method, amount_max = candidate
+        try:
+            ads.publish_ad(
+                business_id=business_id,
+                payment_method_id=payment_method_id,
+                payment_method=payment_method,
+                delivery_method="pago_movil_ve",
+                rate_bs_per_usd=Decimal("39.5000"),
+                amount_min_usd=Decimal("20.00"),
+                amount_max_usd=amount_max,
+                required_credits=1,
+                created_by="owner-active-ad-race",
+                use_founder_access=False,
+            )
+            return "created"
+        except ApiError as exc:
+            return exc.code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        same_method_results = list(
+            executor.map(
+                publish,
+                [
+                    ("zelle-method-a", "zelle", Decimal("40.00")),
+                    ("zelle-method-b", "zelle", Decimal("40.00")),
+                ],
+            )
+        )
+
+    assert sorted(same_method_results) == ["AD_LIMIT_NOT_ALLOWED", "created"]
+    active = next(ad for ad in ads.ads.values() if ad.status == "active")
+    ads.set_status(active, "paused")
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        shared_capacity_results = list(
+            executor.map(
+                publish,
+                [
+                    ("zelle-method-c", "zelle", Decimal("60.00")),
+                    ("usdt-method-a", "usdt_trc20", Decimal("60.00")),
+                ],
+            )
+        )
+
+    assert sorted(shared_capacity_results) == ["AD_LIMIT_NOT_ALLOWED", "created"]
+    assert ads.committed_ad_max_total(business_id=business_id) == Decimal("60.00")
 
 
 def test_payment_method_must_belong_to_business_be_approved_and_active() -> None:
@@ -660,7 +1174,7 @@ def test_overlapping_active_range_blocks_and_idempotency_replays_create() -> Non
         json={"payment_method_id": method_id, "payment_method": "zelle", "delivery_method": "pago_movil_ve", "rate_bs_per_usd": "39.5000", "amount_min_usd": "90.00", "amount_max_usd": "100.00"},
     )
     assert overlap.status_code == 409
-    assert overlap.json()["error"]["code"] == "AD_OVERLAP_NOT_ALLOWED"
+    assert overlap.json()["error"]["code"] == "AD_LIMIT_NOT_ALLOWED"
 
 
 def test_search_detail_exclude_unapproved_expired_and_consumes_listing_credit() -> None:
@@ -713,7 +1227,12 @@ def test_search_detail_exclude_unapproved_expired_and_consumes_listing_credit() 
 def test_marketplace_search_uses_short_cache_and_ad_mutation_invalidates_it() -> None:
     client = _client()
     owner = _login(client, 743, "owner")
-    _, method_id = _approved_business_with_method(client, owner, credits=4)
+    business, method_id = _approved_business_with_method(client, owner, credits=4)
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="CacheInvalidation",
+    )
     _create_ad(client, owner, method_id, key="cache_one", amount_min="20.00", amount_max="100.00")
     remitter = _login(client, 744, "remitter")
     original_list = client.app.state.ad_repository.list_marketplace_ads
@@ -734,7 +1253,15 @@ def test_marketplace_search_uses_short_cache_and_ad_mutation_invalidates_it() ->
     assert first.json()["data"] == second.json()["data"]
     assert calls["count"] == 1
 
-    _create_ad(client, owner, method_id, key="cache_two", amount_min="101.00", amount_max="200.00")
+    created = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="cache_two",
+        amount_min="101.00",
+        amount_max="200.00",
+    )
+    assert created.status_code == 201, created.text
     third = client.get(query, headers=_bearer(remitter, "req_cache_third"))
 
     assert third.status_code == 200

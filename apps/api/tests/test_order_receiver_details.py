@@ -176,8 +176,14 @@ def test_receiver_details_validate_payload_and_reject_extra_fields() -> None:
 @pytest.mark.parametrize(
     "phone",
     [
+        "0412 1234567",
         "0414 1234567",
         "0416-123-4567",
+        "0424 123 4567",
+        "0426 1234567",
+        "+584121234567",
+        "+584141234567",
+        "+584261234567",
         "+58 (414) 123-4567",
     ],
 )
@@ -208,7 +214,21 @@ def test_receiver_details_accept_common_phone_formats_without_forcing_country_co
     assert not shared.json()["data"]["receiver_details_masked"]["phone"].startswith("+58")
 
 
-@pytest.mark.parametrize("phone", ["123", "telefono 0414", "<04141234567>"])
+@pytest.mark.parametrize(
+    "phone",
+    [
+        "123",
+        "telefono 0414",
+        "<04141234567>",
+        "+14155552671",
+        "0212 1234567",
+        "0414 123456",
+        "0414 12345678",
+        "+5841412345678",
+        "0414/1234567",
+        "0414 1234567; select 1",
+    ],
+)
 def test_receiver_details_reject_unusable_or_unsafe_phone_values(phone: str) -> None:
     client = _client()
     owner, _, _, remitter, order = _seed_reported_order(
@@ -459,8 +479,23 @@ def test_receiver_details_never_enter_general_chat_or_message_payloads() -> None
 def test_slice_50b2_frontend_uses_structured_compact_chat_ui_and_copy_controls() -> None:
     root = __import__("pathlib").Path(__file__).resolve().parents[3]
     orders_api = (root / "apps/web/src/api/orders.ts").read_text(encoding="utf-8")
-    client_chat = (root / "apps/web/src/screens/client/ClientOrderChatScreen.tsx").read_text(encoding="utf-8")
-    business_chat = (root / "apps/web/src/screens/business-app/BusinessChatScreen.tsx").read_text(encoding="utf-8")
+    client_chat = "\n".join(
+        (root / path).read_text(encoding="utf-8")
+        for path in (
+            "apps/web/src/screens/client/ClientOrderChatScreen.tsx",
+            "apps/web/src/screens/client/chat/ClientReceiverDetailsBubble.tsx",
+        )
+    )
+    business_chat = "\n".join(
+        (root / path).read_text(encoding="utf-8")
+        for path in (
+            "apps/web/src/screens/business-app/BusinessChatScreen.tsx",
+            "apps/web/src/screens/business-app/chat/BusinessChatMessageList.tsx",
+            "apps/web/src/screens/business-app/chat/BusinessReceiverDetailsBubble.tsx",
+            "apps/web/src/screens/business-app/chat/BusinessChatActionDock.tsx",
+            "apps/web/src/screens/business-app/chat/BusinessChatComposer.tsx",
+        )
+    )
 
     assert "/receiver-details" in orders_api
     assert "/confirm-received" in orders_api
@@ -501,3 +536,31 @@ def test_slice_50b1_migration_is_reversible_and_keeps_receiver_values_out_of_mes
     assert "order_completed_business" in migration_up
     assert "insert into messages" not in migration_up.lower()
     assert "drop table if exists order_receiver_details" in migration_down
+
+
+def test_slice_47p01_migration_reconciles_local_phone_formats_without_data_loss() -> None:
+    root = __import__("pathlib").Path(__file__).resolve().parents[3]
+    migration_up = (
+        root
+        / "database/migrations/0048_receiver_details_phone_constraint_local_formats.up.sql"
+    ).read_text(encoding="utf-8")
+    migration_down = (
+        root
+        / "database/migrations/0048_receiver_details_phone_constraint_local_formats.down.sql"
+    ).read_text(encoding="utf-8")
+
+    assert "0048 preflight failed" in migration_up
+    assert "order_receiver_details_phone_check" in migration_up
+    assert "char_length(phone) between 11 and 32" in migration_up
+    assert "regexp_replace(phone" in migration_up
+    assert "412|414|416|424|426" in migration_up
+    assert "not valid" in migration_up
+    assert "validate constraint order_receiver_details_phone_check" in migration_up
+    assert "0048 rollback preflight failed" in migration_down
+    assert "^\\+58[0-9]{10}$" in migration_down
+    assert "validate constraint order_receiver_details_phone_check" in migration_down
+
+    combined = f"{migration_up}\n{migration_down}".lower()
+    assert "delete from order_receiver_details" not in combined
+    assert "update order_receiver_details" not in combined
+    assert "drop table" not in combined

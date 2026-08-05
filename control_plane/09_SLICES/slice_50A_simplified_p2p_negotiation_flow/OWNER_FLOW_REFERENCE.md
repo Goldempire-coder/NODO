@@ -39,7 +39,7 @@ flowchart TD
   M --> N[Cliente adjunta capture]
 
   N --> O[Negocio confirma recepcion]
-  O --> P[Cliente escribe Pago Movil en chat]
+  O --> P[Cliente comparte Pago Movil estructurado en chat]
   P --> Q[Negocio marca Pago Movil enviado]
   Q --> R[Cliente confirma recepcion]
   R --> S[Orden completed y consume capacidad]
@@ -122,7 +122,8 @@ Preferred sequence:
 6. Client report uses the locked order amount. USDT can be marked sent without
    asking the client for a transaction hash.
 7. Business confirms receipt.
-8. Client writes Pago Movil in the chat.
+8. Client shares the structured Pago Movil receiver details from the chat. The
+   UI renders them as a chat bubble, but they are not a free-form message.
 9. Business marks Pago Movil sent.
 10. Client confirms receipt.
 

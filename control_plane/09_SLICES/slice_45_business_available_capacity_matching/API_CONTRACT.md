@@ -61,6 +61,8 @@ Rules:
 - `declared_available_capacity_usd >= 0`.
 - No usar float para dinero.
 - No permitir declarar por encima de limites operativos sin regla documentada.
+- No permitir bajar el declarado por debajo de reservas activas ni de la suma
+  de `amount_max_usd` de anuncios `active|in_order`.
 - Si queda debajo de `min_order_amount_usd`, el negocio puede quedar online pero no debe aceptar nuevas ordenes.
 - Auditar `business_capacity_updated`.
 

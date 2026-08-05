@@ -34,6 +34,17 @@ class PostgresBusinessCapacityRepository:
             (business_id,),
         )
 
+    def _committed_ad_max_total_in_transaction(self, conn, *, business_id: str) -> Decimal:  # type: ignore[no-untyped-def]
+        row = conn.execute(
+            """
+            select coalesce(sum(amount_max_usd), 0.00) as committed_max_total
+            from ads
+            where business_id = %s and status in ('active', 'in_order')
+            """,
+            (business_id,),
+        ).fetchone()
+        return money(Decimal(str(row["committed_max_total"])))
+
     def get_snapshot(
         self,
         *,
@@ -168,6 +179,12 @@ class PostgresBusinessCapacityRepository:
             if amount < Decimal(str(reserved_row["reserved"])):
                 conn.rollback()
                 raise ApiError("BUSINESS_CAPACITY_BELOW_RESERVED", status_code=409)
+            if amount < self._committed_ad_max_total_in_transaction(
+                conn,
+                business_id=business_id,
+            ):
+                conn.rollback()
+                raise ApiError("BUSINESS_CAPACITY_BELOW_ACTIVE_ADS", status_code=409)
             row = conn.execute(
                 """
                 update business_capacity
@@ -210,6 +227,12 @@ class PostgresBusinessCapacityRepository:
             if amount < Decimal(str(reserved_row["reserved"])):
                 conn.rollback()
                 raise ApiError("BUSINESS_CAPACITY_BELOW_RESERVED", status_code=409)
+            if amount < self._committed_ad_max_total_in_transaction(
+                conn,
+                business_id=business.id,
+            ):
+                conn.rollback()
+                raise ApiError("BUSINESS_CAPACITY_BELOW_ACTIVE_ADS", status_code=409)
             conn.execute(
                 """
                 update business_capacity

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import type { AdSummary } from "../../types/ads";
 import type { PublicUser } from "../../types/auth";
-import type { ChatAttachment, ChatCapabilities, ChatMessage } from "../../types/chat";
+import type { ChatCapabilities, ChatMessage } from "../../types/chat";
 import type { ClientProfileFormState, SearchFormState } from "../../types/client";
 import type { OrderFormState, OrderSummary } from "../../types/orders";
 import type { PaymentEvidence, PaymentInstructions, PaymentReportFormState } from "../../types/payments";
@@ -57,8 +57,6 @@ export function useClientWorkspaceState(user: PublicUser) {
     can_confirm_payment: false,
     can_mark_delivered: false
   });
-  const [chatBody, setChatBody] = useState("");
-  const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
   const [orderForm, setOrderForm] = useState<OrderFormState>({
     amount_usd: "50.00"
   });
@@ -104,10 +102,6 @@ export function useClientWorkspaceState(user: PublicUser) {
     setOpeningChatOrderId: actions.setOpeningChatOrderId,
     refreshingChat: actions.refreshingChat,
     setRefreshingChat: actions.setRefreshingChat,
-    uploadingChatAttachment: actions.uploadingChatAttachment,
-    setUploadingChatAttachment: actions.setUploadingChatAttachment,
-    sendingChatMessage: actions.sendingChatMessage,
-    setSendingChatMessage: actions.setSendingChatMessage,
     submittingRatingOrderId: actions.submittingRatingOrderId,
     setSubmittingRatingOrderId: actions.setSubmittingRatingOrderId,
     searchForm,
@@ -129,10 +123,6 @@ export function useClientWorkspaceState(user: PublicUser) {
     setChatMessages,
     chatCapabilities,
     setChatCapabilities,
-    chatBody,
-    setChatBody,
-    chatAttachments,
-    setChatAttachments,
     orderForm,
     setOrderForm,
     paymentInstructions,

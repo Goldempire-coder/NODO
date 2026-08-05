@@ -10,6 +10,16 @@ def _read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
+def _read_client_chat_model() -> str:
+    return "\n".join(
+        _read(path)
+        for path in (
+            "apps/web/src/hooks/workspace/useClientChatDisputesModel.ts",
+            "apps/web/src/hooks/workspace/useClientChatComposerModel.ts",
+        )
+    )
+
+
 def test_frontend_telegram_auth_persists_refresh_session_for_lifecycle() -> None:
     auth_types = _read("apps/web/src/types/auth.ts")
     telegram_hook = _read("apps/web/src/hooks/useTelegramAuth.ts")
@@ -528,7 +538,7 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     marketplace_model = _read("apps/web/src/hooks/workspace/useClientMarketplaceModel.ts")
     orders_model = _read("apps/web/src/hooks/workspace/useRemitterOrdersModel.ts")
     payment_model = _read("apps/web/src/hooks/workspace/usePaymentReportModel.ts")
-    chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    chat_model = _read_client_chat_model()
     support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     marketplace_screen = _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx")
     order_screen = _read("apps/web/src/screens/client/ClientOrderScreens.tsx")
@@ -546,13 +556,14 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "loadingPaymentInstructions" in client_state
     assert "uploadingPaymentEvidence" in client_state
     assert "submittingPaymentReport" in client_state
-    assert "sendingChatMessage" in client_state
+    assert "sendingChatMessage" in chat_model
+    assert "composerDraftsByOrder" in chat_model
     assert "openingOrderDispute" not in client_state
     assert "mainActionBusy = state.busy || state.creatingOrder || state.submittingPaymentReport" in client_model
     assert "searchingMarketplace: state.searchingMarketplace" in client_model
     assert "creatingOrder: state.creatingOrder" in client_model
     assert "submittingPaymentReport: state.submittingPaymentReport" in client_model
-    assert "sendingChatMessage: state.sendingChatMessage" in client_model
+    assert "sendingChatMessage: chatDisputes.sendingChatMessage" in client_model
     assert "creatingSupportTicket: support.creatingSupportTicket" in client_model
     assert "supportFilter: support.supportFilter" in client_model
     assert "refreshSupportWorkspace: support.refreshSupportWorkspace" in client_model
@@ -632,7 +643,7 @@ def test_client_mini_app_android_scroll_keyboard_and_cached_loads() -> None:
     global_css = _read("apps/web/src/app/globals.css")
     client_screens = _read("apps/web/src/screens/client/ClientScreens.tsx")
     client_chat_screen = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
-    client_chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    client_chat_model = _read_client_chat_model()
     marketplace_model = _read("apps/web/src/hooks/workspace/useClientMarketplaceModel.ts")
     orders_model = _read("apps/web/src/hooks/workspace/useRemitterOrdersModel.ts")
     client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")

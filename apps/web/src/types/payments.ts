@@ -26,6 +26,39 @@ export type PaymentEvidence = {
   created_at: string;
 };
 
+type PaymentReportEvidenceFields = {
+  proof_file_id?: string;
+  pending_payment_report_id?: string;
+};
+
+export type PaymentReportPayload = PaymentReportEvidenceFields & (
+  | {
+      payment_type: "zelle";
+      payment_amount: string;
+      payment_reference?: string;
+      payment_sender_name?: string;
+      payment_sender_account_masked?: string;
+    }
+  | {
+      payment_type: "usdt_trc20";
+      payment_amount: string;
+      tx_hash?: string;
+      network?: "TRC20";
+    }
+);
+
+export type PaymentEvidenceUploadResult = {
+  file: PaymentEvidence;
+  pending_payment_report_id: string;
+};
+
+export type PaymentReportResult = {
+  order: {
+    id: string;
+    status: string;
+  };
+};
+
 export type PaymentReportFormState = {
   payment_reference: string;
   payment_sender_name: string;

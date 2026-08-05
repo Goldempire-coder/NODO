@@ -13,7 +13,12 @@ marketplace y negocio leen solo el snapshot durable.
 - Menos de cinco ratings elegibles: `Reputacion aun no publicada`.
 - Desde cinco ratings: promedio y cantidad se copian cuando el calculo fuente
   tiene al menos 24 horas.
+- Una proyeccion publicada puede mostrarse como `4.8 ★ · 12 opiniones`.
+  El promedio y el conteo proceden del mismo snapshot durable y nunca
+  identifican una orden, cliente o rating individual.
 - Un nuevo rating no cambia la proyeccion publica antes de 24 horas.
+- El negocio ve la misma proyeccion agregada publicada que los clientes, nunca
+  estrellas por orden ni la identidad de quien califico.
 - Admin conserva agregados internos exactos.
 - Support no recibe ratings individuales.
 - El ranking publico permanece por tasa y fecha; no usa metricas vivas ni el

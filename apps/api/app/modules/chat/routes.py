@@ -11,7 +11,11 @@ from app.modules.users.models import UserRecord
 from app.shared.observability import get_correlation_id, get_operation_id
 from app.shared.validation import read_limited_upload
 
-router = APIRouter(tags=["chat"])
+def _private_no_store(response: Response) -> None:
+    response.headers["Cache-Control"] = "private, no-store"
+
+
+router = APIRouter(tags=["chat"], dependencies=[Depends(_private_no_store)])
 
 
 def _request_id(request: Request) -> str:
@@ -130,10 +134,8 @@ def message_attachment_view_url(
     order_id: str,
     attachment_id: str,
     request: Request,
-    response: Response,
     user: UserRecord = Depends(require_current_user),
 ) -> dict:
-    response.headers["Cache-Control"] = "private, no-store"
     return {
         "data": _service(request).attachment_view_url(
             user=user,

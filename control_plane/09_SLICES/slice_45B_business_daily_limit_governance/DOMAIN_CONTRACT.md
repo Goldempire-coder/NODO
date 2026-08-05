@@ -36,6 +36,11 @@ daily_remaining_usd =
 
 Nunca se calcula desde el frontend.
 
+Publicar un anuncio no forma parte de este calculo: no crea reserva ni consumo.
+Zelle y USDT comparten el mismo `daily_limit_usd`; el cupo no se divide por
+metodo. La primera afectacion ocurre cuando el backend crea una orden y reserva
+su monto.
+
 ### Estados que reservan
 
 Una orden debe contar contra el limite diario mientras el negocio todavia tenga una obligacion posible:

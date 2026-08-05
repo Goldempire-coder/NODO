@@ -17,10 +17,29 @@ Todas las rutas usan prefijo:
 - Click, search y detalle no consumen creditos.
 - Crear orden no consume credito adicional; la orden queda para `slice_04_order_creation`.
 - Publicar anuncio bloquea creditos por `amount_max_usd`.
+- Publicar, editar, reactivar o republicar un anuncio no crea una operacion, no
+  reserva capacidad y no consume `business.daily_limit_usd`.
+- Cada negocio puede tener como maximo dos anuncios `active`: uno Zelle y uno
+  USDT. No puede tener dos anuncios `active` del mismo metodo.
+- Un anuncio `in_order` conserva su maximo dentro de la envolvente declarada y
+  el cupo de su metodo hasta terminar. Esto garantiza que pueda reactivarse tras
+  cancelacion o expiracion sin superar disponibilidad ni duplicar metodo.
+- Esa envolvente de publicacion no consume `business.daily_limit_usd`; la orden
+  mantiene su reserva real por separado.
+- La suma de `amount_max_usd` de sus anuncios `active|in_order` no puede superar
+  `declared_available_capacity_usd`.
+- Zelle y USDT comparten capacidad declarada y limite diario; no existen cupos
+  separados por metodo.
 - `active` dura 7 dias desde `activated_at`.
 - Pausar no extiende `expires_at`.
 - Expiracion masiva por worker queda para `slice_10_jobs_notifications`; slice 03 implementa expiracion pasiva/materializada.
 - Responses usan `ERROR_CONTRACT.md`.
+
+Regla legacy sustituida: evitar solo rangos solapados no autoriza un segundo
+anuncio `active` del mismo metodo. Del mismo modo,
+`BUSINESS_DAILY_LIMIT_EXCEEDED` no corresponde a publicar un anuncio; el limite
+diario se evalua al crear la orden. `AD_OVERLAP_NOT_ALLOWED` puede seguir
+apareciendo como alias de compatibilidad sin relajar estas reglas.
 
 ## Costos por rango
 
@@ -51,9 +70,9 @@ No expone datos privados completos del negocio ni instrucciones completas de pag
     },
     "reputation": {
       "publication_status": "withheld_pending_snapshot|published_snapshot",
-      "label": "Reputación aún no publicada|4.60 de 5 (5 calificaciones)",
-      "rating_avg": "4.60 (solo snapshot publicado; opcional)",
-      "ratings_count": "5 (solo snapshot publicado; opcional)",
+      "label": "Reputación aún no publicada|4.8 ★ · 12 opiniones",
+      "rating_avg": "4.80 (solo snapshot publicado; opcional)",
+      "ratings_count": "12 (solo snapshot publicado; opcional)",
       "published_at": "timestamp (solo snapshot publicado; opcional)"
     }
   },
@@ -81,11 +100,14 @@ Reglas de privacidad del objeto publico:
   negocio este aprobado, activo y aceptando ordenes al momento del request.
 - `can_cover_requested_amount` solo confirma compatibilidad para el monto
   solicitado. Nunca expone capacidad declarada, reservada ni efectiva.
-- Tier, promedio, conteo, bandas y metricas recalculadas junto al rating no se
-  devuelven en el nivel de `business` ni dentro de `business.reputation`.
-- El backend conserva los agregados internamente. Hasta que exista snapshot
-  durable, la respuesta publica usa una etiqueta estable y no afirma que un job
-  reputacional corre.
+- Tier, promedio, conteo, bandas y metricas vivas recalculadas junto al rating
+  no se devuelven en el nivel de `business` ni dentro de
+  `business.reputation`.
+- Si no existe un snapshot durable elegible, la respuesta publica usa la
+  etiqueta estable `Reputacion aun no publicada`. Desde cinco ratings
+  elegibles, `rating_avg`, `ratings_count` y `published_at` pueden salir solo
+  desde `business_public_reputation_snapshots`; esto no demuestra que un
+  scheduler externo este activo en un ambiente concreto.
 - Una restriccion o revision interna se representa como indisponibilidad segura;
   no se devuelve `under_review` al cliente.
 - El frontend presenta la proyeccion recibida y no calcula tier, success rate,
@@ -304,10 +326,13 @@ Rules:
 - `amount_max_usd >= amount_min_usd`.
 - `amount_max_usd <= 2000`.
 - `amount_max_usd <= business.max_order_amount_usd`.
-- `business.daily_limit_usd` limita montos reservados por orden durante el dia,
-  no la suma de rangos publicados. Publicar varios anuncios no consume ese
-  limite por si solo.
-- No permite rangos solapados activos para misma combinacion metodo/entrega.
+- Solo admite los metodos vigentes `zelle` y `usdt_trc20`.
+- No permite otro anuncio `active` del mismo `payment_method`, aunque su rango
+  no se solape con el existente.
+- La suma de `amount_max_usd` de anuncios `active|in_order`, incluido el nuevo,
+  debe ser menor o igual a `declared_available_capacity_usd`.
+- `business.daily_limit_usd` limita montos reservados o consumidos por orden;
+  publicar el anuncio no consume ese limite.
 - Si `credit_wallet` no existe, slice 03 lo crea de forma idempotente con balances cero antes de validar saldo/founder.
 - Si founder access activo y no expirado, puede publicar sin descontar creditos, pero debe registrar ledger `founder_free_use` o metadata de exencion segun credit service.
 - Si no hay founder access, publicar hace hold transaccional:
@@ -377,7 +402,9 @@ Rules:
 - Owner-only.
 - Solo permitido desde `archived` o `expired`.
 - No reactiva el mismo registro: crea un anuncio nuevo con `status = active`, `activated_at = now()` y `expires_at = now() + 7 days`.
-- Debe validar negocio publicable, metodo de pago aprobado, no solapamiento y creditos disponibles antes de publicar.
+- Debe validar negocio publicable, metodo aprobado, maximo de un anuncio
+  `active` por metodo, suma activa dentro de la capacidad declarada y creditos
+  disponibles antes de publicar.
 - Republicar no consume `business.daily_limit_usd`; el limite se valida al
   reservar una orden.
 - Si no hay creditos disponibles, no crea anuncio nuevo y responde `CREDIT_BALANCE_INSUFFICIENT`.
@@ -391,6 +418,7 @@ Errores:
 - AD_NOT_FOUND
 - AD_STATUS_INVALID
 - PAYMENT_METHOD_NOT_APPROVED
+- AD_LIMIT_NOT_ALLOWED
 - AD_OVERLAP_NOT_ALLOWED
 - CREDIT_BALANCE_INSUFFICIENT
 - RATE_LIMITED
@@ -520,6 +548,10 @@ Rules:
 - Permitido para `active` o `paused` no vencidos.
 - No permite modificar `business_id`, `payment_method_id`, `payment_method`, `delivery_method`, `status`, `credit_hold_ledger_id`.
 - Si cambia `amount_max_usd` y cambia `required_credits`, debe revalidar saldo y ajustar hold de forma transaccional; si esa operacion no esta implementada, el backend debe rechazar con `AD_STATUS_INVALID` o `CREDIT_BALANCE_INSUFFICIENT`, no mutar parcial.
+- Si el anuncio esta `active`, el nuevo rango debe conservar la suma de
+  `amount_max_usd` de anuncios activos dentro de
+  `declared_available_capacity_usd`. Un anuncio pausado debe revalidar esta
+  regla antes de volver a `active`.
 - Cambiar el rango anunciado no consume `business.daily_limit_usd`; toda orden
   nueva vuelve a validar y reservar capacidad en backend.
 - Actualizar rate setea `rate_updated_at`.
@@ -533,6 +565,7 @@ Errores:
 - AD_STATUS_INVALID
 - AD_AMOUNT_RANGE_INVALID
 - AD_AMOUNT_TOO_HIGH
+- AD_LIMIT_NOT_ALLOWED
 - AD_OVERLAP_NOT_ALLOWED
 - CREDIT_BALANCE_INSUFFICIENT
 - RATE_LIMITED

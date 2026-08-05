@@ -8,7 +8,8 @@ Cerrar hallazgos concretos de la auditoria AFOS de Mini App Negocio antes de cua
 
 - eliminar confirmaciones nativas inconsistentes en acciones sensibles;
 - limpiar nombres internos que ya no representan Zelle solamente;
-- aplicar limite de exposicion diaria del negocio sobre anuncios abiertos;
+- limitar el catalogo activo por metodo y disponibilidad declarada, sin tratar
+  la publicacion como consumo del limite diario;
 - dejar evidencia de validacion y manifest de release parcial.
 
 ## Resultado permitido
@@ -25,4 +26,3 @@ Cerrar hallazgos concretos de la auditoria AFOS de Mini App Negocio antes de cua
 ## Principio AFOS aplicado
 
 Una casilla solo se considera cumplida cuando existe evidencia reproducible. En este slice, la evidencia minima es: diff acotado, tests, build, scan sensible y reporte de riesgos pendientes.
-

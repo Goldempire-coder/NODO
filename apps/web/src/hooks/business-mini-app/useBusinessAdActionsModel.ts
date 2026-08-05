@@ -19,7 +19,7 @@ function adActionErrorMessage(error: unknown, action: MutateAdAction) {
     return "Ese anuncio usa un metodo de cobro que ya no esta activo. Editalo y selecciona un metodo activo.";
   }
   if (error.code === "AD_LIMIT_NOT_ALLOWED") {
-    return "Ese anuncio ya no esta dentro del rango autorizado para tu negocio.";
+    return "Revisa el monto disponible y si ya tienes un anuncio activo de ese metodo.";
   }
   if (error.code === "AD_OVERLAP_NOT_ALLOWED") {
     return "Ya tienes otro anuncio activo con ese mismo rango.";

@@ -53,9 +53,13 @@ Rules:
 - First creation requires `payment_confirmed`.
 - Validate and normalize each field server-side; reject unknown extra fields:
   - `bank`: code from the backend-authoritative Pago Movil bank catalog;
-  - `phone`: 7..32 characters in the participant's usual format, including
-    local `04xx`, `+58`, spaces, parentheses or hyphens; at least seven digits
-    are required and markup/control characters are rejected;
+  - `phone`: Venezuelan mobile prefix `0412`, `0414`, `0416`, `0424` or `0426`,
+    or the equivalent `+58` form, followed by exactly seven subscriber digits;
+    spaces, parentheses and hyphens are presentation-only. Foreign numbers,
+    other prefixes and all other characters are rejected;
+  - persistence keeps the participant's normalized presentation and PostgreSQL
+    validates the same allowlist; clients are not forced to rewrite local input
+    with a `+58` prefix;
   - `document`: uppercase `V|E|J|G|P` plus 6..10 digits after removing allowed
     presentation separators;
   - `holder`: normalized whitespace, 2..120 characters, no control markup.
@@ -221,7 +225,9 @@ When a later slice activates it, the runner must:
 
 ## Notification Rules
 
-- `payment_confirmed`: tell the remitter to write Pago Movil in the chat.
+- `payment_confirmed`: tell the remitter to share the structured Pago Movil
+  receiver details from the order chat. The notification includes no receiver
+  value and does not suggest using free-form `messages.body`.
 - `order_receiver_details_shared_business`: tell the business to open the
   order; include no receiver field.
 - `delivered_reminder_immediate|12h|23h`: tell the remitter to confirm receipt

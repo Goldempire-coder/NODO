@@ -3,19 +3,20 @@
 SCREEN_ID: R-07_PAYMENT_INSTRUCTIONS
 actor: remitter
 slice: slice_05_payment_instructions_reports
-status: DRAFT_CONTROLLED
+status: LEGACY_EMBEDDED_IN_R-09
 
 purpose:
-Show full business payment data and timer only to the remitter owner.
+Describe the authorized reveal now rendered as a compact, copyable bubble in
+the active R-09 order chat. It is not a required standalone client screen.
 
 route:
 /orders/:id/pay
 
 entry points:
-Order summary, My Orders
+R-09_ORDER_TRACKING_CHAT when backend capability allows payment reporting
 
 exit points:
-R-08_REPORT_PAYMENT, R-12_MY_ORDERS
+Remain in R-09_ORDER_TRACKING_CHAT
 
 data required:
 - authenticated user/session
@@ -41,7 +42,7 @@ Telegram UI rules:
 - Use MainButton only for primary CTA.
 
 MainButton behavior:
-Ya realicé el pago
+None. The compact chat action owns payment reporting.
 
 validation:
 order waiting_payment and not expired
@@ -55,6 +56,7 @@ security:
 - `GET /api/v1/orders/{id}/payment-instructions` sets `payment_data_revealed_at` and `payment_data_revealed_by`.
 - This screen does not create a payment report.
 - This screen does not change order status.
+- Copying does not launch a bank or wallet application.
 
 states:
 - loading
