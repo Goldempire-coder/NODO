@@ -4,11 +4,13 @@ import { clearAuthSession, currentAccessToken, inferAuthSurface, refreshAuthSess
 
 export class ApiClientError extends Error {
   code: string;
+  statusCode: number;
 
-  constructor(message: string, code: string) {
+  constructor(message: string, code: string, statusCode = 0) {
     super(message);
     this.name = "ApiClientError";
     this.code = code;
+    this.statusCode = statusCode;
   }
 }
 
@@ -61,7 +63,11 @@ export async function apiRequest<T = unknown>(path: string, token: string, optio
   }
   if (!response.ok) {
     reportFailedResponse(telemetryToken, context, response, payload);
-    throw new ApiClientError(payload.error?.message || "No logramos completar la accion. Intenta de nuevo.", payload.error?.code || "UNKNOWN_ERROR");
+    throw new ApiClientError(
+      payload.error?.message || "No logramos completar la accion. Intenta de nuevo.",
+      payload.error?.code || "UNKNOWN_ERROR",
+      response.status
+    );
   }
   return payload.data;
 }

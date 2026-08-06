@@ -95,7 +95,7 @@ export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel })
 }
 
 export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { businessOrderAction, businessOrderDetail, businessOrderReason, busy, mutateBusinessOrder, openBusinessChat, setBusinessOrderReason } = model;
+  const { businessOrderAction, businessOrderDetail, businessOrderInlineNotice, businessOrderReason, busy, mutateBusinessOrder, openBusinessChat, setBusinessOrderReason } = model;
   const shouldHandleInChat = Boolean(
     businessOrderDetail?.order.capabilities.can_confirm_payment
     || businessOrderDetail?.order.capabilities.can_mark_delivered
@@ -132,6 +132,11 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
               <Text>Evidencia: {businessOrderDetail.evidence.length}</Text>
             </div>
           ) : <Text>No hay reporte pendiente.</Text>}
+          {businessOrderInlineNotice ? (
+            <Text className="auth-entry__message" role="status">
+              {businessOrderInlineNotice}
+            </Text>
+          ) : null}
           {!businessOrderDetail.order.capabilities.can_decline_before_payment ? (
             <label className="business-field">
               <span>Motivo operativo</span>

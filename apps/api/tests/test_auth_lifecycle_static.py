@@ -317,7 +317,9 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "canUseBusinessNav" in business_shell
     assert "useBusinessHomeSummaryModel" in business_model
     assert '"X-NODO-Surface", "business_mini_app"' in business_model
-    assert "useBusinessAccessModel({ request, setBusy, setNotice, setView })" in business_model
+    access_call = business_model.split("useBusinessAccessModel({", 1)[1].split("});", 1)[0]
+    for dependency in ("request", "setBusy", "setNotice", "setView"):
+        assert dependency in access_call
     assert "BUSINESS_PIN_REQUIRED" in pin_guards
     assert "requireUnlockedBusinessPin" in pin_guards
     assert "routeBusinessPinError" in access_model

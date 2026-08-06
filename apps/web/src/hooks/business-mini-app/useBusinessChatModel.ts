@@ -87,6 +87,7 @@ export function useBusinessChatModel({
     chatMessages: session.chatMessages,
     chatOrder: session.chatOrder,
     chatOrderId: session.chatOrderId,
+    chatRefreshError: session.chatRefreshError,
     dismissChatAttachmentLink: attachments.dismissChatAttachmentLink,
     openBusinessChat,
     openChatAttachment: attachments.openChatAttachment,

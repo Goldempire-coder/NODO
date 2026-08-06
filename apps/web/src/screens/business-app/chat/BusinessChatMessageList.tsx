@@ -57,6 +57,7 @@ export function BusinessChatMessageList({
   chatAttachmentLink,
   attachmentCount,
   uploadingChatAttachment,
+  chatRefreshError,
   notice,
   messagesEndRef,
   openChatAttachment,
@@ -73,6 +74,7 @@ export function BusinessChatMessageList({
   chatAttachmentLink: ChatAttachmentLink | null;
   attachmentCount: number;
   uploadingChatAttachment: boolean;
+  chatRefreshError: string;
   notice: string;
   messagesEndRef: RefObject<HTMLDivElement>;
   openChatAttachment: (attachmentId: string, mimeType?: string) => Promise<void>;
@@ -180,6 +182,13 @@ export function BusinessChatMessageList({
         <Text className="auth-entry__session-meta business-order-chat-note">
           Esta negociación está cerrada. El historial queda disponible como registro de la conversación.
         </Text>
+      ) : null}
+
+      {chatRefreshError ? (
+        <div className="native-chat-inline-notice" role="alert">
+          <span>{chatRefreshError}</span>
+          <button type="button" onClick={() => void refreshChat()}>Actualizar</button>
+        </div>
       ) : null}
 
       {notice ? (

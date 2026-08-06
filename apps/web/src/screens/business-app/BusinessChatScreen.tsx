@@ -25,6 +25,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
     chatMessages,
     chatOrder,
     chatOrderId,
+    chatRefreshError,
     businessChatAction,
     confirmBusinessPaymentInChat,
     dismissChatAttachmentLink,
@@ -79,6 +80,7 @@ export function BusinessChatScreen({ model }: { model: BusinessMiniAppModel }) {
         chatAttachmentLink={chatAttachmentLink}
         attachmentCount={chatAttachments.length}
         uploadingChatAttachment={uploadingChatAttachment}
+        chatRefreshError={chatRefreshError}
         notice={model.notice}
         messagesEndRef={messagesEndRef}
         openChatAttachment={openChatAttachment}

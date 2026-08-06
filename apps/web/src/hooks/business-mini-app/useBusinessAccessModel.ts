@@ -13,11 +13,13 @@ import { useBusinessPaymentMethodsModel } from "./useBusinessPaymentMethodsModel
 
 export function useBusinessAccessModel({
   request,
+  resumePendingOrderPinAction,
   setBusy,
   setNotice,
   setView
 }: {
   request: AuthenticatedRequest;
+  resumePendingOrderPinAction: () => Promise<boolean>;
   setBusy: (busy: boolean) => void;
   setNotice: (notice: string) => void;
   setView: (view: BusinessMiniAppView) => void;
@@ -124,8 +126,11 @@ export function useBusinessAccessModel({
       await capacity.saveBusinessCapacityUnlocked(pendingCapacityAmount);
       return;
     }
+    if (await resumePendingOrderPinAction()) {
+      return;
+    }
     setNotice(successNotice);
-  }, [availability, capacity, paymentMethods, setNotice]);
+  }, [availability, capacity, paymentMethods, resumePendingOrderPinAction, setNotice]);
 
   const submitBusinessPinSetup = useCallback(async () => {
     const pin = pinForm.pin.trim();

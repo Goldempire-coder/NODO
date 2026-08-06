@@ -186,6 +186,25 @@ def test_business_order_chat_refreshes_silently_and_prevents_duplicate_mutations
     assert "setChatCapabilities(" not in refresh_catch
 
 
+def test_repeated_silent_chat_refresh_failure_becomes_visible_inline() -> None:
+    session_model = _read(
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatSession.ts"
+    )
+    chat_screen = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
+    message_list = _read(
+        "apps/web/src/screens/business-app/chat/BusinessChatMessageList.tsx"
+    )
+
+    assert "SILENT_CHAT_REFRESH_FAILURE_THRESHOLD" in session_model
+    assert "silentRefreshFailureCountRef" in session_model
+    assert "chatRefreshError" in session_model
+    assert "isCurrentChatSession(targetOrderId, targetSessionEpoch)" in session_model
+    assert "setChatRefreshError" in session_model
+    assert "chatRefreshError={chatRefreshError}" in chat_screen
+    assert "chatRefreshError" in message_list
+    assert "Actualizar" in message_list
+
+
 def test_order_chat_suppresses_global_attention_and_success_toasts_while_open() -> None:
     business_shell = _read("apps/web/src/screens/business-app/BusinessMiniAppShell.tsx")
     client_shell = _read("apps/web/src/screens/client/ClientWorkspaceShell.tsx")

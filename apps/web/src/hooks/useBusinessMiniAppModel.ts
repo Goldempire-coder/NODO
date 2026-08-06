@@ -26,6 +26,8 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   const pendingViewTransitionRef = useRef<{ from: BusinessMiniAppView; to: BusinessMiniAppView; startedAt: number } | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const pendingOrderPinResumeRef = useRef<(() => Promise<boolean>) | null>(null);
+  const reconciledOrderAttentionRef = useRef<string | null>(null);
 
   const request = useCallback(
     async (path: string, options: RequestInit = {}) => {
@@ -95,7 +97,18 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     }
   }, [request, setView]);
 
-  const access = useBusinessAccessModel({ request, setBusy, setNotice, setView });
+  const resumePendingOrderPinAction = useCallback(async () => {
+    return pendingOrderPinResumeRef.current
+      ? pendingOrderPinResumeRef.current()
+      : false;
+  }, []);
+  const access = useBusinessAccessModel({
+    request,
+    resumePendingOrderPinAction,
+    setBusy,
+    setNotice,
+    setView
+  });
   const credits = useBusinessCreditsModel({ business: access.business, request, setBusy, setNotice, setView });
   const ads = useBusinessAdsModel({
     adForm: access.adForm,
@@ -106,7 +119,14 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     setNotice,
     setView
   });
-  const orders = useBusinessOrdersModel({ request, setBusy, setNotice, setView });
+  const orders = useBusinessOrdersModel({
+    business: access.business,
+    request,
+    setBusy,
+    setNotice,
+    setView
+  });
+  pendingOrderPinResumeRef.current = orders.resumePendingBusinessOrderPinAction;
   const chat = useBusinessChatModel({
     business: access.business,
     request,
@@ -143,6 +163,56 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
       cancelled = true;
     };
   }, [acknowledgeAttention, attentionItems, chat.chatOrderId, chat.refreshChat, view]);
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshVisibleBusinessOrderAttention() {
+      if (view === "business-chat") {
+        return;
+      }
+      const isExactDetail = view === "business-order-detail"
+        && Boolean(orders.businessOrderDetail?.order.id);
+      const isOrderSummaryVisible = view === "business-orders" || view === "business-dashboard";
+      if (!isExactDetail && !isOrderSummaryVisible) {
+        return;
+      }
+      const item = isExactDetail
+        ? attentionItems.find(
+            (candidate) => candidate.kind === "order"
+              && candidate.resource_id === orders.businessOrderDetail?.order.id
+          )
+        : attentionItems.find((candidate) => candidate.kind === "order");
+      if (!item) {
+        return;
+      }
+      const refreshScope = isExactDetail
+        ? `detail:${item.resource_id}`
+        : `${view}:${orders.businessOrderFilter}`;
+      const refreshKey = `${refreshScope}:${item.signature}`;
+      if (reconciledOrderAttentionRef.current === refreshKey) {
+        return;
+      }
+      // Attention polls every 15s; a stable signature must not add another list/detail poll.
+      reconciledOrderAttentionRef.current = refreshKey;
+      const refreshed = await orders.refreshBusinessOrderFromAttention(item.resource_id);
+      if (!refreshed && reconciledOrderAttentionRef.current === refreshKey) {
+        reconciledOrderAttentionRef.current = null;
+      }
+      if (!cancelled && refreshed && isExactDetail) {
+        void acknowledgeAttention("order", item.resource_id);
+      }
+    }
+    void refreshVisibleBusinessOrderAttention();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    acknowledgeAttention,
+    attentionItems,
+    orders.businessOrderFilter,
+    orders.businessOrderDetail?.order.id,
+    orders.refreshBusinessOrderFromAttention,
+    view
+  ]);
   const openBusinessOrderWithAttention = useCallback(async (orderId: string) => {
     const opened = await orders.openBusinessOrder(orderId);
     if (opened) {

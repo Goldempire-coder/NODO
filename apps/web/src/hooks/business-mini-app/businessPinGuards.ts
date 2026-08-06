@@ -9,7 +9,8 @@ const BUSINESS_PIN_ERROR_CODES = new Set([
 ]);
 
 export function isBusinessPinError(error: unknown): error is ApiClientError {
-  return error instanceof ApiClientError && BUSINESS_PIN_ERROR_CODES.has(error.code);
+  return error instanceof ApiClientError
+    && (BUSINESS_PIN_ERROR_CODES.has(error.code) || error.statusCode === 423);
 }
 
 export function businessPinActionMessage(errorCode: string, action: string) {

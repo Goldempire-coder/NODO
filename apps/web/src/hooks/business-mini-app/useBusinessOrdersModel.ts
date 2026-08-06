@@ -2,18 +2,39 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import { declineBusinessOrder, getBusinessOrder, listBusinessOrders, mutateBusinessOrder as mutateBusinessOrderRequest } from "../../api/businessOrders";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
+import type { BusinessSummary } from "../../types/business";
 import type { BusinessOrderDetail, BusinessOrderSummary } from "../../types/orders";
 import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
+import { handleBusinessPinError as routeBusinessPinError, isBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 
 type BusinessOrderAction = "confirm-payment" | "reject-payment-report" | "mark-delivered" | "cannot-attend";
+type PendingBusinessOrderPinAction = {
+  orderId: string;
+  action: "cannot-attend";
+};
+
+function businessOrderActionSuccessMessage(action: BusinessOrderAction) {
+  if (action === "confirm-payment") {
+    return "Pago confirmado. Se consumieron los creditos del anuncio.";
+  }
+  if (action === "mark-delivered") {
+    return "Pago movil marcado como enviado.";
+  }
+  if (action === "cannot-attend") {
+    return "Orden cancelada antes de reportar pago. El cliente fue avisado.";
+  }
+  return "Reporte rechazado y enviado a revision.";
+}
 
 export function useBusinessOrdersModel({
+  business,
   request,
   setBusy,
   setNotice,
   setView
 }: {
+  business: BusinessSummary | null;
   request: AuthenticatedRequest;
   setBusy: (busy: boolean) => void;
   setNotice: (notice: string) => void;
@@ -24,12 +45,15 @@ export function useBusinessOrdersModel({
   const [businessOrderReason, setBusinessOrderReason] = useState("");
   const [businessOrderFilter, setBusinessOrderFilter] = useState<string>("open");
   const [businessOrderAction, setBusinessOrderAction] = useState<BusinessOrderAction | null>(null);
+  const [businessOrderInlineNotice, setBusinessOrderInlineNotice] = useState("");
+  const [pendingBusinessOrderPinAction, setPendingBusinessOrderPinAction] = useState<PendingBusinessOrderPinAction | null>(null);
   const businessOrderListRequestIdRef = useRef(0);
   const businessOrderFilterRef = useRef("open");
   const businessOrderRefreshInFlightRef = useRef(false);
   const businessOrderDetailEpochRef = useRef(0);
   const businessOrderDetailIdRef = useRef<string | null>(null);
   const businessOrderActionsRef = useRef(new Map<string, BusinessOrderAction>());
+  const pendingBusinessOrderPinActionRef = useRef<PendingBusinessOrderPinAction | null>(null);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   useEffect(() => {
@@ -41,12 +65,34 @@ export function useBusinessOrdersModel({
     && businessOrderDetailEpochRef.current === requestEpoch
   ), []);
 
+  const queuePendingBusinessOrderPinAction = useCallback((pending: PendingBusinessOrderPinAction | null) => {
+    pendingBusinessOrderPinActionRef.current = pending;
+    setPendingBusinessOrderPinAction(pending);
+  }, []);
+
+  const reconcileBusinessOrder = useCallback((order: BusinessOrderSummary) => {
+    setBusinessOrders((current) => {
+      if (businessOrderFilterRef.current === "open" && order.status === "cancelled") {
+        return current.filter((item) => item.id !== order.id);
+      }
+      return current.map((item) => (item.id === order.id ? order : item));
+    });
+    setBusinessOrderDetail((current) => {
+      if (!current || current.order.id !== order.id) {
+        return current;
+      }
+      return { ...current, order };
+    });
+  }, []);
+
   const loadBusinessOrders = useCallback(async (status?: string) => {
     const requestedStatus = status || "open";
     const targetListRequestId = businessOrderListRequestIdRef.current + 1;
     const previousFilter = businessOrderFilterRef.current;
     businessOrderListRequestIdRef.current = targetListRequestId;
     businessOrderFilterRef.current = requestedStatus;
+    businessOrderDetailEpochRef.current += 1;
+    businessOrderDetailIdRef.current = null;
     setView("business-orders");
     setBusy(true);
     try {
@@ -71,14 +117,14 @@ export function useBusinessOrdersModel({
     }
   }, [request, setBusy, setNotice, setView]);
 
-  const refreshBusinessOrders = useCallback(async () => {
-    if (businessOrderFilterRef.current !== "open" || businessOrderRefreshInFlightRef.current) {
+  const refreshBusinessOrderList = useCallback(async (status: string) => {
+    if (businessOrderRefreshInFlightRef.current) {
       return false;
     }
     businessOrderRefreshInFlightRef.current = true;
     try {
-      const data = await listBusinessOrders<{ items: BusinessOrderSummary[] }>(request, "open");
-      if (businessOrderFilterRef.current !== "open") {
+      const data = await listBusinessOrders<{ items: BusinessOrderSummary[] }>(request, status);
+      if (businessOrderFilterRef.current !== status) {
         return false;
       }
       setBusinessOrders(data.items);
@@ -90,15 +136,14 @@ export function useBusinessOrdersModel({
     }
   }, [request]);
 
-  const syncBusinessOrderFromChat = useCallback((order: BusinessOrderSummary) => {
-    setBusinessOrders((current) => current.map((item) => (item.id === order.id ? order : item)));
-    setBusinessOrderDetail((current) => {
-      if (!current || current.order.id !== order.id) {
-        return current;
-      }
-      return { ...current, order };
-    });
-  }, []);
+  const refreshBusinessOrders = useCallback(async () => {
+    if (businessOrderFilterRef.current !== "open" || businessOrderRefreshInFlightRef.current) {
+      return false;
+    }
+    return refreshBusinessOrderList("open");
+  }, [refreshBusinessOrderList]);
+
+  const syncBusinessOrderFromChat = reconcileBusinessOrder;
 
   const openBusinessOrder = useCallback(async (orderId: string) => {
     const targetRequestEpoch = businessOrderDetailEpochRef.current + 1;
@@ -106,6 +151,7 @@ export function useBusinessOrdersModel({
     businessOrderDetailIdRef.current = orderId;
     setBusinessOrderDetail(null);
     setBusinessOrderReason("");
+    setBusinessOrderInlineNotice("");
     setBusinessOrderAction(businessOrderActionsRef.current.get(orderId) ?? null);
     setView("business-order-detail");
     setBusy(true);
@@ -132,25 +178,50 @@ export function useBusinessOrdersModel({
     }
   }, [isCurrentBusinessOrderDetail, request, setBusy, setNotice, setView]);
 
-  const mutateBusinessOrder = useCallback(async (action: BusinessOrderAction) => {
-    if (!businessOrderDetail) {
-      return;
+  const refreshBusinessOrderFromAttention = useCallback(async (orderId: string) => {
+    if (businessOrderDetailIdRef.current !== orderId) {
+      return refreshBusinessOrderList(businessOrderFilterRef.current);
     }
-    const targetOrderId = businessOrderDetail.order.id;
     const targetRequestEpoch = businessOrderDetailEpochRef.current;
-    const targetReason = businessOrderReason.trim();
-    if (
-      !isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)
-      || businessOrderActionsRef.current.has(targetOrderId)
-    ) {
-      return;
+    try {
+      const data = await getBusinessOrder<BusinessOrderDetail>(request, orderId);
+      if (!isCurrentBusinessOrderDetail(orderId, targetRequestEpoch)) {
+        return false;
+      }
+      setBusinessOrderDetail(data);
+      reconcileBusinessOrder(data.order);
+      setBusinessOrderInlineNotice(
+        data.order.status === "cancelled"
+          ? "El cliente cancelo la negociacion. La orden quedo cerrada."
+          : ""
+      );
+      return true;
+    } catch {
+      return false;
     }
-    if (action === "reject-payment-report" && !targetReason) {
-      setNotice("Para rechazar un reporte, escribe el motivo. Los creditos quedan bloqueados mientras se revisa.");
-      return;
+  }, [isCurrentBusinessOrderDetail, reconcileBusinessOrder, refreshBusinessOrderList, request]);
+
+  const executeBusinessOrderAction = useCallback(async ({
+    action,
+    targetOrderId,
+    targetRequestEpoch,
+    targetReason
+  }: {
+    action: BusinessOrderAction;
+    targetOrderId: string;
+    targetRequestEpoch: number | null;
+    targetReason: string;
+  }) => {
+    if (businessOrderActionsRef.current.has(targetOrderId)) {
+      return false;
     }
+    const isCurrentTarget = targetRequestEpoch !== null
+      && isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch);
     businessOrderActionsRef.current.set(targetOrderId, action);
-    setBusinessOrderAction(action);
+    if (isCurrentTarget) {
+      setBusinessOrderAction(action);
+      setBusinessOrderInlineNotice("");
+    }
     const telemetryAction = action === "confirm-payment"
       ? "business_order_confirm_payment"
       : action === "mark-delivered"
@@ -170,25 +241,25 @@ export function useBusinessOrdersModel({
           reason: action === "cannot-attend" ? undefined : targetReason || undefined
         }
       );
-      if (action === "cannot-attend") {
-        await declineBusinessOrder(
+      const mutation = action === "cannot-attend"
+        ? await declineBusinessOrder<{ order: BusinessOrderSummary }>(
           request,
           targetOrderId,
           idempotencyKey
-        );
-      } else {
-        await mutateBusinessOrderRequest(
+        )
+        : await mutateBusinessOrderRequest<{ order: BusinessOrderSummary }>(
           request,
           targetOrderId,
           action,
           targetReason || undefined,
           idempotencyKey
         );
-      }
       clearIdempotencyKey(idempotencyScope);
+      queuePendingBusinessOrderPinAction(null);
       recordBusinessActionCompleted(telemetryAction, "business-order-detail", startedAt);
-      if (!isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
-        return;
+      reconcileBusinessOrder(mutation.order);
+      if (targetRequestEpoch === null || !isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
+        return true;
       }
       try {
         const data = await getBusinessOrder<BusinessOrderDetail>(request, targetOrderId);
@@ -197,25 +268,41 @@ export function useBusinessOrdersModel({
         }
         setBusinessOrderDetail(data);
         setBusinessOrderReason("");
-        setNotice(
-          action === "confirm-payment"
-            ? "Pago confirmado. Se consumieron los creditos del anuncio."
-            : action === "mark-delivered"
-              ? "Pago movil marcado como enviado."
-              : action === "cannot-attend"
-                ? "Orden cancelada antes de reportar pago. El cliente fue avisado."
-                : "Reporte rechazado y enviado a revision."
-        );
+        const successMessage = businessOrderActionSuccessMessage(action);
+        setBusinessOrderInlineNotice(successMessage);
+        setNotice(successMessage);
       } catch {
         if (isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
-          setNotice("La accion fue aplicada, pero no pudimos actualizar el detalle. Toca Actualizar.");
+          const refreshMessage = "La accion fue aplicada, pero no pudimos actualizar el detalle. Toca Actualizar.";
+          setBusinessOrderInlineNotice(refreshMessage);
+          setNotice(refreshMessage);
         }
       }
+      return true;
     } catch (error) {
-      if (isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
-        setNotice(error instanceof Error ? error.message : "No pudimos operar la orden.");
+      if (action === "cannot-attend" && isBusinessPinError(error)) {
+        const isStillCurrentTarget = isCurrentTarget
+          && isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch);
+        if (isStillCurrentTarget) {
+          routeBusinessPinError({
+            action: "cancelar esta orden antes del pago",
+            error,
+            setNotice,
+            setView
+          });
+          queuePendingBusinessOrderPinAction({ orderId: targetOrderId, action: "cannot-attend" });
+          setBusinessOrderInlineNotice("Desbloquea tu PIN para completar esta accion.");
+        }
+        recordBusinessActionFailed(telemetryAction, "business-order-detail", startedAt, error instanceof ApiClientError ? error.code : undefined);
+        return false;
+      }
+      if (isCurrentTarget && isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
+        const errorMessage = error instanceof Error ? error.message : "No pudimos operar la orden.";
+        setBusinessOrderInlineNotice(errorMessage);
+        setNotice(errorMessage);
       }
       recordBusinessActionFailed(telemetryAction, "business-order-detail", startedAt, error instanceof ApiClientError ? error.code : undefined);
+      return false;
     } finally {
       businessOrderActionsRef.current.delete(targetOrderId);
       if (businessOrderDetailIdRef.current === targetOrderId) {
@@ -223,25 +310,129 @@ export function useBusinessOrdersModel({
       }
     }
   }, [
-    businessOrderDetail,
-    businessOrderReason,
     clearIdempotencyKey,
     getIdempotencyKey,
     isCurrentBusinessOrderDetail,
+    queuePendingBusinessOrderPinAction,
+    reconcileBusinessOrder,
     request,
-    setNotice
+    setNotice,
+    setView
+  ]);
+
+  const mutateBusinessOrder = useCallback(async (action: BusinessOrderAction) => {
+    if (!businessOrderDetail) {
+      return;
+    }
+    const targetOrderId = businessOrderDetail.order.id;
+    const targetRequestEpoch = businessOrderDetailEpochRef.current;
+    const targetReason = businessOrderReason.trim();
+    if (
+      !isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)
+      || businessOrderActionsRef.current.has(targetOrderId)
+    ) {
+      return;
+    }
+    if (action === "reject-payment-report" && !targetReason) {
+      setNotice("Para rechazar un reporte, escribe el motivo. Los creditos quedan bloqueados mientras se revisa.");
+      return;
+    }
+    if (action === "cannot-attend" && !requireUnlockedBusinessPin({
+      action: "cancelar esta orden antes del pago",
+      business,
+      setNotice,
+      setView
+    })) {
+      queuePendingBusinessOrderPinAction({ orderId: targetOrderId, action: "cannot-attend" });
+      setBusinessOrderInlineNotice("Desbloquea tu PIN para completar esta accion.");
+      return;
+    }
+    queuePendingBusinessOrderPinAction(null);
+    await executeBusinessOrderAction({ action, targetOrderId, targetRequestEpoch, targetReason });
+  }, [
+    business,
+    businessOrderDetail,
+    businessOrderReason,
+    executeBusinessOrderAction,
+    isCurrentBusinessOrderDetail,
+    queuePendingBusinessOrderPinAction,
+    setNotice,
+    setView
+  ]);
+
+  const resumePendingBusinessOrderPinAction = useCallback(async () => {
+    const pending = pendingBusinessOrderPinActionRef.current;
+    if (!pending) {
+      return false;
+    }
+    // Clear before awaiting so repeated PIN callbacks cannot replay the same action twice.
+    queuePendingBusinessOrderPinAction(null);
+    const targetRequestEpoch = businessOrderDetailIdRef.current === pending.orderId
+      ? businessOrderDetailEpochRef.current
+      : null;
+    try {
+      const data = await getBusinessOrder<BusinessOrderDetail>(request, pending.orderId);
+      reconcileBusinessOrder(data.order);
+      if (targetRequestEpoch !== null && isCurrentBusinessOrderDetail(pending.orderId, targetRequestEpoch)) {
+        setBusinessOrderDetail(data);
+      }
+      // Capabilities are UX guidance only; the backend still owns the conditional transition.
+      if (!data.order.capabilities.can_decline_before_payment) {
+        const stateMessage = "La orden cambio y ya no se puede cancelar antes del pago.";
+        if (targetRequestEpoch !== null && isCurrentBusinessOrderDetail(pending.orderId, targetRequestEpoch)) {
+          setBusinessOrderInlineNotice(stateMessage);
+          setView("business-order-detail");
+        } else {
+          setNotice(stateMessage);
+        }
+        return true;
+      }
+      const completed = await executeBusinessOrderAction({
+        action: pending.action,
+        targetOrderId: pending.orderId,
+        targetRequestEpoch,
+        targetReason: ""
+      });
+      if (targetRequestEpoch !== null && businessOrderDetailIdRef.current === pending.orderId) {
+        setView("business-order-detail");
+      } else if (completed) {
+        setNotice("La orden pendiente fue cancelada antes de reportar pago.");
+      }
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "No pudimos reanudar la accion pendiente.";
+      if (targetRequestEpoch !== null && isCurrentBusinessOrderDetail(pending.orderId, targetRequestEpoch)) {
+        setBusinessOrderInlineNotice(errorMessage);
+        setView("business-order-detail");
+      } else {
+        setNotice(errorMessage);
+      }
+      return true;
+    }
+  }, [
+    executeBusinessOrderAction,
+    isCurrentBusinessOrderDetail,
+    queuePendingBusinessOrderPinAction,
+    reconcileBusinessOrder,
+    request,
+    setNotice,
+    setView
   ]);
 
   return {
     businessOrderAction,
     businessOrderDetail,
     businessOrderFilter,
+    businessOrderInlineNotice,
     businessOrderReason,
     businessOrders,
     loadBusinessOrders,
     mutateBusinessOrder,
     openBusinessOrder,
+    pendingBusinessOrderPinAction,
+    refreshBusinessOrderFromAttention,
     refreshBusinessOrders,
+    resumePendingBusinessOrderPinAction,
     syncBusinessOrderFromChat,
     setBusinessOrderReason
   };

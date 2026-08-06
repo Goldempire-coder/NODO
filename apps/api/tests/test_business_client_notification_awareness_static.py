@@ -247,3 +247,33 @@ def test_business_disputed_attention_opens_a_bucket_that_contains_disputes() -> 
     assert 'onClick={() => void loadBusinessOrders("open")}' in dashboard
     assert 'const verificationCount = businessOrders.filter((order) => order.status === "payment_reported").length;' in orders_screen
     assert '<strong>{verificationCount}</strong>' in orders_screen
+
+
+def test_business_cancellation_attention_reconciles_detail_and_open_order_list() -> None:
+    business_model = (
+        ROOT / "apps/web/src/hooks/useBusinessMiniAppModel.ts"
+    ).read_text(encoding="utf-8")
+    business_orders = (
+        ROOT
+        / "apps"
+        / "web"
+        / "src"
+        / "hooks"
+        / "business-mini-app"
+        / "useBusinessOrdersModel.ts"
+    ).read_text(encoding="utf-8")
+
+    assert "refreshBusinessOrderFromAttention" in business_orders
+    assert "reconcileBusinessOrder" in business_orders
+    assert 'order.status === "cancelled"' in business_orders
+    assert 'businessOrderFilterRef.current === "open"' in business_orders
+    assert "current.filter((item) => item.id !== order.id)" in business_orders
+
+    assert "refreshVisibleBusinessOrderAttention" in business_model
+    assert "attentionItems.find" in business_model
+    assert "reconciledOrderAttentionRef" in business_model
+    assert "item.signature" in business_model
+    assert 'view === "business-order-detail"' in business_model
+    assert 'view === "business-orders"' in business_model
+    assert "orders.refreshBusinessOrderFromAttention" in business_model
+    assert 'acknowledgeAttention("order", item.resource_id)' in business_model

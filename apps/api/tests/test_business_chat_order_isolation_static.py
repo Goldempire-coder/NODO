@@ -188,3 +188,38 @@ def test_business_order_list_filters_discard_late_responses_and_keep_last_good_r
     assert 'businessOrderFilterRef.current !== "open"' in refresh_orders
     assert "businessOrderRefreshInFlightRef.current" in refresh_orders
     assert "setBusinessOrders([])" not in refresh_orders
+
+
+def test_cannot_attend_is_resumed_once_for_the_same_order_after_pin_unlock() -> None:
+    orders = _read(ORDERS_MODEL)
+    app_model = _read(ROOT / "apps/web/src/hooks/useBusinessMiniAppModel.ts")
+    access_model = _read(
+        ROOT / "apps/web/src/hooks/business-mini-app/useBusinessAccessModel.ts"
+    )
+    api_client = _read(ROOT / "apps/web/src/api/client.ts")
+    pin_guards = _read(
+        ROOT / "apps/web/src/hooks/business-mini-app/businessPinGuards.ts"
+    )
+    detail_screen = _read(
+        ROOT / "apps/web/src/screens/business-app/BusinessOrdersScreens.tsx"
+    )
+
+    assert "PendingBusinessOrderPinAction" in orders
+    assert "pendingBusinessOrderPinActionRef" in orders
+    assert "queuePendingBusinessOrderPinAction" in orders
+    assert 'action: "cannot-attend"' in orders
+    assert "requireUnlockedBusinessPin" in orders
+    assert "routeBusinessPinError" in orders
+    assert "isStillCurrentTarget" in orders
+    assert "resumePendingBusinessOrderPinAction" in orders
+    assert "getBusinessOrder<BusinessOrderDetail>(request, pending.orderId)" in orders
+    assert "can_decline_before_payment" in orders
+    assert "businessOrderActionsRef.current.has(targetOrderId)" in orders
+
+    assert "pendingOrderPinResumeRef" in app_model
+    assert "resumePendingOrderPinAction" in access_model
+    assert "await resumePendingOrderPinAction()" in access_model
+    assert "statusCode" in api_client
+    assert "response.status" in api_client
+    assert "error.statusCode === 423" in pin_guards
+    assert "businessOrderInlineNotice" in detail_screen

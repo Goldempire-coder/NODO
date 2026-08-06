@@ -10,6 +10,8 @@ import {
   sortChatMessages
 } from "./businessChatShared";
 
+const SILENT_CHAT_REFRESH_FAILURE_THRESHOLD = 2;
+
 export function useBusinessChatSession({
   request,
   syncBusinessOrderFromChat,
@@ -28,7 +30,9 @@ export function useBusinessChatSession({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatCapabilities, setChatCapabilities] = useState<ChatCapabilities>({ ...EMPTY_CHAT_CAPABILITIES });
   const [refreshingChat, setRefreshingChat] = useState(false);
+  const [chatRefreshError, setChatRefreshError] = useState("");
   const refreshingChatRef = useRef(new Set<string>());
+  const silentRefreshFailureCountRef = useRef(0);
   const chatSessionEpochRef = useRef(0);
   const chatCapabilitiesOrderIdRef = useRef<string | null>(null);
   const chatOrderIdRef = useRef(chatOrderId);
@@ -72,6 +76,8 @@ export function useBusinessChatSession({
     chatCapabilitiesOrderIdRef.current = null;
     setChatCapabilities({ ...EMPTY_CHAT_CAPABILITIES });
     setRefreshingChat(false);
+    silentRefreshFailureCountRef.current = 0;
+    setChatRefreshError("");
     setView("business-chat");
     setNotice("");
     setBusy(true);
@@ -111,10 +117,22 @@ export function useBusinessChatSession({
       setRefreshingChat(true);
     }
     try {
-      return await reloadChatSession(targetOrderId, targetSessionEpoch);
+      const refreshed = await reloadChatSession(targetOrderId, targetSessionEpoch);
+      if (refreshed && isCurrentChatSession(targetOrderId, targetSessionEpoch)) {
+        silentRefreshFailureCountRef.current = 0;
+        setChatRefreshError("");
+      }
+      return refreshed;
     } catch (error) {
-      if (isCurrentChatSession(targetOrderId, targetSessionEpoch) && !options?.silent) {
-        setNotice(error instanceof Error ? error.message : "No pudimos actualizar el chat.");
+      if (isCurrentChatSession(targetOrderId, targetSessionEpoch)) {
+        if (options?.silent) {
+          silentRefreshFailureCountRef.current += 1;
+          if (silentRefreshFailureCountRef.current >= SILENT_CHAT_REFRESH_FAILURE_THRESHOLD) {
+            setChatRefreshError("No pudimos actualizar la conversacion. Toca Actualizar.");
+          }
+        } else {
+          setNotice(error instanceof Error ? error.message : "No pudimos actualizar el chat.");
+        }
       }
       return false;
     } finally {
@@ -165,6 +183,7 @@ export function useBusinessChatSession({
     chatSessionEpochRef,
     isCurrentChatSession,
     openBusinessChat,
+    chatRefreshError,
     refreshChat,
     refreshingChat,
     refreshChatSession,
