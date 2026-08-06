@@ -13,6 +13,8 @@ import shlex
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -67,6 +69,72 @@ def validate_public_env(env: dict[str, str]) -> dict[str, str]:
         "api_host": api_host,
         "app_host": app.hostname or "",
     }
+
+
+def _public_api_request(
+    api_base_url: str,
+    path: str,
+    *,
+    method: str = "GET",
+    body: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    timeout_seconds: float = 10,
+) -> tuple[int, object, bytes]:
+    url = f"{api_base_url.rstrip('/')}{path}"
+    request = urllib.request.Request(url, data=body, headers=headers or {}, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            return response.status, response.headers, response.read()
+    except urllib.error.HTTPError as exc:
+        payload = exc.read() if exc.fp else b""
+        return exc.code, exc.headers, payload
+    except urllib.error.URLError as exc:
+        raise GuardrailError(f"Public API is unreachable: {exc.reason}") from exc
+
+
+def _header(headers: object, name: str) -> str:
+    getter = getattr(headers, "get", None)
+    if not callable(getter):
+        return ""
+    return str(getter(name, "") or "")
+
+
+def _ensure_not_railway_fallback(headers: object) -> None:
+    if _header(headers, "x-railway-fallback"):
+        raise GuardrailError("Public API returned Railway fallback instead of the NODO service")
+
+
+def _ensure_json(headers: object, path: str) -> None:
+    content_type = _header(headers, "content-type").lower()
+    if "json" not in content_type:
+        raise GuardrailError(f"Public API {path} did not return JSON")
+
+
+def verify_public_api(api_base_url: str, app_url: str) -> None:
+    for path in ("/health", "/api/v1/version"):
+        status, headers, _body = _public_api_request(api_base_url, path)
+        _ensure_not_railway_fallback(headers)
+        if status != 200:
+            raise GuardrailError(f"Public API {path} returned {status}")
+        _ensure_json(headers, path)
+
+    status, headers, _body = _public_api_request(
+        api_base_url,
+        "/api/v1/auth/telegram",
+        method="POST",
+        body=b'{"init_data":"invalid","surface":"business"}',
+        headers={
+            "Content-Type": "text/plain;charset=UTF-8",
+            "Origin": app_url.rstrip("/"),
+        },
+    )
+    _ensure_not_railway_fallback(headers)
+    if status not in {400, 401, 422}:
+        raise GuardrailError(f"Public API auth smoke returned unexpected status {status}")
+    _ensure_json(headers, "/api/v1/auth/telegram")
+    allowed_origin = _header(headers, "access-control-allow-origin")
+    if allowed_origin not in {"*", app_url.rstrip("/")}:
+        raise GuardrailError("Public API auth smoke did not expose the expected CORS origin")
 
 
 def _run(command: list[str], *, env: dict[str, str] | None = None) -> None:
@@ -176,6 +244,8 @@ def main() -> int:
             "staging public env guard: PASS "
             f"api_host={public_env['api_host']} app_host={public_env['app_host']}"
         )
+        verify_public_api(public_env["NEXT_PUBLIC_API_BASE_URL"], public_env["NEXT_PUBLIC_APP_URL"])
+        print("public api smoke guard: PASS")
         if not args.skip_build:
             build_web()
         verify_static_export(public_env["NEXT_PUBLIC_API_BASE_URL"])
