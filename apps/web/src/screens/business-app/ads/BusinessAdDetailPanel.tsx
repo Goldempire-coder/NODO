@@ -35,7 +35,7 @@ export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: Bus
   const selectedEditPaymentMethodIsActive = activePaymentMethods.some((method) => method.id === adEditForm.payment_method_id);
   const editPaymentMethodValue = selectedEditPaymentMethodIsActive ? adEditForm.payment_method_id : "";
   const selectedEditPaymentMethod = activePaymentMethods.find((method) => method.id === editPaymentMethodValue);
-  const currencyPresentation = adAmountPresentation(ad);
+  const currencyPresentation = adAmountPresentation(ad, paymentMethods);
   const editCurrencyPresentation = adAmountCurrencyPresentation(
     selectedEditPaymentMethod?.receive_method || ad.payment_method_details?.method_type || ad.payment_method
   );
@@ -52,7 +52,7 @@ export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: Bus
       <div className="business-ad-detail__header">
         <div>
           <Text className="business-card__label">Anuncio abierto</Text>
-          <Title level="3" className="business-shell__title"><BusinessAdAmount ad={ad} /></Title>
+          <Title level="3" className="business-shell__title"><BusinessAdAmount ad={ad} paymentMethods={paymentMethods} /></Title>
         </div>
         <button className="icon-button" type="button" aria-label="Cerrar detalle" onClick={closeAdDetail}>
           x

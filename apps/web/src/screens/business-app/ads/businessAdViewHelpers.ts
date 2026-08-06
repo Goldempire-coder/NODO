@@ -13,8 +13,13 @@ export function adAmountCurrencyPresentation(methodType: string | null | undefin
   return methodType === "usdt_trc20" ? AD_AMOUNT_PRESENTATION.usdt_trc20 : AD_AMOUNT_PRESENTATION.zelle;
 }
 
-export function adAmountPresentation(ad: AdSummary) {
-  const methodType = ad.payment_method_details?.method_type || ad.payment_method;
+export function adPaymentMethodType(ad: AdSummary, paymentMethods: BusinessPaymentMethod[] = []) {
+  const fromMethod = paymentMethods.find((method) => method.id === ad.payment_method_id);
+  return ad.payment_method_details?.method_type || fromMethod?.receive_method || ad.payment_method;
+}
+
+export function adAmountPresentation(ad: AdSummary, paymentMethods: BusinessPaymentMethod[] = []) {
+  const methodType = adPaymentMethodType(ad, paymentMethods);
   const currency = adAmountCurrencyPresentation(methodType);
   return {
     rangeText: `${ad.amount_min_usd} - ${ad.amount_max_usd}`,
@@ -39,7 +44,7 @@ export function paymentMethodDisplayName(methodType: string | null | undefined) 
 
 export function paymentMethodLabel(ad: AdSummary, paymentMethods: BusinessPaymentMethod[]) {
   const fromMethod = paymentMethods.find((method) => method.id === ad.payment_method_id);
-  const methodName = paymentMethodDisplayName(ad.payment_method_details?.method_type || fromMethod?.receive_method || ad.payment_method);
+  const methodName = paymentMethodDisplayName(adPaymentMethodType(ad, paymentMethods));
   const holder = ad.payment_method_details?.holder_name || fromMethod?.holder_name || methodName;
   const account = ad.payment_method_details?.account_masked || fromMethod?.masked_account || "guardado";
   const active = ad.payment_method_details?.active ?? fromMethod?.is_available;

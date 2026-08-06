@@ -37,12 +37,12 @@ export function BusinessAdCard({
   const status = ad.effective_status || ad.status;
   const republishable = canRepublishAd(ad);
   const canReactivate = status === "paused" && paymentMethodCanReceive(ad, paymentMethods);
-  const currencyPresentation = adAmountPresentation(ad);
+  const currencyPresentation = adAmountPresentation(ad, paymentMethods);
   return (
     <article className={isSelected ? "business-ad-card is-selected" : "business-ad-card"}>
       <div className="business-ad-card__main">
         <span className={`business-status-chip business-status-chip--${status}`}>{humanizeAdStatus(status)}</span>
-        <strong><BusinessAdAmount ad={ad} /></strong>
+        <strong><BusinessAdAmount ad={ad} paymentMethods={paymentMethods} /></strong>
         <span>{displayRate(ad)} / <BusinessAdCurrencyLabel presentation={currencyPresentation} /></span>
         <small>{paymentMethodLabel(ad, paymentMethods)}</small>
       </div>

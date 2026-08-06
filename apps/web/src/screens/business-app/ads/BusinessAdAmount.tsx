@@ -1,9 +1,10 @@
 import type { AdSummary } from "../../../types/ads";
+import type { BusinessPaymentMethod } from "../../../types/business";
 import { BusinessAdCurrencyLabel } from "./BusinessAdCurrencyLabel";
 import { adAmountPresentation } from "./businessAdViewHelpers";
 
-export function BusinessAdAmount({ ad }: { ad: AdSummary }) {
-  const { rangeText, ...currencyPresentation } = adAmountPresentation(ad);
+export function BusinessAdAmount({ ad, paymentMethods = [] }: { ad: AdSummary; paymentMethods?: BusinessPaymentMethod[] }) {
+  const { rangeText, ...currencyPresentation } = adAmountPresentation(ad, paymentMethods);
 
   return (
     <>
