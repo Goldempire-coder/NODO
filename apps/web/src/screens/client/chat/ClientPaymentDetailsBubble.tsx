@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import {
+  formatPaymentMethod,
+  paymentMethodCurrencyPresentation
+} from "../../../constants/paymentLabels";
 import type { PaymentInstructions } from "../../../types/payments";
 
 async function copyText(value: string) {
@@ -31,7 +35,9 @@ export function ClientPaymentDetailsBubble({
 }) {
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
-  const methodLabel = instructions.payment_instructions.method_type === "usdt_trc20" ? "USDT" : "Zelle";
+  const methodType = instructions.payment_instructions.method_type;
+  const methodLabel = formatPaymentMethod(methodType);
+  const currency = paymentMethodCurrencyPresentation(methodType);
 
   const copyPaymentAccount = async () => {
     setCopyFailed(false);
@@ -56,7 +62,7 @@ export function ClientPaymentDetailsBubble({
         </button>
       </div>
       <small>
-        Monto: {instructions.order.amount_usd} USD
+        Monto: {instructions.order.amount_usd} {currency.currencyLabel}
         {instructions.payment_instructions.network
           ? ` - Red ${instructions.payment_instructions.network}`
           : ""}

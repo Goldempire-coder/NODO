@@ -251,6 +251,7 @@ export function useClientWorkspaceModel({
     acceptTerms,
     submitClientProfile,
     searchAds: marketplace.searchAds,
+    selectMarketplacePaymentMethod: marketplace.selectMarketplacePaymentMethod,
     searchFreshForAmount: marketplace.searchFreshForAmount,
     loadActiveMarketplace: marketplace.loadActiveMarketplace,
     openAdDetail: marketplace.openAdDetail,

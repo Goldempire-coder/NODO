@@ -1,7 +1,10 @@
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import { useEffect, useState } from "react";
 import { AttentionBadge } from "../../components/nodo/SurfaceAttention";
-import { formatOrderMethodLine } from "../../constants/paymentLabels";
+import {
+  formatOrderMethodLine,
+  paymentMethodCurrencyPresentation
+} from "../../constants/paymentLabels";
 import type { OrderCancelReason } from "../../types/orders";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
 
@@ -54,6 +57,13 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
     }
   }, [cancelPromptOrderId, selectedOrder?.id]);
 
+  const selectedAdCurrency = paymentMethodCurrencyPresentation(
+    selectedAd?.payment_method
+  );
+  const selectedOrderCurrency = paymentMethodCurrencyPresentation(
+    selectedOrder?.payment_method_snapshot
+  );
+
   return (
     <>
       {view === "create-order" ? (
@@ -63,8 +73,8 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
             <>
               <Title level="3" className="business-shell__title">{displayBusinessName(selectedAd)}</Title>
               <div className="business-grid marketplace-confirmation">
-                <Text>Tasa: {selectedAd.rate_bs_per_usd} Bs/USD</Text>
-                <Text>Monto que entregas: {orderForm.amount_usd} USD</Text>
+                <Text>Tasa: {selectedAd.rate_bs_per_usd} Bs. / {selectedAdCurrency.currencyLabel}</Text>
+                <Text>Monto que entregas: {orderForm.amount_usd} {selectedAdCurrency.currencyLabel}</Text>
                 <Text>Monto que recibe: {quotedAmountBs(orderForm.amount_usd, selectedAd.rate_bs_per_usd)} Bs</Text>
                 <Text>Metodo: {formatOrderMethodLine(selectedAd.payment_method, selectedAd.delivery_method)}</Text>
               </div>
@@ -91,8 +101,8 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
               <Title level="3" className="business-shell__title">{selectedOrder.public_order_code}</Title>
               <Text>{selectedOrder.business_name}</Text>
               <Text>{selectedOrder.status}</Text>
-              <Text>{selectedOrder.amount_usd} USD - {selectedOrder.amount_bs_calculated} Bs</Text>
-              <Text>Tasa {selectedOrder.rate_snapshot} Bs/USD</Text>
+              <Text>{selectedOrder.amount_usd} {selectedOrderCurrency.currencyLabel} - {selectedOrder.amount_bs_calculated} Bs</Text>
+              <Text>Tasa {selectedOrder.rate_snapshot} Bs. / {selectedOrderCurrency.currencyLabel}</Text>
               <Text>{formatOrderMethodLine(selectedOrder.payment_method_snapshot, selectedOrder.delivery_method_snapshot)}</Text>
               <Text>Límite: {new Date(selectedOrder.payment_report_deadline_at).toLocaleString()}</Text>
               <div className="business-shell__tabs">
@@ -223,13 +233,18 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
           <div className="business-list">
             {loadingOrders ? <Text>Cargando órdenes...</Text> : null}
             {myOrders.length === 0 && !loadingOrders ? <Text>Todavía no tienes órdenes.</Text> : null}
-            {myOrders.map((order) => (
-              <button className="business-row ad-row" disabled={openingOrderId === order.id} key={order.id} type="button" onClick={() => void openOrderDetail(order.id)}>
-                <span>{order.public_order_code}</span>
-                <span>{openingOrderId === order.id ? "Abriendo..." : order.status}</span>
-                <span>{order.amount_usd} USD</span>
-              </button>
-            ))}
+            {myOrders.map((order) => {
+              const orderCurrency = paymentMethodCurrencyPresentation(
+                order.payment_method_snapshot
+              );
+              return (
+                <button className="business-row ad-row" disabled={openingOrderId === order.id} key={order.id} type="button" onClick={() => void openOrderDetail(order.id)}>
+                  <span>{order.public_order_code}</span>
+                  <span>{openingOrderId === order.id ? "Abriendo..." : order.status}</span>
+                  <span>{order.amount_usd} {orderCurrency.currencyLabel}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       ) : null}

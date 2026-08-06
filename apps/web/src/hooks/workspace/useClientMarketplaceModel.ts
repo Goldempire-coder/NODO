@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { getMarketplaceAd, marketplaceSearchKey, searchMarketplaceAds } from "../../api/ads";
 import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import type { PublicUser } from "../../types/auth";
+import type { SearchFormState } from "../../types/client";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 
@@ -27,6 +28,21 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
   const marketplaceRequestIdRef = useRef(0);
   const adDetailRequestIdRef = useRef(0);
 
+  function selectMarketplacePaymentMethod(paymentMethod: SearchFormState["payment_method"]) {
+    if (paymentMethod === searchForm.payment_method) {
+      return;
+    }
+    marketplaceRequestIdRef.current += 1;
+    adDetailRequestIdRef.current += 1;
+    setSearchForm((current) => ({ ...current, payment_method: paymentMethod }));
+    setSearchResults([]);
+    setSelectedAd(null);
+    setNotice("");
+    setSearchingMarketplace(false);
+    setLoadingMarketplace(false);
+    setOpeningMarketplaceAdId(null);
+  }
+
   async function searchAds() {
     const requestId = marketplaceRequestIdRef.current + 1;
     marketplaceRequestIdRef.current = requestId;
@@ -35,6 +51,8 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
     setSearchingMarketplace(true);
     setView("marketplace-search");
     setNotice("");
+    setSearchResults([]);
+    setSelectedAd(null);
     const params = {
       amount_usd: searchForm.amount_usd,
       payment_method: searchForm.payment_method,
@@ -136,7 +154,11 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
     recordActionStarted("client_marketplace_list", "marketplace-list");
     setView("marketplace-list");
     setNotice("");
-    const params = { sort, limit: "50" };
+    const params = {
+      payment_method: searchForm.payment_method,
+      sort,
+      limit: "50"
+    };
     const key = marketplaceSearchKey(params);
     const cached = cacheRef.current[key];
     if (cached && Date.now() - cached.loadedAt < CLIENT_MARKETPLACE_CACHE_TTL_MS) {
@@ -216,13 +238,18 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
   }
 
   async function prefetchActiveMarketplace(sort: "trust" | "rate" | "speed" = "rate") {
-    const key = marketplaceSearchKey({ sort, limit: "50" });
+    const params = {
+      payment_method: searchForm.payment_method,
+      sort,
+      limit: "50"
+    };
+    const key = marketplaceSearchKey(params);
     const cached = cacheRef.current[key];
     if (cached && Date.now() - cached.loadedAt < CLIENT_MARKETPLACE_CACHE_TTL_MS) {
       return;
     }
     try {
-      const data = await searchMarketplaceAds<{ items: typeof searchResults }>(request, { sort, limit: "50" });
+      const data = await searchMarketplaceAds<{ items: typeof searchResults }>(request, params);
       cacheRef.current[key] = { items: data.items, loadedAt: Date.now() };
     } catch {
       // Background warmup should never interrupt the active screen.
@@ -230,6 +257,7 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
   }
 
   return {
+    selectMarketplacePaymentMethod,
     searchAds,
     searchFreshForAmount,
     loadActiveMarketplace,

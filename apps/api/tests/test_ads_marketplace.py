@@ -1708,6 +1708,50 @@ def test_founder_access_can_publish_without_credit_debit() -> None:
     assert wallet.blocked_credits == 0
 
 
+def test_marketplace_search_filters_zelle_and_usdt_ads_by_exact_method() -> None:
+    client = _client()
+    owner = _login(client, 747, "marketplace_method_owner")
+    business, zelle_method_id = _approved_business_with_method(client, owner)
+    zelle_ad = _create_ad(
+        client,
+        owner,
+        zelle_method_id,
+        key="marketplace_method_zelle_ad",
+    )
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="MarketplaceMethod",
+    )
+    usdt_response = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="marketplace_method_usdt_ad",
+    )
+    assert usdt_response.status_code == 201, usdt_response.text
+    usdt_ad = usdt_response.json()["data"]["ad"]
+    remitter = _login(client, 748, "marketplace_method_remitter")
+
+    zelle_search = client.get(
+        "/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&delivery_method=pago_movil_ve&sort=rate",
+        headers=_bearer(remitter, "marketplace_method_zelle_search"),
+    )
+    usdt_search = client.get(
+        "/api/v1/ads/search?amount_usd=50.00&payment_method=usdt_trc20&delivery_method=pago_movil_ve&sort=rate",
+        headers=_bearer(remitter, "marketplace_method_usdt_search"),
+    )
+
+    assert zelle_search.status_code == 200
+    assert usdt_search.status_code == 200
+    zelle_items = zelle_search.json()["data"]["items"]
+    usdt_items = usdt_search.json()["data"]["items"]
+    assert [item["id"] for item in zelle_items] == [zelle_ad["id"]]
+    assert {item["payment_method"] for item in zelle_items} == {"zelle"}
+    assert [item["id"] for item in usdt_items] == [usdt_ad["id"]]
+    assert {item["payment_method"] for item in usdt_items} == {"usdt_trc20"}
+
+
 def test_migration_0004_contains_required_tables_constraints_and_indexes() -> None:
     migration = open("database/migrations/0004_slice_03_ads_marketplace.up.sql", encoding="utf-8").read()
     for text in [

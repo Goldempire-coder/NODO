@@ -3,6 +3,24 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   usdt_trc20: "USDT"
 };
 
+const PAYMENT_METHOD_CURRENCY_PRESENTATION = {
+  zelle: {
+    amountSymbol: "$",
+    currencyLabel: "USD",
+    currencyTone: "usd",
+    offerLabel: "Zelle · USD"
+  },
+  usdt_trc20: {
+    amountSymbol: "",
+    currencyLabel: "USDT",
+    currencyTone: "usdt",
+    offerLabel: "USDT"
+  }
+} as const;
+
+export type PaymentMethodCurrencyPresentation =
+  (typeof PAYMENT_METHOD_CURRENCY_PRESENTATION)[keyof typeof PAYMENT_METHOD_CURRENCY_PRESENTATION];
+
 const DELIVERY_METHOD_LABELS: Record<string, string> = {
   pago_movil_ve: "Pago Movil"
 };
@@ -39,6 +57,13 @@ function humanizeUnknown(value: string): string {
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase())
     .trim();
+}
+
+export function paymentMethodCurrencyPresentation(value: unknown): PaymentMethodCurrencyPresentation {
+  const normalized = normalizeMethodValue(value);
+  return normalized === "usdt_trc20"
+    ? PAYMENT_METHOD_CURRENCY_PRESENTATION.usdt_trc20
+    : PAYMENT_METHOD_CURRENCY_PRESENTATION.zelle;
 }
 
 export function formatPaymentMethod(value: unknown): string {

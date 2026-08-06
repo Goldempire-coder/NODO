@@ -1935,7 +1935,11 @@ div.ad-row {
   background: rgb(2 8 23 / 38%);
 }
 
-.amount-input span {
+.amount-input--without-symbol {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.amount-input > span {
   color: var(--nodo-muted);
   font-size: 34px;
 }
@@ -2182,6 +2186,23 @@ div.ad-row {
   margin-top: 4px;
   color: var(--nodo-muted);
   line-height: 1.35;
+}
+
+.client-marketplace-currency {
+  white-space: nowrap;
+}
+
+.client-marketplace-currency.client-marketplace-currency--usd {
+  color: var(--nodo-success);
+}
+
+.client-marketplace-currency.client-marketplace-currency--usdt {
+  color: var(--nodo-text);
+}
+
+.business-main .client-marketplace-method {
+  color: var(--nodo-text);
+  font-weight: 800;
 }
 
 .business-status-panel .business-inline-form {

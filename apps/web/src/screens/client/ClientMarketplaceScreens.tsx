@@ -1,44 +1,37 @@
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import { ORDER_DISCLAIMER } from "../../constants/copy";
-import { formatExchangeRoute } from "../../constants/paymentLabels";
+import {
+  formatExchangeRoute,
+  paymentMethodCurrencyPresentation
+} from "../../constants/paymentLabels";
 import { sanitizeDecimalInput } from "../../lib/numericInput";
-import type { AdSummary } from "../../types/ads";
+import { ClientMarketplaceAdCard } from "./marketplace/ClientMarketplaceAdCard";
+import { ClientMarketplaceCurrencyLabel } from "./marketplace/ClientMarketplaceCurrencyLabel";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
 
-function businessReputationSummary(ad: AdSummary): string {
-  const reputation = ad.business?.reputation;
-  return reputation?.label || "Perfil registrado";
-}
-
-function businessAvailabilitySummary(ad: AdSummary): string {
-  return ad.business?.availability?.status === "offline" ? "Offline: no recibe ofertas" : "Online: recibiendo ofertas";
-}
-
-function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
+function MarketplaceBusinessList({
+  emptyMessage,
+  model
+}: {
+  emptyMessage: string;
+  model: RemitterScreensModel;
+}) {
   const { openAdDetail, openingMarketplaceAdId, searchResults } = model;
   return (
     <div className="marketplace-list">
       {searchResults.length === 0 ? (
         <div className="trusted-empty">
           <span className="status-dot status-dot--muted" aria-hidden="true" />
-          <Text>Ingresa un monto para ver negocios registrados en NODO.</Text>
+          <Text>{emptyMessage}</Text>
         </div>
       ) : null}
       {searchResults.map((ad) => (
-        <button className="marketplace-business" disabled={openingMarketplaceAdId === ad.id} key={ad.id} type="button" onClick={() => void openAdDetail(ad.id)}>
-          <span className="business-avatar">{displayBusinessName(ad).slice(0, 2).toUpperCase()}</span>
-          <span className="business-main">
-            <strong>{displayBusinessName(ad)}</strong>
-            <small>{businessReputationSummary(ad)}</small>
-            <small>{businessAvailabilitySummary(ad)}</small>
-            <small>Límites: ${ad.amount_min_usd} - ${ad.amount_max_usd}</small>
-          </span>
-          <span className="business-rate">
-            <strong>{ad.rate_bs_per_usd}</strong>
-            <small>Bs / USD</small>
-            <em>{openingMarketplaceAdId === ad.id ? "Abriendo..." : ad.business?.availability?.label || "Online"}</em>
-          </span>
-        </button>
+        <ClientMarketplaceAdCard
+          ad={ad}
+          key={ad.id}
+          opening={openingMarketplaceAdId === ad.id}
+          onOpen={(adId) => void openAdDetail(adId)}
+        />
       ))}
     </div>
   );
@@ -47,17 +40,20 @@ function MarketplaceBusinessList({ model }: { model: RemitterScreensModel }) {
 export function ClientMarketplaceScreens({ model }: { model: RemitterScreensModel }) {
   const {
     notice,
-    openingMarketplaceAdId,
     searchAds,
     searchForm,
-    searchResults,
     searchingMarketplace,
+    selectMarketplacePaymentMethod,
     selectedAd,
     setOrderForm,
     setSearchForm,
     setView,
     view
   } = model;
+  const searchCurrency = paymentMethodCurrencyPresentation(searchForm.payment_method);
+  const selectedAdCurrency = selectedAd
+    ? paymentMethodCurrencyPresentation(selectedAd.payment_method)
+    : null;
 
   return (
     <>
@@ -66,18 +62,43 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
           <div className="exchange-card">
             <Text className="exchange-card__eyebrow">Busca negocios registrados</Text>
             <Title level="2" className="exchange-card__title">¿Cuánto quieres cambiar?</Title>
-            <div className="amount-input">
-              <span>$</span>
-              <input aria-label="Monto en USD" value={searchForm.amount_usd} onChange={(event) => setSearchForm((current) => ({ ...current, amount_usd: sanitizeDecimalInput(event.target.value, { maxDecimals: 2, maxIntegerDigits: 6 }) }))} inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" />
-              <strong>USD</strong>
+            <div className={searchCurrency.amountSymbol ? "amount-input" : "amount-input amount-input--without-symbol"}>
+              {searchCurrency.amountSymbol ? <span aria-hidden="true">{searchCurrency.amountSymbol}</span> : null}
+              <input
+                aria-label={`Monto en ${searchCurrency.currencyLabel}`}
+                value={searchForm.amount_usd}
+                onChange={(event) => setSearchForm((current) => ({
+                  ...current,
+                  amount_usd: sanitizeDecimalInput(event.target.value, {
+                    maxDecimals: 2,
+                    maxIntegerDigits: 6
+                  })
+                }))}
+                inputMode="decimal"
+                pattern="[0-9]*[.]?[0-9]*"
+                autoComplete="off"
+              />
+              <strong>
+                <ClientMarketplaceCurrencyLabel presentation={searchCurrency} />
+              </strong>
             </div>
-            <Text className="auth-entry__session-meta">Monto mínimo: $20.00</Text>
+            <Text className="auth-entry__session-meta">
+              Monto mínimo: {searchCurrency.amountSymbol}20.00 {searchCurrency.currencyLabel}
+            </Text>
             <Text className="exchange-card__section-label">Método de pago que usarás</Text>
             <div className="payment-choice">
-              <button className={searchForm.payment_method === "zelle" ? "is-active" : ""} type="button" onClick={() => setSearchForm((current) => ({ ...current, payment_method: "zelle" }))}>
+              <button
+                className={searchForm.payment_method === "zelle" ? "is-active" : ""}
+                type="button"
+                onClick={() => selectMarketplacePaymentMethod("zelle")}
+              >
                 <span className="payment-choice__brand payment-choice__brand--zelle">Zelle</span>
               </button>
-              <button className={searchForm.payment_method === "usdt_trc20" ? "is-active" : ""} type="button" onClick={() => setSearchForm((current) => ({ ...current, payment_method: "usdt_trc20" }))}>
+              <button
+                className={searchForm.payment_method === "usdt_trc20" ? "is-active" : ""}
+                type="button"
+                onClick={() => selectMarketplacePaymentMethod("usdt_trc20")}
+              >
                 <span className="coin-badge">T</span>
                 USDT
               </button>
@@ -94,10 +115,13 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
           <div className="marketplace-toolbar">
             <Title level="3" className="business-shell__title">Negocios registrados</Title>
-            <Text className="auth-entry__session-meta">Ordenados por mejor tasa</Text>
+            <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - ordenados por mejor tasa</Text>
           </div>
 
-          <MarketplaceBusinessList model={model} />
+          <MarketplaceBusinessList
+            emptyMessage="Ingresa un monto para ver negocios registrados en NODO."
+            model={model}
+          />
 
           <div className="trust-banner">
             <span className="status-dot" aria-hidden="true" />
@@ -113,37 +137,17 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               <Text className="exchange-card__eyebrow">Marketplace</Text>
               <Title level="3" className="business-shell__title">Negocios activos</Title>
             </div>
-            <Text className="auth-entry__session-meta">Ordenados por mejor tasa</Text>
+            <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - ordenados por mejor tasa</Text>
           </div>
 
-          <div className="marketplace-list">
-            {searchResults.length === 0 ? (
-              <div className="trusted-empty">
-                <span className="status-dot status-dot--muted" aria-hidden="true" />
-                <Text>No hay negocios activos disponibles en este momento.</Text>
-              </div>
-            ) : null}
-            {searchResults.map((ad) => (
-              <button className="marketplace-business" disabled={openingMarketplaceAdId === ad.id} key={ad.id} type="button" onClick={() => void model.openAdDetail(ad.id)}>
-                <span className="business-avatar">{displayBusinessName(ad).slice(0, 2).toUpperCase()}</span>
-                <span className="business-main">
-                  <strong>{displayBusinessName(ad)}</strong>
-                  <small>{businessReputationSummary(ad)}</small>
-                  <small>{businessAvailabilitySummary(ad)}</small>
-                  <small>Límites: ${ad.amount_min_usd} - ${ad.amount_max_usd}</small>
-                </span>
-                <span className="business-rate">
-                  <strong>{ad.rate_bs_per_usd}</strong>
-                  <small>Bs / USD</small>
-                  <em>{openingMarketplaceAdId === ad.id ? "Abriendo..." : ad.business?.availability?.label || "Online"}</em>
-                </span>
-              </button>
-            ))}
-          </div>
+          <MarketplaceBusinessList
+            emptyMessage={`No hay negocios ${searchCurrency.offerLabel} activos disponibles en este momento.`}
+            model={model}
+          />
 
           <div className="trust-banner">
             <span className="status-dot" aria-hidden="true" />
-            <Text>Todos los negocios activos del marketplace. Usa el inicio cuando quieras filtrar por monto.</Text>
+            <Text>Anuncios activos para {searchCurrency.offerLabel}. Cambia el método desde Inicio.</Text>
           </div>
         </div>
       ) : null}
@@ -151,11 +155,15 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
       {view === "marketplace-detail" ? (
         <div className="business-card marketplace-detail-card">
           <Text className="business-card__label">Perfil registrado</Text>
-          {selectedAd ? (
+          {selectedAd && selectedAdCurrency ? (
             <>
               <Title level="3" className="business-shell__title">{displayBusinessName(selectedAd)}</Title>
               <Text>{formatExchangeRoute(selectedAd.payment_method, selectedAd.delivery_method)}</Text>
-              <Text>Rango ${selectedAd.amount_min_usd} - ${selectedAd.amount_max_usd} - tasa {selectedAd.rate_bs_per_usd} Bs/USD</Text>
+              <Text>
+                Rango {selectedAdCurrency.amountSymbol}{selectedAd.amount_min_usd} - {selectedAdCurrency.amountSymbol}{selectedAd.amount_max_usd}{" "}
+                <ClientMarketplaceCurrencyLabel presentation={selectedAdCurrency} /> - tasa Bs. {selectedAd.rate_bs_per_usd} /{" "}
+                <ClientMarketplaceCurrencyLabel presentation={selectedAdCurrency} />
+              </Text>
               <Text className="auth-entry__session-meta">{ORDER_DISCLAIMER}</Text>
               <Button mode="filled" stretched onClick={() => {
                 setOrderForm({ amount_usd: searchForm.amount_usd });

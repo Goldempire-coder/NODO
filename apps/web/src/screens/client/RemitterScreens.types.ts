@@ -58,6 +58,7 @@ export type RemitterScreensModel = {
   openingChatOrderId: string | null;
   paymentReportForm: PaymentReportFormState;
   setPaymentReportForm: Dispatch<SetStateAction<PaymentReportFormState>>;
+  selectMarketplacePaymentMethod: (paymentMethod: SearchFormState["payment_method"]) => void;
   searchAds: () => void | Promise<void>;
   loadActiveMarketplace: (sort?: SearchFormState["sort"]) => void | Promise<void>;
   openAdDetail: (adId: string) => void | Promise<void>;

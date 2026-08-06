@@ -645,6 +645,14 @@ def test_client_mini_app_android_scroll_keyboard_and_cached_loads() -> None:
     client_chat_screen = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
     client_chat_model = _read_client_chat_model()
     marketplace_model = _read("apps/web/src/hooks/workspace/useClientMarketplaceModel.ts")
+    marketplace_surface = "\n".join(
+        (
+            _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx"),
+            _read(
+                "apps/web/src/screens/client/marketplace/ClientMarketplaceAdCard.tsx"
+            ),
+        )
+    )
     orders_model = _read("apps/web/src/hooks/workspace/useRemitterOrdersModel.ts")
     client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
 
@@ -677,7 +685,7 @@ def test_client_mini_app_android_scroll_keyboard_and_cached_loads() -> None:
     assert "recordActionCompleted(\"client_marketplace_list\"" not in fresh_marketplace_cache_block
     assert "setSearchResults((current) => current.filter((ad) => ad.id !== adId));" in marketplace_model
     assert "AD_NOT_AVAILABLE" in marketplace_model
-    assert "Online: recibiendo ofertas" in _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx")
+    assert "Online: recibiendo ofertas" in marketplace_surface
     assert "CLIENT_ORDERS_CACHE_TTL_MS" in orders_model
     assert "prefetchActiveMarketplaceRef" in client_model
     assert "prefetchMyOrdersRef" in client_model
