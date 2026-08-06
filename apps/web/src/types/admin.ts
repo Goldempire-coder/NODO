@@ -349,17 +349,57 @@ export type AdminDashboard = {
   risk: {
     businesses_under_review: number;
   };
-  users?: {
-    clients_total: number;
-    client_profiles_with_phone: number;
-    recent_client_contacts: {
-      id: string;
-      first_name: string | null;
-      username: string | null;
-      phone: string | null;
-      updated_at: string;
-    }[];
-  };
+  disclaimer: string;
+};
+
+export type AdminStaffPermissionInput = {
+  permission: string;
+  scope: string;
+  scope_value?: string | null;
+};
+
+export type AdminStaffSummary = {
+  id: string;
+  user_id: string;
+  display_name?: string | null;
+  username?: string | null;
+  staff_role: string;
+  status: string;
+  permission_count: number;
+  last_activity_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type AdminStaffDetail = AdminStaffSummary & {
+  user_status?: string | null;
+  base_role?: string | null;
+  permissions: Array<AdminStaffPermissionInput & { id?: string; status: string }>;
+  reason?: string | null;
+};
+
+export type AdminStaffActivityItem = {
+  event_type: string;
+  actor_role?: string | null;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  created_at?: string | null;
+};
+
+export type AdminStaffListResponse = {
+  items: AdminStaffSummary[];
+  next_cursor?: string | null;
+  disclaimer: string;
+};
+
+export type AdminStaffDetailResponse = {
+  staff: AdminStaffDetail;
+  disclaimer: string;
+};
+
+export type AdminStaffActivityResponse = {
+  items: AdminStaffActivityItem[];
+  next_cursor?: string | null;
   disclaimer: string;
 };
 

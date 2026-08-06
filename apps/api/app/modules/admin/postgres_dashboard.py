@@ -6,17 +6,6 @@ from typing import Any
 class PostgresAdminDashboardMixin:
     def dashboard(self) -> dict[str, Any]:
         with self._connect() as conn:  # type: ignore[attr-defined]
-            clients_total = conn.execute("select count(*) as c from users where role = 'remitter'").fetchone()["c"]
-            clients_with_phone = conn.execute("select count(*) as c from users where role = 'remitter' and phone is not null and phone <> ''").fetchone()["c"]
-            recent_contacts = conn.execute(
-                """
-                select id, first_name, username, phone, updated_at
-                from users
-                where role = 'remitter' and phone is not null and phone <> ''
-                order by updated_at desc
-                limit 5
-                """
-            ).fetchall()
             pending_businesses = conn.execute("select count(*) as c from businesses where verification_status = 'pending'").fetchone()["c"]
             pending_business_intakes = conn.execute("select count(*) as c from business_intake_requests where status = 'submitted'").fetchone()["c"]
             pending_credit_purchases = conn.execute("select count(*) as c from credit_purchases where status = 'pending_manual_review'").fetchone()["c"]
@@ -35,20 +24,6 @@ class PostgresAdminDashboardMixin:
             "orders": {"active_count": active_orders, "disputed_count": disputed_orders, "delivered_waiting_close_count": delivered_orders},
             "credits": {"manual_review_count": pending_credit_purchases},
             "risk": {"businesses_under_review": under_review},
-            "users": {
-                "clients_total": clients_total,
-                "client_profiles_with_phone": clients_with_phone,
-                "recent_client_contacts": [
-                    {
-                        "id": str(row["id"]),
-                        "first_name": row["first_name"],
-                        "username": row["username"],
-                        "phone": row["phone"],
-                        "updated_at": row["updated_at"].isoformat(),
-                    }
-                    for row in recent_contacts
-                ],
-            },
         }
 
     def metrics(self) -> dict[str, Any]:

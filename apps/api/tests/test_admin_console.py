@@ -247,7 +247,7 @@ class _AdminReadModelRepository:
 
     def dashboard(self) -> dict:
         self.dashboard_calls += 1
-        return {"queues": {"open_disputes": self.dashboard_calls}, "users": {"client_profiles_with_phone": 0}}
+        return {"queues": {"open_disputes": self.dashboard_calls}}
 
     def metrics(self) -> dict:
         self.metrics_calls += 1
@@ -448,8 +448,9 @@ def test_admin_dashboard_metrics_and_read_rbac_are_masked() -> None:
 
     assert dashboard.status_code == 200, dashboard.text
     assert dashboard.json()["data"]["queues"]["open_disputes"] == 1
-    assert dashboard.json()["data"]["users"]["client_profiles_with_phone"] == 1
-    assert dashboard.json()["data"]["users"]["recent_client_contacts"][0]["phone"] == "+58 414 000 1111"
+    assert dashboard.headers["Cache-Control"] == "private, no-store"
+    assert "users" not in dashboard.json()["data"]
+    assert "+58 414 000 1111" not in dashboard.text
     assert support_metrics.status_code == 200, support_metrics.text
     assert support_metrics.json()["data"]["source"] == "read_model"
     assert support_metrics.json()["data"]["table_created"] is False
@@ -462,6 +463,29 @@ def test_admin_dashboard_metrics_and_read_rbac_are_masked() -> None:
     assert "account_value" not in combined
     assert "owner@example.com" not in combined
     assert {"admin_viewed_dashboard", "admin_viewed_metrics"}.issubset(set(_event_types(client)))
+
+
+def test_admin_dashboard_is_private_and_omits_client_contact_details_for_read_roles() -> None:
+    client = _client()
+    contact = _login(client, 1901, "dashboard_contact")
+    admin = _login(client, 1902, "dashboard_admin")
+    support = _login(client, 1903, "dashboard_support")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    client.app.state.user_repository.set_user_role(support["user"]["id"], "support")
+    profile = client.post(
+        "/api/v1/users/me/profile",
+        headers={**_bearer(contact, "req_dashboard_contact_profile"), "Content-Type": "application/json"},
+        json={"first_name": "Contacto Privado", "phone": "+58 414 555 0199"},
+    )
+    assert profile.status_code == 200, profile.text
+
+    for reader, request_id in ((admin, "req_private_admin_dashboard"), (support, "req_private_support_dashboard")):
+        response = client.get("/api/v1/admin/dashboard", headers=_bearer(reader, request_id))
+
+        assert response.status_code == 200, response.text
+        assert response.headers["Cache-Control"] == "private, no-store"
+        assert "users" not in response.json()["data"]
+        assert "+58 414 555 0199" not in response.text
 
 
 def test_admin_incident_console_summarizes_operational_signals_without_sensitive_values() -> None:

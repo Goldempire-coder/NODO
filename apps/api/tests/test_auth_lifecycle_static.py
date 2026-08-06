@@ -721,7 +721,7 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert "selectAdPaymentType" in ads_screen
     assert "selectAdPaymentType" in payment_methods_model
     assert "Agrega una wallet USDT para publicar USDT -> Bs." in ads_screen
-    assert "Recibiras {previewAmount} USD y entregaras aprox. Bs." in ads_screen
+    assert "Recibiras {previewAmount} <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /> y entregaras aprox. Bs." in ads_screen
     assert "Zelle y wallets USDT" in ads_screen
     assert "Si dejas Zelle o wallet vacio" in ads_screen
     assert "Metodos de cobro" not in ads_screen

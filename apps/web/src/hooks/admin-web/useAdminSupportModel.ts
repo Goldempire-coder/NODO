@@ -12,6 +12,7 @@ import {
   adminSendSupportMessage,
   adminSupportAttachmentViewUrl
 } from "../../api/support";
+import type { AdminStaffSummary } from "../../types/admin";
 import type { SupportMessage, SupportTicket } from "../../types/support";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
@@ -25,15 +26,6 @@ type SupportAttachmentLink = {
 const ACTIVE_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["open", "waiting_support", "waiting_user", "escalated"]);
 const ARCHIVED_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["resolved", "closed"]);
 const ASSIGNABLE_STAFF_ROLES = new Set(["support_agent", "support_lead", "admin", "super_admin"]);
-
-type SupportAssignee = {
-  id: string;
-  user_id: string;
-  display_name?: string | null;
-  username?: string | null;
-  staff_role: string;
-  status: string;
-};
 
 function supportTicketsQuery(filter: string): string {
   const normalized = filter.trim().toLowerCase();
@@ -128,7 +120,7 @@ export function useAdminSupportModel({
   const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<string, string>>({});
   const [supportAttachmentLink, setSupportAttachmentLink] = useState<SupportAttachmentLink | null>(null);
   const [sendingSupportReply, setSendingSupportReply] = useState(false);
-  const [supportAssignees, setSupportAssignees] = useState<SupportAssignee[]>([]);
+  const [supportAssignees, setSupportAssignees] = useState<AdminStaffSummary[]>([]);
   const [supportAssigneesLoaded, setSupportAssigneesLoaded] = useState(false);
   const [supportAssigneesLoading, setSupportAssigneesLoading] = useState(false);
   const [supportAssigneesTruncated, setSupportAssigneesTruncated] = useState(false);
@@ -236,14 +228,12 @@ export function useAdminSupportModel({
     supportAssigneesLoadingRef.current = true;
     setSupportAssigneesLoading(true);
     try {
-      const response = await listAdminStaff<{
-        data: { items: SupportAssignee[]; next_cursor?: string | null };
-      }>(request, { status: "active", limit: 50 });
-      const candidates = response.data.items.filter(
+      const response = await listAdminStaff(request, { status: "active", limit: 50 });
+      const candidates = response.items.filter(
         (item) => item.status === "active" && ASSIGNABLE_STAFF_ROLES.has(item.staff_role)
       );
       setSupportAssignees(candidates);
-      setSupportAssigneesTruncated(Boolean(response.data.next_cursor));
+      setSupportAssigneesTruncated(Boolean(response.next_cursor));
       setSupportAssigneesLoaded(true);
       setNotice(
         candidates.length > 0

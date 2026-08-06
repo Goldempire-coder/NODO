@@ -2,8 +2,24 @@ import { humanizeAdStatus } from "../../../hooks/business-mini-app/helpers";
 import type { AdSummary } from "../../../types/ads";
 import type { BusinessPaymentMethod } from "../../../types/business";
 
-export function displayUsdRange(ad: AdSummary) {
-  return `${ad.amount_min_usd} - ${ad.amount_max_usd} USD`;
+const AD_AMOUNT_PRESENTATION = {
+  zelle: { currencyLabel: "USD", currencyTone: "usd" },
+  usdt_trc20: { currencyLabel: "USDT", currencyTone: "usdt" }
+} as const;
+
+export type BusinessAdCurrencyPresentation = (typeof AD_AMOUNT_PRESENTATION)[keyof typeof AD_AMOUNT_PRESENTATION];
+
+export function adAmountCurrencyPresentation(methodType: string | null | undefined) {
+  return methodType === "usdt_trc20" ? AD_AMOUNT_PRESENTATION.usdt_trc20 : AD_AMOUNT_PRESENTATION.zelle;
+}
+
+export function adAmountPresentation(ad: AdSummary) {
+  const methodType = ad.payment_method_details?.method_type || ad.payment_method;
+  const currency = adAmountCurrencyPresentation(methodType);
+  return {
+    rangeText: `${ad.amount_min_usd} - ${ad.amount_max_usd}`,
+    ...currency
+  };
 }
 
 export function displayRate(ad: AdSummary) {

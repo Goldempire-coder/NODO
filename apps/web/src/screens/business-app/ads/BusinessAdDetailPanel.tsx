@@ -3,7 +3,9 @@ import { useState } from "react";
 import type { BusinessMiniAppModel } from "../../../hooks/useBusinessMiniAppModel";
 import { sanitizeDecimalInput } from "../../../lib/numericInput";
 import type { AdSummary } from "../../../types/ads";
-import { canDeleteAd, canRepublishAd, displayAdDate, displayRate, displayUsdRange, humanizeAdStatus, paymentMethodCanReceive, paymentMethodDisplayName, paymentMethodLabel } from "./businessAdViewHelpers";
+import { BusinessAdAmount } from "./BusinessAdAmount";
+import { BusinessAdCurrencyLabel } from "./BusinessAdCurrencyLabel";
+import { adAmountCurrencyPresentation, adAmountPresentation, canDeleteAd, canRepublishAd, displayAdDate, displayRate, humanizeAdStatus, paymentMethodCanReceive, paymentMethodDisplayName, paymentMethodLabel } from "./businessAdViewHelpers";
 
 export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: BusinessMiniAppModel }) {
   const {
@@ -32,6 +34,11 @@ export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: Bus
   const activePaymentMethods = paymentMethods.filter((method) => method.is_available);
   const selectedEditPaymentMethodIsActive = activePaymentMethods.some((method) => method.id === adEditForm.payment_method_id);
   const editPaymentMethodValue = selectedEditPaymentMethodIsActive ? adEditForm.payment_method_id : "";
+  const selectedEditPaymentMethod = activePaymentMethods.find((method) => method.id === editPaymentMethodValue);
+  const currencyPresentation = adAmountPresentation(ad);
+  const editCurrencyPresentation = adAmountCurrencyPresentation(
+    selectedEditPaymentMethod?.receive_method || ad.payment_method_details?.method_type || ad.payment_method
+  );
   const canSaveEdit = Boolean(selectedEditPaymentMethodIsActive && adEditForm.rate_bs_per_usd && adEditForm.amount_min_usd && adEditForm.amount_max_usd);
   const isDeleting = deletingAdId === ad.id;
   const isPausing = pausingAdId === ad.id;
@@ -45,7 +52,7 @@ export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: Bus
       <div className="business-ad-detail__header">
         <div>
           <Text className="business-card__label">Anuncio abierto</Text>
-          <Title level="3" className="business-shell__title">{displayUsdRange(ad)}</Title>
+          <Title level="3" className="business-shell__title"><BusinessAdAmount ad={ad} /></Title>
         </div>
         <button className="icon-button" type="button" aria-label="Cerrar detalle" onClick={closeAdDetail}>
           x
@@ -59,7 +66,7 @@ export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: Bus
         </div>
         <div>
           <span>Tasa</span>
-          <strong>{displayRate(ad)}</strong>
+          <strong>{displayRate(ad)} / <BusinessAdCurrencyLabel presentation={currencyPresentation} /></strong>
         </div>
         <div>
           <span>Metodo</span>
@@ -116,16 +123,16 @@ export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: Bus
             Agregar metodo
           </Button>
           <label className="business-field">
-            <span>Tasa Bs/USD</span>
+            <span>Tasa Bs/<BusinessAdCurrencyLabel presentation={editCurrencyPresentation} /></span>
             <input value={adEditForm.rate_bs_per_usd} onChange={(event) => setAdEditForm((current) => ({ ...current, rate_bs_per_usd: sanitizeDecimalInput(event.target.value, { maxDecimals: 4, maxIntegerDigits: 5 }) }))} inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" />
           </label>
           <div className="business-grid">
             <label className="business-field">
-              <span>Min USD</span>
+              <span>Min <BusinessAdCurrencyLabel presentation={editCurrencyPresentation} /></span>
               <input value={adEditForm.amount_min_usd} onChange={(event) => setAdEditForm((current) => ({ ...current, amount_min_usd: sanitizeDecimalInput(event.target.value, { maxDecimals: 2, maxIntegerDigits: 6 }) }))} inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" />
             </label>
             <label className="business-field">
-              <span>Max USD</span>
+              <span>Max <BusinessAdCurrencyLabel presentation={editCurrencyPresentation} /></span>
               <input value={adEditForm.amount_max_usd} onChange={(event) => setAdEditForm((current) => ({ ...current, amount_max_usd: sanitizeDecimalInput(event.target.value, { maxDecimals: 2, maxIntegerDigits: 6 }) }))} inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" />
             </label>
           </div>

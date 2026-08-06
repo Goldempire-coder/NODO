@@ -1,7 +1,9 @@
 import { Button } from "@telegram-apps/telegram-ui";
 import type { AdSummary } from "../../../types/ads";
 import type { BusinessPaymentMethod } from "../../../types/business";
-import { canDeleteAd, canRepublishAd, displayRate, displayUsdRange, humanizeAdStatus, paymentMethodCanReceive, paymentMethodLabel } from "./businessAdViewHelpers";
+import { BusinessAdAmount } from "./BusinessAdAmount";
+import { BusinessAdCurrencyLabel } from "./BusinessAdCurrencyLabel";
+import { adAmountPresentation, canDeleteAd, canRepublishAd, displayRate, humanizeAdStatus, paymentMethodCanReceive, paymentMethodLabel } from "./businessAdViewHelpers";
 
 export function BusinessAdCard({
   ad,
@@ -35,12 +37,13 @@ export function BusinessAdCard({
   const status = ad.effective_status || ad.status;
   const republishable = canRepublishAd(ad);
   const canReactivate = status === "paused" && paymentMethodCanReceive(ad, paymentMethods);
+  const currencyPresentation = adAmountPresentation(ad);
   return (
     <article className={isSelected ? "business-ad-card is-selected" : "business-ad-card"}>
       <div className="business-ad-card__main">
         <span className={`business-status-chip business-status-chip--${status}`}>{humanizeAdStatus(status)}</span>
-        <strong>{displayUsdRange(ad)}</strong>
-        <span>{displayRate(ad)} / USD</span>
+        <strong><BusinessAdAmount ad={ad} /></strong>
+        <span>{displayRate(ad)} / <BusinessAdCurrencyLabel presentation={currencyPresentation} /></span>
         <small>{paymentMethodLabel(ad, paymentMethods)}</small>
       </div>
       <div className="business-ad-card__actions">

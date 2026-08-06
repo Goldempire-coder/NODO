@@ -18,10 +18,6 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
         self._audit = audit_writer
 
     def dashboard(self) -> dict[str, Any]:
-        users = list(getattr(self._users, "_users_by_id", {}).values())
-        remitters = [item for item in users if item.role == "remitter"]
-        contact_profiles = [item for item in remitters if item.phone]
-        contact_profiles.sort(key=lambda item: item.updated_at, reverse=True)
         businesses = list(getattr(self._businesses, "businesses", {}).values())
         orders = list(getattr(self._orders, "orders", {}).values())
         disputes = list(getattr(self._disputes, "disputes", {}).values())
@@ -41,20 +37,6 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
             },
             "credits": {"manual_review_count": sum(1 for item in purchases if item.status == "pending_manual_review")},
             "risk": {"businesses_under_review": sum(1 for item in businesses if item.risk_level == "under_review")},
-            "users": {
-                "clients_total": len(remitters),
-                "client_profiles_with_phone": len(contact_profiles),
-                "recent_client_contacts": [
-                    {
-                        "id": item.id,
-                        "first_name": item.first_name,
-                        "username": item.username,
-                        "phone": item.phone,
-                        "updated_at": item.updated_at.isoformat(),
-                    }
-                    for item in contact_profiles[:5]
-                ],
-            },
         }
 
     def metrics(self) -> dict[str, Any]:

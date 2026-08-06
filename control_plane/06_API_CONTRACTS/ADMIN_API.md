@@ -330,7 +330,10 @@ Rules:
 - Read model only.
 - No fake metrics.
 - Audit `admin_viewed_dashboard`.
-- No sensitive exports.
+- Respuesta `Cache-Control: private, no-store`.
+- El payload es allowlist operativa: no incluye usuarios, contactos recientes,
+  telefonos, tokens, datos bancarios, wallets, signed URLs ni `storage_path`.
+- Support recibe la misma proyeccion no sensible cuando RBAC permite lectura.
 
 ### GET /api/v1/admin/businesses
 

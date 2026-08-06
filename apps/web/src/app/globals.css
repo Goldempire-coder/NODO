@@ -1338,6 +1338,18 @@ div.ad-row {
   overflow-wrap: anywhere;
 }
 
+.business-ad-currency {
+  white-space: nowrap;
+}
+
+.business-ad-currency.business-ad-currency--usd {
+  color: var(--nodo-success);
+}
+
+.business-ad-currency.business-ad-currency--usdt {
+  color: var(--nodo-text);
+}
+
 .business-ad-card__main span,
 .business-ad-card__main small,
 .business-ad-detail__grid span {

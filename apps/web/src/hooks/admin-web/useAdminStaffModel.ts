@@ -9,34 +9,9 @@ import {
   updateAdminStaffPermissions,
   updateAdminStaffStatus
 } from "../../api/admin";
+import type { AdminStaffActivityItem, AdminStaffDetail, AdminStaffPermissionInput, AdminStaffSummary } from "../../types/admin";
 import type { RequestFn } from "./adminWebTypes";
 import { idempotencyKey } from "./helpers";
-
-export type StaffPermissionInput = { permission: string; scope: string; scope_value?: string | null };
-export type StaffSummary = {
-  id: string;
-  user_id: string;
-  display_name?: string | null;
-  username?: string | null;
-  staff_role: string;
-  status: string;
-  permission_count: number;
-  last_activity_at?: string | null;
-  created_at?: string | null;
-};
-export type StaffDetail = StaffSummary & {
-  user_status?: string | null;
-  base_role?: string | null;
-  permissions: Array<StaffPermissionInput & { id?: string; status: string }>;
-  reason?: string | null;
-};
-export type StaffActivityItem = {
-  event_type: string;
-  actor_role?: string | null;
-  resource_type?: string | null;
-  resource_id?: string | null;
-  created_at?: string | null;
-};
 
 export function useAdminStaffModel({
   request,
@@ -55,9 +30,9 @@ export function useAdminStaffModel({
   reason: string;
   setReason: (value: string) => void;
 }) {
-  const [staff, setStaff] = useState<StaffSummary[]>([]);
-  const [selectedStaff, setSelectedStaff] = useState<StaffDetail | null>(null);
-  const [staffActivity, setStaffActivity] = useState<StaffActivityItem[]>([]);
+  const [staff, setStaff] = useState<AdminStaffSummary[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<AdminStaffDetail | null>(null);
+  const [staffActivity, setStaffActivity] = useState<AdminStaffActivityItem[]>([]);
   const [staffFilters, setStaffFilters] = useState({ status: "", staff_role: "", q: "" });
   const [staffInvite, setStaffInvite] = useState({
     target_user_id: "",
@@ -74,8 +49,8 @@ export function useAdminStaffModel({
     async (status = staffFilters.status) => {
       setBusy(true);
       try {
-        const response = await listAdminStaff<{ data: { items: StaffSummary[] } }>(request, { ...staffFilters, status });
-        setStaff(response.data.items);
+        const response = await listAdminStaff(request, { ...staffFilters, status });
+        setStaff(response.items);
         setView("staff");
         setNotice("Staff interno cargado. Mutaciones siguen limitadas a super_admin.");
       } finally {
@@ -89,10 +64,10 @@ export function useAdminStaffModel({
     async (staffId: string) => {
       setBusy(true);
       try {
-        const response = await getAdminStaff<{ data: { staff: StaffDetail } }>(request, staffId);
-        setSelectedStaff(response.data.staff);
-        const activity = await listAdminStaffActivity<{ data: { items: StaffActivityItem[] } }>(request, staffId);
-        setStaffActivity(activity.data.items);
+        const response = await getAdminStaff(request, staffId);
+        setSelectedStaff(response.staff);
+        const activity = await listAdminStaffActivity(request, staffId);
+        setStaffActivity(activity.items);
         setView("staff-detail");
         setNotice("Detalle staff con permisos y actividad limitada.");
       } finally {
@@ -149,7 +124,7 @@ export function useAdminStaffModel({
   );
 
   const replaceStaffPermissions = useCallback(
-    (staffId: string, permissions: StaffPermissionInput[]) => {
+    (staffId: string, permissions: AdminStaffPermissionInput[]) => {
       queueCriticalAction(
         "Actualizar permisos staff",
         "Reemplaza permisos activos por una matriz granular. No concede acciones criticas prohibidas.",

@@ -1,3 +1,4 @@
+import type { AdminStaffActivityResponse, AdminStaffDetailResponse, AdminStaffListResponse } from "../types/admin";
 import type { AuthenticatedRequest } from "./client";
 
 function listParams(limit = 20, key?: string, value?: string) {
@@ -379,7 +380,7 @@ export function dryRunExpireAndEscalateOrders<T>(request: AuthenticatedRequest, 
   });
 }
 
-export function listAdminStaff<T>(request: AuthenticatedRequest, filters: { status?: string; staff_role?: string; q?: string; cursor?: string; limit?: number }) {
+export function listAdminStaff(request: AuthenticatedRequest, filters: { status?: string; staff_role?: string; q?: string; cursor?: string; limit?: number }) {
   const { limit = 20, ...query } = filters;
   const params = new URLSearchParams({ limit: String(limit) });
   Object.entries(query).forEach(([key, value]) => {
@@ -387,11 +388,11 @@ export function listAdminStaff<T>(request: AuthenticatedRequest, filters: { stat
       params.set(key, value);
     }
   });
-  return request<T>(`/api/v1/admin/staff?${params.toString()}`);
+  return request<AdminStaffListResponse>(`/api/v1/admin/staff?${params.toString()}`);
 }
 
-export function getAdminStaff<T>(request: AuthenticatedRequest, staffId: string) {
-  return request<T>(`/api/v1/admin/staff/${staffId}`);
+export function getAdminStaff(request: AuthenticatedRequest, staffId: string) {
+  return request<AdminStaffDetailResponse>(`/api/v1/admin/staff/${staffId}`);
 }
 
 export function createAdminStaffInvite<T>(
@@ -445,8 +446,8 @@ export function updateAdminStaffPermissions<T>(
   });
 }
 
-export function listAdminStaffActivity<T>(request: AuthenticatedRequest, staffId: string) {
-  return request<T>(`/api/v1/admin/staff/${staffId}/activity?limit=20`);
+export function listAdminStaffActivity(request: AuthenticatedRequest, staffId: string) {
+  return request<AdminStaffActivityResponse>(`/api/v1/admin/staff/${staffId}/activity?limit=20`);
 }
 
 export function listAdminNotifications<T>(request: AuthenticatedRequest, status = "unread") {

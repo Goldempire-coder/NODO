@@ -72,7 +72,8 @@ def _investigation_candidates_service(request: Request) -> AdminInvestigationCan
 
 
 @router.get("/dashboard")
-def dashboard(request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
+def dashboard(request: Request, response: Response, user: UserRecord = Depends(require_current_user)) -> dict:
+    response.headers["Cache-Control"] = "private, no-store"
     return {"data": _service(request).dashboard(user=user, request_id=_request_id(request)), "request_id": _request_id(request)}
 
 

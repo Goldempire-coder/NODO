@@ -3,8 +3,9 @@ import { useState } from "react";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 import { sanitizeDecimalInput } from "../../lib/numericInput";
 import { BusinessAdCard } from "./ads/BusinessAdCard";
+import { BusinessAdCurrencyLabel } from "./ads/BusinessAdCurrencyLabel";
 import { BusinessAdDetailPanel } from "./ads/BusinessAdDetailPanel";
-import { paymentMethodCanReceive } from "./ads/businessAdViewHelpers";
+import { adAmountCurrencyPresentation, paymentMethodCanReceive } from "./ads/businessAdViewHelpers";
 
 function paymentMethodName(methodType: "zelle" | "usdt_trc20") {
   return methodType === "usdt_trc20" ? "USDT" : "Zelle";
@@ -23,6 +24,7 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
   const isSaving = savingAdId === "new";
   const selectedRouteName = adRouteName(adForm.payment_method);
   const selectedMethodName = paymentMethodName(adForm.payment_method);
+  const selectedCurrencyPresentation = adAmountCurrencyPresentation(adForm.payment_method);
   const methodFieldLabel = adForm.payment_method === "usdt_trc20" ? "Wallet USDT donde recibes" : "Zelle donde recibes";
   const methodEmptyCopy = adForm.payment_method === "usdt_trc20"
     ? "Agrega una wallet USDT para publicar USDT -> Bs."
@@ -32,7 +34,7 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
     <div className="business-card">
       <Text className="business-card__label">Nuevo anuncio</Text>
       <Title level="3" className="business-shell__title">Publicar anuncio</Title>
-      <Text className="auth-entry__session-meta">Rango autorizado: {business?.min_order_amount_usd || "20.00"} - {business?.max_order_amount_usd || "100.00"} USD</Text>
+      <Text className="auth-entry__session-meta">Rango autorizado: {business?.min_order_amount_usd || "20.00"} - {business?.max_order_amount_usd || "100.00"} <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /></Text>
       <div className="business-shell__tabs business-shell__tabs--two">
         <Button mode={adForm.payment_method === "zelle" ? "filled" : "outline"} size="s" disabled={isSaving} onClick={() => selectAdPaymentType("zelle")}>
           Zelle - Bs
@@ -66,28 +68,28 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
           <Text>Recibes: {selectedMethod.receive_display}</Text>
           {selectedMethod.network ? <Text>Red: {selectedMethod.network}</Text> : null}
           <Text>Entregas: {selectedMethod.delivery_display} {selectedMethod.delivery_currency}</Text>
-          <Text>Limites: {selectedMethod.limits.min_amount_usd} - {selectedMethod.limits.max_amount_usd} USD</Text>
+          <Text>Limites: {selectedMethod.limits.min_amount_usd} - {selectedMethod.limits.max_amount_usd} <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /></Text>
           <Text>{selectedMethod.receive_method === "usdt_trc20" ? "Wallet" : "Zelle"}: {selectedMethod.masked_account || "enmascarado"}</Text>
         </div>
       ) : null}
       <label className="business-field">
-        <span>Tasa Bs/USD</span>
+        <span>Tasa Bs/<BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /></span>
         <input value={adForm.rate_bs_per_usd} onChange={(event) => setAdForm((current) => ({ ...current, rate_bs_per_usd: sanitizeDecimalInput(event.target.value, { maxDecimals: 4, maxIntegerDigits: 5 }) }))} inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" />
       </label>
       <div className="business-grid">
         <label className="business-field">
-          <span>Min USD</span>
+          <span>Min <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /></span>
           <input value={adForm.amount_min_usd} onChange={(event) => setAdForm((current) => ({ ...current, amount_min_usd: sanitizeDecimalInput(event.target.value, { maxDecimals: 2, maxIntegerDigits: 6 }) }))} inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" />
         </label>
         <label className="business-field">
-          <span>Max USD</span>
+          <span>Max <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /></span>
           <input value={adForm.amount_max_usd} onChange={(event) => setAdForm((current) => ({ ...current, amount_max_usd: sanitizeDecimalInput(event.target.value, { maxDecimals: 2, maxIntegerDigits: 6 }) }))} inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" />
         </label>
       </div>
       {selectedMethod && previewAmount && adForm.rate_bs_per_usd ? (
         <div className="payment-instruction-box">
           <span>Resumen {selectedRouteName}</span>
-          <strong>Recibiras {previewAmount} USD y entregaras aprox. Bs. {previewBs.toFixed(2)}</strong>
+          <strong>Recibiras {previewAmount} <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /> y entregaras aprox. Bs. {previewBs.toFixed(2)}</strong>
         </div>
       ) : null}
       <Button mode="filled" stretched disabled={isSaving || !adForm.payment_method_id || !adForm.rate_bs_per_usd} onClick={() => void createAd()}>
