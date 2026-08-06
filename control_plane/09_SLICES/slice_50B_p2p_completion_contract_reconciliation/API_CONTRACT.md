@@ -23,7 +23,7 @@ Request:
 {
   "bank": "allowlisted bank code or normalized label",
   "phone": "0414 1234567",
-  "document": "V12345678",
+  "document": "12345678",
   "holder": "Receiver name"
 }
 ```
@@ -39,7 +39,7 @@ Response 200:
     "receiver_details_masked": {
       "bank": "Banco",
       "phone": "*******567",
-      "document": "V***678",
+      "document": "***678",
       "holder": "N*** R***"
     }
   },
@@ -60,8 +60,11 @@ Rules:
   - persistence keeps the participant's normalized presentation and PostgreSQL
     validates the same allowlist; clients are not forced to rewrite local input
     with a `+58` prefix;
-  - `document`: uppercase `V|E|J|G|P` plus 6..10 digits after removing allowed
-    presentation separators;
+  - `document`: 6..10 digits with an optional `V|E|J|G|P` prefix after removing
+    spaces, periods and hyphens used as presentation separators; a supplied
+    prefix is normalized to uppercase;
+  - the backend never invents `V`: `12345678` remains `12345678`, while
+    `V-12345678` becomes `V12345678`;
   - `holder`: normalized whitespace, 2..120 characters, no control markup.
 - The backend owns the order binding. The request cannot supply `order_id`,
   actor, visibility, status or recipient.
@@ -127,7 +130,7 @@ Response fields:
     "order_id": "uuid",
     "bank": "Banco",
     "phone": "0414 1234567",
-    "document": "V12345678",
+    "document": "12345678",
     "holder": "Receiver name",
     "shared_at": "timestamp"
   },

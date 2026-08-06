@@ -24,6 +24,11 @@
   parsed into receiver details.
 - After explicit reveal, the business can copy phone, document, bank or the
   complete structured set locally.
+- Documents with 6..10 digits are accepted without requiring or inventing `V`.
+- Optional `V|E|J|G|P` prefixes remain accepted, normalize to uppercase and
+  preserve their meaning; numeric documents mask as `***NNN`.
+- Local Venezuelan phone and equivalent `+58` formats remain accepted without
+  changing their persisted presentation.
 - Business cannot mark delivered from `payment_confirmed` until structured
   receiver details exist for that same order.
 - Payload replay is idempotent; changed payload with same key conflicts.

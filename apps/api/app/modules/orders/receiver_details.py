@@ -38,7 +38,7 @@ PHONE_SEPARATORS_PATTERN = re.compile(r"[()\-\s]")
 VENEZUELAN_MOBILE_PATTERN = re.compile(
     r"^(?:0(?:412|414|416|424|426)\d{7}|\+58(?:412|414|416|424|426)\d{7})$"
 )
-DOCUMENT_PATTERN = re.compile(r"^[VEJGP]\d{6,10}$")
+DOCUMENT_PATTERN = re.compile(r"^(?:[VEJGP])?\d{6,10}$")
 UNSAFE_HOLDER_PATTERN = re.compile(r"[<>\x00-\x1f\x7f]")
 
 
@@ -84,10 +84,11 @@ def receiver_payload_hash(payload: dict[str, str]) -> str:
 def masked_receiver_details(record: OrderReceiverDetailsRecord) -> dict[str, Any]:
     holder_masked = " ".join(f"{part[0]}***" for part in record.holder.split() if part)
     phone_digits = "".join(character for character in record.phone if character.isdigit())
+    document_prefix = record.document[0] if record.document[0] in "VEJGP" else ""
     return {
         "bank": PAGO_MOVIL_BANKS[record.bank_code],
         "phone": f"*******{phone_digits[-3:]}",
-        "document": f"{record.document[0]}***{record.document[-3:]}",
+        "document": f"{document_prefix}***{record.document[-3:]}",
         "holder": holder_masked,
     }
 

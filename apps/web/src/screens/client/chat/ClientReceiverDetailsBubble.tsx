@@ -60,7 +60,7 @@ export function ClientReceiverDetailsBubble({
               </label>
               <label>
                 Cedula
-                <input type="text" autoCapitalize="characters" placeholder="V12345678" required value={form.document} onChange={(event) => setForm({ ...form, document: event.target.value })} />
+                <input type="text" autoCapitalize="characters" placeholder="12345678" required value={form.document} onChange={(event) => setForm({ ...form, document: event.target.value })} />
               </label>
               <label>
                 Titular

@@ -252,7 +252,7 @@ Request:
 {
   "bank": "allowlisted bank code or normalized label",
   "phone": "0414 1234567",
-  "document": "V12345678",
+  "document": "12345678",
   "holder": "Receiver name"
 }
 ```
@@ -270,7 +270,11 @@ Rules:
     numeros extranjeros, otros prefijos y cualquier otro caracter se rechazan;
   - la presentacion normalizada del participante se conserva al persistir; la
     base valida la misma allowlist y no obliga a reescribir el valor como `+58`;
-  - `document`: `V|E|J|G|P` mayuscula seguida por 6..10 digitos;
+  - `document`: 6..10 digitos con prefijo documental opcional
+    `V|E|J|G|P`; espacios, puntos y guiones de presentacion se eliminan y el
+    prefijo provisto se normaliza a mayuscula;
+  - el backend no inventa `V`: `12345678` se persiste como `12345678`, mientras
+    `V-12345678` se persiste como `V12345678`;
   - `holder`: espacios normalizados, 2..120 caracteres, sin markup de control.
 - Campos extra o metadata libre son rechazados.
 - El backend liga el recurso a la orden; el request no puede elegir

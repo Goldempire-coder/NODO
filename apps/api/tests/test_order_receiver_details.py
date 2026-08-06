@@ -174,6 +174,86 @@ def test_receiver_details_validate_payload_and_reject_extra_fields() -> None:
 
 
 @pytest.mark.parametrize(
+    ("document", "expected_document", "expected_mask"),
+    [
+        ("123456", "123456", "***456"),
+        ("12345678", "12345678", "***678"),
+        ("1234567890", "1234567890", "***890"),
+        ("V12345678", "V12345678", "V***678"),
+        ("V-12345678", "V12345678", "V***678"),
+        ("e 12.345.678", "E12345678", "E***678"),
+        ("J12345678", "J12345678", "J***678"),
+        ("G12345678", "G12345678", "G***678"),
+        ("P12345678", "P12345678", "P***678"),
+    ],
+)
+def test_receiver_details_accept_document_with_optional_prefix(
+    document: str,
+    expected_document: str,
+    expected_mask: str,
+) -> None:
+    client = _client()
+    owner, _, _, remitter, order = _seed_reported_order(
+        client,
+        owner_id=5320,
+        remitter_id=5321,
+    )
+    _confirm_payment(client, owner, order["id"], key="receiver_document_confirm")
+
+    shared = _share_receiver_details(
+        client,
+        remitter,
+        order["id"],
+        key="receiver_document_share",
+        payload={**RECEIVER_DETAILS, "document": document},
+    )
+    revealed = client.get(
+        f"/api/v1/orders/{order['id']}/receiver-details",
+        headers=_bearer(remitter, "receiver_document_reveal"),
+    )
+
+    assert shared.status_code == 200, shared.text
+    assert shared.json()["data"]["receiver_details_masked"]["document"] == expected_mask
+    assert revealed.status_code == 200, revealed.text
+    assert revealed.headers["cache-control"] == "private, no-store"
+    assert revealed.json()["data"]["document"] == expected_document
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        "12345",
+        "12345678901",
+        "Q12345678",
+        "V12345",
+        "ABCDE123456",
+        "<12345678>",
+        "12/345678",
+        "12345678; select 1",
+    ],
+)
+def test_receiver_details_reject_unusable_or_unsafe_document_values(document: str) -> None:
+    client = _client()
+    owner, _, _, remitter, order = _seed_reported_order(
+        client,
+        owner_id=5330,
+        remitter_id=5331,
+    )
+    _confirm_payment(client, owner, order["id"], key="receiver_bad_document_confirm")
+
+    response = _share_receiver_details(
+        client,
+        remitter,
+        order["id"],
+        key="receiver_bad_document_share",
+        payload={**RECEIVER_DETAILS, "document": document},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "ORDER_RECEIVER_DETAILS_INVALID"
+
+
+@pytest.mark.parametrize(
     "phone",
     [
         "0412 1234567",
@@ -505,6 +585,8 @@ def test_slice_50b2_frontend_uses_structured_compact_chat_ui_and_copy_controls()
     assert "Compartir Pago Movil" in client_chat
     assert "Pago Movil compartido" in client_chat
     assert "0414 1234567" in client_chat
+    assert 'placeholder="12345678"' in client_chat
+    assert 'placeholder="V12345678"' not in client_chat
     assert 'placeholder="+584121234567"' not in client_chat
     assert 'type="text"' in client_chat
     assert 'type="tel"' in client_chat
@@ -559,6 +641,32 @@ def test_slice_47p01_migration_reconciles_local_phone_formats_without_data_loss(
     assert "0048 rollback preflight failed" in migration_down
     assert "^\\+58[0-9]{10}$" in migration_down
     assert "validate constraint order_receiver_details_phone_check" in migration_down
+
+    combined = f"{migration_up}\n{migration_down}".lower()
+    assert "delete from order_receiver_details" not in combined
+    assert "update order_receiver_details" not in combined
+    assert "drop table" not in combined
+
+
+def test_receiver_document_optional_prefix_migration_is_reversible_without_data_loss() -> None:
+    root = __import__("pathlib").Path(__file__).resolve().parents[3]
+    migration_up = (
+        root
+        / "database/migrations/0049_receiver_details_document_optional_prefix.up.sql"
+    ).read_text(encoding="utf-8")
+    migration_down = (
+        root
+        / "database/migrations/0049_receiver_details_document_optional_prefix.down.sql"
+    ).read_text(encoding="utf-8")
+
+    assert "0049 preflight failed" in migration_up
+    assert "order_receiver_details_document_check" in migration_up
+    assert "^([VEJGP])?[0-9]{6,10}$" in migration_up
+    assert "not valid" in migration_up
+    assert "validate constraint order_receiver_details_document_check" in migration_up
+    assert "0049 rollback preflight failed" in migration_down
+    assert "^[VEJGP][0-9]{6,10}$" in migration_down
+    assert "validate constraint order_receiver_details_document_check" in migration_down
 
     combined = f"{migration_up}\n{migration_down}".lower()
     assert "delete from order_receiver_details" not in combined

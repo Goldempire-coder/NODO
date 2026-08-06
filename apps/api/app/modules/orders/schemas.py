@@ -25,7 +25,7 @@ class ReceiverData(StrictRequestModel):
 class ReceiverDetailsRequest(StrictRequestModel):
     bank: str = Field(min_length=4, max_length=4)
     phone: str = Field(min_length=7, max_length=32)
-    document: str = Field(min_length=7, max_length=16)
+    document: str = Field(min_length=6, max_length=16)
     holder: str = Field(min_length=2, max_length=120)
 
     @field_validator("bank")
