@@ -1,4 +1,9 @@
-import type { AdminStaffActivityResponse, AdminStaffDetailResponse, AdminStaffListResponse } from "../types/admin";
+import type {
+  AdminOrderDisputeOpenResponse,
+  AdminStaffActivityResponse,
+  AdminStaffDetailResponse,
+  AdminStaffListResponse
+} from "../types/admin";
 import type { AuthenticatedRequest } from "./client";
 
 function listParams(limit = 20, key?: string, value?: string) {
@@ -265,6 +270,22 @@ export function listAdminDisputes<T>(request: AuthenticatedRequest, status?: str
 
 export function getAdminDispute<T>(request: AuthenticatedRequest, disputeId: string) {
   return request<T>(`/api/v1/admin/disputes/${disputeId}`);
+}
+
+export function openAdminOrderDispute(
+  request: AuthenticatedRequest,
+  orderId: string,
+  reason: string,
+  idempotencyKey: string
+) {
+  return request<AdminOrderDisputeOpenResponse>(`/api/v1/admin/orders/${orderId}/open-dispute`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ reason })
+  });
 }
 
 export function resolveAdminDispute<T>(request: AuthenticatedRequest, disputeId: string, resolutionType: string, reason: string, idempotencyKey: string) {

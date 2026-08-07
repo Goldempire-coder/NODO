@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
@@ -286,6 +287,116 @@ def _payment_report_payload(method_type: str, *, seed: int) -> dict:
 def _assert_error(response, *, status_code: int, code: str) -> None:  # type: ignore[no-untyped-def]
     assert response.status_code == status_code, response.text
     assert response.json()["error"]["code"] == code
+
+
+def test_postgres_admin_payment_rejected_open_dispute_is_atomic_and_concurrency_safe(
+    postgres_security: SecurityPostgresContext,
+) -> None:
+    admin = _actor(
+        postgres_security,
+        telegram_id=8_000_000_011,
+        username="admin_payment_rejected_investigation",
+        role="admin",
+    )
+    fixture = _business_order_fixture(postgres_security, admin=admin, method_type="zelle")
+    order_id = fixture["order"]["id"]
+    share = postgres_security.client.post(
+        f"/api/v1/orders/{order_id}/share-payment-details",
+        headers=_headers(fixture["owner"], postgres_security.key("admin_open_share")),
+    )
+    assert share.status_code == 201, share.text
+    report = postgres_security.client.post(
+        f"/api/v1/orders/{order_id}/payment-report",
+        headers={
+            **_headers(fixture["remitter"], postgres_security.key("admin_open_report")),
+            "Content-Type": "application/json",
+        },
+        json={"payment_type": "zelle", "payment_amount": "50.00"},
+    )
+    assert report.status_code == 201, report.text
+    rejected = postgres_security.client.post(
+        f"/api/v1/business/orders/{order_id}/reject-payment-report",
+        headers={
+            **_headers(fixture["owner"], postgres_security.key("admin_open_reject")),
+            "Content-Type": "application/json",
+        },
+        json={"reason": "Referencia no coincide"},
+    )
+    assert rejected.status_code == 200, rejected.text
+
+    with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
+        before = conn.execute(
+            """
+            select reservation.status as reservation_status, ad.status as ad_status,
+                   wallet.available_credits, wallet.blocked_credits, wallet.consumed_credits
+            from orders order_row
+            join business_capacity_reservations reservation on reservation.order_id = order_row.id
+            join ads ad on ad.id = order_row.ad_id
+            join credit_wallets wallet on wallet.business_id = order_row.business_id
+            where order_row.id = %s
+            """,
+            (order_id,),
+        ).fetchone()
+
+    request_keys = [postgres_security.key("admin_open_race_a"), postgres_security.key("admin_open_race_b")]
+
+    def open_investigation(key: str):  # type: ignore[no-untyped-def]
+        return postgres_security.client.post(
+            f"/api/v1/admin/orders/{order_id}/open-dispute",
+            headers={**_headers(admin, key), "Content-Type": "application/json"},
+            json={"reason": "Investigacion concurrente de pago rechazado"},
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        responses = list(executor.map(open_investigation, request_keys))
+
+    assert sorted(response.status_code for response in responses) == [201, 409]
+    winner_index = next(index for index, response in enumerate(responses) if response.status_code == 201)
+    loser = next(response for response in responses if response.status_code == 409)
+    assert loser.json()["error"]["code"] == "ORDER_STATUS_INVALID"
+    replay = open_investigation(request_keys[winner_index])
+    assert replay.status_code == 201, replay.text
+    assert replay.json()["data"] == responses[winner_index].json()["data"]
+
+    with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
+        after = conn.execute(
+            """
+            select order_row.status as order_status,
+                   reservation.status as reservation_status, ad.status as ad_status,
+                   wallet.available_credits, wallet.blocked_credits, wallet.consumed_credits
+            from orders order_row
+            join business_capacity_reservations reservation on reservation.order_id = order_row.id
+            join ads ad on ad.id = order_row.ad_id
+            join credit_wallets wallet on wallet.business_id = order_row.business_id
+            where order_row.id = %s
+            """,
+            (order_id,),
+        ).fetchone()
+        counts = conn.execute(
+            """
+            select
+                (select count(*) from disputes where order_id = %s) as disputes,
+                (select count(*) from dispute_events where order_id = %s and event_type = 'dispute_opened') as dispute_events,
+                (select count(*) from order_state_events where order_id = %s and event_type = 'dispute_opened') as order_events,
+                (select count(*) from audit_logs where event_type = 'admin_order_dispute_opened' and metadata_json ->> 'order_id' = %s) as audits,
+                (select count(*) from notification_jobs where order_id = %s and notification_type = 'order_disputed_parties_admin') as notifications
+            """,
+            (order_id, order_id, order_id, order_id, order_id),
+        ).fetchone()
+
+    assert after["order_status"] == "disputed"
+    assert after["reservation_status"] == before["reservation_status"] == "reserved"
+    assert after["ad_status"] == before["ad_status"] == "in_order"
+    assert after["available_credits"] == before["available_credits"]
+    assert after["blocked_credits"] == before["blocked_credits"]
+    assert after["consumed_credits"] == before["consumed_credits"]
+    assert counts == {
+        "disputes": 1,
+        "dispute_events": 1,
+        "order_events": 1,
+        "audits": 1,
+        "notifications": 4,
+    }
 
 
 def test_postgres_official_payment_marker_controls_zelle_and_usdt_reports(

@@ -7,6 +7,26 @@ from app.modules.orders.row_mappers import order_from_row
 
 
 class PostgresOrderQueriesMixin:
+    def list_payment_rejected_admin_cancelled_order_ids(self, order_ids: list[str]) -> set[str]:
+        if not order_ids:
+            return set()
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            rows = conn.execute(
+                """
+                select distinct d.order_id
+                from disputes d
+                join orders o on o.id = d.order_id
+                where d.order_id = any(%s)
+                  and d.previous_order_status = 'payment_rejected'
+                  and d.resolution_type = 'cancelled'
+                  and d.status = 'cancelled'
+                  and o.status = 'cancelled'
+                  and o.cancel_reason = 'admin_cancelled'
+                """,
+                (order_ids,),
+            ).fetchall()
+        return {str(row["order_id"]) for row in rows}
+
     def list_for_remitter(self, *, remitter_user_id: str, status: str | None, cursor: str | None, limit: int) -> tuple[list[OrderRecord], str | None]:
         sql = "select * from orders where remitter_user_id = %s"
         params: list[Any] = [remitter_user_id]

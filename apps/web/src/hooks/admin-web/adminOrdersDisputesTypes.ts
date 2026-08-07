@@ -8,10 +8,16 @@ export type ListResponse<T> = {
   disclaimer?: string;
 };
 
-export type QueueCriticalAction = (title: string, detail: string, run: () => Promise<void>) => void;
+export type QueueCriticalAction = (
+  title: string,
+  detail: string,
+  run: () => Promise<void>,
+  options?: { requiresReason?: boolean }
+) => void;
 
 export type AdminWebOrderDetail = Record<string, unknown> & {
   order?: AdminOrderSummary;
+  dispute?: AdminDisputeSummary;
   disclaimer?: string;
 };
 

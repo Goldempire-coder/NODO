@@ -18,6 +18,10 @@ Mandatory controls:
 - Audit log for sensitive state/data changes.
 - `admin` and `super_admin` can resolve disputes in slice 09.
 - `support` can view disputes according to RBAC, but cannot resolve.
+- Only active `admin` and `super_admin` may open an administrative dispute from
+  `payment_rejected`; support and participants are forbidden on that endpoint.
+- Administrative opening requires reason and idempotency and atomically writes
+  order state, dispute, timeline events and audit `admin_order_dispute_opened`.
 - Admin dispute resolution requires `reason`, `Idempotency-Key`, safe errors and
   audit event `dispute_resolved`.
 - Admin role changes, if implemented, require `super_admin`, reason and audit

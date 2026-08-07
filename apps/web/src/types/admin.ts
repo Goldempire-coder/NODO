@@ -575,6 +575,12 @@ export type AdminDisputeSummary = {
   resolved_at?: string | null;
 };
 
+export type AdminOrderDisputeOpenResponse = {
+  order: AdminOrderSummary;
+  dispute: AdminDisputeSummary;
+  disclaimer?: string;
+};
+
 export type AdminAuditLog = {
   event_type: string;
   actor_role: string | null;

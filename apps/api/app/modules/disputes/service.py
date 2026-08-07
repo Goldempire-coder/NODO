@@ -8,13 +8,14 @@ from app.modules.businesses.access_control import evaluate_business_access
 from app.modules.notifications.order_notifications import NoopOrderNotificationService
 from app.modules.disputes.admin_resolution import AdminDisputeResolutionMixin
 from app.modules.disputes.policy import (
+    require_admin_dispute_open,
     require_admin_dispute_read,
     require_dispute_order_state,
     require_dispute_open_permission,
     require_dispute_reason,
 )
-from app.modules.disputes.presenters import dispute_payload
-from app.modules.disputes.schemas import DisputeCreateRequest
+from app.modules.disputes.presenters import dispute_payload, safe_order_summary
+from app.modules.disputes.schemas import AdminOrderDisputeOpenRequest, DisputeCreateRequest
 from app.modules.disputes.service_constants import DISPUTE_DISCLAIMER
 from app.modules.disputes.utils import require_uuid
 from app.modules.orders.models import OrderRecord
@@ -183,6 +184,48 @@ class DisputeService(AdminDisputeResolutionMixin):
             metadata_json={"order_id": order.id, "previous_order_status": previous_status, "new_order_status": updated_order.status, "reason": payload.reason},
         )
         self._notifications.order_disputed_parties_admin(order=updated_order, dispute_id=dispute.id, request_id=request_id)
+
+    def open_admin_order_dispute(
+        self,
+        *,
+        user: UserRecord,
+        order_id: str,
+        payload: AdminOrderDisputeOpenRequest,
+        request_id: str,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
+        require_admin_dispute_open(user)
+        if not idempotency_key:
+            raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
+        normalized_order_id = require_uuid(order_id, "ORDER_NOT_FOUND")
+        normalized_reason = payload.reason.strip()
+        self._rate_limit("admin_open", user, normalized_order_id)
+        request_payload = {"order_id": normalized_order_id, "reason": normalized_reason}
+
+        def compute() -> dict[str, Any]:
+            updated_order, dispute = self._orders.open_admin_dispute_atomically(
+                order_id=normalized_order_id,
+                actor_user_id=user.id,
+                actor_role=user.role,
+                reason=normalized_reason,
+                request_id=request_id,
+            )
+            self._notifications.order_disputed_parties_admin(
+                order=updated_order,
+                dispute_id=dispute.id,
+                request_id=request_id,
+            )
+            return {
+                "order": safe_order_summary(updated_order),
+                "dispute": dispute_payload(dispute),
+                "disclaimer": DISPUTE_DISCLAIMER,
+            }
+
+        return self._idempotency.replay_or_store(
+            f"disputes:admin_open:{user.id}:{normalized_order_id}:{idempotency_key}",
+            payload=request_payload,
+            compute=compute,
+        )
 
     def list_admin_disputes(self, *, user: UserRecord, status: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         require_admin_dispute_read(user)

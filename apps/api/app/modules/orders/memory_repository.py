@@ -7,6 +7,7 @@ from typing import Any
 
 from app.core.errors import ApiError
 from app.modules.businesses.models import FileAssetRecord
+from app.modules.disputes.models import DisputeRecord
 from app.modules.orders.integrity import AtomicCancellationResult
 from app.modules.orders.memory_receiver_completion import InMemoryOrderReceiverCompletionMixin
 from app.modules.orders.memory_payment_reports import InMemoryOrderPaymentReportsMixin
@@ -340,4 +341,78 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
                     metadata_json={"reason": context.get("reason")},
                 )
             return order
+
+    def open_admin_dispute_atomically(
+        self,
+        *,
+        order_id: str,
+        actor_user_id: str,
+        actor_role: str,
+        reason: str,
+        request_id: str,
+    ) -> tuple[OrderRecord, DisputeRecord]:
+        with self._lock:
+            order = self.orders.get(order_id)
+            if order is None:
+                raise ApiError("ORDER_NOT_FOUND", status_code=404)
+            if order.status != "payment_rejected":
+                raise ApiError("ORDER_STATUS_INVALID", status_code=409)
+            if self._disputes is None or self._audit is None:
+                raise ApiError("DISPUTE_STORAGE_UNAVAILABLE", status_code=503)
+            if self._disputes.get_open_for_order(order.id) is not None:
+                raise ApiError("DISPUTE_ALREADY_OPEN", status_code=409)
+
+            dispute = self._disputes.create_dispute(
+                order_id=order.id,
+                opened_by_user_id=actor_user_id,
+                opened_by_role=actor_role,
+                previous_order_status="payment_rejected",
+                reason="other",
+                description=reason,
+            )
+            order.status = "disputed"
+            order.dispute_reason = "other"
+            order.updated_at = utc_now()
+            metadata = {
+                "dispute_id": dispute.id,
+                "previous_order_status": "payment_rejected",
+                "opened_via": "admin_order_investigation",
+            }
+            self._disputes.add_event(
+                dispute_id=dispute.id,
+                order_id=order.id,
+                actor_user_id=actor_user_id,
+                actor_role=actor_role,
+                event_type="dispute_opened",
+                old_status=None,
+                new_status="open",
+                reason=reason,
+                metadata_json=metadata,
+            )
+            self.add_state_event(
+                order_id=order.id,
+                from_status="payment_rejected",
+                to_status="disputed",
+                event_type="dispute_opened",
+                actor_user_id=actor_user_id,
+                actor_role=actor_role,
+                reason=reason,
+                request_id=request_id,
+                metadata_json=metadata,
+            )
+            self._audit.write(
+                event_type="admin_order_dispute_opened",
+                actor_user_id=actor_user_id,
+                actor_role=actor_role,
+                resource_type="dispute",
+                resource_id=dispute.id,
+                request_id=request_id,
+                metadata_json={
+                    "order_id": order.id,
+                    "previous_order_status": "payment_rejected",
+                    "new_order_status": "disputed",
+                    "reason": reason,
+                },
+            )
+            return order, dispute
 

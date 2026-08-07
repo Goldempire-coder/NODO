@@ -17,6 +17,16 @@ class DisputeCreateRequest(StrictRequestModel):
         return self
 
 
+class AdminOrderDisputeOpenRequest(StrictRequestModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def require_admin_reason(self) -> "AdminOrderDisputeOpenRequest":
+        if not self.reason.strip():
+            raise ValueError("reason required")
+        return self
+
+
 class DisputeResolveRequest(StrictRequestModel):
     resolution_type: str = Field(min_length=1, max_length=40)
     reason: str = Field(min_length=1, max_length=500)

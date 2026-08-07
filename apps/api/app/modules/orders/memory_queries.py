@@ -4,6 +4,23 @@ from app.modules.orders.models import OrderRecord
 
 
 class InMemoryOrderQueriesMixin:
+    def list_payment_rejected_admin_cancelled_order_ids(self, order_ids: list[str]) -> set[str]:
+        if not order_ids or self._disputes is None:  # type: ignore[attr-defined]
+            return set()
+        wanted = set(order_ids)
+        disputes = getattr(self._disputes, "disputes", {})  # type: ignore[attr-defined]
+        return {
+            dispute.order_id
+            for dispute in disputes.values()
+            if dispute.order_id in wanted
+            and dispute.previous_order_status == "payment_rejected"
+            and dispute.resolution_type == "cancelled"
+            and dispute.status == "cancelled"
+            and (order := self.orders.get(dispute.order_id)) is not None  # type: ignore[attr-defined]
+            and order.status == "cancelled"
+            and order.cancel_reason == "admin_cancelled"
+        }
+
     def list_for_remitter(self, *, remitter_user_id: str, status: str | None, cursor: str | None, limit: int) -> tuple[list[OrderRecord], str | None]:
         items = [order for order in self.orders.values() if order.remitter_user_id == remitter_user_id]  # type: ignore[attr-defined]
         return self._order_page(items=items, status=status, cursor=cursor, limit=limit)

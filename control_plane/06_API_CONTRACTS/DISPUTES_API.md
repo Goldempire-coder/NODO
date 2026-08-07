@@ -21,6 +21,7 @@ RBAC:
 - POST /api/v1/orders/{id}/disputes
 - GET /api/v1/admin/disputes
 - GET /api/v1/admin/disputes/{id}
+- POST /api/v1/admin/orders/{id}/open-dispute
 - POST /api/v1/admin/disputes/{id}/resolve
 
 ## Reglas comunes
@@ -203,6 +204,52 @@ Errors:
 - FORBIDDEN
 - RATE_LIMITED
 - UNAUTHENTICATED
+
+## POST /api/v1/admin/orders/{id}/open-dispute
+
+Purpose:
+
+- Open an administrative investigation for an order stuck in
+  `payment_rejected`; final resolution continues through the existing dispute
+  endpoint.
+
+Permissions:
+
+- active `admin` or `super_admin` only.
+- `support`, client and business participants cannot invoke this admin action.
+
+Request controls:
+
+- `Idempotency-Key` required.
+- non-empty `reason` required, maximum 500 characters.
+- order must currently be `payment_rejected`.
+
+Atomic effects:
+
+- creates exactly one `disputes.status = open` record with
+  `previous_order_status = payment_rejected`;
+- persists the structured dispute reason as `other`; the explicit Admin reason
+  remains in the dispute description, timelines and append-only audit;
+- moves `orders.status` to `disputed`;
+- creates `dispute_opened` in dispute and order timelines;
+- appends audit `admin_order_dispute_opened` with actor, reason and request id;
+- does not release or consume capacity, credits or the ad;
+- notifies client and business with generic state copy after the committed
+  transition;
+- does not permit direct cancellation, payment confirmation or evidence
+  resubmission.
+
+Idempotency and concurrency:
+
+- Same key plus same payload returns the stored response without duplicate
+  dispute, events, audit or notifications.
+- Same key plus different payload returns `IDEMPOTENCY_PAYLOAD_MISMATCH`.
+- Concurrent distinct requests compete on the locked order state; exactly one
+  can transition from `payment_rejected`.
+
+Errors include `IDEMPOTENCY_KEY_REQUIRED`, `ORDER_NOT_FOUND`, `FORBIDDEN`,
+`ORDER_STATUS_INVALID`, `DISPUTE_ALREADY_OPEN`,
+`IDEMPOTENCY_PAYLOAD_MISMATCH` and `RATE_LIMITED`.
 
 ## POST /api/v1/admin/disputes/{id}/resolve
 

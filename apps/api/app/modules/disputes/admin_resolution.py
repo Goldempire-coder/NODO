@@ -53,6 +53,12 @@ class AdminDisputeResolutionMixin:
             old_order_status=old_order_status,
             credit_effect=credit_effect,
         )
+        self._notifications.order_dispute_resolution_parties(  # type: ignore[attr-defined]
+            order=updated_order,
+            dispute_id=updated_dispute.id,
+            resolution_type=payload.resolution_type,
+            request_id=request_id,
+        )
         return {
             "dispute": dispute_payload(updated_dispute),
             "order": safe_order_summary(updated_order),

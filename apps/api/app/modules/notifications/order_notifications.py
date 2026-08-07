@@ -285,6 +285,38 @@ class OrderNotificationService:
                 dispute_id=dispute_id,
             )
 
+    def order_dispute_resolution_parties(
+        self,
+        *,
+        order: OrderRecord,
+        dispute_id: str,
+        resolution_type: str,
+        request_id: str,
+    ) -> None:
+        business = self._businesses.get_business(order.business_id)
+        recipients: list[tuple[str, str, str]] = [
+            (order.remitter_user_id, "client_mini_app", self._client_order_url(order.id)),
+        ]
+        if business is not None:
+            recipients.append((business.owner_user_id, "business_mini_app", self._business_order_url(order.id)))
+        for recipient_user_id, target_surface, action_url in recipients:
+            self._enqueue(
+                # Reuse the existing DB-constrained dispute notification family;
+                # metadata distinguishes the final administrative update.
+                notification_type="order_disputed_parties_admin",
+                order=order,
+                recipient_user_id=recipient_user_id,
+                target_surface=target_surface,
+                text=f"La orden {order.public_order_code} fue actualizada por una decision administrativa. Revisa el estado actual en NODO.",
+                action_url=action_url,
+                request_id=request_id,
+                correlation_id=None,
+                operation_id=None,
+                dispute_id=dispute_id,
+                dedupe_suffix=f"resolution:{resolution_type}",
+                metadata_extra={"dispute_update": "resolution"},
+            )
+
     def _enqueue(
         self,
         *,
@@ -299,6 +331,8 @@ class OrderNotificationService:
         operation_id: str | None,
         recipient_role: str | None = None,
         dispute_id: str | None = None,
+        dedupe_suffix: str | None = None,
+        metadata_extra: dict[str, Any] | None = None,
     ) -> None:
         if notification_type not in ORDER_NOTIFICATION_TYPES:
             raise ValueError(f"unsupported order notification type: {notification_type}")
@@ -307,6 +341,8 @@ class OrderNotificationService:
             self._log_enqueue_skipped(notification_type, order, "RECIPIENT_REQUIRED", request_id)
             return
         dedupe_key = f"order:{order.id}:event:{notification_type}:recipient:{logical_recipient}"
+        if dedupe_suffix:
+            dedupe_key = f"{dedupe_key}:{dedupe_suffix}"
         metadata = mask_metadata(
             {
                 "channel": "telegram",
@@ -318,6 +354,7 @@ class OrderNotificationService:
                 "message_text": text,
                 "action_text": "Abrir orden",
                 "action_url": action_url,
+                **(metadata_extra or {}),
                 **_safe_operation_context(
                     request_id=request_id,
                     correlation_id=correlation_id or self._correlation_id,
@@ -438,4 +475,7 @@ class NoopOrderNotificationService:
         return
 
     def order_disputed_parties_admin(self, **_: Any) -> None:
+        return
+
+    def order_dispute_resolution_parties(self, **_: Any) -> None:
         return

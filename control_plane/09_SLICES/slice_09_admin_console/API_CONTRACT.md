@@ -72,6 +72,29 @@ Admin responses must not expose:
 
 Support responses are read-only and masked by default.
 
+## POST /api/v1/admin/orders/{id}/open-dispute
+
+Request:
+
+```json
+{
+  "reason": "Payment report requires administrative investigation"
+}
+```
+
+Rules:
+
+- Active `admin` or `super_admin`; `support` is read-only.
+- `Idempotency-Key` and non-empty `reason` are required.
+- The only source state is `payment_rejected`; the target is `disputed`.
+- The order transition, dispute, timelines and audit
+  `admin_order_dispute_opened` are one database transaction.
+- Capacity stays reserved, credits stay blocked and ad status stays `in_order`.
+- Final resolution must reuse `/api/v1/admin/disputes/{id}/resolve`.
+- Admin Web may orchestrate both endpoints from `Resolver orden`, but it must
+  retain separate stable idempotency keys and expose a partially opened dispute
+  if the second request fails.
+
 ## POST /api/v1/admin/disputes/{id}/resolve
 
 Request:
@@ -104,6 +127,8 @@ Rules:
 - Must create `dispute_events`.
 - Must create audit event `dispute_resolved` for terminal resolutions.
 - `keep_under_review` creates audit event `dispute_marked_in_review`.
+- Client and business receive a generic resolution update without reason,
+  evidence or payment data.
 - Must not move real money or claim NODO holds funds.
 
 Response:

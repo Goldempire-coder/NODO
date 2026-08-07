@@ -10,6 +10,12 @@ state machines.
 
 `POST /api/v1/admin/disputes/{id}/resolve` is active in slice 09.
 
+`POST /api/v1/admin/orders/{id}/open-dispute` adds the only direct Admin action
+from `payment_rejected`: an atomic `payment_rejected -> disputed` transition.
+It creates the dispute and timelines without changing capacity, credits or ad
+state. Direct Admin transitions from `payment_rejected` to `cancelled` or
+`payment_confirmed` are prohibited.
+
 Allowed actors:
 
 - `admin`
@@ -45,6 +51,16 @@ Credit movements must use `credits_ledger`:
 
 NODO does not receive, hold, transfer or guarantee funds. Admin dispute
 resolution only records an operational decision inside NODO.
+
+## Production atomicity gate
+
+Status: `CHANGES_REQUIRED_BEFORE_PRODUCTION`.
+
+A0/A1 makes administrative dispute opening atomic. Terminal dispute resolution
+still coordinates order/capacity, dispute, credit/ad and audit through multiple
+repository commits. It must be reconciled into one durable transaction or an
+equivalent recoverable workflow and pass PostgreSQL failure/concurrency tests
+before production money handling. This gap does not permit broadening A1.
 
 Rules:
 

@@ -233,6 +233,23 @@ def _seed_disputed_order(client: TestClient, *, owner_id: int, remitter_id: int)
     return owner, business, ad, remitter, order, dispute.json()["data"]["dispute"]
 
 
+def _seed_payment_rejected_order(client: TestClient, *, owner_id: int, remitter_id: int) -> tuple[dict, dict, dict, dict, dict]:
+    owner = _login(client, owner_id, f"owner_{owner_id}")
+    business, method_id = _approved_business_with_method(client, owner, credits=2)
+    ad = _create_ad(client, owner, method_id, key=f"ad_rejected_{owner_id}")
+    remitter = _login(client, remitter_id, f"remitter_{remitter_id}")
+    order = _create_order(client, remitter, ad["id"], key=f"order_rejected_{remitter_id}")
+    _report_payment(client, remitter, order, key=f"report_rejected_{remitter_id}")
+    rejected = client.post(
+        f"/api/v1/business/orders/{order['id']}/reject-payment-report",
+        headers={**_headers(owner, f"reject_{order['id']}"), "Content-Type": "application/json"},
+        json={"reason": "Referencia no coincide"},
+    )
+    assert rejected.status_code == 200, rejected.text
+    assert rejected.json()["data"]["order"]["status"] == "payment_rejected"
+    return owner, business, ad, remitter, rejected.json()["data"]["order"]
+
+
 def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
 
@@ -556,9 +573,310 @@ def test_admin_incident_console_summarizes_operational_signals_without_sensitive
     assert "admin_viewed_incident_console" in _event_types(client)
 
 
+def test_admin_opens_investigation_from_payment_rejected_without_releasing_obligations() -> None:
+    client = _client()
+    owner, business, ad, remitter, order = _seed_payment_rejected_order(client, owner_id=900, remitter_id=901)
+    admin = _login(client, 902, "admin_open_investigation")
+    support = _login(client, 903, "support_open_investigation")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    client.app.state.user_repository.set_user_role(support["user"]["id"], "support")
+    reservation_before = client.app.state.capacity_repository.get_reservation(order["id"])
+    wallet_before = client.app.state.ad_repository.get_wallet(business["id"])
+
+    for actor, key in (
+        (owner, "owner_forbidden_open"),
+        (remitter, "remitter_forbidden_open"),
+        (support, "support_forbidden_open"),
+    ):
+        forbidden = client.post(
+            f"/api/v1/admin/orders/{order['id']}/open-dispute",
+            headers={**_headers(actor, key), "Content-Type": "application/json"},
+            json={"reason": "Intento no autorizado"},
+        )
+        assert forbidden.status_code == 403
+
+    missing_reason = client.post(
+        f"/api/v1/admin/orders/{order['id']}/open-dispute",
+        headers={**_headers(admin, "admin_open_missing_reason"), "Content-Type": "application/json"},
+        json={"reason": "   "},
+    )
+    missing_key = client.post(
+        f"/api/v1/admin/orders/{order['id']}/open-dispute",
+        headers={**_bearer(admin, "req_admin_open_missing_key"), "Content-Type": "application/json"},
+        json={"reason": "Falta clave de idempotencia"},
+    )
+    assert missing_reason.status_code == 422
+    assert missing_key.status_code == 400
+    assert missing_key.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
+
+    opened = client.post(
+        f"/api/v1/admin/orders/{order['id']}/open-dispute",
+        headers={**_headers(admin, "admin_open_rejected"), "Content-Type": "application/json"},
+        json={"reason": "El pago reportado requiere investigacion administrativa"},
+    )
+    replay = client.post(
+        f"/api/v1/admin/orders/{order['id']}/open-dispute",
+        headers={**_headers(admin, "admin_open_rejected"), "Content-Type": "application/json"},
+        json={"reason": "El pago reportado requiere investigacion administrativa"},
+    )
+    mismatch = client.post(
+        f"/api/v1/admin/orders/{order['id']}/open-dispute",
+        headers={**_headers(admin, "admin_open_rejected"), "Content-Type": "application/json"},
+        json={"reason": "Carga diferente para la misma clave"},
+    )
+
+    assert opened.status_code == 201, opened.text
+    assert opened.headers["Cache-Control"] == "private, no-store"
+    assert replay.status_code == 201, replay.text
+    assert replay.json()["data"] == opened.json()["data"]
+    assert mismatch.status_code == 409
+    assert mismatch.json()["error"]["code"] == "IDEMPOTENCY_PAYLOAD_MISMATCH"
+    data = opened.json()["data"]
+    assert data["order"]["status"] == "disputed"
+    assert data["dispute"]["status"] == "open"
+    assert data["dispute"]["previous_order_status"] == "payment_rejected"
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "in_order"
+    reservation_after = client.app.state.capacity_repository.get_reservation(order["id"])
+    assert reservation_before is not None and reservation_after is not None
+    assert reservation_after.status == reservation_before.status == "reserved"
+    wallet_after = client.app.state.ad_repository.get_wallet(business["id"])
+    assert wallet_after.available_credits == wallet_before.available_credits
+    assert wallet_after.blocked_credits == wallet_before.blocked_credits
+    assert wallet_after.consumed_credits == wallet_before.consumed_credits
+    disputes = [item for item in client.app.state.dispute_repository.disputes.values() if item.order_id == order["id"]]
+    assert len(disputes) == 1
+    order_events = [
+        event
+        for event in client.app.state.order_repository.events
+        if event.order_id == order["id"] and event.event_type == "dispute_opened"
+    ]
+    assert len(order_events) == 1
+    dispute_events = [
+        event
+        for event in client.app.state.dispute_repository.events
+        if event.order_id == order["id"] and event.event_type == "dispute_opened"
+    ]
+    assert len(dispute_events) == 1
+    audits = [
+        event
+        for event in client.app.state.audit_writer.events
+        if event.event_type == "admin_order_dispute_opened" and event.resource_id == data["dispute"]["id"]
+    ]
+    assert len(audits) == 1
+    notification_jobs = [
+        job
+        for job in client.app.state.job_repository.notification_jobs.values()
+        if job.notification_type == "order_disputed_parties_admin" and job.order_id == order["id"]
+    ]
+    assert len(notification_jobs) == 4
+    assert {job.recipient_user_id for job in notification_jobs if job.recipient_user_id} == {
+        owner["user"]["id"],
+        remitter["user"]["id"],
+    }
+
+
+def test_admin_open_investigation_rejects_non_rejected_order_and_then_reuses_resolution_flow() -> None:
+    client = _client()
+    _, business, ad, _, rejected_order = _seed_payment_rejected_order(client, owner_id=904, remitter_id=905)
+    active_owner = _login(client, 906, "owner_invalid_admin_open")
+    _, active_method_id = _approved_business_with_method(client, active_owner, credits=1)
+    active_ad = _create_ad(client, active_owner, active_method_id, key="ad_invalid_admin_open")
+    active_remitter = _login(client, 907, "remitter_invalid_admin_open")
+    active_order = _create_order(client, active_remitter, active_ad["id"], key="order_invalid_admin_open")
+    admin = _login(client, 908, "admin_open_then_resolve")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "super_admin")
+
+    invalid = client.post(
+        f"/api/v1/admin/orders/{active_order['id']}/open-dispute",
+        headers={**_headers(admin, "admin_open_invalid_state"), "Content-Type": "application/json"},
+        json={"reason": "Estado no permitido"},
+    )
+    opened = client.post(
+        f"/api/v1/admin/orders/{rejected_order['id']}/open-dispute",
+        headers={**_headers(admin, "admin_open_then_resolve"), "Content-Type": "application/json"},
+        json={"reason": "Abrir investigacion y reutilizar resolucion"},
+    )
+    assert invalid.status_code == 409
+    assert invalid.json()["error"]["code"] == "ORDER_STATUS_INVALID"
+    assert opened.status_code == 201, opened.text
+
+    resolved = client.post(
+        f"/api/v1/admin/disputes/{opened.json()['data']['dispute']['id']}/resolve",
+        headers={**_headers(admin, "resolve_admin_opened_dispute"), "Content-Type": "application/json"},
+        json={"resolution_type": "keep_under_review", "reason": "La investigacion sigue abierta"},
+    )
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.headers["Cache-Control"] == "private, no-store"
+    assert resolved.json()["data"]["dispute"]["status"] == "in_review"
+    assert resolved.json()["data"]["order"]["status"] == "disputed"
+    assert resolved.json()["data"]["credit_effect"]["type"] == "none"
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "in_order"
+    assert client.app.state.capacity_repository.get_reservation(rejected_order["id"]).status == "reserved"
+    assert client.app.state.ad_repository.get_wallet(business["id"]).blocked_credits == 1
+
+
+@pytest.mark.parametrize(
+    (
+        "resolution_type",
+        "expected_order_status",
+        "expected_credit_effect",
+        "expected_reservation_status",
+    ),
+    [
+        ("cancelled", "cancelled", "release", "released"),
+        ("remitter_favored", "cancelled", "consume", "released"),
+        ("business_favored", "completed", "consume", "consumed"),
+    ],
+)
+def test_admin_panel_resolution_sequence_applies_payment_rejected_contract_once(
+    resolution_type: str,
+    expected_order_status: str,
+    expected_credit_effect: str,
+    expected_reservation_status: str,
+) -> None:
+    client = _client()
+    owner_id = 1000 + len(resolution_type)
+    remitter_id = 1100 + len(resolution_type)
+    _, business, ad, _, order = _seed_payment_rejected_order(
+        client,
+        owner_id=owner_id,
+        remitter_id=remitter_id,
+    )
+    admin = _login(client, 1200 + len(resolution_type), f"admin_panel_{resolution_type}")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    wallet_before = client.app.state.ad_repository.get_wallet(business["id"])
+    available_before = wallet_before.available_credits
+    blocked_before = wallet_before.blocked_credits
+    consumed_before = wallet_before.consumed_credits
+
+    opened = client.post(
+        f"/api/v1/admin/orders/{order['id']}/open-dispute",
+        headers={**_headers(admin, f"panel_open_{resolution_type}"), "Content-Type": "application/json"},
+        json={"reason": "Revision operativa desde el detalle Admin"},
+    )
+    assert opened.status_code == 201, opened.text
+    dispute_id = opened.json()["data"]["dispute"]["id"]
+    resolution_headers = {
+        **_headers(admin, f"panel_resolve_{resolution_type}"),
+        "Content-Type": "application/json",
+    }
+    resolution_payload = {
+        "resolution_type": resolution_type,
+        "reason": "Decision documentada desde el detalle Admin",
+    }
+    resolved = client.post(
+        f"/api/v1/admin/disputes/{dispute_id}/resolve",
+        headers=resolution_headers,
+        json=resolution_payload,
+    )
+    replay = client.post(
+        f"/api/v1/admin/disputes/{dispute_id}/resolve",
+        headers=resolution_headers,
+        json=resolution_payload,
+    )
+
+    assert resolved.status_code == 200, resolved.text
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["data"] == resolved.json()["data"]
+    assert resolved.json()["data"]["order"]["status"] == expected_order_status
+    assert resolved.json()["data"]["credit_effect"]["type"] == expected_credit_effect
+    assert client.app.state.capacity_repository.get_reservation(order["id"]).status == expected_reservation_status
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "archived"
+    wallet_after = client.app.state.ad_repository.get_wallet(business["id"])
+    assert wallet_after.blocked_credits == blocked_before - 1
+    if expected_credit_effect == "release":
+        assert wallet_after.available_credits == available_before + 1
+        assert wallet_after.consumed_credits == consumed_before
+    else:
+        assert wallet_after.available_credits == available_before
+        assert wallet_after.consumed_credits == consumed_before + 1
+    resolution_notifications = [
+        job
+        for job in client.app.state.job_repository.notification_jobs.values()
+        if job.order_id == order["id"]
+        and (job.metadata_json or {}).get("dispute_update") == "resolution"
+    ]
+    assert len(resolution_notifications) == 2
+    assert len([event for event in client.app.state.audit_writer.events if event.resource_id == dispute_id and event.event_type == "dispute_resolved"]) == 1
+
+
+def test_client_order_history_projects_admin_rejected_payment_without_private_reason() -> None:
+    client = _client()
+    _, _, _, remitter, rejected_order = _seed_payment_rejected_order(
+        client,
+        owner_id=1300,
+        remitter_id=1301,
+    )
+    admin = _login(client, 1302, "admin_client_rejected_projection")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    private_reason = "Referencia interna que no debe llegar al cliente"
+
+    opened = client.post(
+        f"/api/v1/admin/orders/{rejected_order['id']}/open-dispute",
+        headers={**_headers(admin, "client_projection_open"), "Content-Type": "application/json"},
+        json={"reason": private_reason},
+    )
+    assert opened.status_code == 201, opened.text
+    resolved = client.post(
+        f"/api/v1/admin/disputes/{opened.json()['data']['dispute']['id']}/resolve",
+        headers={**_headers(admin, "client_projection_resolve"), "Content-Type": "application/json"},
+        json={"resolution_type": "cancelled", "reason": private_reason},
+    )
+    assert resolved.status_code == 200, resolved.text
+
+    detail = client.get(
+        f"/api/v1/orders/{rejected_order['id']}",
+        headers=_bearer(remitter, "req_client_projection_detail"),
+    )
+    history = client.get(
+        "/api/v1/orders/mine?status=cancelled",
+        headers=_bearer(remitter, "req_client_projection_history"),
+    )
+
+    assert detail.status_code == 200, detail.text
+    assert history.status_code == 200, history.text
+    assert detail.json()["data"]["order"]["terminal_display_status"] == "payment_rejected_admin_review"
+    history_order = next(item for item in history.json()["data"]["items"] if item["id"] == rejected_order["id"])
+    assert history_order["terminal_display_status"] == "payment_rejected_admin_review"
+    client_payload = detail.text + history.text
+    assert private_reason not in client_payload
+    assert "resolution_reason" not in client_payload
+    assert "previous_order_status" not in client_payload
+    assert "storage_path" not in client_payload
+    assert "account_value" not in client_payload
+
+
+def test_client_order_history_does_not_label_other_admin_cancellations_as_rejected_payment() -> None:
+    client = _client()
+    _, _, _, remitter, order, dispute = _seed_disputed_order(
+        client,
+        owner_id=1303,
+        remitter_id=1304,
+    )
+    admin = _login(client, 1305, "admin_non_rejected_projection")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    resolved = client.post(
+        f"/api/v1/admin/disputes/{dispute['id']}/resolve",
+        headers={**_headers(admin, "non_rejected_projection_resolve"), "Content-Type": "application/json"},
+        json={"resolution_type": "cancelled", "reason": "Cierre administrativo de otra disputa"},
+    )
+    detail = client.get(
+        f"/api/v1/orders/{order['id']}",
+        headers=_bearer(remitter, "req_non_rejected_projection_detail"),
+    )
+
+    assert resolved.status_code == 200, resolved.text
+    resolved_order = client.app.state.order_repository.get_by_id(order["id"])
+    assert resolved_order is not None
+    assert resolved_order.cancel_reason == "admin_cancelled"
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["data"]["order"]["terminal_display_status"] is None
+
+
 def test_admin_resolve_requires_admin_reason_idempotency_and_consumes_once() -> None:
     client = _client()
-    _, business, ad, _, order, dispute = _seed_disputed_order(client, owner_id=910, remitter_id=911)
+    _, business, ad, remitter, order, dispute = _seed_disputed_order(client, owner_id=910, remitter_id=911)
     admin = _login(client, 912, "admin")
     support = _login(client, 913, "support")
     client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
@@ -625,6 +943,17 @@ def test_admin_resolve_requires_admin_reason_idempotency_and_consumes_once() -> 
     assert len(consumes) == 1
     assert resolved.json()["data"]["credit_effect"]["type"] == "consume"
     assert "dispute_resolved" in _event_types(client)
+    resolution_notifications = [
+        job
+        for job in client.app.state.job_repository.notification_jobs.values()
+        if job.order_id == order["id"]
+        and (job.metadata_json or {}).get("dispute_update") == "resolution"
+    ]
+    assert len(resolution_notifications) == 2
+    assert {job.recipient_user_id for job in resolution_notifications} == {
+        client.app.state.business_repository.get_business(business["id"]).owner_user_id,
+        remitter["user"]["id"],
+    }
     assert resolved.json()["data"]["disclaimer"].startswith("La disputa queda registrada")
     combined = resolved.text + json.dumps([event.__dict__ for event in client.app.state.audit_writer.events], default=str)
     assert "storage_path" not in combined

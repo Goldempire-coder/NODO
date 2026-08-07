@@ -41,6 +41,11 @@ def require_admin_dispute_resolve(user: UserRecord) -> None:
         raise ApiError("FORBIDDEN", status_code=403)
 
 
+def require_admin_dispute_open(user: UserRecord) -> None:
+    if user.role not in {"admin", "super_admin"} or user.status != "active":
+        raise ApiError("FORBIDDEN", status_code=403)
+
+
 def require_dispute_resolution_type(resolution_type: str) -> None:
     if resolution_type not in DISPUTE_RESOLUTION_TYPES:
         raise ApiError("DISPUTE_RESOLUTION_NOT_ALLOWED", status_code=400)

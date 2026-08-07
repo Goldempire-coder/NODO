@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.modules.orders.models import OrderRecord
+from app.modules.orders.postgres_admin_dispute_opening import PostgresAdminDisputeOpeningMixin
 from app.modules.orders.postgres_create_order import PostgresCreateOrderMixin
 from app.modules.orders.postgres_integrity import PostgresOrderIntegrityMixin
 from app.modules.orders.postgres_payment_confirmation import PostgresPaymentConfirmationMixin
@@ -15,6 +16,7 @@ from app.shared.db.connection import pooled_connect
 
 
 class PostgresOrderRepository(
+    PostgresAdminDisputeOpeningMixin,
     PostgresCreateOrderMixin,
     PostgresOrderIntegrityMixin,
     PostgresPaymentConfirmationMixin,

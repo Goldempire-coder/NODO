@@ -1518,8 +1518,10 @@ def test_disputes_are_idempotent_and_support_cannot_resolve_in_admin_console() -
     assert second_key.status_code == 409
     assert second_key.json()["error"]["code"] == "DISPUTE_ALREADY_OPEN"
     assert listing.status_code == 200, listing.text
+    assert listing.headers["Cache-Control"] == "private, no-store"
     assert listing.json()["data"]["items"][0]["status"] == "open"
     assert detail.status_code == 200, detail.text
+    assert detail.headers["Cache-Control"] == "private, no-store"
     assert detail.json()["data"]["events"][0]["event_type"] == "dispute_opened"
     assert detail.json()["data"]["messages"] == []
     assert resolve.status_code == 403

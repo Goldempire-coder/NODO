@@ -31,6 +31,7 @@ export type OrderSummary = {
   extension_used: boolean;
   expires_at: string;
   cancel_reason?: string | null;
+  terminal_display_status?: "payment_rejected_admin_review" | null;
   can_view_payment_instructions: boolean;
   rating?: {
     can_rate: boolean;

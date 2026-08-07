@@ -57,6 +57,7 @@ No expone instrucciones completas de pago, `account_value`, storage paths, docum
   "business_id": "uuid",
   "business_name": "Casa Cambio Centro",
   "status": "waiting_payment|payment_reported|payment_rejected|payment_confirmed|delivered|disputed|completed|cancelled",
+  "terminal_display_status": "payment_rejected_admin_review|null",
   "amount_usd": "50.00",
   "rate_snapshot": "36.500000",
   "amount_bs_calculated": "1825.00",
@@ -80,6 +81,15 @@ No expone instrucciones completas de pago, `account_value`, storage paths, docum
   }
 }
 ```
+
+`terminal_display_status` is a non-sensitive Client presentation projection,
+not an order state and not an authorization input. It is
+`payment_rejected_admin_review` only when all of the following durable facts
+match: the final order is `cancelled` with `cancel_reason = admin_cancelled`,
+and its dispute was opened from `payment_rejected` and resolved with
+`resolution_type = cancelled`. It is `null` for every other administrative
+cancellation. The projection never includes the Admin reason, dispute evidence
+or payment data.
 
 ## Snapshot privado de instrucciones
 

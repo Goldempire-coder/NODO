@@ -561,6 +561,46 @@ Rules:
 - Rate limit applies by actor, route and action_type.
 - Errors use `ERROR_CONTRACT.md`.
 
+### POST /api/v1/admin/orders/{id}/open-dispute
+
+Abre una investigacion formal solo desde `payment_rejected`.
+
+- admin/super_admin only; support is read-only and receives `FORBIDDEN`.
+- `Idempotency-Key` and non-empty `reason` are required.
+- atomically creates one open dispute, moves the order to `disputed`, creates
+  the order/dispute events and appends audit `admin_order_dispute_opened`.
+- same key plus same payload replays; same key plus different payload fails.
+- opening the investigation does not release or consume capacity, credits or
+  the ad. Final effects belong only to dispute resolution.
+- direct `payment_rejected -> cancelled|payment_confirmed` is prohibited.
+- client and business participants receive a generic order-state notification.
+
+Admin Web resolution from an order detail:
+
+- `payment_rejected` displays the primary action `Resolver orden` only to
+  mutable Admin roles.
+- The UI requires a reason and strong confirmation, then calls
+  `open-dispute` before the canonical dispute resolution endpoint.
+- UI choices map to `cancelled`, `keep_under_review`, `remitter_favored` and
+  `business_favored`; the panel does not perform direct order transitions.
+- Strong confirmation identifies the public order code, the selected result
+  and the expected contracted effect before either request runs:
+  - `cancelled`: release blocked advertising credit and reserved capacity;
+    consume no credit.
+  - `keep_under_review`: keep the investigation without moving credit,
+    capacity or ad.
+  - `remitter_favored`: cancel and consume advertising credit under the
+    existing dispute contract.
+  - `business_favored`: complete and consume advertising credit under the
+    existing dispute contract.
+- These sentences are operator guidance only. Backend resolution remains the
+  authority for state, credit, capacity and ad effects.
+- Both requests use stable idempotency keys. If opening succeeds but resolution
+  fails, the operator is sent to the created dispute instead of treating the
+  order as untouched.
+- Resolution enqueues a generic state-update notification for the client and
+  business without exposing the decision reason or payment data.
+
 ### POST /api/v1/admin/disputes/{id}/resolve
 
 The canonical contract lives in `DISPUTES_API.md`.
@@ -575,6 +615,8 @@ Summary:
   `cancelled`, `completed`, `keep_under_review`.
 - state/credit/ad effects follow `DISPUTE_RESOLUTION_MASTER.md`.
 - audit `dispute_resolved` or `dispute_marked_in_review`.
+- client and business receive a generic state-update notification after the
+  resolution is recorded; the reason and evidence are not included.
 - NODO does not receive, hold, transfer or guarantee funds.
 
 ### Admin role management

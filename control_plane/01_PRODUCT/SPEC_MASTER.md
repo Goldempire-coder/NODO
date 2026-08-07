@@ -637,7 +637,9 @@ Si confirma:
 Si rechaza:
 
 * Orden pasa a `payment_rejected`.
-* Remitente puede corregir datos, subir otro comprobante o abrir disputa.
+* La salida formal vigente es abrir una disputa. Admin o Super Admin puede abrir
+  una investigacion administrativa; no existe cancelacion directa, confirmacion
+  directa ni reenvio de comprobante contratado desde este estado.
 
 ### 6.8 Pago mÃ³vil enviado
 
@@ -709,8 +711,7 @@ waiting_payment -> cancelled
 payment_reported -> payment_confirmed
 payment_reported -> payment_rejected
 payment_reported -> disputed
-payment_rejected -> payment_reported
-payment_rejected -> cancelled
+payment_rejected -> disputed
 payment_confirmed -> delivered
 payment_confirmed -> disputed
 delivered -> completed

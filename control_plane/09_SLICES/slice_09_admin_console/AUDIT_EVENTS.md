@@ -12,6 +12,7 @@ Required or expected audit events:
 - admin_credit_adjustment
 - dispute_marked_in_review
 - dispute_resolved
+- admin_order_dispute_opened
 - admin_role_changed only if role management is implemented in this slice
 
 Audit rules:
@@ -23,3 +24,6 @@ Audit rules:
   do not duplicate or rename them.
 - `dispute_resolved` is emitted by slice 09 terminal dispute resolution, not by
   slice 07.
+- `admin_order_dispute_opened` records the Admin/Super Admin action that moves
+  one `payment_rejected` order into formal investigation; replay must not append
+  it twice.

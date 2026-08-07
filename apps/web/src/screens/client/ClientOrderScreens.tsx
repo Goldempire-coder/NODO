@@ -6,6 +6,7 @@ import {
   paymentMethodCurrencyPresentation
 } from "../../constants/paymentLabels";
 import type { OrderCancelReason } from "../../types/orders";
+import { clientOrderStatusLabel } from "./clientOrderPresentation";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
 
 const CHAT_STATUSES = ["waiting_payment", "payment_reported", "payment_rejected", "payment_confirmed", "delivered", "disputed"];
@@ -100,7 +101,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
             <>
               <Title level="3" className="business-shell__title">{selectedOrder.public_order_code}</Title>
               <Text>{selectedOrder.business_name}</Text>
-              <Text>{selectedOrder.status}</Text>
+              <Text>{clientOrderStatusLabel(selectedOrder)}</Text>
               <Text>{selectedOrder.amount_usd} {selectedOrderCurrency.currencyLabel} - {selectedOrder.amount_bs_calculated} Bs</Text>
               <Text>Tasa {selectedOrder.rate_snapshot} Bs. / {selectedOrderCurrency.currencyLabel}</Text>
               <Text>{formatOrderMethodLine(selectedOrder.payment_method_snapshot, selectedOrder.delivery_method_snapshot)}</Text>
@@ -240,7 +241,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
               return (
                 <button className="business-row ad-row" disabled={openingOrderId === order.id} key={order.id} type="button" onClick={() => void openOrderDetail(order.id)}>
                   <span>{order.public_order_code}</span>
-                  <span>{openingOrderId === order.id ? "Abriendo..." : order.status}</span>
+                  <span>{openingOrderId === order.id ? "Abriendo..." : clientOrderStatusLabel(order)}</span>
                   <span>{order.amount_usd} {orderCurrency.currencyLabel}</span>
                 </button>
               );
@@ -270,7 +271,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
                 <button className="business-row ad-row" disabled={!canOpenChat || openingChatOrderId === order.id} key={order.id} type="button" onClick={() => void openOrderChat(order.id)}>
                   <span>{order.public_order_code}</span>
                   <span>{openingChatOrderId === order.id ? "Abriendo..." : canOpenChat ? "Abrir chat" : "Sin chat aún"}</span>
-                  <span>{order.status}</span>
+                  <span>{clientOrderStatusLabel(order)}</span>
                 </button>
               );
             })}

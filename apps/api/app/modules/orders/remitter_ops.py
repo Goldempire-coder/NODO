@@ -42,6 +42,29 @@ class OrderRemitterOps:
         self._rating_ops = rating_ops
         self._notifications = notification_service or NoopOrderNotificationService()
 
+    def _terminal_display_statuses(self, orders: list[Any]) -> set[str]:
+        return self._repository.list_payment_rejected_admin_cancelled_order_ids(
+            [order.id for order in orders]
+        )
+
+    def _public_payload(
+        self,
+        order,
+        *,
+        list_view: bool = False,
+        terminal_order_ids: set[str] | None = None,
+    ) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+        rejected_order_ids = terminal_order_ids
+        if rejected_order_ids is None:
+            rejected_order_ids = self._terminal_display_statuses([order])
+        payload = public_order_payload(order, list_view=list_view)
+        payload["terminal_display_status"] = (
+            "payment_rejected_admin_review"
+            if order.id in rejected_order_ids
+            else None
+        )
+        return payload
+
     def detail(self, *, user: UserRecord, order_id: str, request_id: str) -> dict[str, Any]:
         require_remitter(user)
         self._rate_limit("detail", user)
@@ -51,7 +74,7 @@ class OrderRemitterOps:
             raise ApiError("ORDER_NOT_FOUND", status_code=404)
         require_order_owner(user, order)
         order = self._materialize_order_expiration(order, actor=user, request_id=request_id)
-        payload = public_order_payload(order)
+        payload = self._public_payload(order)
         payload["rating"] = self._rating_ops.state(order_id=order.id, user_id=user.id)
         return {"order": payload, "disclaimer": ORDER_DISCLAIMER}
 
@@ -62,7 +85,19 @@ class OrderRemitterOps:
             raise ApiError("VALIDATION_ERROR", status_code=422)
         items, next_cursor = self._repository.list_for_remitter(remitter_user_id=user.id, status=status, cursor=cursor, limit=limit)
         materialized = [self._materialize_order_expiration(order, actor=user, request_id=request_id) for order in items]
-        return {"items": [public_order_payload(order, list_view=True) for order in materialized], "next_cursor": next_cursor, "disclaimer": ORDER_DISCLAIMER}
+        terminal_order_ids = self._terminal_display_statuses(materialized)
+        return {
+            "items": [
+                self._public_payload(
+                    order,
+                    list_view=True,
+                    terminal_order_ids=terminal_order_ids,
+                )
+                for order in materialized
+            ],
+            "next_cursor": next_cursor,
+            "disclaimer": ORDER_DISCLAIMER,
+        }
 
     def extend(self, *, user: UserRecord, order_id: str, payload: OrderActionRequest | None, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         require_remitter(user)
