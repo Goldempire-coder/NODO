@@ -113,6 +113,8 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
           {model.busy ? "Procesando..." : model.notice}
         </div>
 
+        <AdminWebScreens model={model} />
+
         {model.pendingAction ? (
           <section className="admin-web-confirm" aria-live="polite">
             <div>
@@ -129,8 +131,6 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
             </div>
           </section>
         ) : null}
-
-        <AdminWebScreens model={model} />
       </section>
     </main>
   );

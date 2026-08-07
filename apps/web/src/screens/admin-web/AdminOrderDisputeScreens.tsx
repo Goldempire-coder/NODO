@@ -35,7 +35,7 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
   );
   return (
     <>
-      <section className="admin-web-split">
+      <section className="admin-web-split admin-order-detail-summary">
         <div className="admin-web-panel">
           <h2>Detalle de orden</h2>
           {order ? (
@@ -71,7 +71,7 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
         </div>
       </section>
       {order?.status === "payment_rejected" ? (
-        <section className="admin-web-panel">
+        <section className="admin-web-panel admin-web-order-resolution">
           <h3>Resolver orden</h3>
           <p className="admin-web-muted">
             La accion abre primero una investigacion formal y luego usa la resolucion de disputas existente.

@@ -84,3 +84,23 @@ def test_client_uses_safe_terminal_projection_for_admin_rejected_payment() -> No
     assert 'return "Pago rechazado"' in presentation
     assert "clientOrderStatusLabel(selectedOrder)" in screen
     assert "clientOrderStatusLabel(order)" in screen
+
+
+def test_admin_stuck_order_resolution_layout_keeps_confirmation_visible() -> None:
+    shell = _read("apps/web/src/screens/admin-web/AdminWebShell.tsx")
+    screen = _read("apps/web/src/screens/admin-web/AdminOrderDisputeScreens.tsx")
+    css = _read("apps/web/src/app/admin-web.css")
+
+    assert shell.index("<AdminWebScreens model={model} />") < shell.index("admin-web-confirm")
+    assert "admin-web-order-resolution" in screen
+    assert "admin-order-detail-summary" in screen
+
+    assert ".admin-web-confirm {" in css
+    assert "flex: 0 0 auto;" in css
+    assert "max-height: min(156px, 28dvh);" in css
+    assert "overflow-y: auto;" in css
+    assert ".admin-web-order-resolution {" in css
+    assert ".admin-web-order-resolution .admin-web-field textarea" in css
+    assert "min-height: 68px;" in css
+    assert "max-height: 118px;" in css
+    assert ".admin-web-confirm .admin-web-actions button" in css
