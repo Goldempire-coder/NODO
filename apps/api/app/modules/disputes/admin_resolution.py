@@ -33,26 +33,38 @@ class AdminDisputeResolutionMixin:
         dispute, order = self._resolvable_admin_dispute(user=user, dispute_id=dispute_id, payload=payload)
         old_dispute_status = dispute.status
         old_order_status = order.status
-        updated_dispute, updated_order, event_type, credit_effect, ad_payload = self._apply_admin_dispute_resolution(
-            user=user,
-            dispute=dispute,
-            order=order,
-            payload=payload,
-            request_id=request_id,
-        )
-        self._record_admin_dispute_resolution(
-            user=user,
-            dispute=dispute,
-            updated_dispute=updated_dispute,
-            order=order,
-            updated_order=updated_order,
-            payload=payload,
-            request_id=request_id,
-            event_type=event_type,
-            old_dispute_status=old_dispute_status,
-            old_order_status=old_order_status,
-            credit_effect=credit_effect,
-        )
+        atomic_resolver = getattr(self._orders, "resolve_admin_dispute_atomically", None)
+        if callable(atomic_resolver):
+            updated_dispute, updated_order, event_type, credit_effect, ad_payload = atomic_resolver(
+                dispute_id=dispute.id,
+                resolution_type=payload.resolution_type,
+                reason=payload.reason,
+                notes=payload.notes,
+                actor_user_id=user.id,
+                actor_role=user.role,
+                request_id=request_id,
+            )
+        else:
+            updated_dispute, updated_order, event_type, credit_effect, ad_payload = self._apply_admin_dispute_resolution(
+                user=user,
+                dispute=dispute,
+                order=order,
+                payload=payload,
+                request_id=request_id,
+            )
+            self._record_admin_dispute_resolution(
+                user=user,
+                dispute=dispute,
+                updated_dispute=updated_dispute,
+                order=order,
+                updated_order=updated_order,
+                payload=payload,
+                request_id=request_id,
+                event_type=event_type,
+                old_dispute_status=old_dispute_status,
+                old_order_status=old_order_status,
+                credit_effect=credit_effect,
+            )
         self._notifications.order_dispute_resolution_parties(  # type: ignore[attr-defined]
             order=updated_order,
             dispute_id=updated_dispute.id,

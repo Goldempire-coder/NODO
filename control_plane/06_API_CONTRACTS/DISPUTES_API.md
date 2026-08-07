@@ -294,6 +294,9 @@ Rules:
 - Order must have `status = disputed`.
 - State, credit and ad effects are defined by
   `03_DOMAIN_RULES/DISPUTE_RESOLUTION_MASTER.md`.
+- PostgreSQL terminal resolution must update order/capacity, dispute,
+  credit/ad and audit records in one database transaction.
+- Participant notifications are emitted only after that transaction commits.
 - Must create `dispute_events`.
 - Terminal resolutions audit `dispute_resolved`.
 - `keep_under_review` audits `dispute_marked_in_review`.

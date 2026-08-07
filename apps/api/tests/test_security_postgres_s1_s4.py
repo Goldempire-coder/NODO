@@ -399,6 +399,159 @@ def test_postgres_admin_payment_rejected_open_dispute_is_atomic_and_concurrency_
     }
 
 
+@pytest.mark.parametrize(
+    (
+        "resolution_type",
+        "expected_order_status",
+        "expected_dispute_status",
+        "expected_reservation_status",
+        "expected_credit_effect",
+        "expected_capacity_delta",
+    ),
+    [
+        ("business_favored", "completed", "resolved", "consumed", "consume", Decimal("-50.00")),
+        ("cancelled", "cancelled", "cancelled", "released", "release", Decimal("0.00")),
+    ],
+)
+def test_postgres_admin_payment_rejected_terminal_resolution_archives_ad_and_moves_credit_atomically(
+    postgres_security: SecurityPostgresContext,
+    resolution_type: str,
+    expected_order_status: str,
+    expected_dispute_status: str,
+    expected_reservation_status: str,
+    expected_credit_effect: str,
+    expected_capacity_delta: Decimal,
+) -> None:
+    admin = _actor(
+        postgres_security,
+        telegram_id=8_000_000_012,
+        username=f"admin_terminal_resolution_{resolution_type}",
+        role="admin",
+    )
+    fixture = _business_order_fixture(postgres_security, admin=admin, method_type="zelle")
+    order_id = fixture["order"]["id"]
+    share = postgres_security.client.post(
+        f"/api/v1/orders/{order_id}/share-payment-details",
+        headers=_headers(fixture["owner"], postgres_security.key(f"{resolution_type}_share")),
+    )
+    assert share.status_code == 201, share.text
+    report = postgres_security.client.post(
+        f"/api/v1/orders/{order_id}/payment-report",
+        headers={
+            **_headers(fixture["remitter"], postgres_security.key(f"{resolution_type}_report")),
+            "Content-Type": "application/json",
+        },
+        json={"payment_type": "zelle", "payment_amount": "50.00"},
+    )
+    assert report.status_code == 201, report.text
+    rejected = postgres_security.client.post(
+        f"/api/v1/business/orders/{order_id}/reject-payment-report",
+        headers={
+            **_headers(fixture["owner"], postgres_security.key(f"{resolution_type}_reject")),
+            "Content-Type": "application/json",
+        },
+        json={"reason": "Referencia no coincide"},
+    )
+    assert rejected.status_code == 200, rejected.text
+
+    with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
+        before = conn.execute(
+            """
+            select reservation.status as reservation_status, ad.status as ad_status,
+                   capacity.declared_available_capacity_usd,
+                   wallet.available_credits, wallet.blocked_credits, wallet.consumed_credits
+            from orders order_row
+            join business_capacity_reservations reservation on reservation.order_id = order_row.id
+            join business_capacity capacity on capacity.business_id = order_row.business_id
+            join ads ad on ad.id = order_row.ad_id
+            join credit_wallets wallet on wallet.business_id = order_row.business_id
+            where order_row.id = %s
+            """,
+            (order_id,),
+        ).fetchone()
+    assert before["reservation_status"] == "reserved"
+    assert before["ad_status"] == "in_order"
+
+    opened = postgres_security.client.post(
+        f"/api/v1/admin/orders/{order_id}/open-dispute",
+        headers={**_headers(admin, postgres_security.key(f"{resolution_type}_open")), "Content-Type": "application/json"},
+        json={"reason": "Investigacion de pago rechazado"},
+    )
+    assert opened.status_code == 201, opened.text
+    dispute_id = opened.json()["data"]["dispute"]["id"]
+    resolve_key = postgres_security.key(f"{resolution_type}_resolve")
+    resolved = postgres_security.client.post(
+        f"/api/v1/admin/disputes/{dispute_id}/resolve",
+        headers={**_headers(admin, resolve_key), "Content-Type": "application/json"},
+        json={"resolution_type": resolution_type, "reason": "Revision admin con evidencia suficiente"},
+    )
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["data"]["credit_effect"]["type"] == expected_credit_effect
+    assert resolved.json()["data"]["ad"] == {"id": resolved.json()["data"]["ad"]["id"], "status": "archived"}
+
+    replay = postgres_security.client.post(
+        f"/api/v1/admin/disputes/{dispute_id}/resolve",
+        headers={**_headers(admin, resolve_key), "Content-Type": "application/json"},
+        json={"resolution_type": resolution_type, "reason": "Revision admin con evidencia suficiente"},
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["data"] == resolved.json()["data"]
+
+    with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
+        after = conn.execute(
+            """
+            select order_row.status as order_status, dispute.status as dispute_status,
+                   reservation.status as reservation_status, ad.status as ad_status,
+                   capacity.declared_available_capacity_usd,
+                   wallet.available_credits, wallet.blocked_credits, wallet.consumed_credits,
+                   (select count(*) from credits_ledger
+                    where related_order_id = order_row.id and type = %s) as credit_events,
+                   (select count(*) from dispute_events
+                    where order_id = order_row.id and event_type = 'dispute_resolved') as dispute_events,
+                   (select count(*) from order_state_events
+                    where order_id = order_row.id and event_type = 'dispute_resolved') as order_events,
+                   (select count(*) from audit_logs
+                    where event_type = 'dispute_resolved' and metadata_json ->> 'order_id' = order_row.id::text) as audits
+            from orders order_row
+            join disputes dispute on dispute.order_id = order_row.id
+            join business_capacity_reservations reservation on reservation.order_id = order_row.id
+            join business_capacity capacity on capacity.business_id = order_row.business_id
+            join ads ad on ad.id = order_row.ad_id
+            join credit_wallets wallet on wallet.business_id = order_row.business_id
+            where order_row.id = %s
+            """,
+            (expected_credit_effect, order_id),
+        ).fetchone()
+
+    assert after["order_status"] == expected_order_status
+    assert after["dispute_status"] == expected_dispute_status
+    assert after["reservation_status"] == expected_reservation_status
+    assert after["ad_status"] == "archived"
+    assert after["blocked_credits"] == before["blocked_credits"] - 1
+    if expected_credit_effect == "consume":
+        assert after["available_credits"] == before["available_credits"]
+        assert after["consumed_credits"] == before["consumed_credits"] + 1
+    else:
+        assert after["available_credits"] == before["available_credits"] + 1
+        assert after["consumed_credits"] == before["consumed_credits"]
+    assert Decimal(str(after["declared_available_capacity_usd"])) == Decimal(str(before["declared_available_capacity_usd"])) + expected_capacity_delta
+    assert after["credit_events"] == 1
+    assert after["dispute_events"] == 1
+    assert after["order_events"] == 1
+    assert after["audits"] == 1
+    if expected_credit_effect == "release":
+        ad = postgres_security.client.app.state.ad_repository.get_ad(resolved.json()["data"]["ad"]["id"])
+        assert ad is not None
+        duplicate_release = postgres_security.client.app.state.ad_repository.release_hold(
+            ad=ad,
+            created_by=admin["user"]["id"],
+            reason="admin_dispute_resolution_release",
+            related_order_id=order_id,
+            source="disputes",
+        )
+        assert duplicate_release is None
+
+
 def test_postgres_official_payment_marker_controls_zelle_and_usdt_reports(
     postgres_security: SecurityPostgresContext,
 ) -> None:

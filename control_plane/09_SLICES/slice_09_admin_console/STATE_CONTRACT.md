@@ -54,13 +54,14 @@ resolution only records an operational decision inside NODO.
 
 ## Production atomicity gate
 
-Status: `CHANGES_REQUIRED_BEFORE_PRODUCTION`.
+Status: `READY_FOR_VALIDATOR_REVIEW`.
 
-A0/A1 makes administrative dispute opening atomic. Terminal dispute resolution
-still coordinates order/capacity, dispute, credit/ad and audit through multiple
-repository commits. It must be reconciled into one durable transaction or an
-equivalent recoverable workflow and pass PostgreSQL failure/concurrency tests
-before production money handling. This gap does not permit broadening A1.
+Administrative dispute opening and terminal PostgreSQL dispute resolution must
+be durable transaction boundaries. Terminal resolution updates order/capacity,
+dispute, credit/ad and audit records in one database transaction; participant
+notifications are emitted only after the committed state exists. PostgreSQL
+regression coverage must continue to prove that terminal resolutions archive
+the ad and move blocked credits exactly once.
 
 Rules:
 
