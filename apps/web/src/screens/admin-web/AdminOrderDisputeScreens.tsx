@@ -35,6 +35,38 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
   );
   return (
     <>
+      {order?.status === "payment_rejected" ? (
+        <section className="admin-web-panel admin-web-order-resolution">
+          <div className="admin-web-order-resolution__header">
+            <div>
+              <h3>Resolver orden</h3>
+              <p className="admin-web-muted">
+                Abre una investigacion formal y luego usa la resolucion de disputas existente.
+              </p>
+            </div>
+            <button disabled={!model.adminMutable} type="button" onClick={() => model.resolveAdminStuckOrder()}>
+              Resolver orden
+            </button>
+          </div>
+          <div className="admin-web-order-resolution__body">
+            <label className="admin-web-field">
+              <span>Resultado operativo</span>
+              <select value={model.resolutionType} onChange={(event) => model.setResolutionType(event.target.value)}>
+                <option value="cancelled">Cancelar por pago no comprobado</option>
+                <option value="keep_under_review">Mantener en investigacion</option>
+                <option value="remitter_favored">Resolver a favor del cliente</option>
+                <option value="business_favored">Resolver a favor del negocio</option>
+              </select>
+            </label>
+            <ReasonBox
+              model={model}
+              label="Razon obligatoria"
+              placeholder="Explica la evidencia y el motivo de la decision"
+            />
+          </div>
+          <p className="admin-web-muted">{model.stuckOrderResolutionPreview}</p>
+        </section>
+      ) : null}
       <section className="admin-web-split admin-order-detail-summary">
         <div className="admin-web-panel">
           <h2>Detalle de orden</h2>
@@ -70,32 +102,6 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
           ))}
         </div>
       </section>
-      {order?.status === "payment_rejected" ? (
-        <section className="admin-web-panel admin-web-order-resolution">
-          <h3>Resolver orden</h3>
-          <p className="admin-web-muted">
-            La accion abre primero una investigacion formal y luego usa la resolucion de disputas existente.
-          </p>
-          <label className="admin-web-field">
-            <span>Resultado operativo</span>
-            <select value={model.resolutionType} onChange={(event) => model.setResolutionType(event.target.value)}>
-              <option value="cancelled">Cancelar por pago no comprobado</option>
-              <option value="keep_under_review">Mantener en investigacion</option>
-              <option value="remitter_favored">Resolver a favor del cliente</option>
-              <option value="business_favored">Resolver a favor del negocio</option>
-            </select>
-          </label>
-          <p className="admin-web-muted">{model.stuckOrderResolutionPreview}</p>
-          <ReasonBox
-            model={model}
-            label="Razon obligatoria"
-            placeholder="Explica la evidencia y el motivo de la decision"
-          />
-          <button disabled={!model.adminMutable} type="button" onClick={() => model.resolveAdminStuckOrder()}>
-            Resolver orden
-          </button>
-        </section>
-      ) : null}
       {order ? <AdminOrderChatEvidencePanel model={model} /> : null}
     </>
   );

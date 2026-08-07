@@ -448,7 +448,9 @@
 }
 
 .admin-web-confirm {
-  position: relative;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -937,6 +939,25 @@
   display: grid;
   gap: 9px;
   padding: 13px 14px;
+  overflow-y: auto;
+  max-height: min(292px, 38dvh);
+  scroll-margin-top: 12px;
+}
+
+.admin-web-order-resolution__header,
+.admin-web-order-resolution__body {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-web-order-resolution__header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.admin-web-order-resolution__body {
+  grid-template-columns: minmax(220px, 0.72fr) minmax(260px, 1fr);
+  align-items: end;
 }
 
 .admin-web-order-resolution .admin-web-field {
@@ -944,12 +965,12 @@
 }
 
 .admin-web-order-resolution .admin-web-field textarea {
-  min-height: 68px;
-  max-height: 118px;
+  min-height: 56px;
+  max-height: 86px;
 }
 
 .admin-web-order-resolution button {
-  justify-self: start;
+  justify-self: end;
   min-width: 176px;
 }
 
@@ -1960,7 +1981,17 @@
     flex: 1 1 0;
   }
 
+  .admin-web-order-resolution {
+    max-height: min(360px, 46dvh);
+  }
+
+  .admin-web-order-resolution__header,
+  .admin-web-order-resolution__body {
+    grid-template-columns: 1fr;
+  }
+
   .admin-web-order-resolution button {
+    justify-self: stretch;
     width: 100%;
   }
 

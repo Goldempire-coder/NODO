@@ -93,14 +93,22 @@ def test_admin_stuck_order_resolution_layout_keeps_confirmation_visible() -> Non
 
     assert shell.index("<AdminWebScreens model={model} />") < shell.index("admin-web-confirm")
     assert "admin-web-order-resolution" in screen
+    assert screen.index("admin-web-order-resolution") < screen.index("admin-order-detail-summary")
+    assert screen.index("admin-web-order-resolution") < screen.index("{order ? <AdminOrderChatEvidencePanel")
+    assert "admin-web-order-resolution__header" in screen
+    assert "admin-web-order-resolution__body" in screen
     assert "admin-order-detail-summary" in screen
 
     assert ".admin-web-confirm {" in css
+    assert "position: sticky;" in css
+    assert "bottom: 0;" in css
     assert "flex: 0 0 auto;" in css
     assert "max-height: min(156px, 28dvh);" in css
     assert "overflow-y: auto;" in css
     assert ".admin-web-order-resolution {" in css
+    assert "max-height: min(292px, 38dvh);" in css
+    assert ".admin-web-order-resolution__body" in css
     assert ".admin-web-order-resolution .admin-web-field textarea" in css
-    assert "min-height: 68px;" in css
-    assert "max-height: 118px;" in css
+    assert "min-height: 56px;" in css
+    assert "max-height: 86px;" in css
     assert ".admin-web-confirm .admin-web-actions button" in css
