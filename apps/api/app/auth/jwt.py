@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -17,12 +18,32 @@ def _base64url_encode(raw: bytes) -> str:
 
 
 def _base64url_decode(raw: str) -> bytes:
+    if not isinstance(raw, str) or not raw:
+        raise ValueError("invalid base64url segment")
     padding = "=" * (-len(raw) % 4)
-    return base64.urlsafe_b64decode((raw + padding).encode("ascii"))
+    try:
+        encoded = (raw + padding).encode("ascii")
+        return base64.b64decode(encoded, altchars=b"-_", validate=True)
+    except (UnicodeEncodeError, binascii.Error, ValueError) as exc:
+        raise ValueError("invalid base64url segment") from exc
 
 
 def _json_dumps(payload: dict[str, Any]) -> bytes:
     return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
+def _decode_json_object(raw: str) -> dict[str, Any]:
+    try:
+        decoded = json.loads(_base64url_decode(raw).decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        raise ValueError("invalid jwt json") from exc
+    if not isinstance(decoded, dict):
+        raise ValueError("jwt json must be an object")
+    return decoded
+
+
+def _is_jwt_integer(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
 def create_access_token(*, user_id: str, role: str, status: str, secret: str, ttl_seconds: int) -> tuple[str, str, int]:
@@ -45,21 +66,34 @@ def create_access_token(*, user_id: str, role: str, status: str, secret: str, tt
 
 def decode_access_token(token: str, secret: str) -> dict[str, Any]:
     try:
+        if not isinstance(token, str):
+            raise ValueError("token must be text")
         header_raw, payload_raw, signature_raw = token.split(".")
-    except ValueError as exc:
+        if not header_raw or not payload_raw or not signature_raw:
+            raise ValueError("jwt segments must not be empty")
+        signing_input = f"{header_raw}.{payload_raw}"
+        signing_bytes = signing_input.encode("ascii")
+        provided_signature = _base64url_decode(signature_raw)
+    except (TypeError, UnicodeEncodeError, ValueError) as exc:
         raise ApiError("UNAUTHENTICATED", status_code=401) from exc
 
-    signing_input = f"{header_raw}.{payload_raw}"
-    expected_signature = hmac.new(secret.encode("utf-8"), signing_input.encode("ascii"), hashlib.sha256).digest()
-    if not hmac.compare_digest(_base64url_decode(signature_raw), expected_signature):
+    expected_signature = hmac.new(secret.encode("utf-8"), signing_bytes, hashlib.sha256).digest()
+    if not hmac.compare_digest(provided_signature, expected_signature):
         raise ApiError("UNAUTHENTICATED", status_code=401)
 
     try:
-        payload = json.loads(_base64url_decode(payload_raw))
-    except (json.JSONDecodeError, ValueError) as exc:
+        header = _decode_json_object(header_raw)
+        payload = _decode_json_object(payload_raw)
+        if header.get("alg") != "HS256" or header.get("typ") != "JWT":
+            raise ValueError("unsupported jwt header")
+        if any(not isinstance(payload.get(claim), str) or not payload[claim] for claim in ("sub", "role", "status", "jti")):
+            raise ValueError("invalid jwt string claim")
+        if not _is_jwt_integer(payload.get("iat")) or not _is_jwt_integer(payload.get("exp")):
+            raise ValueError("invalid jwt timestamp claim")
+    except (KeyError, TypeError, ValueError) as exc:
         raise ApiError("UNAUTHENTICATED", status_code=401) from exc
 
-    if int(payload.get("exp", 0)) < int(time.time()):
+    if payload["exp"] < int(time.time()):
         raise ApiError("SESSION_EXPIRED", status_code=401)
     return payload
 

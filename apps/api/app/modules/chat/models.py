@@ -21,7 +21,7 @@ ALLOWED_MESSAGE_STATES = {
     "delivered",
     "disputed",
 }
-ALLOWED_ATTACHMENT_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
+ALLOWED_ATTACHMENT_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024
 
 

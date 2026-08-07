@@ -25,9 +25,10 @@ Contrato API canonico para mensajes y adjuntos privados de orden.
 - No filtrar existencia de ordenes ajenas.
 - Rate limit obligatorio por usuario, orden, IP y ruta.
 - No exponer `storage_path`, signed URLs, tokens ni secretos.
-- El Zelle o wallet USDT completo solo puede aparecer dentro de un mensaje
-  privado de la orden despues de que el negocio lo comparta manualmente o con
-  la accion autorizada. No se copia a logs, audit, Telegram o admin
+- El Zelle o wallet USDT completo solo puede compartirse mediante la accion
+  autorizada `share-payment-details`, que lo representa como mensaje privado de
+  la orden. Escribir el dato en texto libre no habilita el pago y queda sujeto
+  a moderacion y alerta. El valor no se copia a logs, audit, Telegram o admin
   notifications.
 - Mensajes deben sanitizarse antes de mostrarse.
 - Pago Movil se comparte mediante el recurso estructurado `receiver-details`
@@ -246,7 +247,9 @@ Rules:
   en la orden y el titular cuando existe.
 - Un retry con otra key tampoco duplica el mensaje.
 - El cliente queda con `can_report_payment = true`.
-- La cuenta configurada no dispara alerta anti-evasion.
+- La cuenta configurada compartida por esta accion oficial no dispara alerta
+  anti-evasion. La misma cuenta escrita como texto libre si queda sujeta a la
+  alerta y no satisface `payment_details_shared`.
 - Frases para sacar la operacion de NODO u otros contactos externos siguen
   generando la alerta conservadora.
 - Audit `business_payment_details_shared` guarda IDs seguros, nunca la cuenta.
@@ -295,7 +298,10 @@ Allowed MIME:
 - image/jpeg
 - image/png
 - image/webp
-- application/pdf
+
+El backend decodifica el contenido real y exige que coincida con el MIME
+declarado. PDF, HTML y archivos disfrazados se rechazan aunque declaren un MIME
+de imagen.
 
 Max size:
 
@@ -340,7 +346,7 @@ Errors:
 
 Purpose:
 
-- Allows a direct order participant to explicitly open an image/PDF shared in
+- Allows a direct order participant to explicitly open an image shared in
   the order chat.
 - Intended for Cliente and Negocio chat surfaces only.
 

@@ -95,7 +95,8 @@ def test_business_order_chat_has_compact_attachment_and_keyboard_safe_typing_mod
 
     assert "PaperclipIcon" in chat_screen
     assert "fileInputRef.current?.click()" in chat_screen
-    assert 'accept="image/*,application/pdf"' in chat_screen
+    assert 'accept="image/jpeg,image/png,image/webp"' in chat_screen
+    assert 'accept="image/*,application/pdf"' not in chat_screen
     assert 'aria-label="Adjuntar comprobante o soporte"' in chat_screen
     for source in [chat_screen, client_chat]:
         assert '"business-order-chat"' in source

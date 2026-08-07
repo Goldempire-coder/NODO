@@ -97,6 +97,25 @@ Rules:
 - Actualizar `sessions.last_used_at`.
 - Auditar `session_refreshed`.
 
+## Enforcement de estado autenticado
+
+- Las operaciones privadas y cualquier mutacion deben consultar el estado
+  vigente del usuario en el repositorio autoritativo en cada request.
+- El `jti` del access token debe corresponder a la sesion durable activa del
+  mismo usuario. Una sesion revocada, expirada o rotada devuelve
+  `SESSION_EXPIRED`; un access token sin `sub`/`jti` validos devuelve
+  `UNAUTHENTICATED`.
+- Un JWT malformado, con firma invalida, segmentos ilegibles, JSON no valido o
+  claims obligatorios ausentes/de tipo inesperado devuelve
+  `401 UNAUTHENTICATED`; nunca se expone como error interno `500`.
+- Un cache local de proceso no puede mantener acceso operativo despues de que
+  Admin bloquee o suspenda al usuario.
+- La unica excepcion permitida es la lectura publica del marketplace mediante
+  claims JWT firmados dentro de la ventana corta contratada. Esa excepcion no
+  autoriza chat, archivos, ordenes, pagos, entregas ni otra mutacion.
+- El estado vigente del negocio y su access link tambien se revalida antes de
+  acciones de la superficie Negocio.
+
 ## POST /api/v1/auth/logout
 
 Revoca la sesion actual.
@@ -122,8 +141,16 @@ Response 200:
 
 Rules:
 
-- Requiere access token valido.
-- Revoca la fila `sessions`.
+- El refresh token identifica la sesion que debe cerrarse; no requiere que el
+  access token siga vigente.
+- Si el access token de esa sesion estaba vigente, queda invalidado de inmediato
+  porque su `jti` deja de corresponder a una sesion activa.
+- Revoca la fila `sessions` y su refresh token.
+- No revoca otras sesiones activas del mismo usuario.
+- Un access token expirado o malformado no impide cerrar la sesion identificada
+  por un refresh token valido y no debe causar respuesta `500`.
+- Si el refresh token no identifica una sesion activa, responder de forma
+  idempotente sin revelar si la sesion existia.
 - Logout repetido debe ser seguro/idempotente.
 - Auditar `user_logout`.
 

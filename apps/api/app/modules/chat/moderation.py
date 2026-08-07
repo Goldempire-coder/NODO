@@ -4,8 +4,6 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-from app.modules.chat.payment_sharing import redact_configured_payment_account
-
 
 @dataclass(frozen=True)
 class ChatModerationMatch:
@@ -45,11 +43,7 @@ _EXTERNAL_CHANNEL_LABELS = {
 }
 
 
-def detect_off_platform_solicitation(
-    body: str | None,
-    *,
-    allowed_contact_values: tuple[str, ...] = (),
-) -> ChatModerationMatch | None:
+def detect_off_platform_solicitation(body: str | None) -> ChatModerationMatch | None:
     clean = _clean_text(body)
     if not clean:
         return None
@@ -66,11 +60,10 @@ def detect_off_platform_solicitation(
             matched_phrase=_bounded_signal("; ".join(dict.fromkeys(bypass_signals))),
             reason="business_invited_platform_bypass",
         )
-    contact_text = _without_allowed_contact_values(clean, allowed_contact_values)
-    normalized_contact_text = _normalize(contact_text)
-    channel_match = _EXTERNAL_CHANNEL_PATTERN.search(normalized_contact_text)
-    has_contact_value = _has_contact_value(contact_text)
-    if channel_match and _CONTACT_CONTEXT_PATTERN.search(normalized_contact_text):
+    channel_match = _EXTERNAL_CHANNEL_PATTERN.search(normalized)
+    has_contact_value = _has_contact_value(clean)
+    has_contact_context = bool(_CONTACT_CONTEXT_PATTERN.search(normalized))
+    if channel_match and (has_contact_value or has_contact_context):
         channel = _EXTERNAL_CHANNEL_LABELS.get(channel_match.group(0), "Canal externo")
         signal = f"{channel} [contacto redactado]" if has_contact_value else channel
         return ChatModerationMatch(
@@ -79,7 +72,7 @@ def detect_off_platform_solicitation(
             matched_phrase=_bounded_signal(signal),
             reason="business_shared_external_contact_channel",
         )
-    if has_contact_value and _CONTACT_CONTEXT_PATTERN.search(normalized_contact_text):
+    if has_contact_value:
         return ChatModerationMatch(
             rule_id="off_platform_external_contact",
             severity="attention",
@@ -101,15 +94,6 @@ def _normalize(value: str) -> str:
 
 def _has_contact_value(value: str) -> bool:
     return bool(_PHONE_PATTERN.search(value) or _EMAIL_PATTERN.search(value) or _URL_PATTERN.search(value) or _HANDLE_PATTERN.search(value))
-
-
-def _without_allowed_contact_values(value: str, allowed_values: tuple[str, ...]) -> str:
-    result = value
-    for allowed_value in allowed_values:
-        clean_allowed = _clean_text(allowed_value)
-        if clean_allowed:
-            result = redact_configured_payment_account(result, clean_allowed)
-    return result
 
 
 def _bounded_signal(value: str) -> str:

@@ -41,7 +41,7 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
               </label>
               <label className="business-upload">
                 <span>Comprobante opcional</span>
-                <input accept="image/jpeg,image/png,image/webp,application/pdf" disabled={uploadingPaymentEvidence} type="file" onChange={(event) => void uploadPaymentEvidence(event.target.files?.[0] || null)} />
+                <input accept="image/jpeg,image/png,image/webp" disabled={uploadingPaymentEvidence} type="file" onChange={(event) => void uploadPaymentEvidence(event.target.files?.[0] || null)} />
                 {uploadingPaymentEvidence ? <small>Subiendo comprobante...</small> : paymentEvidence ? <small>{paymentEvidence.mime_type} - {paymentEvidence.size_bytes} bytes</small> : null}
               </label>
               <Button mode="filled" stretched disabled={submittingPaymentReport} onClick={() => void submitPaymentReport()}>

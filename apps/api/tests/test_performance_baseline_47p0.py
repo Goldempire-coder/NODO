@@ -9,6 +9,7 @@ from test_payment_instructions_reports import (
     _headers,
     _seed_order_context,
 )
+from photo_test_data import png_bytes
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -35,7 +36,7 @@ def test_private_order_chat_and_payment_evidence_responses_are_not_cacheable() -
         f"/api/v1/orders/{order['id']}/payment-evidence",
         headers=_headers(remitter, "47p0_payment_evidence"),
         data={"file_type": "payment_evidence"},
-        files={"file": ("proof.png", b"47p0-local-proof", "image/png")},
+        files={"file": ("proof.png", png_bytes(b"47p0-local-proof"), "image/png")},
     )
     created_message = client.post(
         f"/api/v1/orders/{order['id']}/messages",

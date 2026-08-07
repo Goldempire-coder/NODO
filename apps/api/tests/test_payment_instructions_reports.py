@@ -9,10 +9,12 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from urllib.parse import urlencode
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.errors import ApiError
 from app.modules.orders.models import new_id
+from photo_test_data import photo_bytes, png_bytes
 
 
 BOT_TOKEN = "123456:test-bot-token"
@@ -218,7 +220,7 @@ def _upload_evidence(client: TestClient, remitter: dict, order_id: str, key: str
         f"/api/v1/orders/{order_id}/payment-evidence",
         headers=_headers(remitter, key),
         data=data,
-        files={"file": ("proof.png", content, "image/png")},
+        files={"file": ("proof.png", png_bytes(content), "image/png")},
     )
     assert response.status_code == 201, response.text
     return response.json()["data"]
@@ -341,7 +343,7 @@ def test_payment_evidence_upload_owner_only_pending_id_validation_and_no_private
         f"/api/v1/orders/{order['id']}/payment-evidence",
         headers=_headers(other, "foreign_evidence"),
         data={"file_type": "payment_evidence"},
-        files={"file": ("proof.png", b"proof", "image/png")},
+        files={"file": ("proof.png", png_bytes(b"foreign-proof"), "image/png")},
     )
     evidence = _upload_evidence(client, remitter, order["id"], key="own_evidence")
     invalid_mime = client.post(
@@ -374,6 +376,63 @@ def test_payment_evidence_upload_owner_only_pending_id_validation_and_no_private
     assert invalid_pending_id.status_code == 400
     assert invalid_pending_id.json()["error"]["code"] == "INVALID_PAYMENT_EVIDENCE"
     assert "payment_evidence_uploaded" in _event_types(client)
+
+
+def test_payment_evidence_rejects_disguised_html_and_pdf_with_calm_error() -> None:
+    client = _client()
+    _, _, remitter, order = _seed_order(client, owner_id=624, remitter_id=625)
+
+    disguised = client.post(
+        f"/api/v1/orders/{order['id']}/payment-evidence",
+        headers=_headers(remitter, "disguised_payment_evidence"),
+        data={"file_type": "payment_evidence"},
+        files={"file": ("proof.jpg", b"<html><script>alert(1)</script></html>", "image/jpeg")},
+    )
+    pdf = client.post(
+        f"/api/v1/orders/{order['id']}/payment-evidence",
+        headers=_headers(remitter, "payment_pdf_not_allowed"),
+        data={"file_type": "payment_evidence"},
+        files={"file": ("proof.pdf", b"%PDF-1.7", "application/pdf")},
+    )
+
+    assert disguised.status_code == 400
+    assert disguised.json()["error"]["code"] == "INVALID_PAYMENT_EVIDENCE"
+    assert disguised.json()["error"]["message"] == "No pudimos aceptar ese archivo. Usa una imagen valida."
+    assert pdf.status_code == 400
+    assert pdf.json()["error"]["code"] == "INVALID_PAYMENT_EVIDENCE"
+    assert pdf.json()["error"]["message"] == "No pudimos aceptar ese archivo. Usa una imagen valida."
+
+
+@pytest.mark.parametrize(
+    ("image_format", "mime_type"),
+    [
+        ("JPEG", "image/jpeg"),
+        ("PNG", "image/png"),
+        ("WEBP", "image/webp"),
+    ],
+)
+def test_payment_evidence_accepts_only_decodable_supported_photos(
+    image_format: str,
+    mime_type: str,
+) -> None:
+    client = _client()
+    _, _, remitter, order = _seed_order(client, owner_id=626, remitter_id=627)
+
+    accepted = client.post(
+        f"/api/v1/orders/{order['id']}/payment-evidence",
+        headers=_headers(remitter, f"valid_{image_format.lower()}_evidence"),
+        data={"file_type": "payment_evidence"},
+        files={
+            "file": (
+                f"proof.{image_format.lower()}",
+                photo_bytes(image_format, image_format.encode("ascii")),
+                mime_type,
+            )
+        },
+    )
+
+    assert accepted.status_code == 201, accepted.text
+    assert accepted.json()["data"]["file"]["mime_type"] == mime_type
 
 
 def test_report_zelle_valid_changes_state_without_consuming_credits_or_changing_ad() -> None:

@@ -4,8 +4,7 @@ export const MAX_PAYMENT_EVIDENCE_IMAGE_DIMENSION = 1800;
 const ACCEPTED_PAYMENT_EVIDENCE_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
-  "image/webp",
-  "application/pdf"
+  "image/webp"
 ]);
 
 function inferMimeType(file: File): string {
@@ -23,9 +22,6 @@ function inferMimeType(file: File): string {
   if (name.endsWith(".webp")) {
     return "image/webp";
   }
-  if (name.endsWith(".pdf")) {
-    return "application/pdf";
-  }
   return "";
 }
 
@@ -35,9 +31,6 @@ function extensionForMimeType(mimeType: string): string {
   }
   if (mimeType === "image/webp") {
     return ".webp";
-  }
-  if (mimeType === "application/pdf") {
-    return ".pdf";
   }
   return ".png";
 }
@@ -101,22 +94,10 @@ async function compressImage(file: File): Promise<Blob> {
 
 export async function preparePaymentEvidenceFile(file: File): Promise<File> {
   const mimeType = inferMimeType(file);
-  if (mimeType === "application/pdf") {
-    if (file.size > MAX_PAYMENT_EVIDENCE_UPLOAD_BYTES) {
-      throw new Error("El PDF pesa demasiado. Adjunta una imagen o un PDF menor de 5 MB.");
-    }
-    if (file.type) {
-      return file;
-    }
-    return new File([file], normalizedFileName(file.name, mimeType), {
-      type: mimeType,
-      lastModified: file.lastModified
-    });
+  if (!ACCEPTED_PAYMENT_EVIDENCE_MIME_TYPES.has(mimeType)) {
+    throw new Error("No pudimos aceptar ese archivo. Usa una imagen valida JPG, PNG o WebP.");
   }
-  if (!mimeType.startsWith("image/")) {
-    throw new Error("Adjunta una imagen PNG/JPG/WebP o PDF.");
-  }
-  if (ACCEPTED_PAYMENT_EVIDENCE_MIME_TYPES.has(mimeType) && file.size <= MAX_PAYMENT_EVIDENCE_UPLOAD_BYTES && file.type) {
+  if (file.size <= MAX_PAYMENT_EVIDENCE_UPLOAD_BYTES && file.type) {
     return file;
   }
   const blob = await compressImage(file);

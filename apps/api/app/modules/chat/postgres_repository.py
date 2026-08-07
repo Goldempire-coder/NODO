@@ -4,7 +4,11 @@ from typing import Any
 
 from app.modules.businesses.models import FileAssetRecord
 from app.modules.chat.models import MessageAttachmentRecord, MessageRecord
-from app.modules.chat.payment_sharing import contains_configured_payment_account
+from app.modules.chat.payment_sharing import (
+    OFFICIAL_PAYMENT_DETAILS_IDEMPOTENCY_PREFIX,
+    contains_configured_payment_account,
+    official_payment_details_idempotency_key,
+)
 from app.modules.chat.row_mappers import attachment_from_row, file_from_row, message_from_row
 from app.shared.db.connection import pooled_connect
 
@@ -111,8 +115,8 @@ class PostgresChatRepository:
             ).fetchone()
         return message_from_row(row) if row else None
 
-    def has_business_message_containing(self, *, order_id: str, text: str) -> bool:
-        if not text.strip():
+    def has_official_payment_message(self, *, order_id: str, account_value: str) -> bool:
+        if not account_value.strip():
             return False
         with self._connect() as conn:
             rows = conn.execute(
@@ -124,12 +128,17 @@ class PostgresChatRepository:
                   and visibility = 'parties'
                   and status = 'visible'
                   and deleted_at is null
+                  and position(%s in coalesce(idempotency_key, '')) = 1
                   and position(lower(%s) in lower(coalesce(body, ''))) > 0
                 """,
-                (order_id, text.strip()),
+                (
+                    order_id,
+                    OFFICIAL_PAYMENT_DETAILS_IDEMPOTENCY_PREFIX,
+                    account_value.strip(),
+                ),
             ).fetchall()
         return any(
-            contains_configured_payment_account(row["body"], text)
+            contains_configured_payment_account(row["body"], account_value)
             for row in rows
         )
 
@@ -153,10 +162,15 @@ class PostgresChatRepository:
                   and visibility = 'parties'
                   and status = 'visible'
                   and deleted_at is null
+                  and position(%s in coalesce(idempotency_key, '')) = 1
                   and position(lower(%s) in lower(coalesce(body, ''))) > 0
                 order by created_at asc
                 """,
-                (order_id, account_value.strip()),
+                (
+                    order_id,
+                    OFFICIAL_PAYMENT_DETAILS_IDEMPOTENCY_PREFIX,
+                    account_value.strip(),
+                ),
             ).fetchall()
             existing = next(
                 (
@@ -181,7 +195,12 @@ class PostgresChatRepository:
                 values (%s, %s, 'business_owner', %s, 'parties', 'visible', %s, now(), now())
                 returning *
                 """,
-                (order_id, sender_user_id, body, idempotency_key),
+                (
+                    order_id,
+                    sender_user_id,
+                    body,
+                    official_payment_details_idempotency_key(idempotency_key),
+                ),
             ).fetchone()
             conn.commit()
         return message_from_row(row), True

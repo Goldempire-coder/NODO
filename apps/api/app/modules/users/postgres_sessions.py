@@ -37,6 +37,14 @@ class PostgresUserSessionsMixin:
             row = conn.execute("select * from sessions where refresh_token_hash = %s", (refresh_token_hash,)).fetchone()
         return session_from_row(row) if row else None
 
+    def get_session_by_access_token_jti(self, access_token_jti: str) -> SessionRecord | None:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            row = conn.execute(
+                "select * from sessions where access_token_jti = %s limit 1",
+                (access_token_jti,),
+            ).fetchone()
+        return session_from_row(row) if row else None
+
     def rotate_session(self, session: SessionRecord, *, refresh_token_hash: str, access_token_jti: str, expires_at: datetime) -> None:
         with self._connect() as conn:  # type: ignore[attr-defined]
             conn.execute(

@@ -134,7 +134,10 @@ Archivo permitido:
 - `image/jpeg`
 - `image/png`
 - `image/webp`
-- `application/pdf`
+
+El backend debe decodificar el contenido real y comprobar que coincide con el
+MIME declarado. PDF, HTML y archivos disfrazados se rechazan con un mensaje
+simple, sin guardar contenido en storage.
 
 Tamano maximo:
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
@@ -28,6 +28,25 @@ from app.auth.jwt import create_access_token  # noqa: E402
 from app.main import create_app  # noqa: E402
 
 
+def _access_token_for_user(app, user) -> str:  # type: ignore[no-untyped-def]
+    token, access_token_jti, _ = create_access_token(
+        user_id=user.id,
+        role=user.role,
+        status=user.status,
+        secret=os.environ["JWT_SECRET"],
+        ttl_seconds=900,
+    )
+    app.state.user_repository.create_session(
+        user_id=user.id,
+        refresh_token_hash=f"pytest-{access_token_jti}",
+        access_token_jti=access_token_jti,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+        ip_hash=None,
+        user_agent="pytest",
+    )
+    return token
+
+
 def _authenticated_client(*, enabled: bool = False, max_batch: int = 20, max_event_bytes: int = 2048) -> tuple[TestClient, str, str]:
     _set_env(enabled=enabled, max_batch=max_batch, max_event_bytes=max_event_bytes)
     app = create_app()
@@ -37,13 +56,7 @@ def _authenticated_client(*, enabled: bool = False, max_batch: int = 20, max_eve
         first_name="Obs",
         last_name=None,
     )
-    token, _, _ = create_access_token(
-        user_id=user.id,
-        role=user.role,
-        status=user.status,
-        secret=os.environ["JWT_SECRET"],
-        ttl_seconds=900,
-    )
+    token = _access_token_for_user(app, user)
     return TestClient(app), token, user.id
 
 
@@ -95,13 +108,7 @@ def _role_headers(client: TestClient, *, role: str, telegram_id: int, username: 
     )
     client.app.state.user_repository.set_user_role(user.id, role)
     user = client.app.state.user_repository.get_user_by_id(user.id)
-    token, _, _ = create_access_token(
-        user_id=user.id,
-        role=user.role,
-        status=user.status,
-        secret=os.environ["JWT_SECRET"],
-        ttl_seconds=900,
-    )
+    token = _access_token_for_user(client.app, user)
     return {"Authorization": f"Bearer {token}", "X-Request-Id": f"req_{role}_ux"}
 
 

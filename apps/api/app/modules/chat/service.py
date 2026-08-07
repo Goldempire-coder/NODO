@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.core.errors import ApiError
 from app.core.logging import get_logger
 from app.modules.chat.moderation import detect_off_platform_solicitation
+from app.modules.chat.payment_sharing import is_official_payment_details_idempotency_key
 from app.modules.businesses.access_control import evaluate_business_access
 from app.modules.chat.models import ALLOWED_ATTACHMENT_MIME_TYPES, MAX_ATTACHMENT_SIZE_BYTES, new_id
 from app.modules.chat.policy import require_chat_read, require_chat_write, require_message_read_state, require_message_state
@@ -17,6 +18,11 @@ from app.modules.notifications.chat_notifications import NoopChatNotificationSer
 from app.modules.orders.models import OrderRecord
 from app.modules.orders.serializers import business_order_payload, public_order_payload
 from app.modules.users.models import UserRecord
+from app.shared.photo_uploads import (
+    PHOTO_UPLOAD_ERROR_MESSAGE,
+    ValidatedPhoto,
+    validate_photo_upload,
+)
 
 
 CHAT_DISCLAIMER = "Usa este chat para coordinar la orden y conservar el registro de la conversacion."
@@ -152,9 +158,9 @@ class ChatService:
         account_value = self._configured_payment_account(order)
         if account_value is None:
             return False
-        return self._repository.has_business_message_containing(
+        return self._repository.has_official_payment_message(
             order_id=order.id,
-            text=account_value,
+            account_value=account_value,
         )
 
     def _system_messages(self, order: OrderRecord, cursor: str | None) -> list[dict[str, Any]]:
@@ -443,6 +449,8 @@ class ChatService:
     def create_message(self, *, user: UserRecord, order_id: str, payload: MessageCreateRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         if not idempotency_key:
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
+        if is_official_payment_details_idempotency_key(idempotency_key):
+            raise ApiError("VALIDATION_ERROR", status_code=400)
         order = self._order(order_id)
         self._rate_limit("create", user, order.id)
         require_message_state(order)
@@ -567,12 +575,6 @@ class ChatService:
                         "business_id": order.business_id,
                     },
                 )
-                self._inspect_business_message_for_off_platform_solicitation(
-                    user=user,
-                    order=order,
-                    message=message,
-                    request_id=request_id,
-                )
                 self._notifications.message_created(
                     order=order,
                     message=message,
@@ -586,7 +588,7 @@ class ChatService:
             }
 
         return self._idempotency.replay_or_store(
-            f"chat:share_payment_details:{user.id}:{order.id}:{idempotency_key}",
+            f"chat:share_payment_details:v2:{user.id}:{order.id}:{idempotency_key}",
             payload={"order_id": order.id, "action": "share_configured_payment_details"},
             compute=compute,
         )
@@ -594,11 +596,7 @@ class ChatService:
     def _inspect_business_message_for_off_platform_solicitation(self, *, user: UserRecord, order: OrderRecord, message, request_id: str) -> None:  # type: ignore[no-untyped-def]
         if user.role != "business_owner":
             return
-        account_value = self._configured_payment_account(order)
-        match = detect_off_platform_solicitation(
-            message.body,
-            allowed_contact_values=(account_value,) if account_value else (),
-        )
+        match = detect_off_platform_solicitation(message.body)
         if match is None:
             return
         self._audit.write(
@@ -648,7 +646,9 @@ class ChatService:
         if self._storage is None:
             raise ApiError("STORAGE_UNAVAILABLE", status_code=503)
         order = self._order(order_id)
-        self._validate_attachment_upload(user=user, order=order, mime_type=mime_type, content=content)
+        photo = self._validate_attachment_upload(user=user, order=order, mime_type=mime_type, content=content)
+        file_name = photo.storage_file_name
+        mime_type = photo.mime_type
         payload = self._attachment_idempotency_payload(order=order, file_name=file_name, mime_type=mime_type, content=content)
 
         def compute() -> dict[str, Any]:
@@ -656,17 +656,31 @@ class ChatService:
 
         return self._idempotency.replay_or_store(f"chat:attachment:{user.id}:{order.id}:{idempotency_key}", payload=payload, compute=compute)
 
-    def _validate_attachment_upload(self, *, user: UserRecord, order: OrderRecord, mime_type: str, content: bytes) -> None:
+    def _validate_attachment_upload(self, *, user: UserRecord, order: OrderRecord, mime_type: str, content: bytes) -> ValidatedPhoto:
         self._rate_limit("attachment", user, order.id)
         require_message_state(order)
         require_chat_write(user, order, self._business_owner_id(order))
         self._require_business_actor_access(user, order)
         if mime_type not in ALLOWED_ATTACHMENT_MIME_TYPES:
-            raise ApiError("MESSAGE_ATTACHMENT_TYPE_NOT_ALLOWED", status_code=400)
+            raise ApiError(
+                "MESSAGE_ATTACHMENT_TYPE_NOT_ALLOWED",
+                message=PHOTO_UPLOAD_ERROR_MESSAGE,
+                status_code=400,
+            )
         if not content:
-            raise ApiError("MESSAGE_ATTACHMENT_INVALID", status_code=400)
+            raise ApiError(
+                "MESSAGE_ATTACHMENT_INVALID",
+                message=PHOTO_UPLOAD_ERROR_MESSAGE,
+                status_code=400,
+            )
         if len(content) > MAX_ATTACHMENT_SIZE_BYTES:
             raise ApiError("MESSAGE_ATTACHMENT_TOO_LARGE", status_code=400)
+        return validate_photo_upload(
+            content=content,
+            declared_mime_type=mime_type,
+            invalid_error_code="MESSAGE_ATTACHMENT_INVALID",
+            type_error_code="MESSAGE_ATTACHMENT_TYPE_NOT_ALLOWED",
+        )
 
     def _attachment_idempotency_payload(self, *, order: OrderRecord, file_name: str, mime_type: str, content: bytes) -> dict[str, Any]:
         return {

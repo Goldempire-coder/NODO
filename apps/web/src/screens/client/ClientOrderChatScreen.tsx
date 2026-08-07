@@ -210,7 +210,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
       <input
         ref={paymentEvidenceInputRef}
         className="business-support-file-input"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        accept="image/jpeg,image/png,image/webp"
         disabled={uploadingPaymentEvidence || submittingPaymentReport || loadingPaymentInstructions}
         type="file"
         onChange={(event) => {
@@ -258,7 +258,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
           <input
             ref={fileInputRef}
             className="business-support-file-input"
-            accept="image/*,application/pdf"
+            accept="image/jpeg,image/png,image/webp"
             disabled={!chatCapabilities.can_send_message || uploadingChatAttachment || sendingChatMessage}
             type="file"
             onChange={(event) => {

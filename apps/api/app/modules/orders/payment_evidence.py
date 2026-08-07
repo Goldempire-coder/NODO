@@ -12,6 +12,11 @@ from app.modules.orders.payment_constants import ALLOWED_PAYMENT_EVIDENCE_MIME_T
 from app.modules.orders.policy import require_order_owner, require_remitter
 from app.modules.orders.state_machine import require_payment_reveal_allowed
 from app.modules.users.models import UserRecord
+from app.shared.photo_uploads import (
+    PHOTO_UPLOAD_ERROR_MESSAGE,
+    ValidatedPhoto,
+    validate_photo_upload,
+)
 
 
 class PaymentEvidenceMixin:
@@ -34,13 +39,15 @@ class PaymentEvidenceMixin:
         self._rate_limit("payment_evidence", user)  # type: ignore[attr-defined]
         profile_mark(profile, "service:auth_and_rate_limit", stage_started)
         stage_started = time.perf_counter()
-        order_id, payment_report_id = self._validate_payment_evidence_request(
+        order_id, payment_report_id, photo = self._validate_payment_evidence_request(
             order_id=order_id,
             pending_payment_report_id=pending_payment_report_id,
             mime_type=mime_type,
             content=content,
             idempotency_key=idempotency_key,
         )
+        file_name = photo.storage_file_name
+        mime_type = photo.mime_type
         profile_mark(profile, "service:validate_payload", stage_started)
         stage_started = time.perf_counter()
         payload = self._payment_evidence_idempotency_payload(order_id=order_id, file_name=file_name, mime_type=mime_type, content=content, payment_report_id=payment_report_id)
@@ -75,14 +82,31 @@ class PaymentEvidenceMixin:
         mime_type: str,
         content: bytes,
         idempotency_key: str | None,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str, ValidatedPhoto]:
         if not idempotency_key:
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
         if self._storage is None:  # type: ignore[attr-defined]
             raise ApiError("STORAGE_UNAVAILABLE", status_code=503)
-        if mime_type not in ALLOWED_PAYMENT_EVIDENCE_MIME_TYPES or not content or len(content) > MAX_PAYMENT_EVIDENCE_SIZE_BYTES:
-            raise ApiError("INVALID_PAYMENT_EVIDENCE", status_code=400)
-        return require_uuid(order_id, "ORDER_NOT_FOUND") or order_id, require_uuid(pending_payment_report_id, "INVALID_PAYMENT_EVIDENCE") or new_id()
+        if (
+            mime_type not in ALLOWED_PAYMENT_EVIDENCE_MIME_TYPES
+            or not content
+            or len(content) > MAX_PAYMENT_EVIDENCE_SIZE_BYTES
+        ):
+            raise ApiError(
+                "INVALID_PAYMENT_EVIDENCE",
+                message=PHOTO_UPLOAD_ERROR_MESSAGE,
+                status_code=400,
+            )
+        photo = validate_photo_upload(
+            content=content,
+            declared_mime_type=mime_type,
+            invalid_error_code="INVALID_PAYMENT_EVIDENCE",
+        )
+        return (
+            require_uuid(order_id, "ORDER_NOT_FOUND") or order_id,
+            require_uuid(pending_payment_report_id, "INVALID_PAYMENT_EVIDENCE") or new_id(),
+            photo,
+        )
 
     def _payment_evidence_idempotency_payload(self, *, order_id: str, file_name: str, mime_type: str, content: bytes, payment_report_id: str) -> dict[str, Any]:
         return {

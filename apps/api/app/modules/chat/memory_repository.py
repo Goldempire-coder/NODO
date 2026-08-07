@@ -4,7 +4,11 @@ from threading import RLock
 
 from app.modules.businesses.models import FileAssetRecord
 from app.modules.chat.models import MessageAttachmentRecord, MessageRecord, new_id, utc_now
-from app.modules.chat.payment_sharing import contains_configured_payment_account
+from app.modules.chat.payment_sharing import (
+    contains_configured_payment_account,
+    is_official_payment_details_idempotency_key,
+    official_payment_details_idempotency_key,
+)
 
 
 class InMemoryChatRepository:
@@ -91,8 +95,8 @@ class InMemoryChatRepository:
                 return message
         return None
 
-    def has_business_message_containing(self, *, order_id: str, text: str) -> bool:
-        if not text.strip():
+    def has_official_payment_message(self, *, order_id: str, account_value: str) -> bool:
+        if not account_value.strip():
             return False
         return any(
             message.order_id == order_id
@@ -100,7 +104,8 @@ class InMemoryChatRepository:
             and message.visibility == "parties"
             and message.deleted_at is None
             and message.status == "visible"
-            and contains_configured_payment_account(message.body, text)
+            and is_official_payment_details_idempotency_key(message.idempotency_key)
+            and contains_configured_payment_account(message.body, account_value)
             for message in self.messages.values()
         )
 
@@ -123,6 +128,9 @@ class InMemoryChatRepository:
                     and message.visibility == "parties"
                     and message.deleted_at is None
                     and message.status == "visible"
+                    and is_official_payment_details_idempotency_key(
+                        message.idempotency_key
+                    )
                     and contains_configured_payment_account(
                         message.body,
                         account_value,
@@ -137,7 +145,9 @@ class InMemoryChatRepository:
                 sender_user_id=sender_user_id,
                 sender_role="business_owner",
                 body=body,
-                idempotency_key=idempotency_key,
+                idempotency_key=official_payment_details_idempotency_key(
+                    idempotency_key
+                ),
             )
             return message, True
 

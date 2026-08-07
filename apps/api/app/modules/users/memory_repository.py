@@ -23,6 +23,7 @@ class InMemoryUserRepository:
         self._admin_credentials_by_id: dict[str, AdminCredentialRecord] = {}
         self._admin_credentials_by_username: dict[str, AdminCredentialRecord] = {}
         self._sessions_by_hash: dict[str, SessionRecord] = {}
+        self._sessions_by_access_jti: dict[str, SessionRecord] = {}
         self._sessions_by_id: dict[str, SessionRecord] = {}
 
     def upsert_telegram_user(
@@ -180,20 +181,27 @@ class InMemoryUserRepository:
             )
             self._sessions_by_id[session.id] = session
             self._sessions_by_hash[session.refresh_token_hash] = session
+            self._sessions_by_access_jti[session.access_token_jti] = session
             return session
 
     def get_session_by_refresh_hash(self, refresh_token_hash: str) -> SessionRecord | None:
         return self._sessions_by_hash.get(refresh_token_hash)
 
+    def get_session_by_access_token_jti(self, access_token_jti: str) -> SessionRecord | None:
+        return self._sessions_by_access_jti.get(access_token_jti)
+
     def rotate_session(self, session: SessionRecord, *, refresh_token_hash: str, access_token_jti: str, expires_at: datetime) -> None:
         with self._lock:
             self._sessions_by_hash.pop(session.refresh_token_hash, None)
+            if session.access_token_jti is not None:
+                self._sessions_by_access_jti.pop(session.access_token_jti, None)
             session.refresh_token_hash = refresh_token_hash
             session.access_token_jti = access_token_jti
             session.expires_at = expires_at
             session.last_used_at = utc_now()
             session.updated_at = utc_now()
             self._sessions_by_hash[session.refresh_token_hash] = session
+            self._sessions_by_access_jti[session.access_token_jti] = session
 
     def rotate_session_if_current(
         self,
@@ -210,12 +218,15 @@ class InMemoryUserRepository:
             if self._sessions_by_hash.get(current_refresh_token_hash) is not session:
                 return False
             self._sessions_by_hash.pop(current_refresh_token_hash, None)
+            if session.access_token_jti is not None:
+                self._sessions_by_access_jti.pop(session.access_token_jti, None)
             session.refresh_token_hash = refresh_token_hash
             session.access_token_jti = access_token_jti
             session.expires_at = expires_at
             session.last_used_at = utc_now()
             session.updated_at = utc_now()
             self._sessions_by_hash[session.refresh_token_hash] = session
+            self._sessions_by_access_jti[session.access_token_jti] = session
             return True
 
     def revoke_session(self, session: SessionRecord) -> None:

@@ -29,75 +29,6 @@ def _profile_mark(profile: list[dict] | None, stage: str, started: float) -> Non
     profile_mark(profile, stage, started)
 
 
-def _datetime_to_cache(value: datetime | None) -> str | None:
-    return value.isoformat() if value is not None else None
-
-
-def _datetime_from_cache(value: str | None) -> datetime | None:
-    return datetime.fromisoformat(value) if value else None
-
-
-def _user_to_cache(user: UserRecord) -> dict[str, Any]:
-    return {
-        "id": user.id,
-        "telegram_id": user.telegram_id,
-        "username": user.username,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "phone": user.phone,
-        "role": user.role,
-        "status": user.status,
-        "trust_level": user.trust_level,
-        "created_at": _datetime_to_cache(user.created_at),
-        "updated_at": _datetime_to_cache(user.updated_at),
-        "last_seen_at": _datetime_to_cache(user.last_seen_at),
-        "terms_accepted_at": _datetime_to_cache(user.terms_accepted_at),
-        "terms_version": user.terms_version,
-    }
-
-
-def _user_from_cache(payload: dict[str, Any]) -> UserRecord:
-    return UserRecord(
-        id=payload["id"],
-        telegram_id=int(payload["telegram_id"]) if payload.get("telegram_id") is not None else None,
-        username=payload.get("username"),
-        first_name=payload.get("first_name"),
-        last_name=payload.get("last_name"),
-        phone=payload.get("phone"),
-        role=payload.get("role", "remitter"),
-        status=payload.get("status", "active"),
-        trust_level=payload.get("trust_level"),
-        created_at=_datetime_from_cache(payload.get("created_at")) or datetime.now(timezone.utc),
-        updated_at=_datetime_from_cache(payload.get("updated_at")) or datetime.now(timezone.utc),
-        last_seen_at=_datetime_from_cache(payload.get("last_seen_at")),
-        terms_accepted_at=_datetime_from_cache(payload.get("terms_accepted_at")),
-        terms_version=payload.get("terms_version"),
-    )
-
-
-def _cached_user(request: Request, user_id: str, profile: list[dict] | None) -> UserRecord | None:
-    cache = getattr(request.app.state, "auth_user_cache", None)
-    ttl_seconds = getattr(request.app.state.settings, "auth_user_cache_ttl_seconds", 0)
-    if cache is None or ttl_seconds <= 0:
-        return None
-    stage_started = time.perf_counter()
-    cached = cache.get_json(f"auth:user:{user_id}")
-    _profile_mark(profile, "auth:user_cache_get", stage_started)
-    if cached is None:
-        return None
-    return _user_from_cache(cached)
-
-
-def _cache_user(request: Request, user: UserRecord, profile: list[dict] | None) -> None:
-    cache = getattr(request.app.state, "auth_user_cache", None)
-    ttl_seconds = getattr(request.app.state.settings, "auth_user_cache_ttl_seconds", 0)
-    if cache is None or ttl_seconds <= 0:
-        return
-    stage_started = time.perf_counter()
-    cache.set_json(f"auth:user:{user.id}", _user_to_cache(user), ttl_seconds)
-    _profile_mark(profile, "auth:user_cache_set", stage_started)
-
-
 def require_authenticated_user(request: Request, authorization: str | None = Header(default=None)) -> UserRecord:
     profile = [] if _profile_enabled(request) else None
     profile_started = time.perf_counter()
@@ -112,12 +43,24 @@ def require_authenticated_user(request: Request, authorization: str | None = Hea
     payload = decode_access_token(authorization.removeprefix("Bearer ").strip(), settings.jwt_secret)
     _profile_mark(profile, "auth:decode_access_token", stage_started)
     stage_started = time.perf_counter()
-    user = _cached_user(request, payload["sub"], profile)
-    if user is None:
-        user = request.app.state.user_repository.get_user_by_id(payload["sub"])
-        if user is not None:
-            _cache_user(request, user, profile)
-    _profile_mark(profile, "auth:get_user_by_id", stage_started)
+    user_id = payload.get("sub")
+    access_token_jti = payload.get("jti")
+    if not isinstance(user_id, str) or not user_id or not isinstance(access_token_jti, str) or not access_token_jti:
+        raise ApiError("UNAUTHENTICATED", status_code=401)
+    session = request.app.state.user_repository.get_session_by_access_token_jti(access_token_jti)
+    _profile_mark(profile, "auth:get_session_by_access_token_jti", stage_started)
+    if (
+        session is None
+        or session.user_id != user_id
+        or session.status != "active"
+        or request.app.state.user_repository.session_is_expired(session)
+    ):
+        raise ApiError("SESSION_EXPIRED", status_code=401)
+    stage_started = time.perf_counter()
+    # Strong auth must observe a status change on the next request. Only the
+    # explicitly read-only marketplace dependency may trust fresh JWT claims.
+    user = request.app.state.user_repository.get_user_by_id(user_id)
+    _profile_mark(profile, "auth:get_user_by_id_fresh", stage_started)
     if user is None:
         raise ApiError("UNAUTHENTICATED", status_code=401)
     if profile is not None:

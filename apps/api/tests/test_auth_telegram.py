@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -51,6 +52,27 @@ from app.main import create_app  # noqa: E402
 def _client(**env_overrides: str) -> TestClient:
     _set_env(**env_overrides)
     return TestClient(create_app())
+
+
+def _base64url(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _signed_access_token(
+    *,
+    payload: object | None = None,
+    raw_payload: bytes | None = None,
+    signature: bytes | None = None,
+) -> str:
+    header_segment = _base64url(json.dumps({"alg": "HS256", "typ": "JWT"}).encode("utf-8"))
+    payload_segment = _base64url(raw_payload if raw_payload is not None else json.dumps(payload).encode("utf-8"))
+    signing_input = f"{header_segment}.{payload_segment}"
+    resolved_signature = signature or hmac.new(
+        JWT_SECRET.encode("utf-8"),
+        signing_input.encode("ascii"),
+        hashlib.sha256,
+    ).digest()
+    return f"{signing_input}.{_base64url(resolved_signature)}"
 
 
 def _signed_init_data(
@@ -341,6 +363,18 @@ def test_refresh_rotates_refresh_token_and_old_token_expires() -> None:
     assert refreshed["refresh_token"] != login["refresh_token"]
     assert "session_refreshed" in _event_types(client)
 
+    old_access_response = client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": "req_old_access_after_refresh"},
+    )
+    fresh_access_response = client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {refreshed['access_token']}", "X-Request-Id": "req_fresh_access_after_refresh"},
+    )
+    assert old_access_response.status_code == 401
+    assert old_access_response.json()["error"]["code"] == "SESSION_EXPIRED"
+    assert fresh_access_response.status_code == 200
+
     old_token_response = client.post(
         "/api/v1/auth/refresh",
         headers={"X-Request-Id": "req_refresh_old"},
@@ -375,6 +409,40 @@ def test_expired_access_token_can_refresh_and_reauthenticate_requests() -> None:
     )
     assert fresh_me.status_code == 200
     assert fresh_me.json()["data"]["id"] == login["user"]["id"]
+
+
+def test_malformed_access_tokens_return_unauthenticated_instead_of_internal_error() -> None:
+    _set_env()
+    client = TestClient(create_app(), raise_server_exceptions=False)
+    now = int(time.time())
+    valid_claims = {
+        "sub": "test-user-id",
+        "role": "remitter",
+        "status": "active",
+        "iat": now,
+        "exp": now + 900,
+        "jti": "test-access-jti",
+    }
+    malformed_tokens = {
+        "single segment": "malformed",
+        "invalid encoded segments x": "x.y.z",
+        "invalid encoded segments a": "a.b.c",
+        "payload is not json": _signed_access_token(raw_payload=b"not-json"),
+        "payload is not an object": _signed_access_token(payload=[]),
+        "missing sub": _signed_access_token(payload={key: value for key, value in valid_claims.items() if key != "sub"}),
+        "missing jti": _signed_access_token(payload={key: value for key, value in valid_claims.items() if key != "jti"}),
+        "invalid signature": _signed_access_token(payload=valid_claims, signature=b"invalid-signature"),
+        "unexpected exp type": _signed_access_token(payload={**valid_claims, "exp": {"seconds": 900}}),
+    }
+
+    for case, token in malformed_tokens.items():
+        response = client.get(
+            "/api/v1/users/me",
+            headers={"Authorization": f"Bearer {token}", "X-Request-Id": f"req_malformed_{case.replace(' ', '_')}"},
+        )
+
+        assert response.status_code == 401, f"{case}: {response.text}"
+        assert response.json()["error"]["code"] == "UNAUTHENTICATED", case
 
 
 def test_refresh_token_replays_are_rejected_atomically_by_repository() -> None:
@@ -438,6 +506,65 @@ def test_logout_revokes_session_and_is_idempotent() -> None:
     assert session.status == "revoked"
     assert session.revoked_at is not None
     assert _event_types(client).count("user_logout") == 2
+
+
+def test_logout_revokes_current_access_token_without_revoking_another_session() -> None:
+    client = _client()
+    first_login = _login(client).json()["data"]
+    second_login = _login(client).json()["data"]
+    first_headers = {
+        "Authorization": f"Bearer {first_login['access_token']}",
+        "X-Request-Id": "req_logout_first_session",
+    }
+    second_headers = {
+        "Authorization": f"Bearer {second_login['access_token']}",
+        "X-Request-Id": "req_second_session_me",
+    }
+
+    assert client.get("/api/v1/users/me", headers=first_headers).status_code == 200
+    assert client.get("/api/v1/users/me", headers=second_headers).status_code == 200
+
+    logout_response = client.post(
+        "/api/v1/auth/logout",
+        headers=first_headers,
+        json={"refresh_token": first_login["refresh_token"]},
+    )
+    first_access_after_logout = client.get("/api/v1/users/me", headers=first_headers)
+    first_refresh_after_logout = client.post(
+        "/api/v1/auth/refresh",
+        headers={"X-Request-Id": "req_refresh_first_session_after_logout"},
+        json={"refresh_token": first_login["refresh_token"]},
+    )
+    second_access_after_logout = client.get("/api/v1/users/me", headers=second_headers)
+
+    assert logout_response.status_code == 200
+    assert first_access_after_logout.status_code == 401
+    assert first_access_after_logout.json()["error"]["code"] == "SESSION_EXPIRED"
+    assert first_refresh_after_logout.status_code == 401
+    assert first_refresh_after_logout.json()["error"]["code"] == "SESSION_EXPIRED"
+    assert second_access_after_logout.status_code == 200
+    assert second_access_after_logout.json()["data"]["id"] == first_login["user"]["id"]
+
+
+def test_logout_with_malformed_access_token_still_revokes_refresh_session() -> None:
+    client = _client()
+    login = _login(client).json()["data"]
+
+    response = client.post(
+        "/api/v1/auth/logout",
+        headers={"Authorization": "Bearer malformed", "X-Request-Id": "req_logout_malformed_access"},
+        json={"refresh_token": login["refresh_token"]},
+    )
+    refresh_after_logout = client.post(
+        "/api/v1/auth/refresh",
+        headers={"X-Request-Id": "req_refresh_after_malformed_access_logout"},
+        json={"refresh_token": login["refresh_token"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["logged_out"] is True
+    assert refresh_after_logout.status_code == 401
+    assert refresh_after_logout.json()["error"]["code"] == "SESSION_EXPIRED"
 
 
 def test_logout_revokes_refresh_session_even_when_access_token_expired() -> None:

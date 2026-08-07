@@ -47,6 +47,7 @@ from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.orders.receiver_details import receiver_payload_hash  # noqa: E402
+from photo_test_data import png_bytes  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -187,7 +188,7 @@ def _create_order(client: TestClient, remitter: dict, ad_id: str, *, key: str = 
 
 
 def _upload_evidence(client: TestClient, remitter: dict, order_id: str, key: str = "evidence") -> dict:
-    content = f"proof:{order_id}:{key}".encode("utf-8")
+    content = png_bytes(f"proof:{order_id}:{key}".encode("utf-8"))
     response = client.post(
         f"/api/v1/orders/{order_id}/payment-evidence",
         headers=_headers(remitter, key),
@@ -199,21 +200,17 @@ def _upload_evidence(client: TestClient, remitter: dict, order_id: str, key: str
 
 
 def _report_payment(client: TestClient, remitter: dict, order: dict, *, key: str = "report") -> dict:
-    if not client.app.state.chat_repository.has_business_message_containing(
+    stored_order = client.app.state.order_repository.get_by_id(order["id"])
+    business = client.app.state.business_repository.get_business(
+        stored_order.business_id
+    )
+    client.app.state.chat_repository.create_configured_payment_message_once(
         order_id=order["id"],
-        text="owner@example.com",
-    ):
-        stored_order = client.app.state.order_repository.get_by_id(order["id"])
-        business = client.app.state.business_repository.get_business(
-            stored_order.business_id
-        )
-        client.app.state.chat_repository.create_message(
-            order_id=order["id"],
-            sender_user_id=business.owner_user_id,
-            sender_role="business_owner",
-            body="Zelle del negocio: owner@example.com",
-            idempotency_key=f"fixture_share_{order['id']}",
-        )
+        sender_user_id=business.owner_user_id,
+        body="Zelle del negocio: owner@example.com",
+        account_value="owner@example.com",
+        idempotency_key=f"fixture_share_{order['id']}",
+    )
     evidence = _upload_evidence(client, remitter, order["id"], key=f"{key}_evidence")
     response = client.post(
         f"/api/v1/orders/{order['id']}/payment-report",
@@ -392,6 +389,36 @@ def test_confirm_payment_consumes_once_accepts_report_archives_ad_and_sets_deadl
     assert JWT_REFRESH_SECRET not in combined
 
 
+def test_stale_per_process_auth_cache_cannot_confirm_payment_after_user_block() -> None:
+    from app.shared.cache import InMemoryTTLCache
+
+    client = _client(AUTH_USER_CACHE_TTL_SECONDS="300")
+    owner, _, _, _, order = _seed_reported_order(client, owner_id=712, remitter_id=713)
+    cache = InMemoryTTLCache()
+    client.app.state.auth_user_cache = cache
+    cache.set_json(
+        f"auth:user:{owner['user']['id']}",
+        {"id": owner["user"]["id"], "role": "business_owner", "status": "active"},
+        300,
+    )
+    primed = client.get(
+        f"/api/v1/business/orders/{order['id']}",
+        headers=_bearer(owner, "req_prime_confirm_auth_cache"),
+    )
+    assert primed.status_code == 200, primed.text
+    assert cache.get_json(f"auth:user:{owner['user']['id']}")["status"] == "active"
+
+    client.app.state.user_repository.set_user_status(owner["user"]["id"], "blocked")
+    denied = client.post(
+        f"/api/v1/business/orders/{order['id']}/confirm-payment",
+        headers={**_headers(owner, "blocked_cached_confirm"), "Content-Type": "application/json"},
+        json={"reason": "Pago recibido"},
+    )
+
+    assert denied.status_code == 403
+    assert denied.json()["error"]["code"] == "USER_SUSPENDED"
+
+
 def test_confirm_payment_invalid_state_and_missing_hold_fail_safely() -> None:
     client = _client()
     owner, _, _, _, order = _seed_reported_order(client, owner_id=720, remitter_id=721)
@@ -487,6 +514,38 @@ def test_mark_delivered_requires_confirmed_sets_timers_and_does_not_complete_or_
     assert wallet_after_delivery.blocked_credits == blocked_before_delivery
     assert wallet_after_delivery.consumed_credits == consumed_before_delivery
     assert "order_delivered" in _event_types(client)
+
+
+def test_stale_per_process_auth_cache_cannot_mark_delivered_after_user_block() -> None:
+    from app.shared.cache import InMemoryTTLCache
+
+    client = _client(AUTH_USER_CACHE_TTL_SECONDS="300")
+    owner, _, _, _, order = _seed_reported_order(client, owner_id=742, remitter_id=743)
+    cache = InMemoryTTLCache()
+    client.app.state.auth_user_cache = cache
+    cache.set_json(
+        f"auth:user:{owner['user']['id']}",
+        {"id": owner["user"]["id"], "role": "business_owner", "status": "active"},
+        300,
+    )
+    confirmed = client.post(
+        f"/api/v1/business/orders/{order['id']}/confirm-payment",
+        headers={**_headers(owner, "confirm_before_block"), "Content-Type": "application/json"},
+        json={"reason": "Pago recibido"},
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    _seed_receiver_details(client, order["id"])
+    assert cache.get_json(f"auth:user:{owner['user']['id']}")["status"] == "active"
+
+    client.app.state.user_repository.set_user_status(owner["user"]["id"], "blocked")
+    denied = client.post(
+        f"/api/v1/business/orders/{order['id']}/mark-delivered",
+        headers={**_headers(owner, "blocked_cached_delivery"), "Content-Type": "application/json"},
+        json={"reason": "Pago movil enviado"},
+    )
+
+    assert denied.status_code == 403
+    assert denied.json()["error"]["code"] == "USER_SUSPENDED"
 
 
 def test_no_chat_or_dispute_endpoints_and_migration_contains_slice_06_constraints() -> None:

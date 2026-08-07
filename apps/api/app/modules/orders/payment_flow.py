@@ -77,8 +77,8 @@ class OrderPaymentFlow(PaymentEvidenceMixin, PaymentReportingMixin):
         account_value = str(
             (order.payment_instructions_snapshot or {}).get("account_value") or ""
         ).strip()
-        if not account_value or not self._chat.has_business_message_containing(
+        if not account_value or not self._chat.has_official_payment_message(
             order_id=order.id,
-            text=account_value,
+            account_value=account_value,
         ):
             raise ApiError("ORDER_PAYMENT_DETAILS_NOT_SHARED", status_code=409)

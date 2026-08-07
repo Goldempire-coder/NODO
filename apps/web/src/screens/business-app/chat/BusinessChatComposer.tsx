@@ -54,7 +54,7 @@ export function BusinessChatComposer({
       <input
         ref={fileInputRef}
         className="business-support-file-input"
-        accept="image/*,application/pdf"
+        accept="image/jpeg,image/png,image/webp"
         disabled={!canSendMessage || uploadingChatAttachment || sendingChatMessage}
         type="file"
         onChange={(event) => {

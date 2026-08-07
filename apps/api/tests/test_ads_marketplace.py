@@ -49,6 +49,7 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.auth.jwt import decode_access_token  # noqa: E402
 from app.core.errors import ApiError  # noqa: E402
 from app.modules.ads.repository import InMemoryAdRepository  # noqa: E402
 from app.modules.business_capacity import InMemoryBusinessCapacityRepository  # noqa: E402
@@ -102,7 +103,14 @@ def _bearer(login: dict, key: str = "req") -> dict[str, str]:
     return {"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": key}
 
 
-def _access_token(user_id: str, *, role: str = "remitter", status: str = "active", issued_at: int | None = None) -> str:
+def _access_token(
+    user_id: str,
+    *,
+    role: str = "remitter",
+    status: str = "active",
+    issued_at: int | None = None,
+    access_token_jti: str | None = None,
+) -> str:
     now = issued_at or int(time.time())
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
@@ -111,7 +119,7 @@ def _access_token(user_id: str, *, role: str = "remitter", status: str = "active
         "status": status,
         "iat": now,
         "exp": int(time.time()) + 900,
-        "jti": f"test-jti-{user_id}",
+        "jti": access_token_jti or f"test-jti-{user_id}",
     }
 
     def b64(raw: bytes) -> str:
@@ -1296,6 +1304,20 @@ def test_marketplace_reads_use_fresh_jwt_claims_without_user_repository_lookup()
     assert "storage_path" not in search.text + detail.text
 
 
+def test_marketplace_read_rejects_malformed_access_tokens_without_internal_error() -> None:
+    _set_env(MARKETPLACE_READ_AUTH_CLAIM_TTL_SECONDS="30")
+    client = TestClient(create_app(), raise_server_exceptions=False)
+
+    for token in ["malformed", "x.y.z", "a.b.c"]:
+        response = client.get(
+            "/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&delivery_method=pago_movil_ve&sort=rate",
+            headers={"Authorization": f"Bearer {token}", "X-Request-Id": "req_malformed_marketplace_token"},
+        )
+
+        assert response.status_code == 401, response.text
+        assert response.json()["error"]["code"] == "UNAUTHENTICATED"
+
+
 def test_marketplace_read_claim_auth_default_ttl_is_five_minutes() -> None:
     client = _client()
 
@@ -1360,7 +1382,12 @@ def test_marketplace_old_jwt_claim_falls_back_to_user_repository_status() -> Non
     remitter = _login(client, 748, "remitter")
     stored = client.app.state.user_repository.get_user_by_id(remitter["user"]["id"])
     stored.status = "blocked"
-    stale_token = _access_token(remitter["user"]["id"], issued_at=int(time.time()) - 120)
+    session_jti = decode_access_token(remitter["access_token"], JWT_SECRET)["jti"]
+    stale_token = _access_token(
+        remitter["user"]["id"],
+        issued_at=int(time.time()) - 120,
+        access_token_jti=session_jti,
+    )
 
     response = client.get(
         "/api/v1/ads/search?amount_usd=50.00&payment_method=zelle&delivery_method=pago_movil_ve&sort=rate",

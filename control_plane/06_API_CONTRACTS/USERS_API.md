@@ -34,7 +34,8 @@ Rules:
 - Solo devuelve el perfil propio.
 - No devuelve `telegram_id`.
 - No devuelve secretos ni tokens.
-- Usuario `blocked` o suspendido debe recibir error seguro segun auth policy.
+- Usuario `blocked` o suspendido debe recibir error seguro en el siguiente
+  request operativo; un valor stale en cache de proceso no puede autorizarlo.
 
 ## PATCH /api/v1/users/me
 

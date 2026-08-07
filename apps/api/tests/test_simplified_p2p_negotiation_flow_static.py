@@ -491,9 +491,9 @@ def test_payment_evidence_upload_prepares_mobile_images_and_hides_raw_fetch_erro
     assert "MAX_PAYMENT_EVIDENCE_IMAGE_DIMENSION" in payment_file
     assert "canvas.toBlob" in payment_file
     assert "image/jpeg" in payment_file
-    assert "application/pdf" in payment_file
-    assert "Adjunta una imagen PNG/JPG/WebP o PDF." in payment_file
-    assert 'accept="image/jpeg,image/png,image/webp,application/pdf"' in client_chat
+    assert "application/pdf" not in payment_file
+    assert "Usa una imagen valida JPG, PNG o WebP." in payment_file
+    assert 'accept="image/jpeg,image/png,image/webp"' in client_chat
 
 
 def test_legacy_0041_zelle_database_contract_accepts_locked_amount_and_proof_only() -> None:

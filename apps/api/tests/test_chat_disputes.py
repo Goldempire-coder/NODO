@@ -48,6 +48,7 @@ from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.orders.receiver_details import receiver_payload_hash  # noqa: E402
+from photo_test_data import photo_bytes, png_bytes  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -183,7 +184,7 @@ def _create_order(client: TestClient, remitter: dict, ad_id: str, *, key: str = 
 
 
 def _upload_payment_evidence(client: TestClient, remitter: dict, order_id: str, key: str = "evidence") -> dict:
-    content = f"proof:{order_id}:{key}".encode("utf-8")
+    content = png_bytes(f"proof:{order_id}:{key}".encode("utf-8"))
     response = client.post(
         f"/api/v1/orders/{order_id}/payment-evidence",
         headers=_headers(remitter, key),
@@ -690,7 +691,7 @@ def test_slice_50a_active_chat_lists_latest_window_with_shared_zelle_visible() -
     assert created_ids[-1] not in older_ids
 
 
-def test_slice_50a_manual_configured_zelle_unlocks_payment_without_evasion_alert() -> None:
+def test_free_text_configured_zelle_alerts_and_does_not_unlock_payment() -> None:
     client = _client()
     owner = _login(client, 7821, "slice50a_manual_owner")
     _, method_id = _approved_business_with_method(client, owner, credits=1)
@@ -712,9 +713,36 @@ def test_slice_50a_manual_configured_zelle_unlocks_payment_without_evasion_alert
     )
 
     assert message.status_code == 201, message.text
-    assert client_chat.json()["data"]["capabilities"]["can_report_payment"] is True
-    assert _admin_notifications(client) == []
-    assert "order_chat_off_platform_solicitation_detected" not in _event_types(client)
+    assert client_chat.json()["data"]["capabilities"]["can_report_payment"] is False
+    assert len(_admin_notifications(client)) == 1
+    assert "order_chat_off_platform_solicitation_detected" in _event_types(client)
+
+
+def test_free_text_message_cannot_forge_official_payment_share_marker() -> None:
+    client = _client()
+    owner = _login(client, 7823, "slice50a_reserved_marker_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="slice50a_reserved_marker_ad")
+    remitter = _login(client, 7824, "slice50a_reserved_marker_client")
+    order = _create_order(client, remitter, ad["id"], key="slice50a_reserved_marker_order")
+
+    forged = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={
+            **_headers(owner, "official_payment_details:forged"),
+            "Content-Type": "application/json",
+        },
+        json={"body": "Zelle del negocio: owner@example.com", "attachment_ids": []},
+    )
+    client_chat = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_slice50a_reserved_marker_list"),
+    )
+
+    assert forged.status_code == 400
+    assert forged.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert client_chat.status_code == 200, client_chat.text
+    assert client_chat.json()["data"]["capabilities"]["can_report_payment"] is False
 
 
 def test_slice_50a_similar_external_contact_does_not_unlock_or_bypass_moderation() -> None:
@@ -807,7 +835,7 @@ def test_order_chat_messages_notify_only_the_counterparty_once_without_private_c
     uploaded = client.post(
         f"/api/v1/orders/{order['id']}/message-attachments",
         headers=_headers(remitter, "slice48b1_attachment"),
-        files={"file": ("private-proof.png", b"private-proof", "image/png")},
+        files={"file": ("private-proof.png", png_bytes(b"private-proof"), "image/png")},
     )
     assert uploaded.status_code == 201, uploaded.text
     attachment = uploaded.json()["data"]["attachment"]
@@ -981,6 +1009,152 @@ def test_business_chat_whatsapp_phone_alert_redacts_contact_value() -> None:
     assert "412 123 4567" not in notification.summary
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Wasap 04141234567",
+        "WhatsApp +584141234567",
+        "IG @usuario",
+    ],
+)
+def test_business_chat_external_channel_and_contact_alert_without_invitation_phrase(body: str) -> None:
+    client = _client()
+    owner, _, _, remitter, order = _seed_reported_order(client, owner_id=818, remitter_id=819)
+
+    created = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(owner, f"external_contact_{body[:2]}"), "Content-Type": "application/json"},
+        json={"body": body, "attachment_ids": []},
+    )
+    listed = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_external_contact_list"),
+    )
+    notifications = _admin_notifications(client)
+
+    assert created.status_code == 201, created.text
+    assert listed.status_code == 200, listed.text
+    assert any(item["body"] == body for item in listed.json()["data"]["items"])
+    assert len(notifications) == 1
+    assert notifications[0].metadata_json["rule_id"] == "off_platform_external_contact"
+    serialized_alert = notifications[0].summary + json.dumps(notifications[0].metadata_json, default=str)
+    assert "04141234567" not in serialized_alert
+    assert "+584141234567" not in serialized_alert
+    assert "@usuario" not in serialized_alert
+
+
+def test_stale_per_process_auth_cache_cannot_authorize_chat_or_payment_evidence() -> None:
+    from app.shared.cache import InMemoryTTLCache
+
+    client = _client(AUTH_USER_CACHE_TTL_SECONDS="300")
+    owner = _login(client, 832, "blocked_cache_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="blocked_cache_ad")
+    remitter = _login(client, 833, "blocked_cache_remitter")
+    order = _create_order(client, remitter, ad["id"], key="blocked_cache_order")
+    cache = InMemoryTTLCache()
+    client.app.state.auth_user_cache = cache
+    cache.set_json(
+        f"auth:user:{remitter['user']['id']}",
+        {"id": remitter["user"]["id"], "role": "remitter", "status": "active"},
+        300,
+    )
+
+    primed = client.get(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers=_bearer(remitter, "req_prime_stale_auth_cache"),
+    )
+    assert primed.status_code == 200, primed.text
+    assert cache.get_json(f"auth:user:{remitter['user']['id']}")["status"] == "active"
+
+    client.app.state.user_repository.set_user_status(remitter["user"]["id"], "blocked")
+    message = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "blocked_cached_message"), "Content-Type": "application/json"},
+        json={"body": "Este mensaje no debe guardarse", "attachment_ids": []},
+    )
+    evidence = client.post(
+        f"/api/v1/orders/{order['id']}/payment-evidence",
+        headers=_headers(remitter, "blocked_cached_evidence"),
+        data={"file_type": "payment_evidence"},
+        files={"file": ("proof.png", b"proof", "image/png")},
+    )
+
+    assert message.status_code == 403
+    assert message.json()["error"]["code"] == "USER_SUSPENDED"
+    assert evidence.status_code == 403
+    assert evidence.json()["error"]["code"] == "USER_SUSPENDED"
+
+
+def test_chat_attachment_rejects_disguised_html_and_pdf_with_calm_error() -> None:
+    client = _client()
+    _, _, _, remitter, order = _seed_reported_order(client, owner_id=834, remitter_id=835)
+
+    disguised = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments",
+        headers=_headers(remitter, "disguised_chat_image"),
+        files={"file": ("photo.jpg", b"<html><script>alert(1)</script></html>", "image/jpeg")},
+    )
+    pdf = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments",
+        headers=_headers(remitter, "chat_pdf_not_allowed"),
+        files={"file": ("document.pdf", b"%PDF-1.7", "application/pdf")},
+    )
+
+    assert disguised.status_code == 400
+    assert disguised.json()["error"]["code"] == "MESSAGE_ATTACHMENT_INVALID"
+    assert disguised.json()["error"]["message"] == "No pudimos aceptar ese archivo. Usa una imagen valida."
+    assert pdf.status_code == 400
+    assert pdf.json()["error"]["code"] == "MESSAGE_ATTACHMENT_TYPE_NOT_ALLOWED"
+    assert pdf.json()["error"]["message"] == "No pudimos aceptar ese archivo. Usa una imagen valida."
+
+
+@pytest.mark.parametrize(
+    ("image_format", "mime_type"),
+    [
+        ("JPEG", "image/jpeg"),
+        ("PNG", "image/png"),
+        ("WEBP", "image/webp"),
+    ],
+)
+def test_chat_attachment_accepts_only_decodable_supported_photos(
+    image_format: str,
+    mime_type: str,
+) -> None:
+    client = _client()
+    _, _, _, remitter, order = _seed_reported_order(client, owner_id=836, remitter_id=837)
+
+    accepted = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments",
+        headers=_headers(remitter, f"valid_{image_format.lower()}_chat_photo"),
+        files={
+            "file": (
+                f"photo.{image_format.lower()}",
+                photo_bytes(image_format, image_format.encode("ascii")),
+                mime_type,
+            )
+        },
+    )
+
+    assert accepted.status_code == 201, accepted.text
+    assert accepted.json()["data"]["attachment"]["mime_type"] == mime_type
+
+
+def test_chat_attachment_rejects_declared_mime_that_does_not_match_content() -> None:
+    client = _client()
+    _, _, _, remitter, order = _seed_reported_order(client, owner_id=838, remitter_id=839)
+
+    response = client.post(
+        f"/api/v1/orders/{order['id']}/message-attachments",
+        headers=_headers(remitter, "mismatched_chat_photo"),
+        files={"file": ("photo.jpg", png_bytes(b"mismatched-chat-photo"), "image/jpeg")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "MESSAGE_ATTACHMENT_INVALID"
+    assert response.json()["error"]["message"] == "No pudimos aceptar ese archivo. Usa una imagen valida."
+
+
 def test_business_chat_alert_keeps_only_safe_detection_signal() -> None:
     client = _client()
     owner, _, _, _, order = _seed_reported_order(client, owner_id=812, remitter_id=813)
@@ -1070,7 +1244,7 @@ def test_message_attachments_are_private_limited_and_never_expose_storage_path()
     valid = client.post(
         f"/api/v1/orders/{order['id']}/message-attachments",
         headers=_headers(remitter, "attach_ok"),
-        files={"file": ("chat-proof.png", b"proof", "image/png")},
+        files={"file": ("chat-proof.png", png_bytes(b"chat-proof"), "image/png")},
     )
     invalid_mime = client.post(
         f"/api/v1/orders/{order['id']}/message-attachments",
@@ -1112,7 +1286,7 @@ def test_message_attachment_view_url_is_participant_only_and_does_not_expose_sto
     uploaded = client.post(
         f"/api/v1/orders/{order['id']}/message-attachments",
         headers=_headers(remitter, "attach_view_url"),
-        files={"file": ("chat-proof.png", b"proof", "image/png")},
+        files={"file": ("chat-proof.png", png_bytes(b"chat-view-proof"), "image/png")},
     )
     attachment_id = uploaded.json()["data"]["attachment"]["id"]
     created = client.post(
@@ -1168,7 +1342,7 @@ def test_slice_50c_payment_report_appears_in_order_chat_with_proof_for_business(
         f"/api/v1/orders/{order['id']}/payment-evidence",
         headers=_headers(remitter, "slice50c_chat_payment_evidence"),
         data={"file_type": "payment_evidence"},
-        files={"file": ("proof.png", b"slice50c-proof", "image/png")},
+        files={"file": ("proof.png", png_bytes(b"slice50c-proof"), "image/png")},
     )
     assert evidence.status_code == 201, evidence.text
     evidence_data = evidence.json()["data"]
@@ -1227,7 +1401,7 @@ def test_open_dispute_from_payment_reported_keeps_credits_and_ad_state_and_enabl
     evidence = client.post(
         f"/api/v1/orders/{order['id']}/message-attachments",
         headers=_headers(remitter, "dispute_evidence"),
-        files={"file": ("dispute-proof.png", b"proof", "image/png")},
+        files={"file": ("dispute-proof.png", png_bytes(b"dispute-proof"), "image/png")},
     )
     invalid_evidence = client.post(
         f"/api/v1/orders/{order['id']}/disputes",
