@@ -20,6 +20,29 @@ def _read_client_chat_model() -> str:
     )
 
 
+def test_telegram_entry_lazy_loads_client_and_business_workspaces_by_surface() -> None:
+    telegram_entry = _read("apps/web/src/screens/auth/TelegramEntryPage.tsx")
+    auth_entry = _read("apps/web/src/screens/auth/AuthEntryPage.tsx")
+
+    assert 'import { BusinessMiniAppWorkspace }' not in telegram_entry
+    assert 'import { ClientWorkspace }' not in telegram_entry
+    assert (
+        'const BusinessMiniAppWorkspace = dynamic(() => import("../business-app/BusinessMiniAppWorkspace")'
+        in telegram_entry
+    )
+    assert (
+        '.then((mod) => mod.BusinessMiniAppWorkspace), { ssr: false });'
+        in telegram_entry
+    )
+    assert (
+        'const ClientWorkspace = dynamic(() => import("../client/ClientWorkspace")'
+        in telegram_entry
+    )
+    assert 'surface === "business" ? <BusinessMiniAppWorkspace' in telegram_entry
+    assert ': <ClientWorkspace' in telegram_entry
+    assert 'surface === "admin" ? <AdminWebEntryPage /> : <TelegramEntryPage surface={surface} />' in auth_entry
+
+
 def test_frontend_telegram_auth_persists_refresh_session_for_lifecycle() -> None:
     auth_types = _read("apps/web/src/types/auth.ts")
     telegram_hook = _read("apps/web/src/hooks/useTelegramAuth.ts")

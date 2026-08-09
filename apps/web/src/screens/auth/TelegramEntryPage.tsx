@@ -5,9 +5,9 @@ import { AppRoot, Text, Title } from "@telegram-apps/telegram-ui";
 import { AnimatedLogo } from "../../components/nodo/AnimatedLogo";
 import { StatusPanel } from "../../components/feedback/StatusPanel";
 import { useTelegramAuth } from "../../hooks/useTelegramAuth";
-import { BusinessMiniAppWorkspace } from "../business-app/BusinessMiniAppWorkspace";
 import type { PublicUser } from "../../types/auth";
 
+const BusinessMiniAppWorkspace = dynamic(() => import("../business-app/BusinessMiniAppWorkspace").then((mod) => mod.BusinessMiniAppWorkspace), { ssr: false });
 const ClientWorkspace = dynamic(() => import("../client/ClientWorkspace").then((mod) => mod.ClientWorkspace), { ssr: false });
 
 type WorkspaceProps = {
