@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import time
+from dataclasses import replace
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -46,6 +47,7 @@ _set_env()
 from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.orders.models import new_id, new_public_order_code  # noqa: E402
 from app.modules.orders.receiver_details import receiver_payload_hash  # noqa: E402
 from photo_test_data import png_bytes  # noqa: E402
 
@@ -295,6 +297,59 @@ def test_business_orders_history_filter_and_public_order_code_for_claims() -> No
     history_items = history.json()["data"]["items"]
     assert [item["public_order_code"] for item in history_items] == [order["public_order_code"]]
     assert history_items[0]["status"] == "delivered"
+
+
+def test_business_orders_history_paginates_closed_operations() -> None:
+    client = _client()
+    owner = _login(client, 1710, "owner_history_pagination")
+    business, method_id = _approved_business_with_method(client, owner, credits=5)
+    client.app.state.business_repository.get_business(business["id"]).active_order_limit = 5
+    created_codes: set[str] = set()
+
+    ad = _create_ad(client, owner, method_id, key="history_page_ad")
+    remitter = _login(client, 1720, "history_page_remitter")
+    order = _create_order(client, remitter, ad["id"], key="history_page_order")
+    _report_payment(client, remitter, order, key="history_page_report")
+    confirm = client.post(
+        f"/api/v1/business/orders/{order['id']}/confirm-payment",
+        headers={**_headers(owner, "history_page_confirm"), "Content-Type": "application/json"},
+        json={"reason": "Pago recibido"},
+    )
+    assert confirm.status_code == 200, confirm.text
+    _seed_receiver_details(client, order["id"])
+    delivered = client.post(
+        f"/api/v1/business/orders/{order['id']}/mark-delivered",
+        headers={**_headers(owner, "history_page_deliver"), "Content-Type": "application/json"},
+        json={"reason": "Pago movil enviado"},
+    )
+    assert delivered.status_code == 200, delivered.text
+
+    stored_order = client.app.state.order_repository.get_by_id(order["id"])
+    created_codes.add(stored_order.public_order_code)
+    for index in range(2):
+        cloned_order = replace(
+            stored_order,
+            id=new_id(),
+            public_order_code=new_public_order_code(),
+            created_at=stored_order.created_at - timedelta(minutes=index + 1),
+            updated_at=stored_order.updated_at - timedelta(minutes=index + 1),
+        )
+        client.app.state.order_repository.orders[cloned_order.id] = cloned_order
+        created_codes.add(cloned_order.public_order_code)
+
+    first = client.get("/api/v1/business/orders?status=history&limit=2", headers=_bearer(owner, "req_history_page_1"))
+    assert first.status_code == 200, first.text
+    first_data = first.json()["data"]
+    assert len(first_data["items"]) == 2
+    assert first_data["next_cursor"] is not None
+
+    second = client.get(
+        f"/api/v1/business/orders?status=history&limit=2&cursor={first_data['next_cursor']}",
+        headers=_bearer(owner, "req_history_page_2"),
+    )
+    assert second.status_code == 200, second.text
+    listed_codes = {item["public_order_code"] for item in first_data["items"] + second.json()["data"]["items"]}
+    assert created_codes <= listed_codes
 
 
 def test_business_offline_hides_marketplace_ad_and_blocks_direct_order_creation() -> None:

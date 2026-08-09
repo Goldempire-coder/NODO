@@ -44,11 +44,21 @@ function nextBusinessAction(order: BusinessOrderSummary) {
 }
 
 export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { businessOrderFilter, businessOrders, loadBusinessOrders, openBusinessOrder } = model;
+  const {
+    businessOrderFilter,
+    businessOrderLoadingMore,
+    businessOrderNextCursor,
+    businessOrders,
+    loadBusinessOrders,
+    loadMoreBusinessOrders,
+    openBusinessOrder
+  } = model;
   const actionCount = businessOrders.filter(requiresBusinessAttention).length;
   const verificationCount = businessOrders.filter((order) => order.status === "payment_reported").length;
   const inProgressCount = businessOrders.filter((order) => operationBucket(order) === "En curso").length;
-  const historyCount = businessOrders.filter((order) => operationBucket(order) === "Historial").length;
+  const openTabCount = businessOrderFilter === "open" ? String(businessOrders.length) : String(inProgressCount + actionCount || "");
+  const verificationTabCount = businessOrderFilter === "payment_reported" ? String(businessOrders.length) : String(verificationCount || "");
+  const historyTabCount = businessOrderFilter === "history" ? String(businessOrders.length) : "";
   return (
     <div className="business-card">
       <Text className="business-card__label">Operaciones</Text>
@@ -56,15 +66,15 @@ export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel })
       <div className="business-priority-list">
         <button className={businessOrderFilter === "open" ? "is-selected" : ""} type="button" onClick={() => void loadBusinessOrders("open")}>
           <span>Abiertas</span>
-          <strong>{businessOrderFilter === "open" ? businessOrders.length : inProgressCount + actionCount}</strong>
+          <strong>{openTabCount || "Ver"}</strong>
         </button>
         <button className={businessOrderFilter === "payment_reported" ? "is-selected" : ""} type="button" onClick={() => void loadBusinessOrders("payment_reported")}>
           <span>Por verificar</span>
-          <strong>{verificationCount}</strong>
+          <strong>{verificationTabCount || "Ver"}</strong>
         </button>
         <button className={businessOrderFilter === "history" ? "is-selected" : ""} type="button" onClick={() => void loadBusinessOrders("history")}>
           <span>Historial</span>
-          <strong>{businessOrderFilter === "history" ? businessOrders.length : historyCount}</strong>
+          <strong>{historyTabCount || "Ver"}</strong>
         </button>
       </div>
       <div className="business-shell__tabs">
@@ -73,7 +83,7 @@ export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel })
         <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("delivered")}>Enviadas</Button>
       </div>
       <div className="business-list business-list--scrollable">
-        {businessOrders.length === 0 ? <Text>{businessOrderFilter === "history" ? "No hay ordenes completadas todavia." : "No hay ordenes abiertas por ahora."}</Text> : null}
+        {businessOrders.length === 0 ? <Text>{businessOrderFilter === "history" ? "No hay operaciones cerradas todavia." : "No hay ordenes abiertas por ahora."}</Text> : null}
         {businessOrders.map((order) => (
           <button className={`business-row order-row${requiresBusinessAttention(order) ? " order-row--attention" : ""}`} key={order.id} type="button" onClick={() => void openBusinessOrder(order.id)}>
             <span>
@@ -89,6 +99,11 @@ export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel })
             <span>{order.amount_usd} USD</span>
           </button>
         ))}
+        {businessOrderNextCursor ? (
+          <Button mode="outline" size="s" disabled={businessOrderLoadingMore} onClick={() => void loadMoreBusinessOrders()}>
+            {businessOrderLoadingMore ? "Cargando..." : "Cargar mas"}
+          </Button>
+        ) : null}
       </div>
     </div>
   );

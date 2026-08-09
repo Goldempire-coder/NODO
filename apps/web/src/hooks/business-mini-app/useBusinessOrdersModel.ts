@@ -13,6 +13,16 @@ type PendingBusinessOrderPinAction = {
   orderId: string;
   action: "cannot-attend";
 };
+type BusinessOrdersPage = {
+  items: BusinessOrderSummary[];
+  next_cursor?: string | null;
+  disclaimer?: string;
+};
+type LoadBusinessOrdersOptions = {
+  fallbackToHistoryWhenEmpty?: boolean;
+};
+
+const BUSINESS_ORDER_PAGE_SIZE = 50;
 
 function businessOrderActionSuccessMessage(action: BusinessOrderAction) {
   if (action === "confirm-payment") {
@@ -41,6 +51,8 @@ export function useBusinessOrdersModel({
   setView: (view: BusinessMiniAppView) => void;
 }) {
   const [businessOrders, setBusinessOrders] = useState<BusinessOrderSummary[]>([]);
+  const [businessOrderNextCursor, setBusinessOrderNextCursor] = useState<string | null>(null);
+  const [businessOrderLoadingMore, setBusinessOrderLoadingMore] = useState(false);
   const [businessOrderDetail, setBusinessOrderDetail] = useState<BusinessOrderDetail | null>(null);
   const [businessOrderReason, setBusinessOrderReason] = useState("");
   const [businessOrderFilter, setBusinessOrderFilter] = useState<string>("open");
@@ -70,6 +82,20 @@ export function useBusinessOrdersModel({
     setPendingBusinessOrderPinAction(pending);
   }, []);
 
+  const applyBusinessOrdersPage = useCallback((page: BusinessOrdersPage, options: { append?: boolean } = {}) => {
+    setBusinessOrders((current) => {
+      if (!options.append) {
+        return page.items;
+      }
+      const knownIds = new Set(current.map((item) => item.id));
+      return [
+        ...current,
+        ...page.items.filter((item) => !knownIds.has(item.id))
+      ];
+    });
+    setBusinessOrderNextCursor(page.next_cursor ?? null);
+  }, []);
+
   const reconcileBusinessOrder = useCallback((order: BusinessOrderSummary) => {
     setBusinessOrders((current) => {
       if (businessOrderFilterRef.current === "open" && order.status === "cancelled") {
@@ -85,7 +111,7 @@ export function useBusinessOrdersModel({
     });
   }, []);
 
-  const loadBusinessOrders = useCallback(async (status?: string) => {
+  const loadBusinessOrders = useCallback(async (status?: string, options: LoadBusinessOrdersOptions = {}) => {
     const requestedStatus = status || "open";
     const targetListRequestId = businessOrderListRequestIdRef.current + 1;
     const previousFilter = businessOrderFilterRef.current;
@@ -96,14 +122,30 @@ export function useBusinessOrdersModel({
     setView("business-orders");
     setBusy(true);
     try {
-      const data = await listBusinessOrders<{ items: BusinessOrderSummary[] }>(request, requestedStatus);
+      const data = await listBusinessOrders<BusinessOrdersPage>(request, requestedStatus, null, BUSINESS_ORDER_PAGE_SIZE);
       if (businessOrderListRequestIdRef.current !== targetListRequestId) {
         return;
       }
-      setBusinessOrders(data.items);
+      if (
+        options.fallbackToHistoryWhenEmpty
+        && requestedStatus === "open"
+        && data.items.length === 0
+      ) {
+        const historyData = await listBusinessOrders<BusinessOrdersPage>(request, "history", null, BUSINESS_ORDER_PAGE_SIZE);
+        if (businessOrderListRequestIdRef.current !== targetListRequestId) {
+          return;
+        }
+        applyBusinessOrdersPage(historyData);
+        setBusinessOrderDetail(null);
+        setBusinessOrderFilter("history");
+        businessOrderFilterRef.current = "history";
+        setNotice(historyData.items.length ? "Historial de operaciones cargado." : "No hay operaciones cerradas todavia.");
+        return;
+      }
+      applyBusinessOrdersPage(data);
       setBusinessOrderDetail(null);
       setBusinessOrderFilter(requestedStatus);
-      setNotice(data.items.length ? "Ordenes del negocio cargadas." : requestedStatus === "history" ? "No hay ordenes completadas todavia." : "No hay ordenes abiertas por ahora.");
+      setNotice(data.items.length ? "Ordenes del negocio cargadas." : requestedStatus === "history" ? "No hay operaciones cerradas todavia." : "No hay ordenes abiertas por ahora.");
     } catch (error) {
       if (businessOrderListRequestIdRef.current !== targetListRequestId) {
         return;
@@ -115,7 +157,11 @@ export function useBusinessOrdersModel({
         setBusy(false);
       }
     }
-  }, [request, setBusy, setNotice, setView]);
+  }, [applyBusinessOrdersPage, request, setBusy, setNotice, setView]);
+
+  const openBusinessOrdersLanding = useCallback(async () => {
+    return loadBusinessOrders("open", { fallbackToHistoryWhenEmpty: true });
+  }, [loadBusinessOrders]);
 
   const refreshBusinessOrderList = useCallback(async (status: string) => {
     if (businessOrderRefreshInFlightRef.current) {
@@ -123,18 +169,44 @@ export function useBusinessOrdersModel({
     }
     businessOrderRefreshInFlightRef.current = true;
     try {
-      const data = await listBusinessOrders<{ items: BusinessOrderSummary[] }>(request, status);
+      const data = await listBusinessOrders<BusinessOrdersPage>(request, status, null, BUSINESS_ORDER_PAGE_SIZE);
       if (businessOrderFilterRef.current !== status) {
         return false;
       }
-      setBusinessOrders(data.items);
+      applyBusinessOrdersPage(data);
       return true;
     } catch {
       return false;
     } finally {
       businessOrderRefreshInFlightRef.current = false;
     }
-  }, [request]);
+  }, [applyBusinessOrdersPage, request]);
+
+  const loadMoreBusinessOrders = useCallback(async () => {
+    const cursor = businessOrderNextCursor;
+    const status = businessOrderFilterRef.current;
+    const targetListRequestId = businessOrderListRequestIdRef.current;
+    if (!cursor || businessOrderLoadingMore) {
+      return false;
+    }
+    setBusinessOrderLoadingMore(true);
+    try {
+      const data = await listBusinessOrders<BusinessOrdersPage>(request, status, cursor, BUSINESS_ORDER_PAGE_SIZE);
+      if (
+        businessOrderListRequestIdRef.current !== targetListRequestId
+        || businessOrderFilterRef.current !== status
+      ) {
+        return false;
+      }
+      applyBusinessOrdersPage(data, { append: true });
+      return true;
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No logramos cargar mas ordenes.");
+      return false;
+    } finally {
+      setBusinessOrderLoadingMore(false);
+    }
+  }, [applyBusinessOrdersPage, businessOrderLoadingMore, businessOrderNextCursor, request, setNotice]);
 
   const refreshBusinessOrders = useCallback(async () => {
     if (businessOrderFilterRef.current !== "open" || businessOrderRefreshInFlightRef.current) {
@@ -424,9 +496,13 @@ export function useBusinessOrdersModel({
     businessOrderDetail,
     businessOrderFilter,
     businessOrderInlineNotice,
+    businessOrderLoadingMore,
+    businessOrderNextCursor,
     businessOrderReason,
     businessOrders,
     loadBusinessOrders,
+    loadMoreBusinessOrders,
+    openBusinessOrdersLanding,
     mutateBusinessOrder,
     openBusinessOrder,
     pendingBusinessOrderPinAction,

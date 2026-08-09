@@ -1,9 +1,12 @@
 import type { AuthenticatedRequest } from "./client";
 
-export function listBusinessOrders<T>(request: AuthenticatedRequest, status?: string, limit = 20) {
+export function listBusinessOrders<T>(request: AuthenticatedRequest, status?: string, cursor?: string | null, limit = 50) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (status) {
     params.set("status", status);
+  }
+  if (cursor) {
+    params.set("cursor", cursor);
   }
   return request<T>(`/api/v1/business/orders?${params.toString()}`);
 }

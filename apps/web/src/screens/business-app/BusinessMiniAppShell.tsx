@@ -86,10 +86,10 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
     chatOrderId,
     consumeViewTransition,
     goBack,
-    loadBusinessOrders,
     loadCreditDashboard,
     loadHomeSummary,
     loadMyAds,
+    openBusinessOrdersLanding,
     loadSupportTickets,
     notice,
     dismissAttention,
@@ -140,7 +140,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
     if (view === "business-orders") {
       return;
     }
-    void loadBusinessOrders();
+    void openBusinessOrdersLanding();
   };
 
   const openCredits = () => {
