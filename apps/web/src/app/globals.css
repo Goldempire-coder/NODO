@@ -1103,6 +1103,11 @@ textarea {
   background: color-mix(in srgb, var(--nodo-button), transparent 84%);
 }
 
+.business-priority-list button:focus-visible {
+  outline: 2px solid var(--nodo-button);
+  outline-offset: 2px;
+}
+
 .business-priority-list span,
 .business-priority-list small,
 .credit-state-grid span,
@@ -1120,6 +1125,31 @@ textarea {
 .credit-state-grid strong {
   font-size: 24px;
   line-height: 1;
+}
+
+.business-order-tab__action {
+  color: var(--nodo-text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.business-order-empty {
+  display: grid;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.business-order-empty__hint {
+  color: var(--nodo-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.business-order-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .business-rule-item {

@@ -183,7 +183,7 @@ def test_business_order_list_filters_discard_late_responses_and_keep_last_good_r
     assert "businessOrderListRequestIdRef.current !== targetListRequestId" in load_orders
     assert load_orders.index(
         "businessOrderListRequestIdRef.current !== targetListRequestId"
-    ) < load_orders.index("setBusinessOrders(data.items)")
+    ) < load_orders.index("applyBusinessOrdersPage(data)")
     assert "businessOrderFilterRef.current = previousFilter" in load_orders
     assert 'businessOrderFilterRef.current !== "open"' in refresh_orders
     assert "businessOrderRefreshInFlightRef.current" in refresh_orders

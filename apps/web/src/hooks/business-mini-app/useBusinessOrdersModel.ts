@@ -18,9 +18,6 @@ type BusinessOrdersPage = {
   next_cursor?: string | null;
   disclaimer?: string;
 };
-type LoadBusinessOrdersOptions = {
-  fallbackToHistoryWhenEmpty?: boolean;
-};
 
 const BUSINESS_ORDER_PAGE_SIZE = 50;
 
@@ -56,6 +53,8 @@ export function useBusinessOrdersModel({
   const [businessOrderDetail, setBusinessOrderDetail] = useState<BusinessOrderDetail | null>(null);
   const [businessOrderReason, setBusinessOrderReason] = useState("");
   const [businessOrderFilter, setBusinessOrderFilter] = useState<string>("open");
+  const [loadedBusinessOrderFilters, setLoadedBusinessOrderFilters] = useState<Set<string>>(new Set());
+  const [businessOrderFilterCounts, setBusinessOrderFilterCounts] = useState<Record<string, number>>({});
   const [businessOrderAction, setBusinessOrderAction] = useState<BusinessOrderAction | null>(null);
   const [businessOrderInlineNotice, setBusinessOrderInlineNotice] = useState("");
   const [pendingBusinessOrderPinAction, setPendingBusinessOrderPinAction] = useState<PendingBusinessOrderPinAction | null>(null);
@@ -80,6 +79,20 @@ export function useBusinessOrdersModel({
   const queuePendingBusinessOrderPinAction = useCallback((pending: PendingBusinessOrderPinAction | null) => {
     pendingBusinessOrderPinActionRef.current = pending;
     setPendingBusinessOrderPinAction(pending);
+  }, []);
+
+  const markBusinessOrderFilterLoaded = useCallback((filter: string, count: number) => {
+    setLoadedBusinessOrderFilters((current) => {
+      if (current.has(filter)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.add(filter);
+      return next;
+    });
+    setBusinessOrderFilterCounts((current) => (
+      current[filter] === count ? current : { ...current, [filter]: count }
+    ));
   }, []);
 
   const applyBusinessOrdersPage = useCallback((page: BusinessOrdersPage, options: { append?: boolean } = {}) => {
@@ -111,7 +124,18 @@ export function useBusinessOrdersModel({
     });
   }, []);
 
-  const loadBusinessOrders = useCallback(async (status?: string, options: LoadBusinessOrdersOptions = {}) => {
+  useEffect(() => {
+    if (!loadedBusinessOrderFilters.has(businessOrderFilter)) {
+      return;
+    }
+    setBusinessOrderFilterCounts((current) => (
+      current[businessOrderFilter] === businessOrders.length
+        ? current
+        : { ...current, [businessOrderFilter]: businessOrders.length }
+    ));
+  }, [businessOrderFilter, businessOrders.length, loadedBusinessOrderFilters]);
+
+  const loadBusinessOrders = useCallback(async (status?: string) => {
     const requestedStatus = status || "open";
     const targetListRequestId = businessOrderListRequestIdRef.current + 1;
     const previousFilter = businessOrderFilterRef.current;
@@ -126,23 +150,8 @@ export function useBusinessOrdersModel({
       if (businessOrderListRequestIdRef.current !== targetListRequestId) {
         return;
       }
-      if (
-        options.fallbackToHistoryWhenEmpty
-        && requestedStatus === "open"
-        && data.items.length === 0
-      ) {
-        const historyData = await listBusinessOrders<BusinessOrdersPage>(request, "history", null, BUSINESS_ORDER_PAGE_SIZE);
-        if (businessOrderListRequestIdRef.current !== targetListRequestId) {
-          return;
-        }
-        applyBusinessOrdersPage(historyData);
-        setBusinessOrderDetail(null);
-        setBusinessOrderFilter("history");
-        businessOrderFilterRef.current = "history";
-        setNotice(historyData.items.length ? "Historial de operaciones cargado." : "No hay operaciones cerradas todavia.");
-        return;
-      }
       applyBusinessOrdersPage(data);
+      markBusinessOrderFilterLoaded(requestedStatus, data.items.length);
       setBusinessOrderDetail(null);
       setBusinessOrderFilter(requestedStatus);
       setNotice(data.items.length ? "Ordenes del negocio cargadas." : requestedStatus === "history" ? "No hay operaciones cerradas todavia." : "No hay ordenes abiertas por ahora.");
@@ -157,10 +166,10 @@ export function useBusinessOrdersModel({
         setBusy(false);
       }
     }
-  }, [applyBusinessOrdersPage, request, setBusy, setNotice, setView]);
+  }, [applyBusinessOrdersPage, markBusinessOrderFilterLoaded, request, setBusy, setNotice, setView]);
 
   const openBusinessOrdersLanding = useCallback(async () => {
-    return loadBusinessOrders("open", { fallbackToHistoryWhenEmpty: true });
+    return loadBusinessOrders("open");
   }, [loadBusinessOrders]);
 
   const refreshBusinessOrderList = useCallback(async (status: string) => {
@@ -174,13 +183,14 @@ export function useBusinessOrdersModel({
         return false;
       }
       applyBusinessOrdersPage(data);
+      markBusinessOrderFilterLoaded(status, data.items.length);
       return true;
     } catch {
       return false;
     } finally {
       businessOrderRefreshInFlightRef.current = false;
     }
-  }, [applyBusinessOrdersPage, request]);
+  }, [applyBusinessOrdersPage, markBusinessOrderFilterLoaded, request]);
 
   const loadMoreBusinessOrders = useCallback(async () => {
     const cursor = businessOrderNextCursor;
@@ -495,11 +505,13 @@ export function useBusinessOrdersModel({
     businessOrderAction,
     businessOrderDetail,
     businessOrderFilter,
+    businessOrderFilterCounts,
     businessOrderInlineNotice,
     businessOrderLoadingMore,
     businessOrderNextCursor,
     businessOrderReason,
     businessOrders,
+    loadedBusinessOrderFilters,
     loadBusinessOrders,
     loadMoreBusinessOrders,
     openBusinessOrdersLanding,

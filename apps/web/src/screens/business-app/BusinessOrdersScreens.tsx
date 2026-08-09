@@ -17,16 +17,6 @@ function requiresBusinessAttention(order: BusinessOrderSummary) {
   return order.status === "waiting_payment" || requiresBusinessAction(order);
 }
 
-function operationBucket(order: BusinessOrderSummary) {
-  if (requiresBusinessAttention(order)) {
-    return "Requiere accion";
-  }
-  if (order.status === "completed" || order.status === "cancelled" || order.status === "delivered") {
-    return "Historial";
-  }
-  return "En curso";
-}
-
 function nextBusinessAction(order: BusinessOrderSummary) {
   if (order.capabilities.can_mark_delivered) {
     return "Pagar al cliente";
@@ -43,39 +33,76 @@ function nextBusinessAction(order: BusinessOrderSummary) {
   return "Revisar";
 }
 
+function BusinessOrderInboxTab({
+  ariaLabel,
+  count,
+  filter,
+  label,
+  loaded,
+  onSelect,
+  selected
+}: {
+  ariaLabel: string;
+  count: number;
+  filter: string;
+  label: string;
+  loaded: boolean;
+  onSelect: (filter: string) => void;
+  selected: boolean;
+}) {
+  return (
+    <button aria-label={ariaLabel} className={selected ? "is-selected" : ""} type="button" onClick={() => onSelect(filter)}>
+      <span>{label}</span>
+      {loaded ? <strong>{count}</strong> : <span className="business-order-tab__action">Ver</span>}
+    </button>
+  );
+}
+
 export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
     businessOrderFilter,
+    businessOrderFilterCounts,
     businessOrderLoadingMore,
     businessOrderNextCursor,
     businessOrders,
     loadBusinessOrders,
     loadMoreBusinessOrders,
+    loadedBusinessOrderFilters,
     openBusinessOrder
   } = model;
-  const actionCount = businessOrders.filter(requiresBusinessAttention).length;
-  const verificationCount = businessOrders.filter((order) => order.status === "payment_reported").length;
-  const inProgressCount = businessOrders.filter((order) => operationBucket(order) === "En curso").length;
-  const openTabCount = businessOrderFilter === "open" ? String(businessOrders.length) : String(inProgressCount + actionCount || "");
-  const verificationTabCount = businessOrderFilter === "payment_reported" ? String(businessOrders.length) : String(verificationCount || "");
-  const historyTabCount = businessOrderFilter === "history" ? String(businessOrders.length) : "";
+  const filterCount = (filter: string) => businessOrderFilterCounts[filter] ?? 0;
   return (
     <div className="business-card">
       <Text className="business-card__label">Operaciones</Text>
       <Title level="3" className="business-shell__title">Bandeja operacional</Title>
       <div className="business-priority-list">
-        <button className={businessOrderFilter === "open" ? "is-selected" : ""} type="button" onClick={() => void loadBusinessOrders("open")}>
-          <span>Abiertas</span>
-          <strong>{openTabCount || "Ver"}</strong>
-        </button>
-        <button className={businessOrderFilter === "payment_reported" ? "is-selected" : ""} type="button" onClick={() => void loadBusinessOrders("payment_reported")}>
-          <span>Por verificar</span>
-          <strong>{verificationTabCount || "Ver"}</strong>
-        </button>
-        <button className={businessOrderFilter === "history" ? "is-selected" : ""} type="button" onClick={() => void loadBusinessOrders("history")}>
-          <span>Historial</span>
-          <strong>{historyTabCount || "Ver"}</strong>
-        </button>
+        <BusinessOrderInboxTab
+          ariaLabel="Ver órdenes abiertas"
+          count={filterCount("open")}
+          filter="open"
+          label="Abiertas"
+          loaded={loadedBusinessOrderFilters.has("open")}
+          selected={businessOrderFilter === "open"}
+          onSelect={(filter) => void loadBusinessOrders(filter)}
+        />
+        <BusinessOrderInboxTab
+          ariaLabel="Ver órdenes por verificar"
+          count={filterCount("payment_reported")}
+          filter="payment_reported"
+          label="Por verificar"
+          loaded={loadedBusinessOrderFilters.has("payment_reported")}
+          selected={businessOrderFilter === "payment_reported"}
+          onSelect={(filter) => void loadBusinessOrders(filter)}
+        />
+        <BusinessOrderInboxTab
+          ariaLabel="Ver historial de órdenes"
+          count={filterCount("history")}
+          filter="history"
+          label="Historial"
+          loaded={loadedBusinessOrderFilters.has("history")}
+          selected={businessOrderFilter === "history"}
+          onSelect={(filter) => void loadBusinessOrders(filter)}
+        />
       </div>
       <div className="business-shell__tabs">
         <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("payment_reported")}>Verificar</Button>
@@ -83,7 +110,26 @@ export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel })
         <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("delivered")}>Enviadas</Button>
       </div>
       <div className="business-list business-list--scrollable">
-        {businessOrders.length === 0 ? <Text>{businessOrderFilter === "history" ? "No hay operaciones cerradas todavia." : "No hay ordenes abiertas por ahora."}</Text> : null}
+        {businessOrders.length === 0 ? (
+          <div className="business-order-empty">
+            <Text>
+              {businessOrderFilter === "history"
+                ? "No hay operaciones cerradas todavia."
+                : businessOrderFilter === "payment_reported"
+                  ? "No hay ordenes por verificar ahora."
+                  : "No hay ordenes abiertas por ahora."}
+            </Text>
+            {businessOrderFilter === "open" ? (
+              <>
+                <Text className="business-order-empty__hint">Puedes revisar Por verificar o Historial cuando lo necesites.</Text>
+                <div className="business-order-empty__actions">
+                  <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("payment_reported")}>Por verificar</Button>
+                  <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("history")}>Historial</Button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : null}
         {businessOrders.map((order) => (
           <button className={`business-row order-row${requiresBusinessAttention(order) ? " order-row--attention" : ""}`} key={order.id} type="button" onClick={() => void openBusinessOrder(order.id)}>
             <span>
