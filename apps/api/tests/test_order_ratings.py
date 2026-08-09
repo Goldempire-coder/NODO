@@ -19,6 +19,7 @@ from app.modules.businesses.models import BusinessRecord
 from app.modules.businesses.presenters import business_payload
 from app.modules.notifications.attention import BUSINESS_ORDER_ATTENTION_STATUSES, CLIENT_ORDER_ATTENTION_STATUSES
 from app.modules.notifications.notification_types import TELEGRAM_NOTIFICATION_TYPES
+from app.modules.orders import ratings_repository as ratings_repository_module
 from app.modules.orders.models import OrderRecord, utc_now
 from app.modules.orders.serializers import business_order_payload
 
@@ -111,7 +112,6 @@ def _seed_completed_order(
     completion_reason: str | None = "manual_confirmed",
 ) -> tuple[dict, BusinessRecord, OrderRecord]:
     remitter = _login(client, telegram_id, f"remitter_{telegram_id}")
-    now = utc_now()
     business = BusinessRecord(
         id=str(uuid4()),
         owner_user_id=str(uuid4()),
@@ -124,6 +124,23 @@ def _seed_completed_order(
         risk_level="under_review",
     )
     client.app.state.business_repository.businesses[business.id] = business
+    order = _seed_completed_order_for_business(
+        client,
+        remitter=remitter,
+        business=business,
+        completion_reason=completion_reason,
+    )
+    return remitter, business, order
+
+
+def _seed_completed_order_for_business(
+    client: TestClient,
+    *,
+    remitter: dict,
+    business: BusinessRecord,
+    completion_reason: str | None = "manual_confirmed",
+) -> OrderRecord:
+    now = utc_now()
     order = OrderRecord(
         id=str(uuid4()),
         public_order_code=f"NODO-{str(uuid4())[:8].upper()}",
@@ -150,7 +167,7 @@ def _seed_completed_order(
         completed_at=now,
     )
     client.app.state.order_repository.orders[order.id] = order
-    return remitter, business, order
+    return order
 
 
 def _post_rating(client: TestClient, login: dict, order_id: str, stars: object, key: str | None = "rating"):
@@ -159,6 +176,132 @@ def _post_rating(client: TestClient, login: dict, order_id: str, stars: object, 
         headers=_headers(login, key),
         json={"stars": stars},
     )
+
+
+@pytest.mark.parametrize("stars", [1, 2, 3, 4, 5])
+def test_every_valid_rating_starts_fifteen_minute_publication_pause(stars: int) -> None:
+    client = _client()
+    remitter, business, order = _seed_completed_order(client, telegram_id=42400 + stars)
+    started_at = utc_now()
+
+    response = _post_rating(client, remitter, order.id, stars, f"pause_{stars}")
+
+    finished_at = utc_now()
+    assert response.status_code == 201, response.text
+    stored = client.app.state.business_repository.get_business(business.id)
+    assert stored.ad_publication_paused_until is not None
+    assert started_at + timedelta(minutes=15) <= stored.ad_publication_paused_until
+    assert stored.ad_publication_paused_until <= finished_at + timedelta(minutes=15)
+    assert "ad_publication_paused_until" not in response.text
+    assert "business_publication_pause" not in response.text
+
+
+def test_rating_replay_does_not_extend_publication_pause_or_duplicate_audit() -> None:
+    client = _client()
+    remitter, business, order = _seed_completed_order(client, telegram_id=42410)
+
+    first = _post_rating(client, remitter, order.id, 4, "pause_replay")
+    first_pause = client.app.state.business_repository.get_business(business.id).ad_publication_paused_until
+    replay = _post_rating(client, remitter, order.id, 4, "pause_replay")
+
+    assert first.status_code == replay.status_code == 201
+    assert client.app.state.business_repository.get_business(business.id).ad_publication_paused_until == first_pause
+    pause_events = [
+        event
+        for event in client.app.state.audit_writer.events
+        if event.event_type == "business_publication_pause_started"
+    ]
+    assert len(pause_events) == 1
+    assert pause_events[0].actor_user_id is None
+    assert pause_events[0].actor_role is None
+    assert pause_events[0].resource_type == "business"
+    assert pause_events[0].resource_id == business.id
+    assert pause_events[0].metadata_json is None
+
+
+def test_second_distinct_rating_uses_later_publication_pause_candidate(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _client()
+    first_remitter, business, first_order = _seed_completed_order(client, telegram_id=42420)
+    second_remitter = _login(client, 42421, "remitter_42421")
+    second_order = _seed_completed_order_for_business(
+        client,
+        remitter=second_remitter,
+        business=business,
+    )
+    first_time = utc_now()
+    second_time = first_time + timedelta(minutes=2)
+    times = iter((first_time, second_time))
+    monkeypatch.setattr(ratings_repository_module, "utc_now", lambda: next(times))
+
+    first = _post_rating(client, first_remitter, first_order.id, 5, "first_business_pause")
+    second = _post_rating(client, second_remitter, second_order.id, 5, "second_business_pause")
+
+    assert first.status_code == second.status_code == 201
+    stored = client.app.state.business_repository.get_business(business.id)
+    assert stored.ad_publication_paused_until == second_time + timedelta(minutes=15)
+
+
+def test_concurrent_distinct_ratings_do_not_lose_business_publication_pause() -> None:
+    client = _client()
+    first_remitter, business, first_order = _seed_completed_order(client, telegram_id=42430)
+    second_remitter = _login(client, 42431, "remitter_42431")
+    second_order = _seed_completed_order_for_business(
+        client,
+        remitter=second_remitter,
+        business=business,
+    )
+    started_at = utc_now()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        responses = list(
+            executor.map(
+                lambda args: _post_rating(client, args[0], args[1], 5, args[2]),
+                (
+                    (first_remitter, first_order.id, "parallel_pause_a"),
+                    (second_remitter, second_order.id, "parallel_pause_b"),
+                ),
+            )
+        )
+
+    assert [response.status_code for response in responses].count(201) == 2
+    assert len(client.app.state.rating_repository.ratings) == 2
+    stored = client.app.state.business_repository.get_business(business.id)
+    assert stored.ad_publication_paused_until is not None
+    assert stored.ad_publication_paused_until >= started_at + timedelta(minutes=15)
+
+
+def test_rejected_rating_attempts_do_not_start_publication_pause() -> None:
+    client = _client()
+    remitter, business, order = _seed_completed_order(client, telegram_id=42440)
+    order.status = "payment_confirmed"
+
+    not_completed = _post_rating(client, remitter, order.id, 4, "pause_not_completed")
+    invalid_stars = _post_rating(client, remitter, order.id, 6, "pause_invalid_stars")
+    foreign = _login(client, 42441, "foreign_42441")
+    foreign_order = _post_rating(client, foreign, order.id, 4, "pause_foreign")
+
+    assert not_completed.status_code == 409
+    assert invalid_stars.status_code == 422
+    assert foreign_order.status_code == 404
+    assert client.app.state.business_repository.get_business(business.id).ad_publication_paused_until is None
+
+
+def test_rating_pause_migration_and_postgres_update_contract_are_reversible_and_atomic() -> None:
+    migration_up = (
+        ROOT / "database" / "migrations" / "0050_business_ad_publication_pause.up.sql"
+    ).read_text(encoding="utf-8").lower()
+    migration_down = (
+        ROOT / "database" / "migrations" / "0050_business_ad_publication_pause.down.sql"
+    ).read_text(encoding="utf-8").lower()
+    repository = (
+        ROOT / "apps" / "api" / "app" / "modules" / "orders" / "ratings_repository.py"
+    ).read_text(encoding="utf-8").lower()
+
+    assert "add column if not exists ad_publication_paused_until timestamptz null" in migration_up
+    assert "drop column if exists ad_publication_paused_until" in migration_down
+    assert "ad_publication_paused_until = greatest(" in repository
+    assert "interval '15 minutes'" in repository
+    assert "select * from businesses where id = %s for update" in repository
 
 
 def test_owned_completed_order_rating_recalculates_public_reputation_once() -> None:

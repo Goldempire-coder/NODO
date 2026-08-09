@@ -3,13 +3,16 @@ from __future__ import annotations
 import time
 from decimal import Decimal
 
+from app.core.errors import ApiError
 from app.modules.ads.active_guard import require_active_ad_candidate
 from app.modules.ads.models import AdRecord
+from app.modules.ads.publication_access import require_ad_publication_access
 from app.modules.ads.postgres_credit_holds import PostgresAdCreditHoldsMixin
 from app.modules.ads.postgres_publish import PostgresAdPublishMixin
 from app.modules.ads.postgres_wallets import PostgresAdWalletsMixin
 from app.modules.ads.row_mappers import ad_from_row
 from app.modules.businesses.models import BusinessRecord
+from app.modules.businesses.row_mappers import business_from_row
 from app.shared.db.connection import pooled_connect
 from app.shared.profiling import current_profile, profile_mark
 
@@ -56,11 +59,17 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
         payment_method: str,
         amount_max_usd: Decimal,
         exclude_ad_id: str | None = None,
+        enforce_publication_access: bool = False,
     ) -> None:  # type: ignore[no-untyped-def]
         declared = self._lock_declared_capacity_for_active_ad(
             conn,
             business_id=business_id,
         )
+        if enforce_publication_access:
+            self._require_business_publication_access_in_transaction(
+                conn,
+                business_id=business_id,
+            )
         sql = """
             select
                 count(*) filter (where status = 'active') as active_count,
@@ -84,6 +93,33 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             committed_max_total_usd=Decimal(str(row["committed_max_total"])),
             candidate_max_usd=amount_max_usd,
             declared_available_capacity_usd=declared,
+        )
+
+    def _require_business_publication_access_in_transaction(
+        self,
+        conn,
+        *,
+        business_id: str,
+    ) -> None:  # type: ignore[no-untyped-def]
+        row = conn.execute(
+            "select businesses.*, now() as database_now from businesses where id = %s for update",
+            (business_id,),
+        ).fetchone()
+        if row is None:
+            raise ApiError("BUSINESS_NOT_FOUND", status_code=404)
+        hold = conn.execute(
+            """
+            select exists(
+                select 1 from business_publication_holds
+                where business_id = %s and status = 'active'
+            ) as active
+            """,
+            (business_id,),
+        ).fetchone()
+        require_ad_publication_access(
+            business_from_row(row),
+            current_time=row["database_now"],
+            has_active_operational_hold=bool(hold["active"]),
         )
 
     def has_overlapping_ad(
@@ -182,7 +218,13 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             conn.commit()
         return ad_from_row(row)
 
-    def set_status(self, ad: AdRecord, status: str) -> AdRecord:
+    def set_status(
+        self,
+        ad: AdRecord,
+        status: str,
+        *,
+        enforce_publication_access: bool = False,
+    ) -> AdRecord:
         with self._connect() as conn:
             if status == "active":
                 self._lock_declared_capacity_for_active_ad(
@@ -200,6 +242,7 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
                     payment_method=current.payment_method,
                     amount_max_usd=current.amount_max_usd,
                     exclude_ad_id=current.id,
+                    enforce_publication_access=enforce_publication_access,
                 )
             row = conn.execute(
                 "update ads set status = %s, updated_at = now() where id = %s returning *",
@@ -226,6 +269,11 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             where ads.business_id = any(%s)
               and ads.status = 'active'
               and ads.expires_at > now()
+              and not exists (
+                  select 1 from business_publication_holds publication_hold
+                  where publication_hold.business_id = ads.business_id
+                    and publication_hold.status = 'active'
+              )
               and business_payment_methods.business_id = ads.business_id
               and business_payment_methods.verified_status = 'approved'
               and business_payment_methods.active = true
@@ -286,6 +334,15 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
               and businesses.verification_status = 'approved'
               and businesses.risk_level not in ('restricted', 'high_risk')
               and businesses.is_accepting_orders = true
+              and (
+                  businesses.ad_publication_paused_until is null
+                  or businesses.ad_publication_paused_until <= now()
+              )
+              and not exists (
+                  select 1 from business_publication_holds publication_hold
+                  where publication_hold.business_id = businesses.id
+                    and publication_hold.status = 'active'
+              )
               and business_payment_methods.business_id = ads.business_id
               and business_payment_methods.verified_status = 'approved'
               and business_payment_methods.active = true
@@ -346,6 +403,7 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
                 businesses.daily_limit_usd as business_daily_limit_usd,
                 businesses.active_order_limit as business_active_order_limit,
                 businesses.is_accepting_orders as business_is_accepting_orders,
+                businesses.ad_publication_paused_until as business_ad_publication_paused_until,
                 businesses.rating_avg as business_rating_avg,
                 businesses.ratings_count as business_ratings_count,
                 businesses.completed_orders_count as business_completed_orders_count,
@@ -397,6 +455,15 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
               and businesses.verification_status = 'approved'
               and businesses.risk_level not in ('restricted', 'high_risk')
               and businesses.is_accepting_orders = true
+              and (
+                  businesses.ad_publication_paused_until is null
+                  or businesses.ad_publication_paused_until <= now()
+              )
+              and not exists (
+                  select 1 from business_publication_holds publication_hold
+                  where publication_hold.business_id = businesses.id
+                    and publication_hold.status = 'active'
+              )
               and business_payment_methods.business_id = ads.business_id
               and business_payment_methods.verified_status = 'approved'
               and business_payment_methods.active = true
@@ -494,6 +561,7 @@ def _business_from_marketplace_row(row) -> BusinessRecord:  # type: ignore[no-un
         daily_limit_usd=Decimal(str(row["business_daily_limit_usd"])),
         active_order_limit=row["business_active_order_limit"],
         is_accepting_orders=bool(row["business_is_accepting_orders"]),
+        ad_publication_paused_until=row["business_ad_publication_paused_until"],
         rating_avg=Decimal(str(row["business_rating_avg"])) if row["business_rating_avg"] is not None else None,
         ratings_count=row["business_ratings_count"],
         completed_orders_count=row["business_completed_orders_count"],

@@ -1,4 +1,31 @@
 import type { BusinessOperationalCapacity, BusinessSummary } from "./business";
+import type { SupportTicket } from "./support";
+
+export type AdminBusinessPublicationHold = {
+  id: string;
+  business_id: string;
+  order_id: string;
+  support_ticket_id: string;
+  status: "active" | "released";
+  reason_type: "structured_operation_report";
+  created_at: string;
+  released_at: string | null;
+  released_by: string | null;
+  release_reason: string | null;
+};
+
+export type AdminSupportTicket = SupportTicket & {
+  publication_hold?: AdminBusinessPublicationHold | null;
+};
+
+export type AdminSupportTicketListResponse = {
+  items: AdminSupportTicket[];
+  next_cursor: string | null;
+};
+
+export type AdminPublicationHoldReleaseResponse = {
+  hold: AdminBusinessPublicationHold;
+};
 
 export type DocumentFile = {
   id: string;

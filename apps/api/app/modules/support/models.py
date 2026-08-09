@@ -41,6 +41,7 @@ SUPPORT_CATEGORIES = {
 }
 SUPPORT_PRIORITIES = {"low", "normal", "high", "urgent"}
 SUPPORT_MESSAGE_VISIBILITIES = {"participants", "support_internal", "admin_internal"}
+STRUCTURED_OPERATION_REPORT = "structured_operation_report"
 ALLOWED_SUPPORT_ATTACHMENT_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 MAX_SUPPORT_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024
 
@@ -56,6 +57,7 @@ class SupportTicketRecord:
     status: str
     priority: str
     subject: str
+    report_kind: str | None = None
     business_id: str | None = None
     order_id: str | None = None
     ad_id: str | None = None
@@ -68,6 +70,20 @@ class SupportTicketRecord:
     closed_at: datetime | None = None
     created_at: datetime = field(default_factory=utc_now)
     updated_at: datetime = field(default_factory=utc_now)
+
+
+@dataclass
+class BusinessPublicationHoldRecord:
+    id: str
+    business_id: str
+    order_id: str
+    support_ticket_id: str
+    status: str = "active"
+    reason_type: str = STRUCTURED_OPERATION_REPORT
+    created_at: datetime = field(default_factory=utc_now)
+    released_at: datetime | None = None
+    released_by: str | None = None
+    release_reason: str | None = None
 
 
 @dataclass

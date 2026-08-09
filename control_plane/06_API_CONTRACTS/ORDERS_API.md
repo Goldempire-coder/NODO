@@ -173,6 +173,9 @@ Rules:
 - Actor: `remitter` activo.
 - `Idempotency-Key` obligatorio.
 - Validar anuncio `active`, no vencido y disponible.
+- Revalidar dentro de la transaccion que el negocio no tenga una pausa de
+  publicacion activa. Una pausa responde `AD_NOT_AVAILABLE` sin mover anuncio,
+  crear orden, reservar capacidad ni encolar notificacion.
 - Si el anuncio vencio, materializar expiracion y responder `AD_EXPIRED` o `AD_NOT_AVAILABLE`.
 - Validar negocio `approved` y no `restricted/high_risk`.
 - Si se envia `expected_rate_bs_per_usd`, debe coincidir con la tasa vigente
@@ -214,6 +217,8 @@ Errores:
 - AD_NOT_AVAILABLE
 - AD_EXPIRED
 - BUSINESS_NOT_APPROVED
+- BUSINESS_PUBLICATION_TEMPORARILY_UNAVAILABLE no se expone al cliente; una
+  pausa usa AD_NOT_AVAILABLE
 - AMOUNT_OUT_OF_RANGE
 - ORDER_ALREADY_EXISTS
 - BUSINESS_CAPACITY_INSUFFICIENT
@@ -628,3 +633,24 @@ Errores:
 - Resolver una disputa aplica la accion terminal resultante: `completed`
   consume y `cancelled` libera.
 - El replay de una transicion no duplica reserva, liberacion ni consumo.
+
+## POST /api/v1/orders/{order_id}/operation-report - Slice 42E1
+
+El cliente propietario puede crear un reporte estructurado fuera del chat. El
+backend deriva `business_id` desde la orden y crea un ticket `client_order`.
+
+Estados reportables: `payment_confirmed`, `delivered`, `completed`,
+`payment_rejected`, `disputed` y `cancelled`.
+
+Estados no reportables: `waiting_payment`, `payment_reported` y `expired`.
+`payment_reported` conserva el flujo P2P/disputa vigente; el reporte no cambia
+el estado de la orden ni reemplaza una disputa.
+
+Orden inexistente y orden ajena responden `ORDER_NOT_FOUND`. El payload no
+acepta `business_id`. Maximo un reporte estructurado activo por orden, con
+idempotencia y rate limits por cliente/orden.
+
+42F1 extiende el endpoint de 42E1: un reporte nacido mientras
+`database_now < ad_publication_paused_until` crea ticket, mensaje, evento y hold
+en una misma transaccion. Si la pausa vencio, crea solo el ticket. No existe
+entrada desde el chat P2P y la respuesta del cliente no revela el hold.

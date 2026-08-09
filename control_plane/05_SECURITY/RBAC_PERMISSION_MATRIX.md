@@ -348,3 +348,17 @@ that future reveal.
 - En `slice_07_chat_disputes`, admin/super_admin/support solo pueden ver disputas segun las filas de lectura.
 - `resolve_dispute` queda prohibido en slice 07.
 - En `slice_09_admin_console`, `admin` y `super_admin` pueden resolver disputas usando el contrato de `DISPUTES_API.md`; `support` sigue read-only.
+
+## Slice 42D0 - holds de publicacion
+
+| Actor | Accion | Recurso | Estado requerido | Audit | Permitido |
+| --- | --- | --- | --- | --- | --- |
+| remitter | create_structured_operation_report | own order | estado reportable, ownership, rate limit, idempotencia | structured_operation_report_created | yes |
+| business_owner | create_structured_operation_report | order | any | no | no |
+| support | release_business_publication_hold | hold | rol base sin permiso staff explicito | no | no |
+| support_agent/support_lead | release_business_publication_hold | hold | user/staff active, permiso explicito; ticket cumple assigned_only, queue_scope o category_scope; reason e idempotencia | business_publication_hold_released | yes when granted |
+| admin | release_business_publication_hold | hold | admin active, hold active, reason, idempotencia | business_publication_hold_released | yes |
+| super_admin | release_business_publication_hold | hold | super_admin active, hold active, reason, idempotencia | business_publication_hold_released | yes |
+
+Cerrar o resolver un ticket no implica `release_business_publication_hold`. Si
+el permiso no existe o esta inactivo, la liberacion queda prohibida.

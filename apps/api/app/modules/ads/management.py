@@ -109,7 +109,11 @@ class AdManagementMixin:
             raise ApiError("AD_LIMIT_NOT_ALLOWED", status_code=409)
         self._payment_or_invalid(business, ad.payment_method_id, ad.payment_method)  # type: ignore[attr-defined]
         def compute() -> dict[str, Any]:
-            reactivated = self._repository.set_status(ad, "active")  # type: ignore[attr-defined]
+            reactivated = self._repository.set_status(  # type: ignore[attr-defined]
+                ad,
+                "active",
+                enforce_publication_access=True,
+            )
             self._audit.write(  # type: ignore[attr-defined]
                 event_type="ad_reactivated",
                 actor_user_id=user.id,

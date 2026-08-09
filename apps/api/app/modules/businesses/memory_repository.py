@@ -32,11 +32,15 @@ class InMemoryBusinessRepository(
 ):
     def __init__(self) -> None:
         self._lock = RLock()
+        self._publication_hold_repository = None
         self.businesses: dict[str, BusinessRecord] = {}
         self.submissions: dict[str, BusinessVerificationSubmissionRecord] = {}
         self.payment_methods: dict[str, BusinessPaymentMethodRecord] = {}
         self.access_links: dict[str, BusinessAccessLinkRecord] = {}
         self.files: dict[str, FileAssetRecord] = {}
+
+    def bind_publication_hold_repository(self, publication_hold_repository) -> None:  # type: ignore[no-untyped-def]
+        self._publication_hold_repository = publication_hold_repository
 
     def create_business(self, *, owner_user_id: str, business_name: str, rif: str | None, address: str | None, phone: str | None, country: str) -> BusinessRecord:
         with self._lock:

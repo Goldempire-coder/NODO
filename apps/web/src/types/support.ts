@@ -19,6 +19,12 @@ export type SupportTicketCategory =
   | "suspicious_activity"
   | "other";
 
+export type OperationReportCategory =
+  | "order_help"
+  | "payment_report_help"
+  | "suspicious_activity"
+  | "other";
+
 export type SupportAttachment = {
   id: string;
   resource_type: string;
@@ -84,4 +90,13 @@ export type SupportTicketCreateInput = {
   order_id?: string | null;
   ad_id?: string | null;
   credit_purchase_id?: string | null;
+};
+
+export type OperationReportCreateInput = {
+  category: OperationReportCategory;
+  message: string;
+};
+
+export type OperationReportCreateResult = {
+  ticket: SupportTicket;
 };

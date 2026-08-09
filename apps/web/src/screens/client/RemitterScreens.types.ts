@@ -9,6 +9,7 @@ import type {
   OrderSummary
 } from "../../types/orders";
 import type { PaymentEvidence, PaymentInstructions, PaymentReportFormState } from "../../types/payments";
+import type { OperationReportCreateInput } from "../../types/support";
 import type {
   SurfaceAttentionCounts,
   SurfaceAttentionItem,
@@ -48,6 +49,9 @@ export type RemitterScreensModel = {
   selectedRatingStars: number;
   setSelectedRatingStars: Dispatch<SetStateAction<number>>;
   submittingRatingOrderId: string | null;
+  creatingOperationReportOrderId: string | null;
+  operationReportError: { orderId: string; message: string } | null;
+  operationReportSuccessOrderId: string | null;
   orderForm: OrderFormState;
   setOrderForm: Dispatch<SetStateAction<OrderFormState>>;
   paymentInstructions: PaymentInstructions | null;
@@ -76,6 +80,7 @@ export type RemitterScreensModel = {
     paymentNotSentConfirmed: boolean
   ) => Promise<boolean>;
   submitOrderRating: (orderId: string) => void | Promise<void>;
+  submitOperationReport: (orderId: string, input: OperationReportCreateInput) => Promise<boolean>;
   openOrderChat: (orderId: string) => void | Promise<boolean>;
 };
 

@@ -9,6 +9,7 @@ import { configureTelemetryContext } from "../observability/clientTelemetry";
 import type { PublicUser } from "../types/auth";
 import { useClientChatDisputesModel } from "./workspace/useClientChatDisputesModel";
 import { useClientMarketplaceModel } from "./workspace/useClientMarketplaceModel";
+import { useClientOperationReportModel } from "./workspace/useClientOperationReportModel";
 import { useClientTelegramMainButton } from "./workspace/useClientTelegramMainButton";
 import { usePaymentReportModel } from "./workspace/usePaymentReportModel";
 import { useRemitterOrdersModel } from "./workspace/useRemitterOrdersModel";
@@ -87,6 +88,10 @@ export function useClientWorkspaceModel({
     ...context,
     refreshMyOrdersAfterPaymentReport: remitterOrders.refreshMyOrdersSilently,
     refreshChatAfterPaymentReport: chatDisputes.refreshChat
+  });
+  const operationReport = useClientOperationReportModel({
+    request,
+    setNotice: state.setNotice
   });
   const support = useSurfaceSupportModel({ request, setBusy: state.setBusy, setNotice: state.setNotice, initialScope: "client_general" });
   const awareness = useSurfaceAttentionModel({
@@ -247,6 +252,7 @@ export function useClientWorkspaceModel({
     submittingPaymentReport: state.submittingPaymentReport,
     paymentReportForm: state.paymentReportForm,
     setPaymentReportForm: state.setPaymentReportForm,
+    ...operationReport,
     ...awareness,
     acceptTerms,
     submitClientProfile,

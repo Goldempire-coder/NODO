@@ -10,6 +10,7 @@ from app.core.errors import ApiError
 from app.core.logging import get_logger
 from app.modules.businesses.access_control import evaluate_business_access
 from app.modules.businesses.models import BusinessRecord
+from app.modules.ads.marketplace_cache import MARKETPLACE_CACHE_PREFIX
 from app.modules.support.models import (
     ACTIVE_SUPPORT_STATUSES,
     ALLOWED_SUPPORT_ATTACHMENT_MIME_TYPES,
@@ -19,16 +20,25 @@ from app.modules.support.models import (
     SUPPORT_SCOPES,
     SUPPORT_STATUS_GROUPS,
     SUPPORT_STATUSES,
+    STRUCTURED_OPERATION_REPORT,
     SupportTicketRecord,
     new_id,
     utc_now,
 )
 from app.modules.notifications.support_notifications import NoopSupportNotificationService
-from app.modules.support.presenters import event_public, file_asset_public, message_public, ticket_summary
+from app.modules.support.presenters import (
+    event_public,
+    file_asset_public,
+    message_public,
+    publication_hold_admin,
+    ticket_summary,
+)
 from app.modules.support.schemas import (
     AdminSupportMessageCreateRequest,
+    OperationReportCreateRequest,
     SupportEscalateRequest,
     SupportMessageCreateRequest,
+    SupportReasonRequest,
     SupportTicketCreateRequest,
 )
 from app.modules.staff.service import require_staff_permission
@@ -38,6 +48,21 @@ from app.modules.users.models import UserRecord
 SUPPORT_DISCLAIMER = "NODO registra evidencia y estado; no recibe, retiene, transfiere ni garantiza fondos."
 ADMIN_ROLES = {"admin", "super_admin", "support"}
 logger = get_logger(__name__)
+
+OPERATION_REPORT_CATEGORIES = {
+    "order_help",
+    "payment_report_help",
+    "suspicious_activity",
+    "other",
+}
+REPORTABLE_OPERATION_STATUSES = {
+    "payment_confirmed",
+    "delivered",
+    "completed",
+    "payment_rejected",
+    "disputed",
+    "cancelled",
+}
 
 
 def _require_uuid(value: str | None, code: str = "NOT_FOUND") -> str | None:
@@ -102,6 +127,7 @@ class SupportService:
         storage,
         admin_notifications=None,
         notification_service=None,
+        marketplace_cache=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
@@ -118,6 +144,7 @@ class SupportService:
         self._storage = storage
         self._admin_notifications = admin_notifications
         self._notifications = notification_service or NoopSupportNotificationService()
+        self._marketplace_cache = marketplace_cache
 
     def _rate_limit(self, action: str, user: UserRecord, ticket_id: str | None = None) -> None:
         key = f"support:{action}:{user.id}:{ticket_id or 'global'}"
@@ -148,6 +175,8 @@ class SupportService:
         if user.role in ADMIN_ROLES:
             return user.status == "active"
         if user.role == "business_owner" and ticket.business_id:
+            if ticket.report_kind == STRUCTURED_OPERATION_REPORT:
+                return False
             try:
                 business = self._active_business_for_user(user)
             except ApiError:
@@ -282,6 +311,10 @@ class SupportService:
                 },
             )
 
+    def _invalidate_marketplace(self) -> None:
+        if self._marketplace_cache is not None:
+            self._marketplace_cache.clear_prefix(MARKETPLACE_CACHE_PREFIX)
+
     def _detail_payload(self, *, ticket: SupportTicketRecord, user: UserRecord, admin: bool = False) -> dict[str, Any]:
         messages = self._repository.list_messages(ticket_id=ticket.id)
         resources = [("support_ticket", ticket.id)] + [("support_message", message.id) for message in messages]
@@ -291,7 +324,7 @@ class SupportService:
             for message in messages
             if admin or message.visibility == "participants" or message.sender_user_id == user.id
         ]
-        return {
+        payload = {
             **self._ticket_summary_payload(ticket),
             "attachments": [_attachment_payload(file) for file in attachments.get(("support_ticket", ticket.id), [])],
             "messages": [
@@ -301,6 +334,21 @@ class SupportService:
             "events": [event_public(event) for event in self._repository.list_events(ticket_id=ticket.id)] if admin else [],
             "disclaimer": SUPPORT_DISCLAIMER,
         }
+        if admin and ticket.report_kind == STRUCTURED_OPERATION_REPORT:
+            hold = self._repository.get_publication_hold_for_ticket(ticket.id)
+            payload["publication_hold"] = publication_hold_admin(hold) if hold else None
+        return payload
+
+    def _operation_report_client_payload(
+        self,
+        *,
+        ticket: SupportTicketRecord,
+        user: UserRecord,
+    ) -> dict[str, Any]:
+        payload = self._detail_payload(ticket=ticket, user=user)
+        payload.pop("business_id", None)
+        payload.pop("business_name", None)
+        return payload
 
     def create_ticket(self, *, user: UserRecord, payload: SupportTicketCreateRequest, surface: str | None, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         if not idempotency_key:
@@ -320,7 +368,7 @@ class SupportService:
         }
 
         def compute() -> dict[str, Any]:
-            ticket = self._repository.create_ticket(
+            ticket_fields = dict(
                 requester_user_id=user.id,
                 requester_role=user.role,
                 requester_surface=fields["requester_surface"],
@@ -329,6 +377,7 @@ class SupportService:
                 status="open",
                 priority="normal",
                 subject=subject,
+                report_kind=None,
                 business_id=fields["business_id"],
                 order_id=fields["order_id"],
                 ad_id=fields["ad_id"],
@@ -340,6 +389,7 @@ class SupportService:
                 resolved_at=None,
                 closed_at=None,
             )
+            ticket = self._repository.create_ticket(**ticket_fields)
             self._repository.create_message(ticket_id=ticket.id, sender_user_id=user.id, sender_role=user.role, body=message_body, visibility="participants")
             self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_ticket_created", to_status="open", metadata_json={"scope": payload.scope, "category": payload.category})
             self._audit.write(event_type="support_ticket_created", actor_user_id=user.id, actor_role=user.role, resource_type="support_ticket", resource_id=ticket.id, request_id=request_id, metadata_json={"scope": payload.scope, "category": payload.category})
@@ -347,6 +397,173 @@ class SupportService:
             return self._detail_payload(ticket=ticket, user=user)
 
         return self._idempotency.replay_or_store(f"support:ticket:{user.id}:{idempotency_key}", payload=request_payload, compute=compute)
+
+    def create_operation_report(
+        self,
+        *,
+        user: UserRecord,
+        order_id: str,
+        payload: OperationReportCreateRequest,
+        request_id: str,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
+        if not idempotency_key:
+            raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
+        if user.role != "remitter" or user.status != "active":
+            raise ApiError("FORBIDDEN", status_code=403)
+        clean_order_id = _require_uuid(order_id, "ORDER_NOT_FOUND")
+        order = self._orders.get_by_id(clean_order_id)
+        if order is None or order.remitter_user_id != user.id:
+            raise ApiError("ORDER_NOT_FOUND", status_code=404)
+        if order.status not in REPORTABLE_OPERATION_STATUSES:
+            raise ApiError("OPERATION_REPORT_NOT_ALLOWED", status_code=409)
+        if payload.category not in OPERATION_REPORT_CATEGORIES:
+            raise ApiError("SUPPORT_CATEGORY_INVALID", status_code=400)
+        message_body = _sanitize_text(payload.message, 1000)
+        if len(message_body) < 3:
+            raise ApiError("SUPPORT_MESSAGE_REQUIRED", status_code=400)
+        self._rate_limit("operation_report", user, order.id)
+        request_payload = {
+            "order_id": order.id,
+            "category": payload.category,
+            "message": message_body,
+        }
+
+        def compute() -> dict[str, Any]:
+            current_order = self._orders.get_by_id(order.id)
+            if current_order is None or current_order.remitter_user_id != user.id:
+                raise ApiError("ORDER_NOT_FOUND", status_code=404)
+            if current_order.status not in REPORTABLE_OPERATION_STATUSES:
+                raise ApiError("OPERATION_REPORT_NOT_ALLOWED", status_code=409)
+            if self._repository.get_active_operation_report_for_order(current_order.id) is not None:
+                raise ApiError("OPERATION_REPORT_DUPLICATE", status_code=409)
+            ticket_fields = dict(
+                requester_user_id=user.id,
+                requester_role=user.role,
+                requester_surface="client_mini_app",
+                scope="client_order",
+                category=payload.category,
+                status="open",
+                priority="normal",
+                subject=f"Reporte de operacion {current_order.public_order_code}",
+                report_kind=STRUCTURED_OPERATION_REPORT,
+                business_id=current_order.business_id,
+                order_id=current_order.id,
+                ad_id=None,
+                credit_purchase_id=None,
+                dispute_id=None,
+                assigned_support_user_id=None,
+                last_message_at=None,
+                escalated_at=None,
+                resolved_at=None,
+                closed_at=None,
+            )
+            event_metadata = {
+                "scope": "client_order",
+                "category": payload.category,
+                "report_kind": STRUCTURED_OPERATION_REPORT,
+            }
+            business = self._businesses.get_business(current_order.business_id)
+            if business is None:
+                raise ApiError("BUSINESS_NOT_FOUND", status_code=404)
+            ticket, hold = self._repository.create_operation_report(
+                ticket_fields=ticket_fields,
+                message_body=message_body,
+                event_metadata=event_metadata,
+                publication_paused_until=business.ad_publication_paused_until,
+            )
+            self._audit.write(
+                event_type="structured_operation_report_created",
+                actor_user_id=user.id,
+                actor_role=user.role,
+                resource_type="support_ticket",
+                resource_id=ticket.id,
+                request_id=request_id,
+                metadata_json={
+                    "order_id": current_order.id,
+                    "business_id": current_order.business_id,
+                    "category": payload.category,
+                },
+            )
+            if hold is not None:
+                self._audit.write(
+                    event_type="business_publication_hold_started",
+                    actor_user_id=user.id,
+                    actor_role=user.role,
+                    resource_type="business_publication_hold",
+                    resource_id=hold.id,
+                    request_id=request_id,
+                    metadata_json={
+                        "business_id": hold.business_id,
+                        "order_id": hold.order_id,
+                        "support_ticket_id": hold.support_ticket_id,
+                    },
+                )
+                self._invalidate_marketplace()
+            self._notify_admin_support_ticket_created(ticket=ticket, request_id=request_id)
+            return {
+                "ticket": self._operation_report_client_payload(
+                    ticket=ticket,
+                    user=user,
+                )
+            }
+
+        return self._idempotency.replay_or_store(
+            f"support:operation_report:{user.id}:{order.id}:{idempotency_key}",
+            payload=request_payload,
+            compute=compute,
+        )
+
+    def release_publication_hold(
+        self,
+        *,
+        user: UserRecord,
+        hold_id: str,
+        payload: SupportReasonRequest,
+        request_id: str,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
+        if user.role not in {"admin", "super_admin"} or user.status != "active":
+            raise ApiError("FORBIDDEN", status_code=403)
+        if not idempotency_key:
+            raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
+        clean_hold_id = _require_uuid(
+            hold_id,
+            "BUSINESS_PUBLICATION_HOLD_NOT_FOUND",
+        )
+        reason = _sanitize_text(payload.reason, 500)
+        if not reason:
+            raise ApiError("REASON_REQUIRED", status_code=400)
+        request_payload = {"hold_id": clean_hold_id, "reason": reason}
+
+        def compute() -> dict[str, Any]:
+            hold = self._repository.release_publication_hold(
+                hold_id=clean_hold_id,
+                released_by=user.id,
+                release_reason=reason,
+            )
+            self._audit.write(
+                event_type="business_publication_hold_released",
+                actor_user_id=user.id,
+                actor_role=user.role,
+                resource_type="business_publication_hold",
+                resource_id=hold.id,
+                request_id=request_id,
+                metadata_json={
+                    "business_id": hold.business_id,
+                    "order_id": hold.order_id,
+                    "support_ticket_id": hold.support_ticket_id,
+                    "reason": reason,
+                },
+            )
+            self._invalidate_marketplace()
+            return {"hold": publication_hold_admin(hold)}
+
+        return self._idempotency.replay_or_store(
+            f"admin:business_publication_hold:release:{user.id}:{clean_hold_id}:{idempotency_key}",
+            payload=request_payload,
+            compute=compute,
+        )
 
     def list_user_tickets(self, *, user: UserRecord, status: str | None, status_group: str | None, scope: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         self._rate_limit("list", user)

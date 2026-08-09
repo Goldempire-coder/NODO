@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from app.core.errors import ApiError
+from app.modules.ads.publication_access import (
+    business_can_receive_new_orders,
+    require_ad_publication_access,
+)
 from app.modules.businesses.models import BusinessRecord
 from app.modules.users.models import UserRecord
 
@@ -16,11 +20,8 @@ def require_business_owner(user: UserRecord, business: BusinessRecord) -> None:
 
 
 def require_publishable_business(business: BusinessRecord) -> None:
-    if business.verification_status != "approved":
-        raise ApiError("BUSINESS_NOT_APPROVED", status_code=409)
-    if business.risk_level in {"restricted", "high_risk"}:
-        raise ApiError("FORBIDDEN", status_code=403)
+    require_ad_publication_access(business)
 
 
 def business_is_marketplace_visible(business: BusinessRecord) -> bool:
-    return business.verification_status == "approved" and business.risk_level not in {"restricted", "high_risk"}
+    return business_can_receive_new_orders(business)

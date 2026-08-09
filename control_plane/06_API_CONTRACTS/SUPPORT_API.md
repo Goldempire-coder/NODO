@@ -7,7 +7,10 @@ API para soporte general cliente, soporte por recursos del negocio y cola Admin 
 - Todas las rutas usan `/api/v1`.
 - Requieren JWT salvo contrato futuro explicito.
 - Mutaciones requieren `Idempotency-Key`.
-- Crear/responder/escalar/resolver/cerrar ticket no cambia estados de orden, anuncios, creditos ni disputas.
+- Crear/responder/escalar/resolver/cerrar un ticket generico no cambia estados de
+  orden, anuncios, creditos ni disputas. El reporte estructurado 42E1 puede crear
+  en 42F1 un hold de publicacion separado cuando la pausa de rating sigue activa,
+  sin mutar la orden, el anuncio, creditos ni capacidad financiera.
 - Support no puede resolver disputa formal desde este API.
 - Responses nunca incluyen `storage_path`, signed URLs persistidas, `account_value`, tokens ni secretos.
 - Slice 20C: si el actor opera como staff delegado, el backend debe validar `staff_profiles.status = active`, permiso activo y scope compatible.
@@ -23,6 +26,8 @@ API para soporte general cliente, soporte por recursos del negocio y cola Admin 
 - El aviso de respuesta usa copy generico y deep link al ticket exacto; nunca
   incluye subject, body, adjuntos, `file_asset_id`, `storage_path`, signed URL,
   datos bancarios, PINs, tokens ni secretos.
+- Soporte no se abre desde el chat P2P. El reporte de operacion se inicia desde
+  Soporte, Mis ordenes o una superficie Historial contratada.
 
 ## Endpoints cliente/negocio
 
@@ -139,6 +144,7 @@ Rules:
 - Reason interno fijo: `requester_closed_by_mistake`.
 - Conserva mensajes, eventos y adjuntos.
 - Audit `support_ticket_closed` sin contenido privado.
+- Cerrar un ticket nunca libera un `business_publication_hold`.
 
 ## Endpoints Admin Web
 
@@ -306,6 +312,25 @@ Rules:
 - Nunca persistir signed URL.
 - Audit `support_attachment_viewed`.
 - Para actor staff delegado, requiere `view_support_attachment`.
+
+## Reporte estructurado de operacion - Slice 42D0
+
+`POST /api/v1/orders/{order_id}/operation-report` crea un ticket
+`client_order` a partir de una orden real propia. El backend deriva
+`business_id`; el cliente no lo envia como autoridad.
+
+Estados reportables: `payment_confirmed`, `delivered`, `completed`,
+`payment_rejected`, `disputed` y `cancelled`. `waiting_payment`,
+`payment_reported` y `expired` no usan este flujo.
+
+Si el reporte se crea mientras la pausa 42D sigue activa, 42F1 crea
+atomicamente un `business_publication_hold` junto al ticket, mensaje y evento.
+El hold no cambia estado de orden/anuncio, creditos ni capacidad financiera, y
+no se libera al cerrar o resolver el ticket. Su liberacion usa el endpoint
+administrativo de 42F1. 42F1 no envia Telegram Admin; esa entrega sigue
+reservada a 42F2.
+
+El contrato completo esta en `API_CONTRACT.md` del Slice 42D0.
 
 ## Errores esperados
 

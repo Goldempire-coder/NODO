@@ -1236,3 +1236,35 @@ Rules:
 - IDEMPOTENCY_KEY_REQUIRED
 - IDEMPOTENCY_CONFLICT
 - IDEMPOTENCY_PAYLOAD_MISMATCH
+
+## POST /api/v1/admin/business-publication-holds/{hold_id}/release
+
+Implementado backend-first en 42F1. Requiere `Idempotency-Key` y payload `{ "reason":
+"string" }`.
+
+- `admin` y `super_admin` activos pueden liberar.
+- El runtime 42F1 limita la liberacion a `admin` y `super_admin`. La delegacion a
+  Support mediante `release_business_publication_hold` queda reservada para un
+  mini-slice RBAC posterior porque el constraint durable actual de permisos no
+  incluye ese valor.
+- El rol base `support` no concede el permiso.
+- Cerrar/resolver el ticket no libera el hold.
+- El detalle Admin del ticket estructurado incluye `publication_hold` con IDs,
+  estado y datos de liberacion necesarios para ejecutar esta accion. Esa
+  proyeccion no existe en respuestas Cliente/Negocio.
+- Registra `business_publication_hold_released` con actor, IDs y timestamp, sin
+  contenido privado.
+- Responde `Cache-Control: private, no-store`.
+
+## Alerta Telegram de reporte de operacion
+
+42F2 debe crear un job por cada usuario `admin` o `super_admin` activo con
+Telegram vinculado. No debe crear un job basado solo en `recipient_role`.
+
+La alerta contiene unicamente codigo publico de orden, estado generico, si la
+publicacion quedo pausada para revision y enlace generico a Admin Web. No incluye
+cliente, negocio completo, rating, estrellas, mensaje, telefono, banco, wallet,
+captura, signed URL, `storage_path`, datos de pago, tokens ni secretos.
+
+Falta de destinatario o fallo Telegram no revierte ticket/hold. Debe quedar
+observable, reintentable e idempotente por reporte y destinatario.

@@ -6,6 +6,7 @@ from app.auth.dependencies import require_current_user
 from app.modules.support.models import MAX_SUPPORT_ATTACHMENT_SIZE_BYTES
 from app.modules.support.schemas import (
     AdminSupportMessageCreateRequest,
+    OperationReportCreateRequest,
     SupportAssignRequest,
     SupportEscalateRequest,
     SupportMessageCreateRequest,
@@ -52,6 +53,7 @@ def _service(request: Request) -> SupportService:
         storage=request.app.state.private_storage,
         admin_notifications=getattr(request.app.state, "admin_notification_service", None),
         notification_service=notifications,
+        marketplace_cache=request.app.state.marketplace_cache,
     )
 
 
@@ -65,6 +67,46 @@ def create_ticket(
 ) -> dict:
     return {
         "data": _service(request).create_ticket(user=user, payload=payload, surface=surface, request_id=_request_id(request), idempotency_key=idempotency_key),
+        "request_id": _request_id(request),
+    }
+
+
+@router.post("/orders/{order_id}/operation-report", status_code=201)
+def create_operation_report(
+    order_id: str,
+    payload: OperationReportCreateRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": _service(request).create_operation_report(
+            user=user,
+            order_id=order_id,
+            payload=payload,
+            request_id=_request_id(request),
+            idempotency_key=idempotency_key,
+        ),
+        "request_id": _request_id(request),
+    }
+
+
+@router.post("/admin/business-publication-holds/{hold_id}/release")
+def release_publication_hold(
+    hold_id: str,
+    payload: SupportReasonRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict:
+    return {
+        "data": _service(request).release_publication_hold(
+            user=user,
+            hold_id=hold_id,
+            payload=payload,
+            request_id=_request_id(request),
+            idempotency_key=idempotency_key,
+        ),
         "request_id": _request_id(request),
     }
 

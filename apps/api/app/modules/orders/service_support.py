@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.core.errors import ApiError
 from app.modules.ads.marketplace_cache import MARKETPLACE_CACHE_PREFIX, MARKETPLACE_ORDER_INVALIDATION_DEBOUNCE_SECONDS
+from app.modules.ads.publication_access import business_publication_pause_is_active
 from app.modules.ads.models import AdRecord
 from app.modules.businesses.access_control import require_active_business_access
 from app.modules.businesses.models import BusinessPaymentMethodRecord, BusinessRecord
@@ -53,6 +54,8 @@ class OrderServiceSupportMixin:
             raise ApiError("BUSINESS_NOT_APPROVED", status_code=409)
         if not business.is_accepting_orders:
             raise ApiError("BUSINESS_OFFLINE", status_code=409)
+        if business_publication_pause_is_active(business):
+            raise ApiError("AD_NOT_AVAILABLE", status_code=409)
         return business
 
     def _payment_or_unavailable(self, payment_method_id: str) -> BusinessPaymentMethodRecord:

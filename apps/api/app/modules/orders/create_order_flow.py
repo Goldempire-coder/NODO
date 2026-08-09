@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 from app.core.errors import ApiError
 from app.modules.ads.models import AdRecord
+from app.modules.ads.publication_access import business_publication_pause_is_active
 from app.modules.businesses.models import BusinessPaymentMethodRecord, BusinessRecord
 from app.modules.orders.create_order_builder import bind_created_order_to_audit_events, build_create_order_plan
 from app.modules.orders.helpers import profile_attach, profile_enabled, profile_mark, require_uuid
@@ -255,6 +256,8 @@ class OrderCreateFlow:
             raise ApiError("BUSINESS_NOT_APPROVED", status_code=409)
         if not business.is_accepting_orders:
             raise ApiError("BUSINESS_OFFLINE", status_code=409)
+        if business_publication_pause_is_active(business):
+            raise ApiError("AD_NOT_AVAILABLE", status_code=409)
         self._validate_order_amount(payload=payload, ad=ad, business=business)
         if active_order_count >= business.active_order_limit:
             raise ApiError("AD_NOT_AVAILABLE", status_code=409)

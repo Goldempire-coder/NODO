@@ -1,5 +1,6 @@
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
 import type { SupportTicket } from "../../types/support";
+import { AdminPublicationHoldPanel } from "./AdminPublicationHoldPanel";
 import { dateText, Empty, Header } from "./AdminWebPrimitives";
 
 const STATUS_LABELS: Record<SupportTicket["status"], string> = {
@@ -132,6 +133,17 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
                 Actualizar hilo
               </button>
             </div>
+
+            {model.adminMutable ? (
+              <AdminPublicationHoldPanel
+                error={model.publicationHoldReleaseError}
+                hold={selected.publication_hold}
+                reason={model.publicationHoldReleaseReason}
+                releasing={model.releasingPublicationHoldId === selected.publication_hold?.id}
+                onReasonChange={model.setPublicationHoldReleaseReason}
+                onRequestRelease={model.requestPublicationHoldRelease}
+              />
+            ) : null}
 
             <div className="admin-web-support-quick-actions">
               {selectedArchived ? (

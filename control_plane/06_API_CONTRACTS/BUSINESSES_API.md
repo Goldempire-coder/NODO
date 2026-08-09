@@ -376,3 +376,22 @@ Rules:
 - UNAUTHENTICATED
 - RATE_LIMITED
 - IDEMPOTENCY_PAYLOAD_MISMATCH
+
+## Restricciones operativas de publicacion - Slice 42D0
+
+El campo implementado `ad_publication_paused_until` y los futuros
+`business_publication_holds` son controles operativos internos. No son estado de
+verificacion, disponibilidad declarada, reputacion, capacidad ni credito.
+
+- La pausa temporal vence por comparacion con tiempo de base de datos; no usa
+  scheduler.
+- Un hold activo requiere liberacion administrativa explicita y no vence con la
+  pausa.
+- Bloqueo, suspension o restriccion Admin domina sobre pausa y hold liberado.
+- El negocio solo recibe copy neutral y capabilities; nunca rating, estrellas,
+  orden origen, cliente, ticket ni causa.
+- La proyeccion puede devolver `capabilities.can_publish_ads = false` y un estado
+  neutral `temporarily_unavailable|under_review`; no devuelve
+  `ad_publication_paused_until`, hold IDs ni reason interno.
+- `/businesses/me` y superficies publicas no exponen campos internos de origen o
+  motivo del control.

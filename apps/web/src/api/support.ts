@@ -1,5 +1,16 @@
 import type { AuthenticatedRequest } from "./client";
-import type { SupportMessage, SupportTicket, SupportTicketCreateInput } from "../types/support";
+import type {
+  AdminPublicationHoldReleaseResponse,
+  AdminSupportTicket,
+  AdminSupportTicketListResponse
+} from "../types/admin";
+import type {
+  OperationReportCreateInput,
+  OperationReportCreateResult,
+  SupportMessage,
+  SupportTicket,
+  SupportTicketCreateInput
+} from "../types/support";
 
 export type SupportListResponse = {
   items: SupportTicket[];
@@ -20,6 +31,22 @@ export type AdminSupportAttachmentViewUrlResponse = {
 
 export async function createSupportTicket(request: AuthenticatedRequest, input: SupportTicketCreateInput, idempotencyKey: string): Promise<SupportTicket> {
   return request<SupportTicket>("/api/v1/support/tickets", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify(input)
+  });
+}
+
+export async function createOperationReport(
+  request: AuthenticatedRequest,
+  orderId: string,
+  input: OperationReportCreateInput,
+  idempotencyKey: string
+): Promise<OperationReportCreateResult> {
+  return request<OperationReportCreateResult>(`/api/v1/orders/${orderId}/operation-report`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -69,12 +96,28 @@ export async function closeSupportTicket(request: AuthenticatedRequest, ticketId
   });
 }
 
-export async function adminListSupportTickets(request: AuthenticatedRequest, query = ""): Promise<SupportListResponse> {
-  return request<SupportListResponse>(`/api/v1/admin/support/tickets${query}`);
+export async function adminListSupportTickets(request: AuthenticatedRequest, query = ""): Promise<AdminSupportTicketListResponse> {
+  return request<AdminSupportTicketListResponse>(`/api/v1/admin/support/tickets${query}`);
 }
 
-export async function adminGetSupportTicket(request: AuthenticatedRequest, ticketId: string): Promise<SupportTicket> {
-  return request<SupportTicket>(`/api/v1/admin/support/tickets/${ticketId}`);
+export async function adminGetSupportTicket(request: AuthenticatedRequest, ticketId: string): Promise<AdminSupportTicket> {
+  return request<AdminSupportTicket>(`/api/v1/admin/support/tickets/${ticketId}`);
+}
+
+export async function releaseAdminBusinessPublicationHold(
+  request: AuthenticatedRequest,
+  holdId: string,
+  reason: string,
+  idempotencyKey: string
+): Promise<AdminPublicationHoldReleaseResponse> {
+  return request<AdminPublicationHoldReleaseResponse>(`/api/v1/admin/business-publication-holds/${holdId}/release`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ reason })
+  });
 }
 
 export async function adminSendSupportMessage(request: AuthenticatedRequest, ticketId: string, body: string, idempotencyKey: string): Promise<SupportMessageResponse> {

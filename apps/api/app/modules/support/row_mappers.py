@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from app.modules.businesses.models import FileAssetRecord
-from app.modules.support.models import SupportMessageRecord, SupportTicketEventRecord, SupportTicketRecord
+from app.modules.support.models import (
+    BusinessPublicationHoldRecord,
+    SupportMessageRecord,
+    SupportTicketEventRecord,
+    SupportTicketRecord,
+)
 
 
 def ticket_from_row(row) -> SupportTicketRecord:  # type: ignore[no-untyped-def]
@@ -21,12 +26,28 @@ def ticket_from_row(row) -> SupportTicketRecord:  # type: ignore[no-untyped-def]
         status=row["status"],
         priority=row["priority"],
         subject=row["subject"],
+        report_kind=row.get("report_kind"),
         last_message_at=row["last_message_at"],
         escalated_at=row["escalated_at"],
         resolved_at=row["resolved_at"],
         closed_at=row["closed_at"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+    )
+
+
+def publication_hold_from_row(row) -> BusinessPublicationHoldRecord:  # type: ignore[no-untyped-def]
+    return BusinessPublicationHoldRecord(
+        id=str(row["id"]),
+        business_id=str(row["business_id"]),
+        order_id=str(row["order_id"]),
+        support_ticket_id=str(row["support_ticket_id"]),
+        status=row["status"],
+        reason_type=row["reason_type"],
+        created_at=row["created_at"],
+        released_at=row["released_at"],
+        released_by=str(row["released_by"]) if row["released_by"] else None,
+        release_reason=row["release_reason"],
     )
 
 

@@ -61,14 +61,27 @@ class OrderRatingOps:
                 rater_user_id=user.id,
                 stars=payload.stars,
             )
-            self._audit.write(
-                event_type="rating_created",
-                actor_user_id=user.id,
-                actor_role=user.role,
-                resource_type="rating",
-                resource_id=rating.id,
-                request_id=request_id,
-                metadata_json={"order_id": order_id, "business_id": business.id},
+            self._audit.write_many(
+                [
+                    {
+                        "event_type": "rating_created",
+                        "actor_user_id": user.id,
+                        "actor_role": user.role,
+                        "resource_type": "rating",
+                        "resource_id": rating.id,
+                        "request_id": request_id,
+                        "metadata_json": {"order_id": order_id, "business_id": business.id},
+                    },
+                    {
+                        "event_type": "business_publication_pause_started",
+                        "actor_user_id": None,
+                        "actor_role": None,
+                        "resource_type": "business",
+                        "resource_id": business.id,
+                        "request_id": request_id,
+                        "metadata_json": None,
+                    },
+                ]
             )
             return {
                 "rating": rating_payload(rating),

@@ -3,5 +3,6 @@ packages:
 allowBuilds:
   sharp: true
 overrides:
-  valibot: 1.2.0
-  postcss: 8.5.10
+  postcss: 8.5.26
+  sharp: 0.35.3
+  valibot: 1.4.2

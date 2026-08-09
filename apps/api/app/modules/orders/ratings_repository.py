@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP
+from datetime import timedelta
 from threading import RLock
 from typing import Any
 
@@ -148,7 +149,15 @@ class InMemoryOrderRatingRepository:
                 rating_avg=rating_avg,
             )
 
+            calculated_at = utc_now()
+            pause_candidate = calculated_at + timedelta(minutes=15)
+
             self.ratings[order.id] = rating
+            if (
+                business.ad_publication_paused_until is None
+                or pause_candidate > business.ad_publication_paused_until
+            ):
+                business.ad_publication_paused_until = pause_candidate
             business.rating_avg = rating_avg
             business.ratings_count = len(business_ratings) + 1
             business.completed_orders_count = len(completed_orders)
@@ -158,7 +167,7 @@ class InMemoryOrderRatingRepository:
             business.success_rate = success_rate
             business.average_delivery_seconds = int(sum(delivery_seconds) / len(delivery_seconds)) if delivery_seconds else None
             business.reputation_tier = reputation_tier
-            business.reputation_calculated_at = utc_now()
+            business.reputation_calculated_at = calculated_at
             business.updated_at = business.reputation_calculated_at
             return rating, business
 
@@ -306,6 +315,10 @@ class PostgresOrderRatingRepository:
                     success_rate = %s,
                     average_delivery_seconds = %s,
                     reputation_tier = %s,
+                    ad_publication_paused_until = greatest(
+                        coalesce(ad_publication_paused_until, '-infinity'::timestamptz),
+                        now() + interval '15 minutes'
+                    ),
                     reputation_calculated_at = now(),
                     updated_at = now()
                 where id = %s

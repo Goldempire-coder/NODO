@@ -11,6 +11,7 @@ from datetime import timedelta
 from decimal import Decimal
 from threading import RLock
 from urllib.parse import urlencode
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -55,6 +56,7 @@ from app.modules.ads.repository import InMemoryAdRepository  # noqa: E402
 from app.modules.business_capacity import InMemoryBusinessCapacityRepository  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.support.models import BusinessPublicationHoldRecord  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -241,6 +243,267 @@ def _create_usdt_ad_response(
 
 def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
+
+
+def test_rating_publication_pause_blocks_create_reactivate_and_republish_neutrally() -> None:
+    client = _client()
+    owner = _login(client, 18001, "rating_pause_ads_owner")
+    business, zelle_method_id = _approved_business_with_method(client, owner, credits=5)
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="RatingPauseAds",
+    )
+    ad = _create_ad(
+        client,
+        owner,
+        zelle_method_id,
+        key="rating_pause_source",
+        amount_max="50.00",
+    )
+    paused_ad = client.post(
+        f"/api/v1/business/ads/{ad['id']}/pause",
+        headers=_headers(owner, "rating_pause_manual_pause"),
+    )
+    assert paused_ad.status_code == 200, paused_ad.text
+
+    stored_business = client.app.state.business_repository.get_business(business["id"])
+    stored_business.ad_publication_paused_until = utc_now() + timedelta(minutes=15)
+    wallet_before = client.app.state.ad_repository.get_wallet(business["id"])
+    balances_before = (
+        wallet_before.available_credits,
+        wallet_before.blocked_credits,
+        wallet_before.consumed_credits,
+    )
+
+    create_response = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="rating_pause_create",
+        amount_max="50.00",
+    )
+    reactivate_response = client.post(
+        f"/api/v1/business/ads/{ad['id']}/reactivate",
+        headers=_headers(owner, "rating_pause_reactivate"),
+    )
+    client.app.state.ad_repository.set_status(
+        client.app.state.ad_repository.get_ad(ad["id"]),
+        "archived",
+    )
+    republish_response = client.post(
+        f"/api/v1/business/ads/{ad['id']}/republish",
+        headers=_headers(owner, "rating_pause_republish"),
+    )
+
+    for response in (create_response, reactivate_response, republish_response):
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "BUSINESS_PUBLICATION_TEMPORARILY_UNAVAILABLE"
+        serialized = json.dumps(response.json()["error"]).lower()
+        assert "rating" not in serialized
+        assert "calificacion" not in serialized
+        assert "cliente" not in serialized
+
+    wallet_after = client.app.state.ad_repository.get_wallet(business["id"])
+    assert (
+        wallet_after.available_credits,
+        wallet_after.blocked_credits,
+        wallet_after.consumed_credits,
+    ) == balances_before
+    assert len(client.app.state.ad_repository.ads) == 1
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "archived"
+
+    stored_business.ad_publication_paused_until = utc_now()
+    after_boundary = client.post(
+        f"/api/v1/business/ads/{ad['id']}/republish",
+        headers=_headers(owner, "rating_pause_republish_after_boundary"),
+    )
+    assert after_boundary.status_code == 200, after_boundary.text
+
+
+def test_rating_publication_pause_filters_cached_marketplace_without_mutating_ads() -> None:
+    client = _client()
+    owner = _login(client, 18002, "rating_pause_marketplace_owner")
+    business, zelle_method_id = _approved_business_with_method(client, owner, credits=2)
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="RatingPauseMarketplace",
+    )
+    zelle_ad = _create_ad(
+        client,
+        owner,
+        zelle_method_id,
+        key="rating_pause_marketplace_zelle",
+        amount_max="50.00",
+    )
+    usdt_response = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="rating_pause_marketplace_usdt",
+        amount_max="50.00",
+    )
+    assert usdt_response.status_code == 201, usdt_response.text
+    usdt_ad = usdt_response.json()["data"]["ad"]
+    remitter = _login(client, 18003, "rating_pause_marketplace_client")
+    query = "/api/v1/ads/search?amount_usd=30.00&sort=rate"
+
+    before = client.get(query, headers=_bearer(remitter, "rating_pause_marketplace_before"))
+    assert before.status_code == 200, before.text
+    assert {item["id"] for item in before.json()["data"]["items"]} == {
+        zelle_ad["id"],
+        usdt_ad["id"],
+    }
+
+    stored_business = client.app.state.business_repository.get_business(business["id"])
+    stored_business.ad_publication_paused_until = utc_now() + timedelta(minutes=15)
+    during = client.get(query, headers=_bearer(remitter, "rating_pause_marketplace_during"))
+    detail = client.get(
+        f"/api/v1/ads/{zelle_ad['id']}",
+        headers=_bearer(remitter, "rating_pause_marketplace_detail"),
+    )
+
+    assert during.status_code == 200, during.text
+    assert during.json()["data"]["items"] == []
+    assert detail.status_code == 404
+    assert detail.json()["error"]["code"] == "AD_NOT_AVAILABLE"
+    assert client.app.state.ad_repository.get_ad(zelle_ad["id"]).status == "active"
+    assert client.app.state.ad_repository.get_ad(usdt_ad["id"]).status == "active"
+    assert "ad_publication_paused_until" not in json.dumps(during.json())
+
+    stored_business.ad_publication_paused_until = utc_now()
+    after = client.get(query, headers=_bearer(remitter, "rating_pause_marketplace_after"))
+    assert after.status_code == 200, after.text
+    assert {item["id"] for item in after.json()["data"]["items"]} == {
+        zelle_ad["id"],
+        usdt_ad["id"],
+    }
+
+
+def test_admin_business_block_still_dominates_after_rating_pause_expires() -> None:
+    client = _client()
+    owner = _login(client, 18004, "rating_pause_admin_block_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=1)
+    stored_business = client.app.state.business_repository.get_business(business["id"])
+    stored_business.ad_publication_paused_until = utc_now()
+    stored_business.verification_status = "blocked"
+
+    response = client.post(
+        "/api/v1/business/ads",
+        headers={**_headers(owner, "rating_pause_admin_block"), "Content-Type": "application/json"},
+        json={
+            "payment_method_id": method_id,
+            "payment_method": "zelle",
+            "delivery_method": "pago_movil_ve",
+            "rate_bs_per_usd": "39.5000",
+            "amount_min_usd": "20.00",
+            "amount_max_usd": "100.00",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "BUSINESS_BLOCKED"
+    assert client.app.state.ad_repository.ads == {}
+
+
+def test_operational_hold_blocks_ads_and_marketplace_without_mutating_existing_ads() -> None:
+    client = _client()
+    owner = _login(client, 18005, "operational_hold_ads_owner")
+    business, zelle_method_id = _approved_business_with_method(client, owner, credits=5)
+    usdt_method_id = _add_approved_usdt_method(
+        client,
+        business_id=business["id"],
+        suffix="OperationalHoldAds",
+    )
+    zelle_ad = _create_ad(
+        client,
+        owner,
+        zelle_method_id,
+        key="operational_hold_zelle",
+        amount_max="50.00",
+    )
+    usdt_response = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="operational_hold_usdt",
+        amount_max="50.00",
+    )
+    assert usdt_response.status_code == 201, usdt_response.text
+    usdt_ad = usdt_response.json()["data"]["ad"]
+    paused = client.post(
+        f"/api/v1/business/ads/{zelle_ad['id']}/pause",
+        headers=_headers(owner, "operational_hold_pause"),
+    )
+    assert paused.status_code == 200, paused.text
+
+    hold = BusinessPublicationHoldRecord(
+        id=str(uuid4()),
+        business_id=business["id"],
+        order_id=str(uuid4()),
+        support_ticket_id=str(uuid4()),
+        status="active",
+        reason_type="structured_operation_report",
+        created_at=utc_now(),
+        released_at=None,
+        released_by=None,
+        release_reason=None,
+    )
+    client.app.state.support_repository.publication_holds[hold.id] = hold
+    remitter = _login(client, 18006, "operational_hold_ads_client")
+
+    create_response = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="operational_hold_create",
+        amount_max="25.00",
+    )
+    reactivate_response = client.post(
+        f"/api/v1/business/ads/{zelle_ad['id']}/reactivate",
+        headers=_headers(owner, "operational_hold_reactivate"),
+    )
+    client.app.state.ad_repository.set_status(
+        client.app.state.ad_repository.get_ad(zelle_ad["id"]),
+        "archived",
+    )
+    republish_response = client.post(
+        f"/api/v1/business/ads/{zelle_ad['id']}/republish",
+        headers=_headers(owner, "operational_hold_republish"),
+    )
+
+    for response in (create_response, reactivate_response, republish_response):
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "BUSINESS_PUBLICATION_UNDER_REVIEW"
+        serialized = json.dumps(response.json()["error"]).lower()
+        for forbidden in ("rating", "estrella", "cliente", "orden", "reporte"):
+            assert forbidden not in serialized
+
+    query = "/api/v1/ads/search?amount_usd=30.00&sort=rate"
+    search = client.get(query, headers=_bearer(remitter, "operational_hold_search"))
+    detail = client.get(
+        f"/api/v1/ads/{usdt_ad['id']}",
+        headers=_bearer(remitter, "operational_hold_detail"),
+    )
+    assert search.status_code == 200, search.text
+    assert search.json()["data"]["items"] == []
+    assert detail.status_code == 404
+    assert detail.json()["error"]["code"] == "AD_NOT_AVAILABLE"
+    assert client.app.state.ad_repository.get_ad(zelle_ad["id"]).status == "archived"
+    assert client.app.state.ad_repository.get_ad(usdt_ad["id"]).status == "active"
+    assert "publication_hold" not in json.dumps(search.json())
+
+    client.app.state.business_repository.get_business(business["id"]).risk_level = "restricted"
+    restricted = _create_usdt_ad_response(
+        client,
+        owner,
+        usdt_method_id,
+        key="operational_hold_restricted_precedence",
+        amount_max="25.00",
+    )
+    assert restricted.status_code == 403
+    assert restricted.json()["error"]["code"] == "FORBIDDEN"
 
 
 def test_create_ad_requires_approved_business_owner_and_valid_payment_method() -> None:

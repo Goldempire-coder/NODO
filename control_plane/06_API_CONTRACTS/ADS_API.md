@@ -361,6 +361,31 @@ Errores:
 - RATE_LIMITED
 - IDEMPOTENCY_PAYLOAD_MISMATCH
 
+## Guard operativo de publicacion - Slice 42D0
+
+42D2 aplica una politica backend compartida para la pausa temporal. 42F1 la
+extiende con `has_active_operational_hold` sin duplicar la regla existente.
+
+Ademas de las reglas vigentes de aprobacion, ownership, creditos, capacidad y
+limites, la politica debe exigir:
+
+- negocio no bloqueado, suspendido ni restringido por Admin;
+- `database_now >= ad_publication_paused_until`;
+- ausencia de `business_publication_hold` activo.
+
+La politica protege crear, publicar, reactivar y republicar. Mientras falle,
+los anuncios existentes conservan su estado, pero no aparecen disponibles en
+marketplace ni pueden aceptar una orden directa.
+
+42D2 revalida los negocios incluidos en cada cache hit y las consultas directas
+filtran con tiempo de base de datos. Una lectura publica stale nunca autoriza la
+creacion: la transaccion de orden revalida el guard durable. 42F1 conserva la
+misma regla al iniciar o liberar holds.
+
+El error es neutral: `BUSINESS_PUBLICATION_TEMPORARILY_UNAVAILABLE` para pausa o
+`BUSINESS_PUBLICATION_UNDER_REVIEW` para hold. El DTO del negocio no expone
+rating, orden origen, cliente, ticket ni causa interna.
+
 ## POST /api/v1/business/ads/{id}/republish
 
 Republica un anuncio propio archivado o vencido como una nueva publicacion activa.

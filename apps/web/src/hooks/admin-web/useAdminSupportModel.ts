@@ -12,10 +12,15 @@ import {
   adminSendSupportMessage,
   adminSupportAttachmentViewUrl
 } from "../../api/support";
-import type { AdminStaffSummary } from "../../types/admin";
+import type {
+  AdminBusinessPublicationHold,
+  AdminStaffSummary,
+  AdminSupportTicket
+} from "../../types/admin";
 import type { SupportMessage, SupportTicket } from "../../types/support";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
+import { useAdminPublicationHoldModel } from "./useAdminPublicationHoldModel";
 
 type SupportAttachmentLink = {
   url: string;
@@ -103,19 +108,26 @@ function applySupportMessageResult(ticket: SupportTicket, optimisticMessageId: s
 
 export function useAdminSupportModel({
   adminMutable,
+  queueCriticalAction,
   request,
   setBusy,
   setNotice,
   setView
 }: {
   adminMutable: boolean;
+  queueCriticalAction: (
+    title: string,
+    detail: string,
+    run: () => Promise<void>,
+    options?: { requiresReason?: boolean }
+  ) => void;
   request: RequestFn;
   setBusy: (busy: boolean) => void;
   setNotice: (notice: string) => void;
   setView: (view: AdminWebView) => void;
 }) {
-  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
-  const [selectedSupportTicket, setSelectedSupportTicket] = useState<SupportTicket | null>(null);
+  const [supportTickets, setSupportTickets] = useState<AdminSupportTicket[]>([]);
+  const [selectedSupportTicket, setSelectedSupportTicket] = useState<AdminSupportTicket | null>(null);
   const [supportFilter, setSupportFilter] = useState("active");
   const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<string, string>>({});
   const [supportAttachmentLink, setSupportAttachmentLink] = useState<SupportAttachmentLink | null>(null);
@@ -162,7 +174,7 @@ export function useAdminSupportModel({
     }
   }, [setSupportReplyDraft]);
 
-  const selectSupportTicket = useCallback((ticket: SupportTicket | null) => {
+  const selectSupportTicket = useCallback((ticket: AdminSupportTicket | null) => {
     selectedSupportTicketIdRef.current = ticket?.id ?? null;
     setSelectedSupportTicket(ticket);
   }, []);
@@ -299,13 +311,41 @@ export function useAdminSupportModel({
     supportAssignmentReason
   ]);
 
+  const refreshSupportTicket = useCallback(async (ticketId: string) => {
+    const ticket = await adminGetSupportTicket(request, ticketId);
+    setSupportTickets((items) => items.map((item) => (item.id === ticketId ? ticket : item)));
+    if (selectedSupportTicketIdRef.current === ticketId) {
+      selectSupportTicket(ticket);
+    }
+  }, [request, selectSupportTicket]);
+
   const refreshSelectedSupportTicket = useCallback(async () => {
-    if (!selectedSupportTicket) {
+    const ticketId = selectedSupportTicketIdRef.current;
+    if (!ticketId) {
       return;
     }
-    const ticket = await adminGetSupportTicket(request, selectedSupportTicket.id);
-    selectSupportTicket(ticket);
-  }, [request, selectedSupportTicket, selectSupportTicket]);
+    await refreshSupportTicket(ticketId);
+  }, [refreshSupportTicket]);
+
+  const applyReleasedHold = useCallback((ticketId: string, hold: AdminBusinessPublicationHold) => {
+    setSupportTickets((items) => items.map((item) => (
+      item.id === ticketId ? { ...item, publication_hold: hold } : item
+    )));
+    if (selectedSupportTicketIdRef.current === ticketId) {
+      setSelectedSupportTicket((current) => (
+        current?.id === ticketId ? { ...current, publication_hold: hold } : current
+      ));
+    }
+  }, []);
+
+  const publicationHold = useAdminPublicationHoldModel({
+    adminMutable,
+    applyReleasedHold,
+    queueCriticalAction,
+    refreshTicket: refreshSupportTicket,
+    request,
+    selectedTicket: selectedSupportTicket
+  });
 
   const replySupportTicket = useCallback(async () => {
     if (!selectedSupportTicket || !supportReply.trim() || supportReplyInFlight.current) {
@@ -424,6 +464,7 @@ export function useAdminSupportModel({
     supportAssignmentReason,
     setSupportAssignmentReason,
     assigningSupportTicketId,
+    ...publicationHold,
     loadSupportTickets,
     refreshSupportWorkspace,
     openSupportTicket,

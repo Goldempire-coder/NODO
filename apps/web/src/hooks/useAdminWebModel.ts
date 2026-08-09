@@ -109,6 +109,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
 
   const support = useAdminSupportModel({
     adminMutable,
+    queueCriticalAction: criticalAction.queueCriticalAction,
     request,
     setBusy,
     setNotice,
@@ -304,6 +305,10 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     supportAssignmentReason: support.supportAssignmentReason,
     setSupportAssignmentReason: support.setSupportAssignmentReason,
     assigningSupportTicketId: support.assigningSupportTicketId,
+    publicationHoldReleaseError: support.publicationHoldReleaseError,
+    publicationHoldReleaseReason: support.publicationHoldReleaseReason,
+    releasingPublicationHoldId: support.releasingPublicationHoldId,
+    setPublicationHoldReleaseReason: support.setPublicationHoldReleaseReason,
     staff: staff.staff,
     selectedStaff: staff.selectedStaff,
     staffActivity: staff.staffActivity,
@@ -407,6 +412,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     replySupportTicket: support.replySupportTicket,
     loadSupportAssignees: support.loadSupportAssignees,
     assignSupportTicket: support.assignSupportTicket,
+    requestPublicationHoldRelease: support.requestPublicationHoldRelease,
     changeSupportStatus: support.changeSupportStatus,
     openSupportAttachment: support.openSupportAttachment,
     loadStaff: staff.loadStaff,

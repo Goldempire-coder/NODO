@@ -3,7 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from app.modules.businesses.models import FileAssetRecord
-from app.modules.support.models import SupportMessageRecord, SupportTicketEventRecord, SupportTicketRecord
+from app.modules.support.models import (
+    BusinessPublicationHoldRecord,
+    SupportMessageRecord,
+    SupportTicketEventRecord,
+    SupportTicketRecord,
+)
 
 
 def file_asset_public(file: FileAssetRecord) -> dict[str, Any]:
@@ -66,4 +71,19 @@ def event_public(event: SupportTicketEventRecord) -> dict[str, Any]:
         "reason": event.reason,
         "metadata": event.metadata_json or {},
         "created_at": event.created_at.isoformat(),
+    }
+
+
+def publication_hold_admin(hold: BusinessPublicationHoldRecord) -> dict[str, Any]:
+    return {
+        "id": hold.id,
+        "business_id": hold.business_id,
+        "order_id": hold.order_id,
+        "support_ticket_id": hold.support_ticket_id,
+        "status": hold.status,
+        "reason_type": hold.reason_type,
+        "created_at": hold.created_at.isoformat(),
+        "released_at": hold.released_at.isoformat() if hold.released_at else None,
+        "released_by": hold.released_by,
+        "release_reason": hold.release_reason,
     }

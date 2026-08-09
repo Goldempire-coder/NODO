@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import ApiError
+from app.modules.ads.publication_access import require_business_can_receive_new_orders
 from app.modules.ads.row_mappers import ad_from_row
 from app.modules.businesses.row_mappers import business_from_row, payment_method_from_row
 from app.modules.orders.create_order_builder import bind_created_order_to_audit_events
@@ -27,6 +28,7 @@ BUSINESS_COLUMNS = (
     "daily_limit_usd",
     "active_order_limit",
     "is_accepting_orders",
+    "ad_publication_paused_until",
     "rating_avg",
     "completed_orders_count",
     "disputes_count",
@@ -109,6 +111,7 @@ class PostgresCreateOrderMixin:
                 businesses.daily_limit_usd as business_ctx_daily_limit_usd,
                 businesses.active_order_limit as business_ctx_active_order_limit,
                 businesses.is_accepting_orders as business_ctx_is_accepting_orders,
+                businesses.ad_publication_paused_until as business_ctx_ad_publication_paused_until,
                 businesses.rating_avg as business_ctx_rating_avg,
                 businesses.completed_orders_count as business_ctx_completed_orders_count,
                 businesses.disputes_count as business_ctx_disputes_count,
@@ -163,6 +166,10 @@ class PostgresCreateOrderMixin:
                     conn,
                     business_id=fields["business_id"],
                 )
+            self._require_business_order_access_in_transaction(
+                conn,
+                business_id=fields["business_id"],
+            )
             self._move_ad_to_in_order_or_raise(conn, ad_id=fields["ad_id"])
             row = self._insert_order(conn, fields)
             if capacity_reservation is not None and self._capacity is not None:  # type: ignore[attr-defined]
@@ -191,6 +198,33 @@ class PostgresCreateOrderMixin:
                     raise ApiError("NOTIFICATION_OUTBOX_UNAVAILABLE", status_code=503) from exc
             conn.commit()
         return order_from_row(row)
+
+    def _require_business_order_access_in_transaction(
+        self,
+        conn,
+        *,
+        business_id: str,
+    ) -> None:  # type: ignore[no-untyped-def]
+        row = conn.execute(
+            "select businesses.*, now() as database_now from businesses where id = %s for update",
+            (business_id,),
+        ).fetchone()
+        if row is None:
+            raise ApiError("AD_NOT_AVAILABLE", status_code=409)
+        hold = conn.execute(
+            """
+            select exists(
+                select 1 from business_publication_holds
+                where business_id = %s and status = 'active'
+            ) as active
+            """,
+            (business_id,),
+        ).fetchone()
+        require_business_can_receive_new_orders(
+            business_from_row(row),
+            current_time=row["database_now"],
+            has_active_operational_hold=bool(hold["active"]),
+        )
 
     def _move_ad_to_in_order_or_raise(self, conn, *, ad_id: str) -> None:  # type: ignore[no-untyped-def]
         moved_ad = conn.execute(

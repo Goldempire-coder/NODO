@@ -28,6 +28,7 @@ class PostgresAdPublishMixin:
                 business_id=business_id,
                 payment_method=payment_method,
                 amount_max_usd=amount_max_usd,
+                enforce_publication_access=True,
             )
             wallet_row = self._wallet_for_ad_publish(conn, business_id=business_id)
             self._ensure_publish_credit_balance(conn, wallet_row, required_credits=required_credits, use_founder_access=use_founder_access)

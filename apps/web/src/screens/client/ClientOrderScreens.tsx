@@ -7,6 +7,7 @@ import {
 } from "../../constants/paymentLabels";
 import type { OrderCancelReason } from "../../types/orders";
 import { clientOrderStatusLabel } from "./clientOrderPresentation";
+import { ClientOperationReportPanel } from "./ClientOperationReportPanel";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
 
 const CHAT_STATUSES = ["waiting_payment", "payment_reported", "payment_rejected", "payment_confirmed", "delivered", "disputed"];
@@ -221,6 +222,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
                   </Button>
                 </div>
               ) : null}
+              <ClientOperationReportPanel model={model} order={selectedOrder} />
             </>
           ) : (
             <Text>No hay una orden seleccionada.</Text>

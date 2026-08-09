@@ -44,6 +44,7 @@ class BusinessRecord:
     daily_limit_usd: Decimal = Decimal("1000.00")
     active_order_limit: int = 1
     is_accepting_orders: bool = True
+    ad_publication_paused_until: datetime | None = None
     rating_avg: Decimal | None = None
     ratings_count: int = 0
     completed_orders_count: int = 0

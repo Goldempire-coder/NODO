@@ -3,10 +3,23 @@ from __future__ import annotations
 from typing import Any
 
 from psycopg.types.json import Jsonb
+from psycopg.errors import UniqueViolation
 
+from app.core.errors import ApiError
 from app.modules.businesses.models import FileAssetRecord
-from app.modules.support.models import SupportMessageRecord, SupportTicketEventRecord, SupportTicketRecord
-from app.modules.support.row_mappers import event_from_row, file_from_row, message_from_row, ticket_from_row
+from app.modules.support.models import (
+    BusinessPublicationHoldRecord,
+    SupportMessageRecord,
+    SupportTicketEventRecord,
+    SupportTicketRecord,
+)
+from app.modules.support.row_mappers import (
+    event_from_row,
+    file_from_row,
+    message_from_row,
+    publication_hold_from_row,
+    ticket_from_row,
+)
 from app.shared.db.connection import pooled_connect
 
 
@@ -18,27 +31,240 @@ class PostgresSupportRepository:
         return pooled_connect(self._database_url)
 
     def create_ticket(self, **fields) -> SupportTicketRecord:  # type: ignore[no-untyped-def]
+        fields.setdefault("report_kind", None)
+        try:
+            with self._connect() as conn:
+                row = self._insert_ticket(conn, fields)
+                conn.commit()
+        except UniqueViolation as exc:
+            if exc.diag.constraint_name == "support_tickets_active_operation_report_order_uidx":
+                raise ApiError("OPERATION_REPORT_DUPLICATE", status_code=409) from exc
+            raise
+        return ticket_from_row(row)
+
+    def _insert_ticket(self, conn, fields: dict):  # type: ignore[no-untyped-def]
+        return conn.execute(
+            """
+            insert into support_tickets (
+                requester_user_id, requester_role, requester_surface, business_id,
+                order_id, ad_id, credit_purchase_id, dispute_id, assigned_support_user_id,
+                scope, category, status, priority, subject, report_kind, last_message_at,
+                escalated_at, resolved_at, closed_at, created_at, updated_at
+            )
+            values (
+                %(requester_user_id)s, %(requester_role)s, %(requester_surface)s, %(business_id)s,
+                %(order_id)s, %(ad_id)s, %(credit_purchase_id)s, %(dispute_id)s, %(assigned_support_user_id)s,
+                %(scope)s, %(category)s, %(status)s, %(priority)s, %(subject)s, %(report_kind)s, %(last_message_at)s,
+                %(escalated_at)s, %(resolved_at)s, %(closed_at)s, now(), now()
+            )
+            returning *
+            """,
+            fields,
+        ).fetchone()
+
+    def create_operation_report(
+        self,
+        *,
+        ticket_fields: dict,
+        message_body: str,
+        event_metadata: dict,
+        publication_paused_until=None,
+    ) -> tuple[SupportTicketRecord, BusinessPublicationHoldRecord | None]:
+        try:
+            with self._connect() as conn:
+                pause = conn.execute(
+                    """
+                    select ad_publication_paused_until, now() as database_now
+                    from businesses
+                    where id = %s
+                    for update
+                    """,
+                    (ticket_fields["business_id"],),
+                ).fetchone()
+                if pause is None:
+                    raise ApiError("BUSINESS_NOT_FOUND", status_code=404)
+                row = self._insert_ticket(conn, ticket_fields)
+                conn.execute(
+                    """
+                    insert into support_messages (
+                        ticket_id, sender_user_id, sender_role, body, visibility,
+                        created_at, updated_at
+                    )
+                    values (%s, %s, %s, %s, 'participants', now(), now())
+                    """,
+                    (
+                        row["id"],
+                        ticket_fields["requester_user_id"],
+                        ticket_fields["requester_role"],
+                        message_body,
+                    ),
+                )
+                conn.execute(
+                    """
+                    insert into support_ticket_events (
+                        ticket_id, actor_user_id, actor_role, event_type,
+                        to_status, metadata_json, created_at
+                    )
+                    values (%s, %s, %s, 'support_ticket_created', 'open', %s, now())
+                    """,
+                    (
+                        row["id"],
+                        ticket_fields["requester_user_id"],
+                        ticket_fields["requester_role"],
+                        Jsonb(event_metadata),
+                    ),
+                )
+                row = conn.execute(
+                    """
+                    update support_tickets
+                    set last_message_at = now(), updated_at = now()
+                    where id = %s
+                    returning *
+                    """,
+                    (row["id"],),
+                ).fetchone()
+                hold_row = None
+                if (
+                    pause["ad_publication_paused_until"] is not None
+                    and pause["database_now"] < pause["ad_publication_paused_until"]
+                ):
+                    hold_row = conn.execute(
+                        """
+                        insert into business_publication_holds (
+                            business_id, order_id, support_ticket_id,
+                            status, reason_type, created_at
+                        )
+                        values (%s, %s, %s, 'active', 'structured_operation_report', now())
+                        returning *
+                        """,
+                        (
+                            ticket_fields["business_id"],
+                            ticket_fields["order_id"],
+                            row["id"],
+                        ),
+                    ).fetchone()
+                conn.commit()
+        except UniqueViolation as exc:
+            if exc.diag.constraint_name in {
+                "support_tickets_active_operation_report_order_uidx",
+                "business_publication_holds_active_order_uidx",
+                "business_publication_holds_support_ticket_id_key",
+            }:
+                raise ApiError("OPERATION_REPORT_DUPLICATE", status_code=409) from exc
+            raise
+        return (
+            ticket_from_row(row),
+            publication_hold_from_row(hold_row) if hold_row else None,
+        )
+
+    def get_publication_hold(self, hold_id: str) -> BusinessPublicationHoldRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "select * from business_publication_holds where id = %s",
+                (hold_id,),
+            ).fetchone()
+        return publication_hold_from_row(row) if row else None
+
+    def get_publication_hold_for_ticket(
+        self,
+        support_ticket_id: str,
+    ) -> BusinessPublicationHoldRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "select * from business_publication_holds where support_ticket_id = %s",
+                (support_ticket_id,),
+            ).fetchone()
+        return publication_hold_from_row(row) if row else None
+
+    def get_active_publication_hold_for_order(
+        self,
+        order_id: str,
+    ) -> BusinessPublicationHoldRecord | None:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                insert into support_tickets (
-                    requester_user_id, requester_role, requester_surface, business_id,
-                    order_id, ad_id, credit_purchase_id, dispute_id, assigned_support_user_id,
-                    scope, category, status, priority, subject, last_message_at,
-                    escalated_at, resolved_at, closed_at, created_at, updated_at
-                )
-                values (
-                    %(requester_user_id)s, %(requester_role)s, %(requester_surface)s, %(business_id)s,
-                    %(order_id)s, %(ad_id)s, %(credit_purchase_id)s, %(dispute_id)s, %(assigned_support_user_id)s,
-                    %(scope)s, %(category)s, %(status)s, %(priority)s, %(subject)s, %(last_message_at)s,
-                    %(escalated_at)s, %(resolved_at)s, %(closed_at)s, now(), now()
-                )
+                select * from business_publication_holds
+                where order_id = %s and status = 'active'
+                limit 1
+                """,
+                (order_id,),
+            ).fetchone()
+        return publication_hold_from_row(row) if row else None
+
+    def has_active_publication_hold(self, business_id: str) -> bool:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                select exists(
+                    select 1 from business_publication_holds
+                    where business_id = %s and status = 'active'
+                ) as active
+                """,
+                (business_id,),
+            ).fetchone()
+        return bool(row["active"])
+
+    def active_publication_hold_business_ids(self, business_ids: set[str]) -> set[str]:
+        if not business_ids:
+            return set()
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                select distinct business_id
+                from business_publication_holds
+                where business_id = any(%s::uuid[]) and status = 'active'
+                """,
+                (list(business_ids),),
+            ).fetchall()
+        return {str(row["business_id"]) for row in rows}
+
+    def release_publication_hold(
+        self,
+        *,
+        hold_id: str,
+        released_by: str,
+        release_reason: str,
+    ) -> BusinessPublicationHoldRecord:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                update business_publication_holds
+                set status = 'released',
+                    released_at = now(),
+                    released_by = %s,
+                    release_reason = %s
+                where id = %s and status = 'active'
                 returning *
                 """,
-                fields,
+                (released_by, release_reason, hold_id),
             ).fetchone()
+            if row is None:
+                existing = conn.execute(
+                    "select status from business_publication_holds where id = %s",
+                    (hold_id,),
+                ).fetchone()
+                conn.rollback()
+                if existing is None:
+                    raise ApiError("BUSINESS_PUBLICATION_HOLD_NOT_FOUND", status_code=404)
+                raise ApiError("BUSINESS_PUBLICATION_HOLD_ALREADY_RELEASED", status_code=409)
             conn.commit()
-        return ticket_from_row(row)
+        return publication_hold_from_row(row)
+
+    def get_active_operation_report_for_order(self, order_id: str | None) -> SupportTicketRecord | None:
+        if order_id is None:
+            return None
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                select * from support_tickets
+                where order_id = %s
+                  and report_kind = 'structured_operation_report'
+                  and status in ('open', 'waiting_support', 'waiting_user', 'escalated')
+                limit 1
+                """,
+                (order_id,),
+            ).fetchone()
+        return ticket_from_row(row) if row else None
 
     def get_ticket(self, ticket_id: str) -> SupportTicketRecord | None:
         with self._connect() as conn:

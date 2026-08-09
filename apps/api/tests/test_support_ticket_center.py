@@ -8,6 +8,7 @@ import time
 from datetime import timedelta
 from pathlib import Path
 from urllib.parse import urlencode
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -260,6 +261,347 @@ def _open_dispute_for_order(client: TestClient, order: dict, login: dict, *, key
         description=f"fixture {key}",
     )
     return {"id": dispute.id, "order_id": dispute.order_id}
+
+
+def _create_operation_report(
+    client: TestClient,
+    login: dict,
+    order_id: str,
+    *,
+    key: str,
+    category: str = "order_help",
+    message: str = "Necesito que Soporte revise esta operacion.",
+):
+    return client.post(
+        f"/api/v1/orders/{order_id}/operation-report",
+        headers={**_headers(login, key), "Content-Type": "application/json"},
+        json={"category": category, "message": message},
+    )
+
+
+def test_client_creates_structured_operation_report_without_domain_side_effects() -> None:
+    client = _client()
+    _owner, business, ad, remitter, order = _seed_order(client, base_id=31000)
+    stored_order = client.app.state.order_repository.get_by_id(order["id"])
+    stored_order.status = "payment_confirmed"
+    wallet = client.app.state.ad_repository.get_wallet(business["id"])
+    before = {
+        "order_status": stored_order.status,
+        "ad_status": client.app.state.ad_repository.get_ad(ad["id"]).status,
+        "wallet": (wallet.available_credits, wallet.blocked_credits, wallet.consumed_credits),
+        "reservations": len(client.app.state.capacity_repository.reservations),
+        "disputes": len(client.app.state.dispute_repository.disputes),
+    }
+
+    response = _create_operation_report(
+        client,
+        remitter,
+        order["id"],
+        key="structured_operation_report_success",
+        category="payment_report_help",
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.headers["cache-control"] == "private, no-store"
+    data = response.json()["data"]
+    ticket = data["ticket"]
+    assert ticket["scope"] == "client_order"
+    assert ticket["order_id"] == order["id"]
+    assert "business_id" not in json.dumps(data)
+    assert "report_kind" not in json.dumps(data)
+    stored_ticket = client.app.state.support_repository.get_ticket(ticket["id"])
+    assert stored_ticket.report_kind == "structured_operation_report"
+    assert stored_ticket.order_id == order["id"]
+    assert stored_ticket.business_id == business["id"]
+
+    wallet_after = client.app.state.ad_repository.get_wallet(business["id"])
+    assert client.app.state.order_repository.get_by_id(order["id"]).status == before["order_status"]
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == before["ad_status"]
+    assert (wallet_after.available_credits, wallet_after.blocked_credits, wallet_after.consumed_credits) == before["wallet"]
+    assert len(client.app.state.capacity_repository.reservations) == before["reservations"]
+    assert len(client.app.state.dispute_repository.disputes) == before["disputes"]
+
+
+def test_structured_operation_report_enforces_ownership_states_and_strict_payload() -> None:
+    reportable = {
+        "payment_confirmed",
+        "delivered",
+        "completed",
+        "payment_rejected",
+        "disputed",
+        "cancelled",
+    }
+    for index, status in enumerate(sorted(reportable)):
+        client = _client()
+        _owner, _business, _ad, remitter, order = _seed_order(client, base_id=32000 + index * 10)
+        client.app.state.order_repository.get_by_id(order["id"]).status = status
+        response = _create_operation_report(client, remitter, order["id"], key=f"reportable_{status}")
+        assert response.status_code == 201, (status, response.text)
+
+    for index, status in enumerate(("waiting_payment", "payment_reported", "expired")):
+        client = _client()
+        _owner, _business, _ad, remitter, order = _seed_order(client, base_id=33000 + index * 10)
+        client.app.state.order_repository.get_by_id(order["id"]).status = status
+        response = _create_operation_report(client, remitter, order["id"], key=f"not_reportable_{status}")
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "OPERATION_REPORT_NOT_ALLOWED"
+
+    client = _client()
+    _owner, business, _ad, remitter, order = _seed_order(client, base_id=34000)
+    client.app.state.order_repository.get_by_id(order["id"]).status = "completed"
+    other = _login(client, 34003, "structured_report_other_client")
+    foreign = _create_operation_report(client, other, order["id"], key="structured_report_foreign")
+    missing = _create_operation_report(client, remitter, "00000000-0000-0000-0000-000000000000", key="structured_report_missing")
+    injected = client.post(
+        f"/api/v1/orders/{order['id']}/operation-report",
+        headers={**_headers(remitter, "structured_report_business_injection"), "Content-Type": "application/json"},
+        json={"category": "order_help", "message": "Revision", "business_id": business["id"]},
+    )
+    assert foreign.status_code == 404
+    assert foreign.json()["error"]["code"] == "ORDER_NOT_FOUND"
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "ORDER_NOT_FOUND"
+    assert injected.status_code == 422
+
+
+def test_structured_operation_report_is_idempotent_unique_and_hidden_from_business() -> None:
+    client = _client()
+    owner, business, _ad, remitter, order = _seed_order(client, base_id=35000)
+    client.app.state.order_repository.get_by_id(order["id"]).status = "completed"
+    first = _create_operation_report(client, remitter, order["id"], key="structured_report_replay")
+    replay = _create_operation_report(client, remitter, order["id"], key="structured_report_replay")
+    changed = _create_operation_report(
+        client,
+        remitter,
+        order["id"],
+        key="structured_report_replay",
+        message="Contenido diferente.",
+    )
+    duplicate = _create_operation_report(client, remitter, order["id"], key="structured_report_other_key")
+
+    assert first.status_code == 201, first.text
+    assert replay.status_code == 201, replay.text
+    assert replay.json()["data"]["ticket"]["id"] == first.json()["data"]["ticket"]["id"]
+    assert changed.status_code == 409
+    assert changed.json()["error"]["code"] == "IDEMPOTENCY_PAYLOAD_MISMATCH"
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "OPERATION_REPORT_DUPLICATE"
+    assert len(client.app.state.support_repository.tickets) == 1
+
+    business_list = client.get(
+        "/api/v1/support/tickets",
+        headers={**_bearer(owner, "structured_report_business_list"), "X-NODO-Surface": "business_mini_app"},
+    )
+    assert business_list.status_code == 200, business_list.text
+    assert business_list.json()["data"]["items"] == []
+
+    for telegram_id, role in ((35003, "admin"), (35004, "support")):
+        staff = _make_admin(client, telegram_id, role)
+        staff_detail = client.get(
+            f"/api/v1/admin/support/tickets/{first.json()['data']['ticket']['id']}",
+            headers=_bearer(staff, f"structured_report_{role}_detail"),
+        )
+        assert staff_detail.status_code == 200, staff_detail.text
+        assert staff_detail.json()["data"]["business_id"] == business["id"]
+
+
+def test_structured_operation_report_creates_private_hold_only_during_active_pause() -> None:
+    client = _client()
+    owner, business, _ad, remitter, order = _seed_order(client, base_id=35100)
+    stored_order = client.app.state.order_repository.get_by_id(order["id"])
+    stored_order.status = "completed"
+    stored_business = client.app.state.business_repository.get_business(business["id"])
+    stored_business.ad_publication_paused_until = utc_now() + timedelta(minutes=15)
+
+    active = _create_operation_report(
+        client,
+        remitter,
+        order["id"],
+        key="structured_report_active_hold",
+    )
+
+    assert active.status_code == 201, active.text
+    active_payload = json.dumps(active.json()["data"]).lower()
+    assert "hold" not in active_payload
+    assert "business_id" not in active_payload
+    holds = list(client.app.state.support_repository.publication_holds.values())
+    assert len(holds) == 1
+    assert holds[0].business_id == business["id"]
+    assert holds[0].order_id == order["id"]
+    assert holds[0].support_ticket_id == active.json()["data"]["ticket"]["id"]
+    assert holds[0].status == "active"
+    hold_events = [
+        event
+        for event in client.app.state.audit_writer.events
+        if event.event_type == "business_publication_hold_started"
+    ]
+    assert len(hold_events) == 1
+    serialized_event = json.dumps(hold_events[0].metadata_json).lower()
+    for forbidden in ("rating", "stars", "message", "phone", "wallet", "account_value"):
+        assert forbidden not in serialized_event
+
+    client_detail = client.get(
+        f"/api/v1/support/tickets/{active.json()['data']['ticket']['id']}",
+        headers=_bearer(remitter, "structured_report_hold_client_detail"),
+    )
+    admin = _make_admin(client, 35103, "admin")
+    admin_detail = client.get(
+        f"/api/v1/admin/support/tickets/{active.json()['data']['ticket']['id']}",
+        headers=_bearer(admin, "structured_report_hold_admin_detail"),
+    )
+    assert client_detail.status_code == 200, client_detail.text
+    assert "publication_hold" not in client_detail.json()["data"]
+    assert admin_detail.status_code == 200, admin_detail.text
+    assert admin_detail.json()["data"]["publication_hold"]["id"] == holds[0].id
+
+    business_list = client.get(
+        "/api/v1/support/tickets",
+        headers={**_bearer(owner, "structured_report_hold_business_list"), "X-NODO-Surface": "business_mini_app"},
+    )
+    assert business_list.status_code == 200, business_list.text
+    assert business_list.json()["data"]["items"] == []
+
+    second_client = _client()
+    _owner, second_business, _ad, second_remitter, second_order = _seed_order(
+        second_client,
+        base_id=35200,
+    )
+    second_client.app.state.order_repository.get_by_id(second_order["id"]).status = "completed"
+    second_client.app.state.business_repository.get_business(
+        second_business["id"]
+    ).ad_publication_paused_until = utc_now()
+    expired = _create_operation_report(
+        second_client,
+        second_remitter,
+        second_order["id"],
+        key="structured_report_expired_pause",
+    )
+    assert expired.status_code == 201, expired.text
+    assert second_client.app.state.support_repository.publication_holds == {}
+
+
+def test_admin_release_publication_hold_is_explicit_idempotent_and_ticket_independent() -> None:
+    client = _client()
+    _owner, business, _ad, remitter, order = _seed_order(client, base_id=35300)
+    client.app.state.order_repository.get_by_id(order["id"]).status = "completed"
+    client.app.state.business_repository.get_business(
+        business["id"]
+    ).ad_publication_paused_until = utc_now() + timedelta(minutes=15)
+    report = _create_operation_report(
+        client,
+        remitter,
+        order["id"],
+        key="structured_report_release",
+    )
+    hold = next(iter(client.app.state.support_repository.publication_holds.values()))
+    admin = _make_admin(client, 35303, "admin")
+
+    resolved = client.post(
+        f"/api/v1/admin/support/tickets/{report.json()['data']['ticket']['id']}/resolve",
+        headers=_headers(admin, "resolve_ticket_does_not_release_hold"),
+        json={"reason": "Ticket revisado"},
+    )
+    assert resolved.status_code == 200, resolved.text
+    assert client.app.state.support_repository.get_publication_hold(hold.id).status == "active"
+
+    empty_reason = client.post(
+        f"/api/v1/admin/business-publication-holds/{hold.id}/release",
+        headers=_headers(admin, "hold_release_empty_reason"),
+        json={"reason": ""},
+    )
+    assert empty_reason.status_code == 422
+
+    first = client.post(
+        f"/api/v1/admin/business-publication-holds/{hold.id}/release",
+        headers=_headers(admin, "hold_release_replay"),
+        json={"reason": "Revision administrativa completada"},
+    )
+    replay = client.post(
+        f"/api/v1/admin/business-publication-holds/{hold.id}/release",
+        headers=_headers(admin, "hold_release_replay"),
+        json={"reason": "Revision administrativa completada"},
+    )
+    changed = client.post(
+        f"/api/v1/admin/business-publication-holds/{hold.id}/release",
+        headers=_headers(admin, "hold_release_replay"),
+        json={"reason": "Carga diferente"},
+    )
+
+    assert first.status_code == 200, first.text
+    assert first.headers["cache-control"] == "private, no-store"
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["data"] == first.json()["data"]
+    assert changed.status_code == 409
+    assert changed.json()["error"]["code"] == "IDEMPOTENCY_PAYLOAD_MISMATCH"
+    assert client.app.state.support_repository.get_publication_hold(hold.id).status == "released"
+    release_events = [
+        event
+        for event in client.app.state.audit_writer.events
+        if event.event_type == "business_publication_hold_released"
+    ]
+    assert len(release_events) == 1
+
+    forbidden = client.post(
+        f"/api/v1/admin/business-publication-holds/{hold.id}/release",
+        headers=_headers(remitter, "hold_release_client_forbidden"),
+        json={"reason": "No autorizado"},
+    )
+    missing = client.post(
+        f"/api/v1/admin/business-publication-holds/{uuid4()}/release",
+        headers=_headers(admin, "hold_release_missing"),
+        json={"reason": "No existe"},
+    )
+    support = _make_admin(client, 35304, "support")
+    support_forbidden = client.post(
+        f"/api/v1/admin/business-publication-holds/{hold.id}/release",
+        headers=_headers(support, "hold_release_support_forbidden"),
+        json={"reason": "No tiene permiso durable"},
+    )
+    assert forbidden.status_code == 403
+    assert support_forbidden.status_code == 403
+    assert missing.status_code == 404
+
+
+def test_releasing_one_of_multiple_business_holds_keeps_business_under_review() -> None:
+    client = _client()
+    _owner, business, _ad, remitter, order = _seed_order(client, base_id=35400)
+    client.app.state.order_repository.get_by_id(order["id"]).status = "completed"
+    stored_business = client.app.state.business_repository.get_business(business["id"])
+    stored_business.ad_publication_paused_until = utc_now() + timedelta(minutes=15)
+    first_report = _create_operation_report(client, remitter, order["id"], key="first_business_hold")
+    closed = client.post(
+        f"/api/v1/support/tickets/{first_report.json()['data']['ticket']['id']}/close",
+        headers=_headers(remitter, "close_ticket_keeps_hold"),
+    )
+    assert closed.status_code == 200, closed.text
+    assert client.app.state.support_repository.has_active_publication_hold(business["id"])
+
+    _other_owner, _other_business, _other_ad, second_remitter, second_order = _seed_order(
+        client,
+        base_id=35500,
+    )
+    second_stored_order = client.app.state.order_repository.get_by_id(second_order["id"])
+    second_stored_order.status = "completed"
+    second_stored_order.business_id = business["id"]
+    _create_operation_report(client, second_remitter, second_order["id"], key="second_business_hold")
+
+    holds = list(client.app.state.support_repository.publication_holds.values())
+    assert len(holds) == 2
+    admin = _make_admin(client, 35403, "super_admin")
+    released = client.post(
+        f"/api/v1/admin/business-publication-holds/{holds[0].id}/release",
+        headers=_headers(admin, "release_one_of_multiple_holds"),
+        json={"reason": "Primer caso revisado"},
+    )
+    assert released.status_code == 200, released.text
+    assert client.app.state.support_repository.has_active_publication_hold(business["id"])
+    released_second = client.post(
+        f"/api/v1/admin/business-publication-holds/{holds[1].id}/release",
+        headers=_headers(admin, "release_second_business_hold"),
+        json={"reason": "Segundo caso revisado"},
+    )
+    assert released_second.status_code == 200, released_second.text
+    assert not client.app.state.support_repository.has_active_publication_hold(business["id"])
 
 
 def test_client_support_general_and_order_ownership() -> None:

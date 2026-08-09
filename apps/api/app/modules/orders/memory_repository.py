@@ -6,6 +6,7 @@ from threading import RLock
 from typing import Any
 
 from app.core.errors import ApiError
+from app.modules.ads.publication_access import require_business_can_receive_new_orders
 from app.modules.businesses.models import FileAssetRecord
 from app.modules.disputes.models import DisputeRecord
 from app.modules.orders.integrity import AtomicCancellationResult
@@ -27,11 +28,15 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
         self._audit = audit_writer
         self._disputes = dispute_repository
         self._jobs = job_repository
+        self._publication_hold_repository = None
         self.orders: dict[str, OrderRecord] = {}
         self.events: list[OrderStateEventRecord] = []
         self.payment_reports: dict[str, PaymentReportRecord] = {}
         self.files: dict[str, FileAssetRecord] = {}
         self.receiver_details = {}
+
+    def bind_publication_hold_repository(self, publication_hold_repository) -> None:  # type: ignore[no-untyped-def]
+        self._publication_hold_repository = publication_hold_repository
 
     @property
     def creates_order_created_notification_on_create_order(self) -> bool:
@@ -68,6 +73,13 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
             notification_plan = fields.pop("order_created_notification_plan", None)
             if capacity_reservation is not None:
                 business = capacity_reservation["business"]
+                require_business_can_receive_new_orders(
+                    business,
+                    has_active_operational_hold=(
+                        self._publication_hold_repository is not None
+                        and self._publication_hold_repository.has_active_publication_hold(business.id)
+                    ),
+                )
                 if self.count_active_for_business(business.id) >= business.active_order_limit:
                     raise ApiError("AD_NOT_AVAILABLE", status_code=409)
             now = utc_now()

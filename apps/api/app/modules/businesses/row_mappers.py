@@ -52,6 +52,9 @@ def business_from_row(row) -> BusinessRecord:  # type: ignore[no-untyped-def]
         daily_limit_usd=Decimal(str(row["daily_limit_usd"])),
         active_order_limit=row["active_order_limit"],
         is_accepting_orders=bool(_row_get(row, "is_accepting_orders", True)),
+        ad_publication_paused_until=_datetime_from_row_value(
+            _row_get(row, "ad_publication_paused_until")
+        ),
         rating_avg=Decimal(str(row["rating_avg"])) if row["rating_avg"] is not None else None,
         ratings_count=int(_row_get(row, "ratings_count", 0) or 0),
         completed_orders_count=row["completed_orders_count"],

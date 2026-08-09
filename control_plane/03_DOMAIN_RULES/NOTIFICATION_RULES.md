@@ -162,6 +162,17 @@ Tipos canonicos:
 | order_completed | negocio | remitente confirma recibido; dedupe separado del auto-complete | El cliente confirmo la recepcion y la orden fue completada. |
 | ad_expired | negocio | anuncio vence por edad | Tu anuncio cumplio 7 dias, se archivo y el credito fue consumido. |
 | founder_access_expired | negocio | `founder_expires_at <= now` | Tu periodo fundador expiro; nuevas publicaciones requieren creditos disponibles. |
+| structured_operation_report_admin | admin/super_admin concreto | futuro 42F2 procesa un reporte estructurado | Nuevo reporte de operacion. Revisar Admin Web. |
+
+42E1 no crea jobs Telegram ni ejecuta `structured_operation_report_admin`.
+`structured_operation_report_admin` se habilita unicamente en 42F2. Cuando ese
+slice se implemente, creara un job por cada usuario `admin`/`super_admin` activo
+con Telegram vinculado. `recipient_user_id` sera obligatorio; `recipient_role`
+por si solo no identificara un destino enviable. El dedupe sera por reporte y
+destinatario. El cuerpo no incluira cliente, negocio completo, rating, estrellas,
+razon privada, telefono, banco, wallet, captura, signed URL, `storage_path`,
+datos de pago, tokens ni secretos. Falta de destinatario o fallo Telegram no
+revertira ticket/hold.
 
 Reglas:
 

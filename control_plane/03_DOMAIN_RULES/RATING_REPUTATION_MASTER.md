@@ -164,3 +164,19 @@ Admin autorizado:
   recalculado por un proceso contratado.
 - Slice 42A no hace backfill ni activa recalculo automatico; eso requiere un
   slice posterior con pruebas de idempotencia y reconciliacion.
+
+## Pausa operativa posterior al rating - Slice 42D0
+
+- Todo rating valido de 1 a 5 activa la misma pausa de publicacion de 15
+  minutos. No se limita a ratings bajos porque eso permitiria inferir la
+  calificacion individual.
+- La pausa es una regla operativa separada de reputacion publica, tier, promedio
+  y snapshot.
+- No cambia el rating, no cambia agregados, no publica reputacion y no crea
+  mensaje, attention ni Telegram para el negocio.
+- La pausa aplica al negocio completo, incluidos Zelle y USDT, sin cambiar el
+  estado durable de sus anuncios.
+- Un replay del mismo rating no vuelve a extender la pausa. Ratings distintos
+  concurrentes conservan el mayor `ad_publication_paused_until`.
+- 42D1 implementa persistencia de la pausa y 42D2 aplica el guard en Ads,
+  marketplace y creacion de orden; 42D0 fija el contrato comun.

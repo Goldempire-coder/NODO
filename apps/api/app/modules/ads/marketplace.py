@@ -9,6 +9,7 @@ from app.modules.ads.marketplace_cache import MarketplaceCacheMixin
 from app.modules.ads.models import AdRecord
 from app.modules.ads.presenters import ad_payload
 from app.modules.ads.policy import require_marketplace_user
+from app.modules.ads.publication_access import business_can_receive_new_orders
 from app.modules.businesses.models import BusinessRecord
 from app.modules.users.models import UserRecord
 from app.shared.profiling import activate_profile, profile_attach, profile_mark, reset_profile
@@ -88,19 +89,31 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
         if not isinstance(items, list):
             return response
         ad_ids = [str(item.get("id")) for item in items if isinstance(item, dict) and item.get("id")]
+        business_ids = {
+            str(item.get("business_id"))
+            for item in items
+            if isinstance(item, dict) and item.get("business_id")
+        }
         started = time.perf_counter()
         unavailable = self._marketplace_unavailable_ad_ids(ad_ids)
         profile_mark(profile, "cache:marketplace_unavailable_filter", started, {"checked": len(ad_ids)})
         if unavailable is None:
             profile_mark(profile, "cache:marketplace_cached_response_bypass", time.perf_counter())
             return None
-        if not unavailable:
+        unavailable_business_ids = self._businesses.list_marketplace_ineligible_business_ids(  # type: ignore[attr-defined]
+            business_ids
+        )
+        if not unavailable and not unavailable_business_ids:
             return response
         unavailable_ad_ids = {marker.removeprefix("ad_unavailable:") for marker in unavailable}
         response["items"] = [
             item
             for item in items
-            if not isinstance(item, dict) or str(item.get("id")) not in unavailable_ad_ids
+            if not isinstance(item, dict)
+            or (
+                str(item.get("id")) not in unavailable_ad_ids
+                and str(item.get("business_id")) not in unavailable_business_ids
+            )
         ]
         profile_mark(
             profile,
@@ -195,12 +208,16 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
             businesses_by_id = self._businesses.get_businesses_by_ids({ad.business_id for ad in items})  # type: ignore[attr-defined]
             profile_mark(profile, "repo:get_businesses_by_ids", stage_started)
         stage_started = time.perf_counter()
-        eligible_items = [
-            ad
-            for ad in items
-            if self._ad_within_current_business_limits(ad=ad, business=businesses_by_id.get(ad.business_id))
-            and self._ad_has_available_payment_method(ad)
-        ]
+        eligible_items = []
+        for ad in items:
+            business = businesses_by_id.get(ad.business_id)
+            if (
+                self._ad_within_current_business_limits(ad=ad, business=business)
+                and business is not None
+                and business_can_receive_new_orders(business)
+                and self._ad_has_available_payment_method(ad)
+            ):
+                eligible_items.append(ad)
         ranked = self._rank(eligible_items, sort=sort)
         profile_mark(profile, "service:rank", stage_started)
         stage_started = time.perf_counter()
@@ -225,12 +242,14 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
         ad = self._materialize_expired(self._ad_or_404(ad_id), actor=user, request_id=request_id)
         business = self._businesses.get_business(ad.business_id)  # type: ignore[attr-defined]
         payment = self._businesses.get_payment_method(ad.payment_method_id)  # type: ignore[attr-defined]
+        business_is_unavailable = bool(
+            business is not None
+            and self._businesses.list_marketplace_ineligible_business_ids({business.id})  # type: ignore[attr-defined]
+        )
         if (
             ad.status != "active"
             or business is None
-            or business.verification_status != "approved"
-            or business.risk_level in {"restricted", "high_risk"}
-            or not business.is_accepting_orders
+            or business_is_unavailable
             or payment is None
             or payment.business_id != ad.business_id
             or payment.verified_status != "approved"

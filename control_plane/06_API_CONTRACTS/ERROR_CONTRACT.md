@@ -295,3 +295,22 @@ Los fallos internos de persistencia del audit obligatorio responden
 - `OBSERVABILITY_EXPORT_BLOCKED`
 
 All critical error responses should include `request_id`. If `correlation_id` exists, it may be returned in a safe response/header. Stack traces, SQL, raw payloads, tokens, signed URLs, `storage_path`, `account_value` and full tx hashes are prohibited in user-visible errors.
+
+## Codigos Slice 42D0
+
+- `BUSINESS_PUBLICATION_TEMPORARILY_UNAVAILABLE`: HTTP 409; publicacion no
+  disponible temporalmente. No revela rating, orden ni causa.
+- `BUSINESS_PUBLICATION_UNDER_REVIEW`: HTTP 409; publicacion no disponible
+  mientras existe un hold operativo.
+- `OPERATION_REPORT_NOT_ALLOWED`: HTTP 409; la orden no esta en un estado
+  reportable.
+- `OPERATION_REPORT_DUPLICATE`: HTTP 409; ya existe un reporte estructurado
+  activo para la orden.
+- `BUSINESS_PUBLICATION_HOLD_NOT_FOUND`: HTTP 404; hold inexistente o no visible.
+- `BUSINESS_PUBLICATION_HOLD_ALREADY_RELEASED`: HTTP 409; el hold ya fue
+  liberado.
+- La falta de permiso de liberacion usa `FORBIDDEN`; no se crea un codigo que
+  revele roles o scopes internos.
+- Orden inexistente o ajena al crear reporte usa `ORDER_NOT_FOUND`.
+- `ADMIN_TELEGRAM_ALERT_NOT_CONFIGURED` es solo interno. Nunca falla ni cambia la
+  respuesta publica de ticket/hold.

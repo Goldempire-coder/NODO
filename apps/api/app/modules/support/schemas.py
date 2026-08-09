@@ -17,6 +17,11 @@ class SupportTicketCreateRequest(StrictRequestModel):
     attachment_ids: list[ResourceId] = Field(default_factory=list, max_length=5)
 
 
+class OperationReportCreateRequest(StrictRequestModel):
+    category: str = Field(min_length=1, max_length=80)
+    message: str = Field(min_length=3, max_length=1000)
+
+
 class SupportMessageCreateRequest(StrictRequestModel):
     body: str = Field(min_length=1, max_length=2000)
     attachment_ids: list[ResourceId] = Field(default_factory=list, max_length=5)

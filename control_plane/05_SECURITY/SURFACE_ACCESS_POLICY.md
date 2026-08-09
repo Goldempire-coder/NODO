@@ -25,7 +25,7 @@ Definir acceso por superficie sin duplicar RBAC. El backend unico sigue siendo l
 - Soporte 20B se autoriza por superficie y recurso:
   - Cliente solo `client_general` y `client_order` propios.
   - Negocio solo `business_general`, `business_order`, `business_ad` y `business_credit` de su negocio.
-  - Admin Web opera cola de soporte segun RBAC; `support` puede responder/asignar/escalar/resolver/cerrar tickets pero no ejecutar mutaciones criticas de orden, creditos, anuncios, disputas o accesos.
+  - Admin Web opera cola de soporte segun RBAC; `support` puede responder/asignar/escalar/resolver tickets pero no ejecutar mutaciones criticas de orden, creditos, anuncios, disputas o accesos. La liberacion de un hold 42F es una accion separada y solo se permite a Admin/Super Admin o staff Support con permiso explicito `release_business_publication_hold`.
 - Staff 20C dentro de Admin Web requiere `users.status = active`, `staff_profiles.status = active`, rol base compatible y permisos activos por accion/scope.
 - La superficie `admin_web` debe pedir capacidades staff al backend; no puede inferirlas solo desde `users.role`.
 - El Bot Registro Negocios no crea negocio activo, no publica anuncios y no da acceso al marketplace de negocios.

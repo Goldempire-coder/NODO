@@ -24,3 +24,6 @@
 - Admin y Support no reciben ratings individuales en este slice.
 - Ningun DTO publico expone `risk_level`, `trust_level`, senales antifraude,
   notas admin o contadores internos.
+- Slice 42D aplica la misma pausa silenciosa de publicacion a todo rating 1-5.
+  Esa pausa es un control operativo separado, no una proyeccion del rating, y no
+  crea mensaje, attention ni Telegram para el negocio.

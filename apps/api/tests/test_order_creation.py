@@ -52,6 +52,7 @@ from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.orders.postgres_create_order import PostgresCreateOrderMixin  # noqa: E402
 from app.modules.orders.postgres_queries import PostgresOrderQueriesMixin  # noqa: E402
+from app.modules.support.models import BusinessPublicationHoldRecord  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -275,6 +276,84 @@ def test_slice_50a_create_order_rejects_a_changed_quote() -> None:
 
 def _event_types(client: TestClient) -> list[str]:
     return [event.event_type for event in client.app.state.audit_writer.events]
+
+
+def test_rating_publication_pause_blocks_direct_order_without_side_effects() -> None:
+    client = _client()
+    owner = _login(client, 18011, "rating_pause_order_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="rating_pause_order_ad")
+    remitter = _login(client, 18012, "rating_pause_order_client")
+    stored_business = client.app.state.business_repository.get_business(business["id"])
+    stored_business.ad_publication_paused_until = utc_now() + timedelta(minutes=15)
+    order_count_before = len(client.app.state.order_repository.orders)
+    reservation_count_before = len(client.app.state.capacity_repository.reservations)
+    job_count_before = len(client.app.state.job_repository.notification_jobs)
+    audit_count_before = len(client.app.state.audit_writer.events)
+
+    blocked = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "rating_pause_direct_order"), "Content-Type": "application/json"},
+        json={"ad_id": ad["id"], "amount_usd": "50.00"},
+    )
+
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "AD_NOT_AVAILABLE"
+    serialized_error = json.dumps(blocked.json()["error"]).lower()
+    assert "pause" not in serialized_error
+    assert "rating" not in serialized_error
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "active"
+    assert len(client.app.state.order_repository.orders) == order_count_before
+    assert len(client.app.state.capacity_repository.reservations) == reservation_count_before
+    assert len(client.app.state.job_repository.notification_jobs) == job_count_before
+    assert len(client.app.state.audit_writer.events) == audit_count_before
+
+    stored_business.ad_publication_paused_until = utc_now()
+    allowed = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "rating_pause_direct_order_after"), "Content-Type": "application/json"},
+        json={"ad_id": ad["id"], "amount_usd": "50.00"},
+    )
+    assert allowed.status_code == 201, allowed.text
+
+
+def test_operational_hold_blocks_direct_order_without_side_effects() -> None:
+    client = _client()
+    owner = _login(client, 18013, "operational_hold_order_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="operational_hold_order_ad")
+    remitter = _login(client, 18014, "operational_hold_order_client")
+    hold = BusinessPublicationHoldRecord(
+        id=str(uuid4()),
+        business_id=business["id"],
+        order_id=str(uuid4()),
+        support_ticket_id=str(uuid4()),
+        status="active",
+        reason_type="structured_operation_report",
+        created_at=utc_now(),
+        released_at=None,
+        released_by=None,
+        release_reason=None,
+    )
+    client.app.state.support_repository.publication_holds[hold.id] = hold
+    order_count_before = len(client.app.state.order_repository.orders)
+    reservation_count_before = len(client.app.state.capacity_repository.reservations)
+    job_count_before = len(client.app.state.job_repository.notification_jobs)
+    audit_count_before = len(client.app.state.audit_writer.events)
+
+    response = client.post(
+        "/api/v1/orders",
+        headers={**_headers(remitter, "operational_hold_direct_order"), "Content-Type": "application/json"},
+        json={"ad_id": ad["id"], "amount_usd": "50.00"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "AD_NOT_AVAILABLE"
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "active"
+    assert len(client.app.state.order_repository.orders) == order_count_before
+    assert len(client.app.state.capacity_repository.reservations) == reservation_count_before
+    assert len(client.app.state.job_repository.notification_jobs) == job_count_before
+    assert len(client.app.state.audit_writer.events) == audit_count_before
 
 
 def test_surface_attention_summary_is_one_safe_request_for_orders_and_support() -> None:

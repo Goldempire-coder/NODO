@@ -8,3 +8,6 @@
 - No se crean mensajes, attention items ni notificaciones por ratings.
 - El conteo exacto del snapshot puede revelar cambios agrupados; este riesgo
   residual debe revisarse antes de reducir el umbral o intervalo.
+- La pausa temporal y los holds de 42D/42F no cambian el snapshot, su calendario,
+  su umbral ni el ranking publico. Ninguna causa operativa se incorpora a la
+  proyeccion de reputacion.

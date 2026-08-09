@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+from datetime import datetime
 from threading import RLock
 
 from app.modules.businesses.models import FileAssetRecord
-from app.modules.support.models import SupportMessageRecord, SupportTicketEventRecord, SupportTicketRecord, new_id, utc_now
+from app.modules.support.models import (
+    BusinessPublicationHoldRecord,
+    SupportMessageRecord,
+    SupportTicketEventRecord,
+    SupportTicketRecord,
+    new_id,
+    utc_now,
+)
+from app.modules.support.models import ACTIVE_SUPPORT_STATUSES, STRUCTURED_OPERATION_REPORT
+from app.core.errors import ApiError
 
 
 class InMemorySupportRepository:
@@ -13,13 +23,133 @@ class InMemorySupportRepository:
         self.messages: dict[str, SupportMessageRecord] = {}
         self.events: dict[str, SupportTicketEventRecord] = {}
         self.files: dict[str, FileAssetRecord] = {}
+        self.publication_holds: dict[str, BusinessPublicationHoldRecord] = {}
 
     def create_ticket(self, **fields) -> SupportTicketRecord:  # type: ignore[no-untyped-def]
         with self._lock:
+            if fields.get("report_kind") == STRUCTURED_OPERATION_REPORT:
+                existing = self.get_active_operation_report_for_order(fields.get("order_id"))
+                if existing is not None:
+                    raise ApiError("OPERATION_REPORT_DUPLICATE", status_code=409)
             now = utc_now()
             ticket = SupportTicketRecord(id=new_id(), created_at=now, updated_at=now, **fields)
             self.tickets[ticket.id] = ticket
             return ticket
+
+    def get_active_operation_report_for_order(self, order_id: str | None) -> SupportTicketRecord | None:
+        if order_id is None:
+            return None
+        return next(
+            (
+                ticket
+                for ticket in self.tickets.values()
+                if ticket.order_id == order_id
+                and ticket.report_kind == STRUCTURED_OPERATION_REPORT
+                and ticket.status in ACTIVE_SUPPORT_STATUSES
+            ),
+            None,
+        )
+
+    def create_operation_report(
+        self,
+        *,
+        ticket_fields: dict,
+        message_body: str,
+        event_metadata: dict,
+        publication_paused_until: datetime | None,
+    ) -> tuple[SupportTicketRecord, BusinessPublicationHoldRecord | None]:
+        with self._lock:
+            ticket = self.create_ticket(**ticket_fields)
+            self.create_message(
+                ticket_id=ticket.id,
+                sender_user_id=ticket.requester_user_id,
+                sender_role=ticket.requester_role,
+                body=message_body,
+                visibility="participants",
+            )
+            self.create_event(
+                ticket_id=ticket.id,
+                actor_user_id=ticket.requester_user_id,
+                actor_role=ticket.requester_role,
+                event_type="support_ticket_created",
+                to_status="open",
+                metadata_json=event_metadata,
+            )
+            hold = None
+            now = utc_now()
+            if publication_paused_until is not None and now < publication_paused_until:
+                if self.get_active_publication_hold_for_order(ticket.order_id) is not None:
+                    raise ApiError("OPERATION_REPORT_DUPLICATE", status_code=409)
+                hold = BusinessPublicationHoldRecord(
+                    id=new_id(),
+                    business_id=ticket.business_id,
+                    order_id=ticket.order_id,
+                    support_ticket_id=ticket.id,
+                    created_at=now,
+                )
+                self.publication_holds[hold.id] = hold
+            return ticket, hold
+
+    def get_publication_hold(self, hold_id: str) -> BusinessPublicationHoldRecord | None:
+        return self.publication_holds.get(hold_id)
+
+    def get_publication_hold_for_ticket(
+        self,
+        support_ticket_id: str,
+    ) -> BusinessPublicationHoldRecord | None:
+        return next(
+            (
+                hold
+                for hold in self.publication_holds.values()
+                if hold.support_ticket_id == support_ticket_id
+            ),
+            None,
+        )
+
+    def get_active_publication_hold_for_order(
+        self,
+        order_id: str,
+    ) -> BusinessPublicationHoldRecord | None:
+        return next(
+            (
+                hold
+                for hold in self.publication_holds.values()
+                if hold.order_id == order_id and hold.status == "active"
+            ),
+            None,
+        )
+
+    def has_active_publication_hold(self, business_id: str) -> bool:
+        return any(
+            hold.business_id == business_id and hold.status == "active"
+            for hold in self.publication_holds.values()
+        )
+
+    def active_publication_hold_business_ids(self, business_ids: set[str]) -> set[str]:
+        return {
+            hold.business_id
+            for hold in self.publication_holds.values()
+            if hold.status == "active" and hold.business_id in business_ids
+        }
+
+    def release_publication_hold(
+        self,
+        *,
+        hold_id: str,
+        released_by: str,
+        release_reason: str,
+    ) -> BusinessPublicationHoldRecord:
+        with self._lock:
+            hold = self.publication_holds.get(hold_id)
+            if hold is None:
+                raise ApiError("BUSINESS_PUBLICATION_HOLD_NOT_FOUND", status_code=404)
+            if hold.status != "active":
+                raise ApiError("BUSINESS_PUBLICATION_HOLD_ALREADY_RELEASED", status_code=409)
+            hold.status = "released"
+            hold.released_at = utc_now()
+            hold.released_by = released_by
+            hold.release_reason = release_reason
+            return hold
 
     def get_ticket(self, ticket_id: str) -> SupportTicketRecord | None:
         return self.tickets.get(ticket_id)

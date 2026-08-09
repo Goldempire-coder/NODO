@@ -8,18 +8,41 @@ from app.core.errors import ApiError
 from app.modules.ads.active_guard import METHOD_SLOT_STATUSES, require_active_ad_candidate
 from app.modules.ads.memory_credits import InMemoryAdCreditsMixin
 from app.modules.ads.models import AdRecord, CreditLedgerRecord, CreditWalletRecord, new_id, utc_now
+from app.modules.ads.publication_access import require_ad_publication_access
 
 
 class InMemoryAdRepository(InMemoryAdCreditsMixin):
     def __init__(self, *, lock=None) -> None:  # type: ignore[no-untyped-def]
         self._lock = lock or RLock()
         self._capacity_repository = None
+        self._business_repository = None
+        self._publication_hold_repository = None
         self.ads: dict[str, AdRecord] = {}
         self.wallets: dict[str, CreditWalletRecord] = {}
         self.ledger: dict[str, CreditLedgerRecord] = {}
 
     def bind_capacity_repository(self, capacity_repository) -> None:  # type: ignore[no-untyped-def]
         self._capacity_repository = capacity_repository
+
+    def bind_business_repository(self, business_repository) -> None:  # type: ignore[no-untyped-def]
+        self._business_repository = business_repository
+
+    def bind_publication_hold_repository(self, publication_hold_repository) -> None:  # type: ignore[no-untyped-def]
+        self._publication_hold_repository = publication_hold_repository
+
+    def _require_publication_access(self, business_id: str) -> None:
+        if self._business_repository is None:
+            return
+        business = self._business_repository.get_business(business_id)
+        if business is None:
+            raise ApiError("BUSINESS_NOT_FOUND", status_code=404)
+        require_ad_publication_access(
+            business,
+            has_active_operational_hold=(
+                self._publication_hold_repository is not None
+                and self._publication_hold_repository.has_active_publication_hold(business_id)
+            ),
+        )
 
     def committed_ad_max_total(self, *, business_id: str) -> Decimal:
         with self._lock:
@@ -113,6 +136,7 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
         use_founder_access: bool,
     ) -> AdRecord:
         with self._lock:
+            self._require_publication_access(business_id)
             self._require_active_candidate(
                 business_id=business_id,
                 payment_method=payment_method,
@@ -188,9 +212,17 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
             ad.updated_at = utc_now()
             return ad
 
-    def set_status(self, ad: AdRecord, status: str) -> AdRecord:
+    def set_status(
+        self,
+        ad: AdRecord,
+        status: str,
+        *,
+        enforce_publication_access: bool = False,
+    ) -> AdRecord:
         with self._lock:
             if status == "active":
+                if enforce_publication_access:
+                    self._require_publication_access(ad.business_id)
                 self._require_active_candidate(
                     business_id=ad.business_id,
                     payment_method=ad.payment_method,
