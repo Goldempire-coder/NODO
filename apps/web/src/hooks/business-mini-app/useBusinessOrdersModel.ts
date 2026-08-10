@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { openOrderDispute } from "../../api/chat";
 import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import { declineBusinessOrder, getBusinessOrder, listBusinessOrders, mutateBusinessOrder as mutateBusinessOrderRequest } from "../../api/businessOrders";
 import type { BusinessMiniAppView } from "../../constants/businessViews";
@@ -8,7 +9,7 @@ import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFai
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import { handleBusinessPinError as routeBusinessPinError, isBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 
-type BusinessOrderAction = "confirm-payment" | "reject-payment-report" | "mark-delivered" | "cannot-attend";
+type BusinessOrderAction = "confirm-payment" | "report-payment-problem" | "mark-delivered" | "cannot-attend";
 type PendingBusinessOrderPinAction = {
   orderId: string;
   action: "cannot-attend";
@@ -31,7 +32,7 @@ function businessOrderActionSuccessMessage(action: BusinessOrderAction) {
   if (action === "cannot-attend") {
     return "Orden cancelada antes de reportar pago. El cliente fue avisado.";
   }
-  return "Reporte rechazado y enviado a revision.";
+  return "Problema reportado. NODO revisará la operación.";
 }
 
 export function useBusinessOrdersModel({
@@ -286,11 +287,13 @@ export function useBusinessOrdersModel({
   const executeBusinessOrderAction = useCallback(async ({
     action,
     targetOrderId,
+    targetOrder,
     targetRequestEpoch,
     targetReason
   }: {
     action: BusinessOrderAction;
     targetOrderId: string;
+    targetOrder: BusinessOrderSummary;
     targetRequestEpoch: number | null;
     targetReason: string;
   }) => {
@@ -310,36 +313,61 @@ export function useBusinessOrdersModel({
         ? "business_order_mark_delivered"
         : action === "cannot-attend"
           ? "business_order_cannot_attend"
-          : "business_order_reject_payment_report";
+          : "business_order_report_payment_problem";
     const startedAt = actionStartedAt();
     recordBusinessActionStarted(telemetryAction, "business-order-detail");
     const idempotencyScope = `business_order_${action}_${targetOrderId}`;
     try {
-      const idempotencyKey = getIdempotencyKey(
-        idempotencyScope,
-        {
-          orderId: targetOrderId,
-          action,
-          reason: action === "cannot-attend" ? undefined : targetReason || undefined
-        }
-      );
-      const mutation = action === "cannot-attend"
-        ? await declineBusinessOrder<{ order: BusinessOrderSummary }>(
+      const disputePayload = {
+        reason: "payment_not_received_or_incomplete",
+        description: targetReason,
+        evidence_file_ids: []
+      };
+      const idempotencyKey = getIdempotencyKey(idempotencyScope, {
+        orderId: targetOrderId,
+        action,
+        payload: action === "report-payment-problem"
+          ? disputePayload
+          : { reason: action === "cannot-attend" ? undefined : targetReason || undefined }
+      });
+      let reconciledOrder: BusinessOrderSummary;
+      if (action === "report-payment-problem") {
+        await openOrderDispute(
           request,
           targetOrderId,
-          idempotencyKey
-        )
-        : await mutateBusinessOrderRequest<{ order: BusinessOrderSummary }>(
-          request,
-          targetOrderId,
-          action,
-          targetReason || undefined,
+          disputePayload,
           idempotencyKey
         );
+        reconciledOrder = {
+          ...targetOrder,
+          status: "disputed",
+          capabilities: {
+            ...targetOrder.capabilities,
+            can_confirm_payment: false,
+            can_reject_payment_report: false,
+            can_open_dispute: false
+          }
+        };
+      } else {
+        const mutation = action === "cannot-attend"
+          ? await declineBusinessOrder<{ order: BusinessOrderSummary }>(
+            request,
+            targetOrderId,
+            idempotencyKey
+          )
+          : await mutateBusinessOrderRequest<{ order: BusinessOrderSummary }>(
+            request,
+            targetOrderId,
+            action,
+            targetReason || undefined,
+            idempotencyKey
+          );
+        reconciledOrder = mutation.order;
+      }
       clearIdempotencyKey(idempotencyScope);
       queuePendingBusinessOrderPinAction(null);
       recordBusinessActionCompleted(telemetryAction, "business-order-detail", startedAt);
-      reconcileBusinessOrder(mutation.order);
+      reconcileBusinessOrder(reconciledOrder);
       if (targetRequestEpoch === null || !isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
         return true;
       }
@@ -355,7 +383,9 @@ export function useBusinessOrdersModel({
         setNotice(successMessage);
       } catch {
         if (isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)) {
-          const refreshMessage = "La accion fue aplicada, pero no pudimos actualizar el detalle. Toca Actualizar.";
+          const refreshMessage = action === "report-payment-problem"
+            ? "Problema reportado. NODO revisará la operación. No pudimos actualizar el detalle; toca Actualizar."
+            : "La accion fue aplicada, pero no pudimos actualizar el detalle. Toca Actualizar.";
           setBusinessOrderInlineNotice(refreshMessage);
           setNotice(refreshMessage);
         }
@@ -407,6 +437,7 @@ export function useBusinessOrdersModel({
       return;
     }
     const targetOrderId = businessOrderDetail.order.id;
+    const targetOrder = businessOrderDetail.order;
     const targetRequestEpoch = businessOrderDetailEpochRef.current;
     const targetReason = businessOrderReason.trim();
     if (
@@ -415,8 +446,15 @@ export function useBusinessOrdersModel({
     ) {
       return;
     }
-    if (action === "reject-payment-report" && !targetReason) {
-      setNotice("Para rechazar un reporte, escribe el motivo. Los creditos quedan bloqueados mientras se revisa.");
+    if (
+      action === "report-payment-problem"
+      && (targetOrder.status !== "payment_reported" || !targetOrder.capabilities.can_open_dispute)
+    ) {
+      return;
+    }
+    if (action === "report-payment-problem" && !targetReason) {
+      setNotice("Describe brevemente el problema con el pago antes de reportarlo.");
+      setBusinessOrderInlineNotice("Describe brevemente el problema con el pago antes de reportarlo.");
       return;
     }
     if (action === "cannot-attend" && !requireUnlockedBusinessPin({
@@ -430,7 +468,7 @@ export function useBusinessOrdersModel({
       return;
     }
     queuePendingBusinessOrderPinAction(null);
-    await executeBusinessOrderAction({ action, targetOrderId, targetRequestEpoch, targetReason });
+    await executeBusinessOrderAction({ action, targetOrderId, targetOrder, targetRequestEpoch, targetReason });
   }, [
     business,
     businessOrderDetail,
@@ -472,6 +510,7 @@ export function useBusinessOrdersModel({
       const completed = await executeBusinessOrderAction({
         action: pending.action,
         targetOrderId: pending.orderId,
+        targetOrder: data.order,
         targetRequestEpoch,
         targetReason: ""
       });

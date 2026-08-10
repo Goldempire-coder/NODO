@@ -24,7 +24,7 @@ El builder debe crear o actualizar una matriz con estas acciones:
 - generar compra Base USDC;
 - pegar/verificar tx hash;
 - confirmar pago de orden;
-- rechazar reporte de pago;
+- reportar problema con pago mediante disputa;
 - marcar pago movil enviado;
 - abrir disputa o chat operativo cuando aplique.
 

@@ -414,15 +414,24 @@ def test_confirm_received_completes_once_consumes_capacity_and_not_credit() -> N
     assert _mark_delivered(client, owner, order["id"], key="receiver_complete_deliver").status_code == 200
     wallet_before = client.app.state.ad_repository.get_wallet(business["id"])
     consumed_credits_before = wallet_before.consumed_credits
+    assert client.app.state.business_repository.get_business(
+        business["id"]
+    ).ad_publication_paused_until is None
 
     first = client.post(
         f"/api/v1/orders/{order['id']}/confirm-received",
         headers=_headers(remitter, "receiver_complete"),
     )
+    pause_after_first = client.app.state.business_repository.get_business(
+        business["id"]
+    ).ad_publication_paused_until
     replay = client.post(
         f"/api/v1/orders/{order['id']}/confirm-received",
         headers=_headers(remitter, "receiver_complete"),
     )
+    pause_after_replay = client.app.state.business_repository.get_business(
+        business["id"]
+    ).ad_publication_paused_until
 
     assert first.status_code == 200, first.text
     assert replay.status_code == 200, replay.text
@@ -437,6 +446,8 @@ def test_confirm_received_completes_once_consumes_capacity_and_not_credit() -> N
     reservation = client.app.state.capacity_repository.get_reservation(order["id"])
     assert reservation.status == "consumed"
     assert client.app.state.ad_repository.get_wallet(business["id"]).consumed_credits == consumed_credits_before
+    assert pause_after_replay is not None
+    assert pause_after_replay == pause_after_first
     assert len(
         [
             event

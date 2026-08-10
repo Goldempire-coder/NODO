@@ -4,10 +4,14 @@ import { humanizeOrderStatus, humanizePurchaseStatus } from "../../hooks/busines
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 import type { BusinessOrderSummary } from "../../types/orders";
 
+function canReportPaymentProblem(order: BusinessOrderSummary) {
+  return order.status === "payment_reported" && order.capabilities.can_open_dispute;
+}
+
 function requiresBusinessAction(order: BusinessOrderSummary) {
   return (
     order.capabilities.can_confirm_payment
-    || order.capabilities.can_reject_payment_report
+    || canReportPaymentProblem(order)
     || order.capabilities.can_mark_delivered
     || order.status === "disputed"
   );
@@ -21,7 +25,7 @@ function nextBusinessAction(order: BusinessOrderSummary) {
   if (order.capabilities.can_mark_delivered) {
     return "Pagar al cliente";
   }
-  if (order.capabilities.can_confirm_payment || order.capabilities.can_reject_payment_report) {
+  if (order.capabilities.can_confirm_payment || canReportPaymentProblem(order)) {
     return "Verificar ingreso";
   }
   if (order.status === "disputed") {
@@ -161,6 +165,9 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
     businessOrderDetail?.order.capabilities.can_confirm_payment
     || businessOrderDetail?.order.capabilities.can_mark_delivered
   );
+  const canReportCurrentPaymentProblem = Boolean(
+    businessOrderDetail && canReportPaymentProblem(businessOrderDetail.order)
+  );
   return (
     <div className="business-card">
       <Text className="business-card__label">Detalle</Text>
@@ -208,9 +215,11 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
             {shouldHandleInChat ? (
               <Button mode="filled" size="s" onClick={() => void openBusinessChat(businessOrderDetail.order.id)}>Abrir chat</Button>
             ) : null}
-            <Button mode="outline" size="s" disabled={businessOrderAction === "reject-payment-report" || !businessOrderDetail.order.capabilities.can_reject_payment_report} onClick={() => void mutateBusinessOrder("reject-payment-report")}>
-              {businessOrderAction === "reject-payment-report" ? "Rechazando..." : "Rechazar reporte"}
-            </Button>
+            {canReportCurrentPaymentProblem ? (
+              <Button mode="outline" size="s" disabled={businessOrderAction === "report-payment-problem"} onClick={() => void mutateBusinessOrder("report-payment-problem")}>
+                {businessOrderAction === "report-payment-problem" ? "Reportando..." : "Reportar problema con pago"}
+              </Button>
+            ) : null}
             {businessOrderDetail.order.capabilities.can_decline_before_payment ? (
               <Button mode="outline" size="s" disabled={businessOrderAction === "cannot-attend"} onClick={() => void mutateBusinessOrder("cannot-attend")}>
                 {businessOrderAction === "cannot-attend" ? "Cancelando..." : "No puedo atender"}

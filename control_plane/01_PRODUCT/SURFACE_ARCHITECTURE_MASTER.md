@@ -63,7 +63,7 @@ Incluye:
 - Ver metodos de pago aprobados como selector/lectura segura
 - Ordenes entrantes
 - Confirmar pago recibido
-- Rechazar reporte de pago
+- Reportar problema con pago y abrir disputa
 - Marcar entregado
 - Chat por orden
 - Soporte con NODO

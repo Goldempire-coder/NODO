@@ -22,11 +22,15 @@ Errores esperados para `slice_06_business_order_ops`.
 - `CREDIT_HOLD_NOT_FOUND`
 - `CREDIT_ALREADY_CONSUMED`
 
-## Reject-payment-report
+## Reject-payment-report legacy
+
+- `PAYMENT_REJECTION_NOT_ALLOWED`
+
+## Reportar problema con pago
 
 - `PAYMENT_REPORT_NOT_FOUND`
-- `PAYMENT_REJECTION_NOT_ALLOWED`
-- `ADMIN_REASON_REQUIRED`
+- `DISPUTE_NOT_ALLOWED`
+- `DISPUTE_REASON_REQUIRED`
 
 ## Mark-delivered
 
@@ -38,4 +42,3 @@ Errores esperados para `slice_06_business_order_ops`.
 - No exponer stack traces, SQL, secretos, tokens, instrucciones completas, `account_value` ni storage keys privados.
 - Errores de permisos no deben filtrar existencia de recursos ajenos.
 - UI debe mapear cada error esperado a un estado seguro.
-

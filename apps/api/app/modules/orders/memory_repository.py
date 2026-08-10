@@ -15,6 +15,10 @@ from app.modules.orders.memory_payment_reports import InMemoryOrderPaymentReport
 from app.modules.orders.memory_queries import InMemoryOrderQueriesMixin
 from app.modules.orders.memory_state_events import InMemoryOrderStateEventsMixin
 from app.modules.orders.models import OrderRecord, OrderStateEventRecord, PaymentReportRecord, new_id, new_public_order_code, utc_now
+from app.modules.orders.terminal_publication_cooldown import (
+    terminal_publication_cooldown_candidate,
+    terminal_transition_starts_publication_cooldown,
+)
 
 
 class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrderPaymentReportsMixin, InMemoryOrderQueriesMixin, InMemoryOrderStateEventsMixin):
@@ -22,12 +26,13 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
     moves_ad_on_atomic_cancel = False
     creates_initial_state_event_on_create_order = False
 
-    def __init__(self, *, capacity_repository=None, audit_writer=None, dispute_repository=None, job_repository=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, capacity_repository=None, audit_writer=None, dispute_repository=None, job_repository=None, business_repository=None) -> None:  # type: ignore[no-untyped-def]
         self._lock = RLock()
         self._capacity = capacity_repository
         self._audit = audit_writer
         self._disputes = dispute_repository
         self._jobs = job_repository
+        self._businesses = business_repository
         self._publication_hold_repository = None
         self.orders: dict[str, OrderRecord] = {}
         self.events: list[OrderStateEventRecord] = []
@@ -37,6 +42,25 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
 
     def bind_publication_hold_repository(self, publication_hold_repository) -> None:  # type: ignore[no-untyped-def]
         self._publication_hold_repository = publication_hold_repository
+
+    def _apply_terminal_publication_cooldown(
+        self,
+        *,
+        order: OrderRecord,
+        previous_status: str,
+        target_status: str,
+        transition_at: datetime,
+    ) -> None:
+        if self._businesses is None or not terminal_transition_starts_publication_cooldown(
+            previous_status=previous_status,
+            target_status=target_status,
+            paid_reported_at=order.paid_reported_at,
+        ):
+            return
+        self._businesses.extend_ad_publication_pause(
+            order.business_id,
+            terminal_publication_cooldown_candidate(transition_at),
+        )
 
     @property
     def creates_order_created_notification_on_create_order(self) -> bool:
@@ -323,6 +347,7 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
     def update_order(self, order: OrderRecord, **fields: Any) -> OrderRecord:
         with self._lock:
             capacity_event_context = fields.pop("capacity_event_context", None)
+            previous_status = order.status
             target_status = fields.get("status")
             transition_event = None
             changed = False
@@ -341,6 +366,13 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
             for key, value in fields.items():
                 setattr(order, key, value)
             order.updated_at = utc_now()
+            if target_status is not None:
+                self._apply_terminal_publication_cooldown(
+                    order=order,
+                    previous_status=previous_status,
+                    target_status=target_status,
+                    transition_at=fields.get("completed_at") or order.updated_at,
+                )
             if changed and transition_event and self._audit is not None:
                 context = capacity_event_context or {}
                 self._audit.write(
@@ -422,6 +454,92 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
                 metadata_json={
                     "order_id": order.id,
                     "previous_order_status": "payment_rejected",
+                    "new_order_status": "disputed",
+                    "reason": reason,
+                },
+            )
+            return order, dispute
+
+    def open_participant_payment_problem_dispute_atomically(
+        self,
+        *,
+        order_id: str,
+        business_id: str,
+        actor_user_id: str,
+        actor_role: str,
+        reason: str,
+        description: str | None,
+        evidence_file_ids: list[str],
+        request_id: str,
+    ) -> tuple[OrderRecord, DisputeRecord]:
+        from app.modules.disputes.models import BUSINESS_PAYMENT_PROBLEM_DISPUTE_REASON
+
+        if actor_role != "business_owner":
+            raise ApiError("ORDER_NOT_FOUND", status_code=404)
+        with self._lock:
+            order = self.orders.get(order_id)
+            if order is None or order.business_id != business_id:
+                raise ApiError("ORDER_NOT_FOUND", status_code=404)
+            if order.status != "payment_reported":
+                raise ApiError("ORDER_STATUS_INVALID", status_code=409)
+            if reason != BUSINESS_PAYMENT_PROBLEM_DISPUTE_REASON:
+                raise ApiError("DISPUTE_REASON_REQUIRED", status_code=400)
+            if self.get_submitted_payment_report_for_order(order.id) is None:
+                raise ApiError("PAYMENT_REPORT_NOT_FOUND", status_code=404)
+            if self._disputes is None or self._audit is None:
+                raise ApiError("DISPUTE_STORAGE_UNAVAILABLE", status_code=503)
+            if self._disputes.get_open_for_order(order.id) is not None:
+                raise ApiError("DISPUTE_ALREADY_OPEN", status_code=409)
+
+            dispute = self._disputes.create_dispute(
+                order_id=order.id,
+                opened_by_user_id=actor_user_id,
+                opened_by_role=actor_role,
+                previous_order_status="payment_reported",
+                reason=reason,
+                description=description,
+            )
+            order.status = "disputed"
+            order.dispute_reason = reason
+            order.updated_at = utc_now()
+            metadata = {
+                "dispute_id": dispute.id,
+                "previous_order_status": "payment_reported",
+                "evidence_file_ids": evidence_file_ids,
+                "opened_via": "business_payment_problem",
+            }
+            self._disputes.add_event(
+                dispute_id=dispute.id,
+                order_id=order.id,
+                actor_user_id=actor_user_id,
+                actor_role=actor_role,
+                event_type="dispute_opened",
+                old_status=None,
+                new_status="open",
+                reason=reason,
+                metadata_json=metadata,
+            )
+            self.add_state_event(
+                order_id=order.id,
+                from_status="payment_reported",
+                to_status="disputed",
+                event_type="dispute_opened",
+                actor_user_id=actor_user_id,
+                actor_role=actor_role,
+                reason=reason,
+                request_id=request_id,
+                metadata_json=metadata,
+            )
+            self._audit.write(
+                event_type="dispute_opened",
+                actor_user_id=actor_user_id,
+                actor_role=actor_role,
+                resource_type="dispute",
+                resource_id=dispute.id,
+                request_id=request_id,
+                metadata_json={
+                    "order_id": order.id,
+                    "previous_order_status": "payment_reported",
                     "new_order_status": "disputed",
                     "reason": reason,
                 },

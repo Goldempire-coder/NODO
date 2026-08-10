@@ -195,7 +195,9 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - No se permite confirmar pago si la orden no esta en estado compatible.
 - `proof_file_id` debe pertenecer al mismo order/payment_report y owner; servicio debe validarlo.
 - Confirmacion del negocio requiere `payment_reports.status = submitted` y cambia el reporte a `accepted`.
-- Rechazo del negocio requiere `payment_reports.status = submitted` y cambia el reporte a `rejected`.
+- La apertura de disputa por problema con pago requiere
+  `payment_reports.status = submitted` y no lo cambia unilateralmente. El valor
+  `rejected` se conserva para datos legacy.
 
 ## Chat y disputas
 

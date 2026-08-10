@@ -39,7 +39,8 @@ Orders:
 - `order_created`
 - `payment_reported`
 - `payment_confirmed`
-- `payment_report_rejected`
+- `payment_report_rejected` (historico)
+- `dispute_opened`
 - `order_delivered`
 - `order_auto_completed_after_24h`
 - dispute/support events when used.

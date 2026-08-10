@@ -424,7 +424,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "window.setInterval" not in business_model
     assert 'recordBusinessActionStarted(telemetryAction, "business-order-detail")' in orders_model
     assert "business_order_confirm_payment" in orders_model
-    assert "business_order_reject_payment_report" in orders_model
+    assert "business_order_report_payment_problem" in orders_model
     assert "business_order_mark_delivered" in orders_model
     assert "sendingChatMessage" in _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
     assert "uploadingChatAttachment" in _read("apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts")
@@ -450,7 +450,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "shouldHandleInChat" in orders_screen
     assert "Abrir chat" in orders_screen
     assert "Confirmando..." not in orders_screen
-    assert "Rechazando..." in orders_screen
+    assert "Reportando..." in orders_screen
     assert "Marcando..." not in orders_screen
     assert "disabled={busy || !chatCapabilities.can_send_message" not in chat_screen
     assert "sendingChatMessage" in chat_screen

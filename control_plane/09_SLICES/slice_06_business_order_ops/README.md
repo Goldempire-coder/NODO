@@ -1,6 +1,8 @@
 # slice_06_business_order_ops
 
-Objective: Permitir al negocio revisar ordenes, confirmar/rechazar pago y marcar entrega.
+Objective: Permitir al negocio revisar ordenes, confirmar pago, reportar
+problemas mediante disputa y marcar entrega. La decision C0 sustituye el
+rechazo directo del contrato original; `payment_rejected` queda legacy.
 
 Depends on: slice_05_payment_instructions_reports
 

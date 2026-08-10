@@ -31,7 +31,7 @@ read strategy:
 write strategy:
 - Writes only through approved API endpoints.
 - No direct state transitions outside backend state machine.
-- Confirm, reject and deliver require backend idempotency.
+- Confirm, open-dispute and deliver require backend idempotency.
 
 Telegram UI rules:
 - Use @telegram-apps/telegram-ui where possible.
@@ -41,13 +41,14 @@ Telegram UI rules:
 
 MainButton behavior:
 Contextual by status:
-- `payment_reported`: confirm payment or reject report.
+- `payment_reported`: confirm payment or report a payment problem.
 - `payment_confirmed`: mark delivered.
 
 validation:
 status-specific:
 - confirm payment requires `payment_reported`.
-- reject payment report requires `payment_reported` and reason.
+- reporting a payment problem requires `payment_reported` and structured reason
+  `payment_not_received_or_incomplete`.
 - mark delivered requires `payment_confirmed`.
 
 permissions:
@@ -62,7 +63,7 @@ states:
 - success where applicable
 
 audit events:
-payment_confirmed/payment_report_rejected/credits_consumed/order_delivered
+payment_confirmed/dispute_opened/credits_consumed/order_delivered
 
 copy required:
 - Confirmar pago significa que el negocio reconoce recepcion real del pago.
@@ -71,7 +72,8 @@ copy required:
 - Enviar pago movil es una accion separada.
 - Marcar entregado significa que el negocio dice que envio el pago movil.
 - NODO registra evidencia y estado; no retiene fondos.
-- Rechazar reporte debe explicar motivo y no libera automaticamente el anuncio.
+- Reportar problema con pago abre una disputa, mantiene la conversacion
+  investigable y no libera anuncio, credito ni capacidad.
 
 scope boundary:
 - This screen belongs to slice 06.
@@ -83,7 +85,7 @@ QA checklist:
 - cannot confirm other business order
 - confirm-payment consumes credits exactly once
 - confirm-payment archives ad and does not return it to marketplace
-- reject-payment-report does not consume credits and keeps ad in_order
+- payment-problem dispute does not consume credits and keeps ad in_order
 - mark-delivered does not complete order
 - no `storage_path`, `account_value` or full payment instructions exposed
 
@@ -92,4 +94,4 @@ QA checklist:
 - Requires `surface/session` allowed for `business_mini_app`.
 - Mutating actions require active business link and capabilities from backend.
 - Suspended business may respond to open cases only if explicitly returned by capabilities.
-- Blocked business/link/user cannot confirm payment, reject report or mark delivered.
+- Blocked business/link/user cannot confirm payment, open a payment-problem dispute or mark delivered.

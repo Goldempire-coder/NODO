@@ -14,9 +14,11 @@ def new_id() -> str:
 
 
 ALLOWED_DISPUTE_ORDER_STATES = {"payment_reported", "payment_rejected", "payment_confirmed", "delivered"}
+BUSINESS_PAYMENT_PROBLEM_DISPUTE_REASON = "payment_not_received_or_incomplete"
 DISPUTE_REASONS = {
     "business_no_payment_confirmation",
     "business_confirmed_payment_but_not_delivered",
+    BUSINESS_PAYMENT_PROBLEM_DISPUTE_REASON,
     "payment_mobile_not_received",
     "amount_incorrect",
     "wrong_receiver_data",

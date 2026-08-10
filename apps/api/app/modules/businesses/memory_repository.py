@@ -81,6 +81,23 @@ class InMemoryBusinessRepository(
     def get_business(self, business_id: str) -> BusinessRecord | None:
         return self.businesses.get(business_id)
 
+    def extend_ad_publication_pause(
+        self,
+        business_id: str,
+        pause_candidate: datetime,
+    ) -> BusinessRecord | None:
+        with self._lock:
+            business = self.businesses.get(business_id)
+            if business is None:
+                return None
+            if (
+                business.ad_publication_paused_until is None
+                or pause_candidate > business.ad_publication_paused_until
+            ):
+                business.ad_publication_paused_until = pause_candidate
+                business.updated_at = utc_now()
+            return business
+
     def get_businesses_by_ids(self, business_ids: set[str]) -> dict[str, BusinessRecord]:
         return {business_id: self.businesses[business_id] for business_id in business_ids if business_id in self.businesses}
 

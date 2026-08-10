@@ -78,8 +78,9 @@ Primer componente a revisar si falla: `credit_purchases`, `onchain_credit_*`, Ba
 2. Cliente crea orden.
 3. Backend mueve anuncio `active -> in_order`, crea orden, state event y audit.
 4. Cliente ve instrucciones y reporta pago.
-5. Negocio confirma/rechaza y marca entregado.
-6. Chat/disputa/soporte segun estado.
+5. Negocio confirma o reporta un problema mediante disputa; si confirma, luego
+   marca entregado segun estado.
+6. Chat/disputa/soporte siguen el estado sin cierre unilateral del pago reportado.
 
 Primer componente a revisar si falla: DB, Redis idempotency, ad status, order state events.
 

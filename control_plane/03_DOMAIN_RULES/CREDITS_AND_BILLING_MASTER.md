@@ -131,10 +131,13 @@ The order hold protects availability and prevents curious users from costing bus
 - Creating an order does not create an additional credit debit or consume credits.
 - If no payment report is submitted before the order timer expires, the order expires and the ad returns to `active` if the 7-day lifetime has not ended.
 - If that same ad has already reached 7 days, the ad is archived and the listing credit is consumed with ledger `expire`.
-- If payment is reported, the hold stays until confirmation, rejection, dispute resolution or expiry according to the state machine.
+- If payment is reported, the hold stays until confirmation or dispute resolution according to the state machine.
 - Reporting payment in `slice_05_payment_instructions_reports` does not consume credits.
 - Credits remain blocked while order is `payment_reported`.
-- If the business rejects a payment report, credits remain blocked while order is `payment_rejected` until a future correction, support or dispute flow resolves it.
+- If the business reports a payment problem, the order enters `disputed` and
+  credits remain blocked until Admin resolution. Historical
+  `payment_rejected` orders retain the same blocked-credit treatment while they
+  are escalated.
 - Credit consumption happens when the business confirms payment received or when the listing reaches 7 days without completed transaction.
 - Repeated abandoned orders are controlled by remitter cooldowns/rate limits.
 
@@ -144,7 +147,7 @@ The order hold protects availability and prevents curious users from costing bus
 | --- | --- | --- | --- |
 | waiting_payment | 30 min + one 15 min extension | cancelled, cancel_reason = payment_not_reported_in_time | keep original ad hold if ad is still alive; consume with `expire` if ad reached 7 days |
 | payment_reported | 2h warning / 6h dispute | disputed, dispute_reason = business_no_payment_confirmation | keep credits blocked |
-| payment_rejected | future correction/support/dispute | stays payment_rejected until future flow | keep credits blocked |
+| payment_rejected | legacy/historical recovery | escalate to disputed | keep credits blocked |
 | payment_confirmed | 30 min warning / 2h dispute | disputed, dispute_reason = business_confirmed_payment_but_not_delivered | credits already consumed |
 | delivered | 24h auto-close if no dispute | completed, completion_reason = auto_completed_after_24h | no new credit movement |
 
@@ -386,7 +389,7 @@ Para `slice_03_ads_marketplace`:
 - no negative credit balance unless explicitly approved later
 - no direct DB credit mutation outside credits service
 - no double credit consumption for the same order
-- no automatic credit release when a business rejects a payment report
+- no credit release when a business reports a payment problem or a historical `payment_rejected` order is escalated
 - no crediting from Stripe redirect
 - no exposing manual proof `storage_path`
 - no using `founder_access` table as active MVP model

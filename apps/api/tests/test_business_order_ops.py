@@ -499,34 +499,41 @@ def test_confirm_payment_invalid_state_and_missing_hold_fail_safely() -> None:
     assert missing_hold.json()["error"]["code"] == "CREDIT_HOLD_NOT_FOUND"
 
 
-def test_reject_payment_report_requires_reason_marks_rejected_and_does_not_consume() -> None:
+def test_reject_payment_report_is_legacy_conflict_with_no_effects() -> None:
     client = _client()
     owner, business, ad, _, order = _seed_reported_order(client, owner_id=730, remitter_id=731)
     wallet_before = client.app.state.ad_repository.get_wallet(business["id"])
     blocked_before = wallet_before.blocked_credits
     consumed_before = wallet_before.consumed_credits
+    stored_before = client.app.state.order_repository.get_by_id(order["id"])
+    report_before = client.app.state.order_repository.get_submitted_payment_report_for_order(order["id"])
+    reservation_before = client.app.state.capacity_repository.get_reservation(order["id"])
+    order_events_before = len(client.app.state.order_repository.events)
+    audit_events_before = len(client.app.state.audit_writer.events)
+    notification_jobs_before = len(client.app.state.job_repository.notification_jobs)
 
-    missing_reason = client.post(
-        f"/api/v1/business/orders/{order['id']}/reject-payment-report",
-        headers={**_headers(owner, "reject_missing"), "Content-Type": "application/json"},
-        json={},
-    )
     response = client.post(
         f"/api/v1/business/orders/{order['id']}/reject-payment-report",
         headers={**_headers(owner, "reject_ok"), "Content-Type": "application/json"},
         json={"reason": "Referencia no coincide"},
     )
 
-    assert missing_reason.status_code == 400
-    assert missing_reason.json()["error"]["code"] == "ADMIN_REASON_REQUIRED"
-    assert response.status_code == 200, response.text
-    assert response.json()["data"]["order"]["status"] == "payment_rejected"
-    assert response.json()["data"]["payment_report"]["status"] == "rejected"
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "PAYMENT_REJECTION_NOT_ALLOWED"
+    assert response.json()["error"]["message"] == (
+        "Esta acción ya no está disponible. Reporta el problema con el pago para que NODO lo revise."
+    )
+    assert client.app.state.order_repository.get_by_id(order["id"]).status == stored_before.status == "payment_reported"
+    assert client.app.state.order_repository.get_submitted_payment_report_for_order(order["id"]).status == report_before.status == "submitted"
+    assert client.app.state.capacity_repository.get_reservation(order["id"]).status == reservation_before.status == "reserved"
     assert client.app.state.ad_repository.get_ad(ad["id"]).status == "in_order"
     wallet_after = client.app.state.ad_repository.get_wallet(business["id"])
     assert wallet_after.blocked_credits == blocked_before
     assert wallet_after.consumed_credits == consumed_before
-    assert "payment_report_rejected" in _event_types(client)
+    assert len(client.app.state.order_repository.events) == order_events_before
+    assert len(client.app.state.audit_writer.events) == audit_events_before
+    assert len(client.app.state.job_repository.notification_jobs) == notification_jobs_before
+    assert client.app.state.dispute_repository.disputes == {}
 
 
 def test_mark_delivered_requires_confirmed_sets_timers_and_does_not_complete_or_double_consume() -> None:

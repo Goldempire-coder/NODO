@@ -13,7 +13,8 @@ control_plane/06_API_CONTRACTS/BUSINESS_ORDERS_API.md
 - `GET /api/v1/business/orders`
 - `GET /api/v1/business/orders/{id}`
 - `POST /api/v1/business/orders/{id}/confirm-payment`
-- `POST /api/v1/business/orders/{id}/reject-payment-report`
+- `POST /api/v1/orders/{id}/disputes`
+- `POST /api/v1/business/orders/{id}/reject-payment-report` (legacy; no muta)
 - `POST /api/v1/business/orders/{id}/mark-delivered`
 
 ## Reglas obligatorias
@@ -34,7 +35,8 @@ Este slice no define payloads alternativos. Builder debe implementar exactamente
 - `BUSINESS_ORDERS_API.md#GET /api/v1/business/orders`
 - `BUSINESS_ORDERS_API.md#GET /api/v1/business/orders/{id}`
 - `BUSINESS_ORDERS_API.md#POST /api/v1/business/orders/{id}/confirm-payment`
-- `BUSINESS_ORDERS_API.md#POST /api/v1/business/orders/{id}/reject-payment-report`
+- `DISPUTES_API.md#POST /api/v1/orders/{id}/disputes`
+- `BUSINESS_ORDERS_API.md#POST /api/v1/business/orders/{id}/reject-payment-report - Legacy`
 - `BUSINESS_ORDERS_API.md#POST /api/v1/business/orders/{id}/mark-delivered`
 
 ## Campos sensibles prohibidos
@@ -44,4 +46,3 @@ Este slice no define payloads alternativos. Builder debe implementar exactamente
 - secretos
 - instrucciones completas innecesarias
 - `account_value` en list/detail de negocio salvo contrato futuro explicito
-

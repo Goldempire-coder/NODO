@@ -26,7 +26,8 @@ def mask_tx_hash(value: str | None) -> str | None:
 def order_capabilities(order, *, receiver_details_shared: bool = False) -> dict[str, bool]:  # type: ignore[no-untyped-def]
     return {
         "can_confirm_payment": order.status == "payment_reported",
-        "can_reject_payment_report": order.status == "payment_reported",
+        "can_reject_payment_report": False,
+        "can_open_dispute": order.status in {"payment_reported", "payment_rejected", "payment_confirmed", "delivered"},
         "can_mark_delivered": order.status == "payment_confirmed" and receiver_details_shared,
         "can_decline_before_payment": order.status == "waiting_payment",
         "receiver_details_shared": receiver_details_shared,

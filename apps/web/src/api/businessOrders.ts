@@ -18,7 +18,7 @@ export function getBusinessOrder<T>(request: AuthenticatedRequest, orderId: stri
 export function mutateBusinessOrder<T>(
   request: AuthenticatedRequest,
   orderId: string,
-  action: "confirm-payment" | "reject-payment-report" | "mark-delivered" | "cannot-attend",
+  action: "confirm-payment" | "mark-delivered" | "cannot-attend",
   reason: string | undefined,
   idempotencyKey: string
 ) {

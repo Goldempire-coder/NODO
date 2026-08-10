@@ -7,6 +7,7 @@ from app.core.errors import ApiError
 from app.modules.businesses.access_control import evaluate_business_access
 from app.modules.notifications.order_notifications import NoopOrderNotificationService
 from app.modules.disputes.admin_resolution import AdminDisputeResolutionMixin
+from app.modules.disputes.models import BUSINESS_PAYMENT_PROBLEM_DISPUTE_REASON
 from app.modules.disputes.policy import (
     require_admin_dispute_open,
     require_admin_dispute_read,
@@ -110,6 +111,23 @@ class DisputeService(AdminDisputeResolutionMixin):
     ):  # type: ignore[no-untyped-def]
         self._validate_open_dispute(user=user, order=order, payload=payload, normalized_evidence=normalized_evidence)
         previous_status = order.status
+        if user.role == "business_owner" and previous_status == "payment_reported":
+            updated, dispute = self._orders.open_participant_payment_problem_dispute_atomically(
+                order_id=order.id,
+                business_id=order.business_id,
+                actor_user_id=user.id,
+                actor_role=user.role,
+                reason=payload.reason,
+                description=payload.description,
+                evidence_file_ids=normalized_evidence,
+                request_id=request_id,
+            )
+            self._notifications.order_disputed_parties_admin(
+                order=updated,
+                dispute_id=dispute.id,
+                request_id=request_id,
+            )
+            return dispute
         updated = self._orders.update_order_if_status(
             order.id,
             expected_status=previous_status,
@@ -134,6 +152,12 @@ class DisputeService(AdminDisputeResolutionMixin):
         require_dispute_reason(payload.reason)
         require_dispute_open_permission(user, order, self._business_owner_id(order))
         self._require_business_actor_access(user, order)
+        if (
+            user.role == "business_owner"
+            and order.status == "payment_reported"
+            and payload.reason != BUSINESS_PAYMENT_PROBLEM_DISPUTE_REASON
+        ):
+            raise ApiError("DISPUTE_REASON_REQUIRED", status_code=400)
         existing = self._repository.get_open_for_order(order.id)
         if existing is not None:
             raise ApiError("DISPUTE_ALREADY_OPEN", status_code=409)

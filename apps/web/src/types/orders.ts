@@ -107,6 +107,7 @@ export type BusinessOrderSummary = {
   capabilities: {
     can_confirm_payment: boolean;
     can_reject_payment_report: boolean;
+    can_open_dispute: boolean;
     can_mark_delivered: boolean;
     can_decline_before_payment: boolean;
     receiver_details_shared: boolean;

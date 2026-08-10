@@ -151,9 +151,9 @@ Post-MVP:
 | business_owner | archive_ad | own ad | paused/expired | ad_archived | yes |
 | business_owner | view_incoming_orders | own business | approved | no | yes |
 | business_owner | confirm_payment | own business order | payment_reported + payment_report submitted + approved business | payment_confirmed/credits_consumed | yes |
-| business_owner | reject_payment_report | own business order | payment_reported + payment_report submitted + approved business + reason required | payment_report_rejected | yes |
+| business_owner | reject_payment_report | own business order | legacy route only; new calls return PAYMENT_REJECTION_NOT_ALLOWED | no mutation | no |
 | business_owner | mark_delivered | own business order | payment_confirmed + approved business | order_delivered | yes |
-| business_owner | open_dispute | own business order | payment_reported/payment_rejected/payment_confirmed/delivered + approved business | dispute_opened | yes |
+| business_owner | open_dispute | own business order | payment_reported/payment_rejected legacy/payment_confirmed/delivered + approved business; payment problem uses structured reason | dispute_opened | yes |
 | business_owner | respond_dispute | own order/dispute | dispute open | dispute_message_created | yes |
 | business_owner | view_order_messages | own business order | waiting_payment/payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | no | yes |
 | business_owner | create_order_message | own business order | waiting_payment/payment_reported/payment_rejected/payment_confirmed/delivered/disputed + approved business | message_created/dispute_message_created | yes |
@@ -168,7 +168,7 @@ Post-MVP:
 | business_owner | view_referrals | own business | approved business | no | yes |
 | business_owner | apply_referral_code | own business | approved business, no self-referral, not previously used | referral_applied | yes |
 | business_operator | confirm_payment | assigned business | approved, operator active | payment_confirmed | post-MVP |
-| business_operator | reject_payment_report | assigned business | approved, operator active | payment_report_rejected | post-MVP |
+| business_operator | reject_payment_report | assigned business | legacy route prohibited for new transitions | no mutation | no |
 | business_operator | mark_delivered | assigned business | approved, operator active | order_delivered | post-MVP |
 | business_operator | adjust_credits | business | any | no | no |
 

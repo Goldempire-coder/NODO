@@ -89,7 +89,7 @@ export function humanizeOrderStatus(status: string) {
   const labels: Record<string, string> = {
     waiting_payment: "Esperando pago",
     payment_reported: "Pago reportado",
-    payment_rejected: "Reporte rechazado",
+    payment_rejected: "Pago en revision",
     payment_confirmed: "Pago confirmado",
     delivered: "Enviado",
     completed: "Completada",

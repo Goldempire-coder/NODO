@@ -37,6 +37,13 @@ Quedan prohibidas las rutas legacy sin prefijo como `POST /orders`, `GET /orders
 - Reportar pago no consume creditos.
 - Solo la confirmacion oficial del negocio
   `payment_reported -> payment_confirmed` consume el credito publicitario.
+- Desde `payment_reported`, el negocio no puede rechazar ni cerrar directamente
+  el reporte. `Reportar problema con pago` abre una disputa formal mediante
+  `POST /api/v1/orders/{id}/disputes` con razon
+  `payment_not_received_or_incomplete`.
+- `payment_rejected` permanece en el enum, filtros y proyecciones solo para
+  compatibilidad historica y recuperacion administrativa; no es una nueva
+  transicion permitida desde `payment_reported`.
 - Completar la orden no consume credito otra vez; consume la capacidad
   operativa reservada.
 - Crear orden mueve el anuncio `active -> in_order`.
@@ -633,6 +640,21 @@ Errores:
 - Resolver una disputa aplica la accion terminal resultante: `completed`
   consume y `cancelled` libera.
 - El replay de una transicion no duplica reserva, liberacion ni consumo.
+
+## Cooldown terminal posterior a pago reportado
+
+Cuando una orden con `paid_reported_at IS NOT NULL` termina en `completed` o
+`cancelled`, la misma transaccion terminal debe aplicar:
+
+```txt
+business.ad_publication_paused_until =
+  GREATEST(existing value, database_now + 15 minutes)
+```
+
+Una cancelacion anterior al reporte no crea cooldown. El cooldown no cambia el
+resultado de credito, capacidad o anuncio, vence por comparacion de tiempo sin
+scheduler y queda subordinado a cualquier bloqueo/restriccion Admin. Ningun DTO
+publico expone su causa, cliente u orden de origen.
 
 ## POST /api/v1/orders/{order_id}/operation-report - Slice 42E1
 

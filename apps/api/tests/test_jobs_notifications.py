@@ -353,8 +353,9 @@ def test_slice_36_immediate_order_notifications_are_enqueued_deduped_and_private
         headers={**_headers(owner2, "slice36_reject"), "Content-Type": "application/json"},
         json={"reason": "No reconozco el pago"},
     )
-    assert rejected.status_code == 200, rejected.text
-    assert len(_notifications_by_type(client, "payment_rejected_client")) == 1
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()["error"]["code"] == "PAYMENT_REJECTION_NOT_ALLOWED"
+    assert len(_notifications_by_type(client, "payment_rejected_client")) == 0
 
     combined = json.dumps([n.__dict__ for n in client.app.state.job_repository.notification_jobs.values()], default=str)
     assert "owner@example.com" not in combined
@@ -481,6 +482,9 @@ def test_slice_49a_business_cannot_attend_cancels_releases_and_notifies_client_o
     assert client.app.state.capacity_repository.get_snapshot(
         business=client.app.state.business_repository.get_business(business["id"])
     ).reserved_capacity_usd == Decimal("0.00")
+    assert client.app.state.business_repository.get_business(
+        business["id"]
+    ).ad_publication_paused_until is None
 
 
 def test_slice_49a_business_cannot_attend_rejects_after_payment_report() -> None:
@@ -1153,6 +1157,9 @@ def test_delivered_reminders_are_deduped_and_auto_complete_skips_open_dispute() 
     _run_job(client, now)
     assert client.app.state.order_repository.get_by_id(order["id"]).status == "completed"
     assert client.app.state.order_repository.get_by_id(order["id"]).completion_reason == "auto_completed_after_24h"
+    assert client.app.state.business_repository.get_business(
+        stored.business_id
+    ).ad_publication_paused_until is not None
     assert "order_auto_completed_after_24h" in _event_types(client)
 
     owner2, _, _, remitter2, order2 = _seed_order(client, owner_id=1032, remitter_id=1033)

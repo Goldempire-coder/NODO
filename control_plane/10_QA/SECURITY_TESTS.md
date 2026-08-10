@@ -77,8 +77,11 @@ Un slice sensible no pasa a `READY_FOR_OWNER_REVIEW` sin pruebas de seguridad ej
 - confirm-payment marca payment_report `accepted`, setea delivery deadlines y no marca delivered/completed.
 - confirm-payment archiva anuncio con `ad.status = archived`.
 - confirm-payment idempotente no doble consume creditos.
-- reject-payment-report requiere reason, marca order `payment_rejected`, marca payment_report `rejected` y no consume creditos.
-- reject-payment-report mantiene creditos bloqueados y `ad.status = in_order`.
+- reject-payment-report devuelve `PAYMENT_REJECTION_NOT_ALLOWED` y no muta
+  orden, reporte, credito, capacidad, anuncio, eventos ni notificaciones.
+- reportar problema con pago abre una disputa atomica con razon
+  `payment_not_received_or_incomplete`, mantiene el reporte `submitted`, los
+  creditos bloqueados y `ad.status = in_order`.
 - mark-delivered requiere `payment_confirmed`, setea delivered timers y no completa orden.
 - slice 06 no construye chat, disputas ni confirmacion de recibido por remitente.
 

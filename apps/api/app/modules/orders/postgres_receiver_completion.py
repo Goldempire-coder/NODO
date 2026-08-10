@@ -272,6 +272,11 @@ class PostgresOrderReceiverCompletionMixin:
             ).fetchone()
             if updated_row is None:
                 raise ApiError("ORDER_STATE_CONFLICT", status_code=409)
+            self._apply_terminal_publication_cooldown_in_transaction(  # type: ignore[attr-defined]
+                conn,
+                order_row=order_row,
+                target_status="completed",
+            )
             self._insert_integrity_state_event(  # type: ignore[attr-defined]
                 conn,
                 order_id=order_id,

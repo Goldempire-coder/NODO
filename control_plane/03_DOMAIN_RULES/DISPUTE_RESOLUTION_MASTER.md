@@ -15,17 +15,23 @@ Disputas simples para MVP. Una disputa existe para revisar evidencia y proteger 
 ## Razones oficiales
 
 - business_no_payment_confirmation
+- payment_not_received_or_incomplete
 - business_confirmed_payment_but_not_delivered
 - payment_mobile_not_received
 - amount_incorrect
 - wrong_receiver_data
 - other
 
+`payment_not_received_or_incomplete` se usa para el problema Zelle/USDT abierto
+desde `payment_reported`. `payment_mobile_not_received` queda reservado para el
+flujo de entrega de Pago Movil posterior a la confirmacion del pago.
+
 ## Apertura automatica por timers
 
 ### payment_reported sin respuesta del negocio
 
-Si el cliente marco `Ya pague` y el negocio no confirma/rechaza en 6 horas:
+Si el cliente marco `Ya pague` y el negocio no confirma ni abre una disputa en
+6 horas:
 
 ```txt
 order.status = disputed

@@ -563,7 +563,10 @@ Rules:
 
 ### POST /api/v1/admin/orders/{id}/open-dispute
 
-Abre una investigacion formal solo desde `payment_rejected`.
+Abre una investigacion formal solo desde una orden historica en
+`payment_rejected`. Tras C1, las nuevas acciones del negocio desde
+`payment_reported` abren directamente la disputa participante y no producen
+este estado legacy.
 
 - admin/super_admin only; support is read-only and receives `FORBIDDEN`.
 - `Idempotency-Key` and non-empty `reason` are required.
@@ -617,6 +620,11 @@ Summary:
 - audit `dispute_resolved` or `dispute_marked_in_review`.
 - client and business receive a generic state-update notification after the
   resolution is recorded; the reason and evidence are not included.
+- If the terminal result is `completed|cancelled` and `paid_reported_at` is
+  non-null, the same terminal transaction extends the neutral business
+  publication pause to at least `database_now + 15 minutes`. This does not
+  change the contracted credit, capacity or ad result, and Admin
+  block/restriction still dominates.
 - NODO does not receive, hold, transfer or guarantee funds.
 
 ### Admin role management

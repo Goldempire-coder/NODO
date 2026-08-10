@@ -229,7 +229,9 @@ Slice 06 notes:
 Slice 06 notes:
 
 - Confirmar pago por negocio cambia `status` de `submitted` a `accepted`.
-- Rechazar reporte por negocio cambia `status` de `submitted` a `rejected`.
+- `rejected` se conserva para reportes historicos. La accion C0 `Reportar
+  problema con pago` abre disputa y mantiene el reporte `submitted` hasta la
+  resolucion Admin.
 - Slice 06 no crea reportes nuevos; opera sobre el latest submitted report de la orden.
 - `corrected` queda reservado para flujo futuro.
 

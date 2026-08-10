@@ -6,26 +6,28 @@ Comportamiento oficial de estados para `slice_06_business_order_ops`.
 
 ```txt
 payment_reported -> payment_confirmed
-payment_reported -> payment_rejected
+payment_reported -> disputed
 payment_confirmed -> delivered
 ```
 
-## Rechazo canonico
+## Problema con pago reportado
 
-El rechazo de reporte queda cerrado como:
+La decision C0 sustituye el rechazo directo por:
 
 ```txt
-payment_reported -> payment_rejected
+payment_reported -> disputed
+dispute.reason = payment_not_received_or_incomplete
 ```
 
-No se devuelve automaticamente a `waiting_payment`.
+No se devuelve a `waiting_payment`, no se cierra y no cambia unilateralmente el
+reporte a `rejected`.
 
 Motivo:
 
 - El cliente afirmo que pago.
-- Si el negocio rechaza, no se debe reabrir rapido como si nada.
-- Debe quedar trazabilidad.
-- La correccion, soporte o disputa quedan para slice futuro.
+- Si el negocio no reconoce el pago, debe abrir una disputa investigable.
+- Debe quedar trazabilidad atomica de disputa, orden, eventos y auditoria.
+- `payment_rejected` queda solo para filas historicas y recuperacion Admin.
 
 ## Confirmar pago
 
@@ -48,22 +50,24 @@ Motivo:
 - la orden sigue viva para entrega, disputa o cierre futuro.
 - el anuncio no vuelve al marketplace.
 
-## Rechazar reporte
+## Reportar problema con pago
 
-`reject-payment-report`:
+`POST /api/v1/orders/{id}/disputes`:
 
 - requiere `orders.status = payment_reported`.
 - requiere `payment_reports.status = submitted`.
-- requiere `reason`.
-- setea `orders.status = payment_rejected`.
-- setea `payment_reports.status = rejected`.
-- crea `order_state_events`.
-- audita `payment_report_rejected`.
+- requiere `reason = payment_not_received_or_incomplete`.
+- setea `orders.status = disputed` y crea disputa `open` atomicamente.
+- mantiene `payment_reports.status = submitted` hasta resolucion Admin.
+- crea eventos de orden/disputa y audita `dispute_opened`.
 - no consume creditos.
 - mantiene creditos bloqueados.
 - mantiene `ad.status = in_order`.
 - no libera anuncio.
 - no devuelve orden al marketplace.
+
+`reject-payment-report` queda como endpoint legacy y debe responder
+`PAYMENT_REJECTION_NOT_ALLOWED` sin efectos.
 
 ## Marcar entregado
 

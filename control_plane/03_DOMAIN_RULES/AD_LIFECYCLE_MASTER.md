@@ -79,10 +79,11 @@ por metodo.
 - Cuando pasa a `in_order`, el anuncio sale totalmente del catalogo.
 - Crear orden no consume creditos adicionales; solo bloquea disponibilidad operativa del anuncio.
 - Si el remitente no reporta pago dentro del timer de orden, la orden expira y el anuncio/disponibilidad vuelve a `active` si aun no vencio.
-- Si el remitente reporta pago, el anuncio queda comprometido hasta confirmacion, rechazo, disputa o resolucion.
+- Si el remitente reporta pago, el anuncio queda comprometido hasta confirmacion o resolucion de disputa.
 - Si el negocio confirma pago recibido, se consumen los creditos bloqueados del anuncio y el anuncio pasa a `archived`.
 - Si la orden expira o se cancela antes de pago confirmado y el anuncio aun no vencio, vuelve a `active` y mantiene el credito bloqueado.
-- Si el negocio rechaza un reporte de pago, el anuncio permanece `in_order` y los creditos siguen bloqueados hasta resolucion/cancelacion/disputa futura.
+- Si el negocio reporta un problema con el pago, la orden pasa a disputa y el
+  anuncio permanece `in_order` con los creditos bloqueados hasta resolucion.
 - Si una disputa se resuelve en slice 09 con resolucion terminal, el anuncio queda `archived` y no vuelve al marketplace.
 - Si una disputa queda `keep_under_review`, el anuncio conserva el estado derivado del origen de disputa: `in_order` para origen `payment_reported/payment_rejected` y `archived` para origen `payment_confirmed/delivered`.
 - Si el anuncio expira sin pago confirmado, se consume el credito bloqueado y pasa a `archived`.
@@ -134,6 +135,6 @@ Publicar anuncio = bloquea creditos
 Cliente no paga antes de 7 dias = anuncio vuelve activo y mantiene creditos bloqueados
 Anuncio llega a 7 dias sin venta = consume creditos y se archiva
 Negocio confirma pago recibido = consume creditos y archiva anuncio
-Negocio rechaza reporte de pago = mantiene anuncio in_order y creditos bloqueados
+Negocio reporta problema con pago = abre disputa y mantiene anuncio in_order y creditos bloqueados
 Resolucion admin terminal de disputa = archiva anuncio
 ```

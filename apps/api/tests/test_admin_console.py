@@ -240,14 +240,14 @@ def _seed_payment_rejected_order(client: TestClient, *, owner_id: int, remitter_
     remitter = _login(client, remitter_id, f"remitter_{remitter_id}")
     order = _create_order(client, remitter, ad["id"], key=f"order_rejected_{remitter_id}")
     _report_payment(client, remitter, order, key=f"report_rejected_{remitter_id}")
-    rejected = client.post(
-        f"/api/v1/business/orders/{order['id']}/reject-payment-report",
-        headers={**_headers(owner, f"reject_{order['id']}"), "Content-Type": "application/json"},
-        json={"reason": "Referencia no coincide"},
-    )
-    assert rejected.status_code == 200, rejected.text
-    assert rejected.json()["data"]["order"]["status"] == "payment_rejected"
-    return owner, business, ad, remitter, rejected.json()["data"]["order"]
+    stored_order = client.app.state.order_repository.get_by_id(order["id"])
+    stored_report = client.app.state.order_repository.get_submitted_payment_report_for_order(order["id"])
+    assert stored_order is not None
+    assert stored_report is not None
+    client.app.state.order_repository.update_payment_report(stored_report, status="rejected")
+    client.app.state.order_repository.update_order(stored_order, status="payment_rejected")
+    order["status"] = "payment_rejected"
+    return owner, business, ad, remitter, order
 
 
 def _event_types(client: TestClient) -> list[str]:
@@ -769,15 +769,23 @@ def test_admin_panel_resolution_sequence_applies_payment_rejected_contract_once(
         headers=resolution_headers,
         json=resolution_payload,
     )
+    pause_after_resolution = client.app.state.business_repository.get_business(
+        business["id"]
+    ).ad_publication_paused_until
     replay = client.post(
         f"/api/v1/admin/disputes/{dispute_id}/resolve",
         headers=resolution_headers,
         json=resolution_payload,
     )
+    pause_after_replay = client.app.state.business_repository.get_business(
+        business["id"]
+    ).ad_publication_paused_until
 
     assert resolved.status_code == 200, resolved.text
     assert replay.status_code == 200, replay.text
     assert replay.json()["data"] == resolved.json()["data"]
+    assert pause_after_resolution is not None
+    assert pause_after_replay == pause_after_resolution
     assert resolved.json()["data"]["order"]["status"] == expected_order_status
     assert resolved.json()["data"]["credit_effect"]["type"] == expected_credit_effect
     assert client.app.state.capacity_repository.get_reservation(order["id"]).status == expected_reservation_status

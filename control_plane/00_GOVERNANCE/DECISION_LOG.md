@@ -68,9 +68,9 @@ Este archivo registra decisiones aprobadas por el owner. Si otro documento contr
 | 2026-07-04 | `payment_reports` queda como tabla oficial del reporte del remitente con status inicial `submitted`, idempotency_key, payment_type, referencias por metodo, proof_file_id, payload hash, timestamps y constraints por Zelle/USDT TRC20. | aprobado |
 | 2026-07-04 | Para evidencia Zelle previa al reporte, `POST /payment-evidence` puede reservar `pending_payment_report_id`; `POST /payment-report` debe crear `payment_reports.id = pending_payment_report_id` al usar ese comprobante. | aprobado |
 | 2026-07-04 | Reportar pago mueve `waiting_payment -> payment_reported`, mantiene ad `in_order`, mantiene creditos bloqueados y no consume creditos, no confirma negocio, no entrega pago movil ni completa orden. | aprobado |
-| 2026-07-04 | Rutas canonicas de operaciones de negocio sobre ordenes para slice 06: `GET /api/v1/business/orders`, `GET /api/v1/business/orders/{id}`, `POST /api/v1/business/orders/{id}/confirm-payment`, `POST /api/v1/business/orders/{id}/reject-payment-report`, `POST /api/v1/business/orders/{id}/mark-delivered`. | aprobado |
-| 2026-07-04 | El rechazo de reporte de pago en slice 06 es canonico como `payment_reported -> payment_rejected`; no vuelve automaticamente a `waiting_payment`. | aprobado |
-| 2026-07-04 | Al rechazar reporte, `payment_reports.status = rejected`, creditos siguen bloqueados, `ad.status = in_order` y el anuncio no vuelve automaticamente al marketplace. | aprobado |
+| 2026-07-04 | Rutas canonicas de operaciones de negocio sobre ordenes para slice 06: `GET /api/v1/business/orders`, `GET /api/v1/business/orders/{id}`, `POST /api/v1/business/orders/{id}/confirm-payment`, `POST /api/v1/business/orders/{id}/reject-payment-report`, `POST /api/v1/business/orders/{id}/mark-delivered`. | sustituido parcialmente por C0 2026-08-09 |
+| 2026-07-04 | El rechazo de reporte de pago en slice 06 es canonico como `payment_reported -> payment_rejected`; no vuelve automaticamente a `waiting_payment`. | sustituido por C0 2026-08-09 |
+| 2026-07-04 | Al rechazar reporte, `payment_reports.status = rejected`, creditos siguen bloqueados, `ad.status = in_order` y el anuncio no vuelve automaticamente al marketplace. | sustituido por C0 2026-08-09 |
 | 2026-07-04 | Confirmar pago recibido en slice 06 cambia `payment_reported -> payment_confirmed`, marca `payment_reports.status = accepted`, setea deadlines de entrega y consume creditos bloqueados exactamente una vez mediante ledger `consume`. | aprobado |
 | 2026-07-04 | Marcar entregado en slice 06 cambia `payment_confirmed -> delivered`, setea timers de auto-complete, pero no completa la orden ni confirma recepcion del cliente. | aprobado |
 | 2026-07-04 | En slice 06, cuando el negocio confirma pago recibido, `ad.status = archived`; la orden sigue viva para entrega, disputa o cierre futuro, pero el anuncio ya cumplio su funcion y no vuelve al marketplace. | aprobado |
@@ -186,3 +186,11 @@ Estado:
 ```txt
 READY_FOR_OWNER_APPROVAL_TO_BUILD_24
 ```
+
+## 2026-08-09 - C0 reported-payment dispute reconciliation
+
+| Fecha | Decision | Estado |
+|---|---|---|
+| 2026-08-09 | La decision Owner C0 sustituye las decisiones de 2026-07-04 que permitian al negocio crear `payment_rejected`. Desde `payment_reported`, el negocio confirma el pago o usa `Reportar problema con pago`, que debe abrir disputa con razon `payment_not_received_or_incomplete`. | aprobado |
+| 2026-08-09 | `payment_rejected` permanece solo como estado legacy/historico para lectura, filtros, timeline y recuperacion administrativa; ninguna nueva accion del negocio debe crearlo. | aprobado |
+| 2026-08-09 | Una orden que tuvo pago reportado y termina en `completed` o `cancelled` inicia un cooldown neutral de publicacion de 15 minutos; la cancelacion pre-report no lo inicia y las restricciones Admin dominan. | aprobado |

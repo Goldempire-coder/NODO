@@ -9,10 +9,17 @@ from app.modules.orders.postgres_create_order import PostgresCreateOrderMixin
 from app.modules.orders.postgres_integrity import PostgresOrderIntegrityMixin
 from app.modules.orders.postgres_payment_confirmation import PostgresPaymentConfirmationMixin
 from app.modules.orders.postgres_payment_reports import PostgresPaymentReportsMixin
+from app.modules.orders.postgres_participant_payment_problem_dispute import (
+    PostgresParticipantPaymentProblemDisputeMixin,
+)
 from app.modules.orders.postgres_queries import PostgresOrderQueriesMixin
 from app.modules.orders.postgres_receiver_completion import PostgresOrderReceiverCompletionMixin
 from app.modules.orders.postgres_state_events import PostgresOrderStateEventsMixin
 from app.modules.orders.row_mappers import jsonb, order_from_row
+from app.modules.orders.terminal_publication_cooldown import (
+    TERMINAL_ORDER_STATUSES,
+    terminal_transition_starts_publication_cooldown,
+)
 from app.shared.db.connection import pooled_connect
 
 
@@ -23,6 +30,7 @@ class PostgresOrderRepository(
     PostgresOrderIntegrityMixin,
     PostgresPaymentConfirmationMixin,
     PostgresPaymentReportsMixin,
+    PostgresParticipantPaymentProblemDisputeMixin,
     PostgresOrderReceiverCompletionMixin,
     PostgresOrderQueriesMixin,
     PostgresOrderStateEventsMixin,
@@ -93,8 +101,20 @@ class PostgresOrderRepository(
         assignments.append("updated_at = now()")
         params.append(order.id)
         with self._connect() as conn:
-            row = conn.execute(f"update orders set {', '.join(assignments)} where id = %s returning *", params).fetchone()
+            terminal_source_row = None
             target_status = fields.get("status")
+            if target_status in TERMINAL_ORDER_STATUSES:
+                terminal_source_row = conn.execute(
+                    "select * from orders where id = %s for update",
+                    (order.id,),
+                ).fetchone()
+            row = conn.execute(f"update orders set {', '.join(assignments)} where id = %s returning *", params).fetchone()
+            if terminal_source_row is not None:
+                self._apply_terminal_publication_cooldown_in_transaction(
+                    conn,
+                    order_row=terminal_source_row,
+                    target_status=target_status,
+                )
             changed = False
             event_type = None
             if self._capacity is not None and target_status == "cancelled":
@@ -122,6 +142,32 @@ class PostgresOrderRepository(
                 )
             conn.commit()
         return order_from_row(row)
+
+    def _apply_terminal_publication_cooldown_in_transaction(
+        self,
+        conn,
+        *,
+        order_row,
+        target_status: str,
+    ) -> None:  # type: ignore[no-untyped-def]
+        if not terminal_transition_starts_publication_cooldown(
+            previous_status=order_row["status"],
+            target_status=target_status,
+            paid_reported_at=order_row["paid_reported_at"],
+        ):
+            return
+        conn.execute(
+            """
+            update businesses
+            set ad_publication_paused_until = greatest(
+                    coalesce(ad_publication_paused_until, '-infinity'::timestamptz),
+                    now() + interval '15 minutes'
+                ),
+                updated_at = now()
+            where id = %s
+            """,
+            (order_row["business_id"],),
+        )
 
     def update_order_if_status(
         self,

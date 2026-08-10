@@ -85,12 +85,16 @@ Todas las notificaciones deben ser idempotentes por orden, tipo y ventana de tie
 - On-chain notification payloads must not include RPC keys, raw provider responses, private keys, seed phrases, full tx hashes in broad channels, `storage_path`, `account_value` or promises of recovery.
 - Payloads de creditos/referrals no deben prometer fondos, escrow, garantia de entrega ni recuperacion de pagos.
 
-### payment_rejected
+### Problema con pago reportado
 
-- Al rechazar reporte: notificar al remitente que el negocio no reconocio el pago reportado.
+- Al usar `Reportar problema con pago`, notificar genericamente a ambas partes
+  que la orden esta en revision/disputa.
+- No decir que el pago fue rechazado o que una parte tiene razon.
 - No prometer devolucion, garantia ni recuperacion.
-- Explicar que el caso queda con trazabilidad para correccion, soporte o disputa futura.
-- Payloads de notificacion no deben incluir instrucciones completas, `account_value`, `storage_path`, tokens ni secretos.
+- No incluir la razon privada, instrucciones completas, `account_value`,
+  `storage_path`, tokens ni secretos.
+- Notificaciones `payment_rejected` pueden existir solo para eventos historicos;
+  no deben generarse por nuevas acciones del negocio.
 
 ### payment_confirmed
 

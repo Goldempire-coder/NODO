@@ -6,7 +6,7 @@ import { paymentMethodCanReceive } from "./ads/businessAdViewHelpers";
 function countActionableOrders(model: BusinessMiniAppModel) {
   return model.businessOrders.filter((order) => (
     order.capabilities.can_confirm_payment
-    || order.capabilities.can_reject_payment_report
+    || (order.status === "payment_reported" && order.capabilities.can_open_dispute)
     || order.capabilities.can_mark_delivered
     || order.status === "disputed"
   )).length;

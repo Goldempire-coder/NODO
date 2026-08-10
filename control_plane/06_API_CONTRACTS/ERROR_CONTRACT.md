@@ -212,6 +212,12 @@ Todas las APIs deben usar este contrato. Prohibido exponer stack traces, SQL, se
 - ADMIN_INVESTIGATION_CURSOR_INVALID
 - SENSITIVE_EXPORT_BLOCKED
 
+`PAYMENT_REJECTION_NOT_ALLOWED` is the neutral `409` response for attempts to
+use the legacy direct-rejection route after `payment_reported`. It must create
+no order, payment report, credit, capacity, ad, event, audit or notification
+effect. The supported business action is the formal dispute flow with reason
+`payment_not_received_or_incomplete`.
+
 ## Codigos internos de jobs
 
 Estos codigos pueden guardarse en `job_runs.error_code` y logs internos seguros.

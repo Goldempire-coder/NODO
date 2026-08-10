@@ -44,7 +44,7 @@ action_type
 - revelar datos de pago
 - listar/detallar ordenes de negocio
 - confirmar pago recibido por negocio
-- rechazar reporte de pago por negocio
+- abrir disputa por problema con pago reportado
 - marcar pago movil enviado por negocio
 - enviar mensajes de chat
 - subir adjuntos de mensajes

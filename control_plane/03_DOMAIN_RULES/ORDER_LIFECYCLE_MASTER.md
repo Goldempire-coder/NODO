@@ -40,6 +40,7 @@ Este documento gobierna estados, tiempos, cancelaciones, disputas, creditos y an
 ## dispute_reason
 
 - business_no_payment_confirmation
+- payment_not_received_or_incomplete
 - business_confirmed_payment_but_not_delivered
 - payment_mobile_not_received
 - amount_incorrect
@@ -200,38 +201,31 @@ Resultado:
 - Riesgo interno del negocio aumenta si se repite.
 - `under_review` no cambia `verification_status`; es `risk_level`.
 
-## 3.1 Negocio rechaza reporte de pago
+## 3.1 Negocio reporta un problema con el pago
 
-Estado:
-
-```txt
-payment_rejected
-```
-
-Transicion canonica:
+Transicion canonica futura:
 
 ```txt
-payment_reported -> payment_rejected
+payment_reported -> disputed
+dispute.reason = payment_not_received_or_incomplete
 ```
 
 Reglas:
 
-- El rechazo requiere reason.
-- Se actualiza `payment_reports.status = rejected`.
-- Se registra `order_state_events`.
-- Se audita `payment_report_rejected`.
-- No se consume creditos.
-- Los creditos siguen bloqueados.
-- `ad.status` sigue `in_order`.
-- El anuncio no vuelve automaticamente al marketplace.
-- La orden no vuelve automaticamente a `waiting_payment`.
-- Correccion de reporte, soporte o disputa quedan para slice futuro.
+- El negocio no puede rechazar ni cerrar directamente un pago reportado.
+- La accion visible es `Reportar problema con pago` y exige razon estructurada.
+- La apertura de disputa, el cambio de orden, eventos y auditoria deben ocurrir
+  atomicamente.
+- `payment_reports.status` permanece `submitted` hasta la resolucion Admin; la
+  afirmacion del cliente no se invalida por una accion unilateral del negocio.
+- No se consumen ni liberan creditos, capacidad o anuncio al abrir la disputa.
+- `ad.status` sigue `in_order` y el chat permanece investigable.
+- La resolucion final pertenece al contrato Admin de disputas.
 
-Motivo:
-
-- El cliente afirmo que pago.
-- Si el negocio rechaza, debe quedar trazabilidad antes de reabrir, corregir o disputar.
-- No se debe tratar como abandono simple de pago.
+`payment_rejected` queda como estado legacy/historico. Puede seguir apareciendo
+en filas, filtros, timelines y recuperacion administrativa, pero ninguna nueva
+accion del negocio desde `payment_reported` debe crearlo. Las ordenes historicas
+en ese estado pueden pasar a `disputed` sin borrar su trazabilidad.
 
 ## 4. Negocio marca pago movil enviado pero cliente no confirma
 
@@ -294,7 +288,7 @@ de rating se cumplen.
 | --- | --- | --- | --- |
 | waiting_payment | Cliente no reporta pago | 30 min + 15 min extension | cancelled; anuncio vuelve activo con credito bloqueado si no vencio; si llego a 7 dias, archived + ledger `expire` |
 | payment_reported | Cliente dice que pago, negocio no responde | 2h warning / 6h disputa | disputed, ad.status = in_order, creditos siguen bloqueados |
-| payment_rejected | Negocio rechaza reporte de pago | accion manual futura | creditos siguen bloqueados, ad.status = in_order |
+| payment_rejected | Estado legacy por rechazo historico | escalamiento manual | pasa a disputed; creditos siguen bloqueados, ad.status = in_order |
 | payment_confirmed | Negocio recibio pago, pero no entrega pago movil | 30 min warning / 2h disputa | disputed, ad.status = archived, creditos consumidos, negocio bajo revision si se repite |
 | delivered | Negocio marco pago movil enviado, cliente no confirma | 24h | completed, completion_reason = auto_completed_after_24h |
 
@@ -308,7 +302,8 @@ Si el anuncio llega a 7 dias sin venta:
 se archiva y consume el credito.
 
 Si el cliente reporto pago:
-no se cancela automatico; pasa a disputa si el negocio no responde.
+no se cancela ni rechaza directo; pasa a disputa si el negocio reporta un
+problema o no responde dentro del contrato.
 
 Si el negocio confirmo pago:
 debe entregar rapido; si no, disputa.
@@ -356,6 +351,10 @@ Efectos:
 - Si venia de `delivered`: creditos ya consumidos y `ad.status = archived`.
 
 Slice 07 no resuelve disputas admin ni mueve creditos/anuncios por resolucion.
+
+`payment_rejected` en esta lista existe solo para compatibilidad historica. La
+apertura normal iniciada por el negocio usa `payment_reported -> disputed` con
+`payment_not_received_or_incomplete`.
 
 ## Slice 09 admin dispute resolution
 

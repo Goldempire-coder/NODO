@@ -35,7 +35,8 @@ Orders:
 - `GET /api/v1/business/orders`
 - `GET /api/v1/business/orders/{id}`
 - `POST /api/v1/business/orders/{id}/confirm-payment`
-- `POST /api/v1/business/orders/{id}/reject-payment-report`
+- `POST /api/v1/orders/{id}/disputes`
+- `POST /api/v1/business/orders/{id}/reject-payment-report` (legacy; no muta)
 - `POST /api/v1/business/orders/{id}/mark-delivered`
 
 ## Reglas API

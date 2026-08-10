@@ -29,7 +29,8 @@ No puede modificar snapshots monetarios, instrucciones privadas, `amount_usd`, `
 ## Payment reports
 
 - Confirmar pago cambia `payment_reports.status` de `submitted` a `accepted`.
-- Rechazar reporte cambia `payment_reports.status` de `submitted` a `rejected`.
+- `rejected` se conserva para historial. Reportar problema con pago mantiene
+  `submitted` hasta resolucion Admin.
 - Slice 06 no crea nuevos reportes del remitente.
 - Slice 06 no corrige reportes; `corrected` queda para flujo futuro.
 
@@ -38,7 +39,7 @@ No puede modificar snapshots monetarios, instrucciones privadas, `amount_usd`, `
 - Confirmar pago recibido setea `ads.status = archived`.
 - El anuncio ya cumplio su funcion de publicacion y no vuelve al marketplace.
 - La orden sigue viva para entrega, disputa o cierre futuro.
-- Rechazar reporte de pago mantiene `ads.status = in_order`.
+- Abrir disputa por problema con pago mantiene `ads.status = in_order`.
 
 ## Credits
 

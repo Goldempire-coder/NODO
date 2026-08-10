@@ -178,6 +178,12 @@ class InMemoryOrderReceiverCompletionMixin:
             order.completion_reason = "manual_confirmed"
             order.completed_at = completed_at
             order.updated_at = utc_now()
+            self._apply_terminal_publication_cooldown(  # type: ignore[attr-defined]
+                order=order,
+                previous_status="delivered",
+                target_status="completed",
+                transition_at=completed_at,
+            )
             self.add_state_event(  # type: ignore[attr-defined]
                 order_id=order.id,
                 from_status="delivered",

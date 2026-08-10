@@ -3,7 +3,8 @@
 Audit events requeridos:
 
 - `payment_confirmed`
-- `payment_report_rejected`
+- `payment_report_rejected` (historico; no generar para nuevas acciones)
+- `dispute_opened`
 - `credits_consumed`
 - `ad_archived`
 - `order_delivered`

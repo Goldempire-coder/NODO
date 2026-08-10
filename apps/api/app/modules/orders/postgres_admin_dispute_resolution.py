@@ -133,6 +133,11 @@ class PostgresAdminDisputeResolutionMixin:
             resolution_type=resolution_type,
         )
         target_status = updated_order_row["status"]
+        self._apply_terminal_publication_cooldown_in_transaction(  # type: ignore[attr-defined]
+            conn,
+            order_row=order_row,
+            target_status=target_status,
+        )
         self._transition_capacity_for_admin_dispute_resolution(
             conn,
             order_id=str(order_row["id"]),

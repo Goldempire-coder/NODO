@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
+from threading import Barrier
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -284,6 +285,178 @@ def _payment_report_payload(method_type: str, *, seed: int) -> dict:
     return payload
 
 
+def _reported_payment_fixture(
+    context: SecurityPostgresContext,
+    *,
+    label: str,
+) -> dict:
+    admin = _actor(
+        context,
+        telegram_id=8_500_000_000 + (int(uuid4().hex[:7], 16) % 400_000_000),
+        username=f"admin_{label}_{uuid4().hex[:8]}",
+        role="admin",
+    )
+    fixture = _business_order_fixture(context, admin=admin, method_type="zelle")
+    order_id = fixture["order"]["id"]
+    share = context.client.post(
+        f"/api/v1/orders/{order_id}/share-payment-details",
+        headers=_headers(fixture["owner"], context.key(f"{label}_share")),
+    )
+    assert share.status_code == 201, share.text
+    report = context.client.post(
+        f"/api/v1/orders/{order_id}/payment-report",
+        headers={
+            **_headers(fixture["remitter"], context.key(f"{label}_report")),
+            "Content-Type": "application/json",
+        },
+        json=_payment_report_payload("zelle", seed=int(uuid4().hex[:8], 16)),
+    )
+    assert report.status_code == 201, report.text
+    return fixture
+
+
+def test_postgres_business_payment_problem_dispute_is_atomic_and_concurrency_safe(
+    postgres_security: SecurityPostgresContext,
+) -> None:
+    legacy_fixture = _reported_payment_fixture(postgres_security, label="c1_legacy")
+    legacy_order_id = legacy_fixture["order"]["id"]
+    with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
+        before = conn.execute(
+            """
+            select orders.status as order_status, reports.status as report_status,
+                   ads.status as ad_status, reservations.status as reservation_status,
+                   wallets.blocked_credits, wallets.consumed_credits,
+                   (select count(*) from order_state_events where order_id = orders.id) as order_event_count,
+                   (select count(*) from disputes where order_id = orders.id) as dispute_count
+            from orders
+            join payment_reports reports on reports.order_id = orders.id
+            join ads on ads.id = orders.ad_id
+            join business_capacity_reservations reservations on reservations.order_id = orders.id
+            join credit_wallets wallets on wallets.business_id = orders.business_id
+            where orders.id = %s
+            """,
+            (legacy_order_id,),
+        ).fetchone()
+    legacy = postgres_security.client.post(
+        f"/api/v1/business/orders/{legacy_order_id}/reject-payment-report",
+        headers={
+            **_headers(legacy_fixture["owner"], postgres_security.key("c1_legacy_reject")),
+            "Content-Type": "application/json",
+        },
+        json={"reason": "Referencia no coincide"},
+    )
+    assert legacy.status_code == 409, legacy.text
+    assert legacy.json()["error"]["code"] == "PAYMENT_REJECTION_NOT_ALLOWED"
+    with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
+        after = conn.execute(
+            """
+            select orders.status as order_status, reports.status as report_status,
+                   ads.status as ad_status, reservations.status as reservation_status,
+                   wallets.blocked_credits, wallets.consumed_credits,
+                   (select count(*) from order_state_events where order_id = orders.id) as order_event_count,
+                   (select count(*) from disputes where order_id = orders.id) as dispute_count
+            from orders
+            join payment_reports reports on reports.order_id = orders.id
+            join ads on ads.id = orders.ad_id
+            join business_capacity_reservations reservations on reservations.order_id = orders.id
+            join credit_wallets wallets on wallets.business_id = orders.business_id
+            where orders.id = %s
+            """,
+            (legacy_order_id,),
+        ).fetchone()
+    assert after == before
+
+    double_fixture = _reported_payment_fixture(postgres_security, label="c1_double")
+    double_order_id = double_fixture["order"]["id"]
+    double_barrier = Barrier(2)
+
+    def open_dispute(key: str):  # type: ignore[no-untyped-def]
+        double_barrier.wait()
+        return postgres_security.client.post(
+            f"/api/v1/orders/{double_order_id}/disputes",
+            headers={
+                **_headers(double_fixture["owner"], postgres_security.key(key)),
+                "Content-Type": "application/json",
+            },
+            json={
+                "reason": "payment_not_received_or_incomplete",
+                "description": "El pago reportado no aparece completo.",
+                "evidence_file_ids": [],
+            },
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        double_responses = list(executor.map(open_dispute, ("c1_double_a", "c1_double_b")))
+    assert sorted(response.status_code for response in double_responses) == [201, 409]
+    with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
+        double_counts = conn.execute(
+            """
+            select
+                (select count(*) from disputes where order_id = %s) as disputes,
+                (select count(*) from dispute_events where order_id = %s and event_type = 'dispute_opened') as dispute_events,
+                (select count(*) from order_state_events where order_id = %s and from_status = 'payment_reported' and to_status = 'disputed') as order_events,
+                (select count(*) from audit_logs where resource_type = 'dispute' and metadata_json ->> 'order_id' = %s and event_type = 'dispute_opened') as audits
+            """,
+            (double_order_id, double_order_id, double_order_id, double_order_id),
+        ).fetchone()
+    assert double_counts == {"disputes": 1, "dispute_events": 1, "order_events": 1, "audits": 1}
+
+    race_fixture = _reported_payment_fixture(postgres_security, label="c1_race")
+    race_order_id = race_fixture["order"]["id"]
+    race_barrier = Barrier(2)
+
+    def confirm_payment():  # type: ignore[no-untyped-def]
+        race_barrier.wait()
+        return postgres_security.client.post(
+            f"/api/v1/business/orders/{race_order_id}/confirm-payment",
+            headers={
+                **_headers(race_fixture["owner"], postgres_security.key("c1_race_confirm")),
+                "Content-Type": "application/json",
+            },
+            json={"reason": "Pago recibido"},
+        )
+
+    def dispute_payment():  # type: ignore[no-untyped-def]
+        race_barrier.wait()
+        return postgres_security.client.post(
+            f"/api/v1/orders/{race_order_id}/disputes",
+            headers={
+                **_headers(race_fixture["owner"], postgres_security.key("c1_race_dispute")),
+                "Content-Type": "application/json",
+            },
+            json={
+                "reason": "payment_not_received_or_incomplete",
+                "description": "El pago reportado no aparece completo.",
+                "evidence_file_ids": [],
+            },
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        confirm_future = executor.submit(confirm_payment)
+        dispute_future = executor.submit(dispute_payment)
+        race_responses = [confirm_future.result(), dispute_future.result()]
+    assert sorted(response.status_code for response in race_responses) in ([200, 409], [201, 409])
+    assert sum(response.status_code in {200, 201} for response in race_responses) == 1
+    with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
+        final = conn.execute(
+            """
+            select orders.status as order_status, reports.status as report_status,
+                   (select count(*) from disputes where order_id = orders.id) as dispute_count
+            from orders
+            join payment_reports reports on reports.order_id = orders.id
+            where orders.id = %s
+            """,
+            (race_order_id,),
+        ).fetchone()
+    assert final["order_status"] in {"payment_confirmed", "disputed"}
+    if final["order_status"] == "disputed":
+        assert final["report_status"] == "submitted"
+        assert final["dispute_count"] == 1
+    else:
+        assert final["report_status"] == "accepted"
+        assert final["dispute_count"] == 0
+
+
 def _assert_error(response, *, status_code: int, code: str) -> None:  # type: ignore[no-untyped-def]
     assert response.status_code == status_code, response.text
     assert response.json()["error"]["code"] == code
@@ -314,15 +487,15 @@ def test_postgres_admin_payment_rejected_open_dispute_is_atomic_and_concurrency_
         json={"payment_type": "zelle", "payment_amount": "50.00"},
     )
     assert report.status_code == 201, report.text
-    rejected = postgres_security.client.post(
-        f"/api/v1/business/orders/{order_id}/reject-payment-report",
-        headers={
-            **_headers(fixture["owner"], postgres_security.key("admin_open_reject")),
-            "Content-Type": "application/json",
-        },
-        json={"reason": "Referencia no coincide"},
-    )
-    assert rejected.status_code == 200, rejected.text
+    with psycopg.connect(postgres_security.database_url) as conn:
+        conn.execute(
+            "update payment_reports set status = 'rejected', updated_at = now() where order_id = %s",
+            (order_id,),
+        )
+        conn.execute(
+            "update orders set status = 'payment_rejected', updated_at = now() where id = %s",
+            (order_id,),
+        )
 
     with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
         before = conn.execute(
@@ -444,15 +617,15 @@ def test_postgres_admin_payment_rejected_terminal_resolution_archives_ad_and_mov
         json={"payment_type": "zelle", "payment_amount": "50.00"},
     )
     assert report.status_code == 201, report.text
-    rejected = postgres_security.client.post(
-        f"/api/v1/business/orders/{order_id}/reject-payment-report",
-        headers={
-            **_headers(fixture["owner"], postgres_security.key(f"{resolution_type}_reject")),
-            "Content-Type": "application/json",
-        },
-        json={"reason": "Referencia no coincide"},
-    )
-    assert rejected.status_code == 200, rejected.text
+    with psycopg.connect(postgres_security.database_url) as conn:
+        conn.execute(
+            "update payment_reports set status = 'rejected', updated_at = now() where order_id = %s",
+            (order_id,),
+        )
+        conn.execute(
+            "update orders set status = 'payment_rejected', updated_at = now() where id = %s",
+            (order_id,),
+        )
 
     with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
         before = conn.execute(

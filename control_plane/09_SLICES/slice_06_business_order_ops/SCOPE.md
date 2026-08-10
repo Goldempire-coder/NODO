@@ -2,14 +2,16 @@
 
 ## Objective
 
-Permitir al negocio revisar ordenes, confirmar/rechazar reportes de pago y marcar pago movil enviado.
+Permitir al negocio revisar ordenes, confirmar pagos y marcar pago movil
+enviado. La decision C0 posterior sustituye el rechazo directo por apertura de
+disputa.
 
 ## Included
 
 - listado de ordenes del negocio
 - detalle de orden del negocio
 - confirmar pago recibido
-- rechazar reporte de pago
+- reportar problema con pago mediante disputa
 - marcar pago movil enviado/entregado
 - consumo de creditos al confirmar pago
 - `orders`
@@ -22,7 +24,9 @@ Permitir al negocio revisar ordenes, confirmar/rechazar reportes de pago y marca
 - `GET /api/v1/business/orders`
 - `GET /api/v1/business/orders/{id}`
 - `POST /api/v1/business/orders/{id}/confirm-payment`
-- `POST /api/v1/business/orders/{id}/reject-payment-report`
+- `POST /api/v1/orders/{id}/disputes`
+- `POST /api/v1/business/orders/{id}/reject-payment-report` solo como ruta
+  legacy que no debe mutar
 - `POST /api/v1/business/orders/{id}/mark-delivered`
 
 ## Affected screens
@@ -33,7 +37,7 @@ Permitir al negocio revisar ordenes, confirmar/rechazar reportes de pago y marca
 ## Explicitly excluded
 
 - chat
-- disputas
+- resolucion de disputas; la apertura por problema con pago se incorpora por C0
 - confirmacion de recibido por remitente
 - auto-complete
 - jobs masivos

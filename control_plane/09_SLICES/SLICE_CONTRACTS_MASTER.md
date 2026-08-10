@@ -477,7 +477,8 @@ No incluye:
 
 ## slice_06_business_order_ops
 
-Objetivo: negocio opera ordenes recibidas, confirma/rechaza reporte de pago y marca pago movil enviado.
+Objetivo: negocio opera ordenes recibidas, confirma pago, reporta problemas
+mediante disputa y marca pago movil enviado.
 
 Tablas:
 
@@ -493,13 +494,15 @@ API:
 - GET /api/v1/business/orders
 - GET /api/v1/business/orders/{id}
 - POST /api/v1/business/orders/{id}/confirm-payment
-- POST /api/v1/business/orders/{id}/reject-payment-report
+- POST /api/v1/orders/{id}/disputes
+- POST /api/v1/business/orders/{id}/reject-payment-report (legacy; no muta)
 - POST /api/v1/business/orders/{id}/mark-delivered
 
 Estados:
 
 - payment_reported -> payment_confirmed
-- payment_reported -> payment_rejected si se rechaza reporte
+- payment_reported -> disputed si el negocio reporta problema con pago
+- payment_rejected -> disputed para recuperacion legacy
 - payment_confirmed -> delivered
 
 Reglas:
@@ -513,8 +516,10 @@ Reglas:
 - confirmar pago setea `payment_confirmed_at`, delivery deadlines y `payment_reports.status = accepted`
 - confirmar pago consume creditos bloqueados exactamente una vez mediante ledger `consume`
 - confirmar pago setea `ad.status = archived`; la orden sigue viva, pero el anuncio ya cumplio su funcion y no vuelve al marketplace
-- rechazar reporte requiere reason, setea `orders.status = payment_rejected` y `payment_reports.status = rejected`
-- rechazar reporte no consume creditos, no libera anuncio, no libera creditos y mantiene `ad.status = in_order`
+- reportar problema requiere `payment_not_received_or_incomplete`, abre disputa
+  atomicamente y mantiene `payment_reports.status = submitted`
+- abrir la disputa no consume creditos, no libera anuncio/capacidad y mantiene
+  `ad.status = in_order`; el endpoint de rechazo legacy no muta
 - marcar entregado requiere `payment_confirmed`, setea `delivered_at` y timers de auto-complete
 - marcar entregado no completa la orden
 

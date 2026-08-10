@@ -14,7 +14,7 @@ Mini App Negocio.
 - Metodos de pago solo lectura o placeholder gobernado en 14B.
 - Ordenes entrantes.
 - Confirmar pago recibido.
-- Rechazar reporte de pago.
+- Reportar problema con pago y abrir disputa.
 - Marcar entregado.
 - Chat por orden.
 - Soporte con NODO.

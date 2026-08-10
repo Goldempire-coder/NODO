@@ -43,7 +43,7 @@ Request:
 
 ```json
 {
-  "reason": "payment_mobile_not_received",
+  "reason": "payment_not_received_or_incomplete",
   "description": "safe text",
   "evidence_file_ids": ["uuid"]
 }
@@ -54,11 +54,14 @@ Allowed actors:
 - Remitter owner.
 - Business owner for its own business order.
 - Both participants may open from each allowed previous order state below.
+- For a business actor in `payment_reported`, the visible action is `Reportar
+  problema con pago` and the required structured reason is
+  `payment_not_received_or_incomplete`.
 
 Allowed previous order statuses:
 
 - payment_reported
-- payment_rejected
+- payment_rejected (legacy/historical recovery only)
 - payment_confirmed
 - delivered
 
@@ -70,6 +73,9 @@ Effects:
 - `disputes.status = open`
 - creates `dispute_events.event_type = dispute_opened`
 - audits `dispute_opened`
+- From `payment_reported`, opening the business payment-problem dispute keeps
+  `payment_reports.status = submitted`; it does not accept or reject the
+  client's claim before Admin resolution.
 
 Credit/ad effects:
 
@@ -93,8 +99,8 @@ Response:
     "id": "uuid",
     "order_id": "uuid",
     "status": "open",
-    "reason": "payment_mobile_not_received",
-    "previous_order_status": "delivered",
+    "reason": "payment_not_received_or_incomplete",
+    "previous_order_status": "payment_reported",
     "created_at": "timestamp"
   }
 }
@@ -102,7 +108,8 @@ Response:
 
 Idempotency:
 
-- Same key + same payload returns same dispute.
+- Same key + same payload returns same dispute and never duplicates state,
+  events, audit or notifications.
 - Same key + different payload returns IDEMPOTENCY_PAYLOAD_MISMATCH.
 - Existing open/in_review dispute returns DISPUTE_ALREADY_OPEN.
 
@@ -209,9 +216,9 @@ Errors:
 
 Purpose:
 
-- Open an administrative investigation for an order stuck in
+- Open an administrative investigation for a historical order stuck in
   `payment_rejected`; final resolution continues through the existing dispute
-  endpoint.
+  endpoint. New business actions must not produce this state.
 
 Permissions:
 
@@ -303,6 +310,11 @@ Rules:
 - No real money is moved. NODO does not receive, hold, transfer or guarantee funds.
 - No response may expose `storage_path`, signed URLs, full payment instructions,
   `account_value`, tokens or secrets.
+- A terminal resolution to `completed|cancelled` for an order with non-null
+  `paid_reported_at` must extend the business publication pause to at least
+  `database_now + 15 minutes` in the same terminal transaction. This cooldown
+  does not alter the resolution's credit, capacity or ad outcome and does not
+  override Admin restrictions.
 
 Response:
 

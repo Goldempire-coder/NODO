@@ -28,7 +28,8 @@ Out of scope:
 - Enviar pago movil es una accion separada.
 - Marcar entregado significa que el negocio dice que envio el pago movil.
 - NODO registra evidencia y estado; no retiene fondos.
-- Rechazar reporte debe explicar motivo y no libera automaticamente el anuncio.
+- `Reportar problema con pago` abre una disputa investigable y no libera
+  anuncio, credito ni capacidad.
 
 ## Prohibited copy
 
@@ -38,4 +39,3 @@ Out of scope:
 - NODO recibio tu dinero
 - pago garantizado
 - transaccion asegurada
-

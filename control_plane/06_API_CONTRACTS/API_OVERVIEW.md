@@ -57,7 +57,7 @@ Error:
 - ADS_API: anuncios, busqueda, ranking, disponibilidad.
 - ORDERS_API: crear orden, detalle, historial, transiciones.
 - PAYMENT_REPORTS_API: instrucciones, evidencia y reporte de pago del remitente.
-- BUSINESS_ORDERS_API: operaciones del negocio sobre ordenes, confirmacion/rechazo de reporte, entrega y consumo de creditos.
+- BUSINESS_ORDERS_API: operaciones del negocio sobre ordenes, confirmacion de pago, apertura de disputa por problema, entrega y consumo de creditos.
 - BUSINESS_PAYMENT_METHODS_API: lectura segura de metodos aprobados del negocio para selectores visuales; no permite IDs manuales ni gestion self-service en 14B.
 - BUSINESS_SECURITY_API: PIN operativo de Mini App Negocio para configurar, verificar, bloquear y consultar el estado de desbloqueo antes de mutaciones sensibles.
 - MESSAGES_API: mensajes, adjuntos privados y lectura de chat.
@@ -100,7 +100,9 @@ Reglas:
 
 - El PIN pertenece al `business_access_link`, no al dispositivo ni al frontend.
 - El backend guarda hash, no PIN en claro.
-- Crear/editar metodos de pago, publicar/editar/pausar/reactivar/republicar anuncios, comprar creditos, aplicar referidos y confirmar/rechazar/entregar ordenes requieren PIN configurado y desbloqueado.
+- Crear/editar metodos de pago, publicar/editar/pausar/reactivar/republicar
+  anuncios, comprar creditos, aplicar referidos y confirmar/reportar
+  problema/entregar ordenes requieren PIN configurado y desbloqueado.
 - Si el PIN falta, esta bloqueado o no esta desbloqueado, las mutaciones sensibles responden `423` con codigo `BUSINESS_PIN_NOT_SET`, `BUSINESS_PIN_LOCKED` o `BUSINESS_PIN_REQUIRED`.
 - Intentos invalidos responden `BUSINESS_PIN_INVALID`, incrementan contador seguro y pueden bloquear temporalmente el link.
 - Logs y audit events nunca deben contener el PIN en claro.

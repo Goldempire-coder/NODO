@@ -17,18 +17,19 @@ Required QA for `slice_06_business_order_ops`.
 - confirm-payment no marca delivered/completed.
 - confirm-payment idempotente no doble consume.
 - confirm-payment misma key payload distinto falla.
-- reject-payment-report desde `payment_reported` OK.
-- reject requiere reason.
-- reject marca `orders.status = payment_rejected`.
-- reject marca `payment_reports.status = rejected`.
-- reject no consume creditos.
-- reject mantiene creditos bloqueados.
-- reject mantiene `ad.status = in_order`.
+- reject-payment-report desde `payment_reported` devuelve
+  `PAYMENT_REJECTION_NOT_ALLOWED` sin efectos.
+- reportar problema exige `payment_not_received_or_incomplete`.
+- reportar problema crea disputa `open` y marca `orders.status = disputed` en
+  una sola transaccion.
+- reportar problema mantiene `payment_reports.status = submitted`.
+- reportar problema no consume creditos y mantiene capacidad, credito y
+  `ad.status = in_order`.
 - mark-delivered desde `payment_confirmed` OK.
 - mark-delivered desde estado invalido falla.
 - mark-delivered setea `delivered_at` y auto-complete timers.
 - mark-delivered no completa orden.
-- no chat/dispute endpoints construidos.
+- la apertura de disputa C0 no cambia chat ni implementa resolucion Admin.
 - errores seguros sin stack traces, SQL, secretos, `storage_path`, `account_value` ni instrucciones completas.
 - audit events.
 - state events.

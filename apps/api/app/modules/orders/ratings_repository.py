@@ -153,11 +153,10 @@ class InMemoryOrderRatingRepository:
             pause_candidate = calculated_at + timedelta(minutes=15)
 
             self.ratings[order.id] = rating
-            if (
-                business.ad_publication_paused_until is None
-                or pause_candidate > business.ad_publication_paused_until
-            ):
-                business.ad_publication_paused_until = pause_candidate
+            self._businesses.extend_ad_publication_pause(
+                business.id,
+                pause_candidate,
+            )
             business.rating_avg = rating_avg
             business.ratings_count = len(business_ratings) + 1
             business.completed_orders_count = len(completed_orders)

@@ -60,11 +60,6 @@ def require_business_payment_confirmation_allowed(order: OrderRecord) -> None:
         raise ApiError("PAYMENT_CONFIRMATION_NOT_ALLOWED", status_code=409)
 
 
-def require_business_payment_rejection_allowed(order: OrderRecord) -> None:
-    if order.status != "payment_reported":
-        raise ApiError("PAYMENT_REJECTION_NOT_ALLOWED", status_code=409)
-
-
 def require_business_delivery_allowed(order: OrderRecord) -> None:
     if order.status != "payment_confirmed":
         raise ApiError("DELIVERY_NOT_ALLOWED", status_code=409)

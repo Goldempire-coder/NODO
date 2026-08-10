@@ -245,8 +245,8 @@ def test_business_disputed_attention_opens_a_bucket_that_contains_disputes() -> 
     assert 'order.status === "disputed"' in dashboard
     assert '<span>Requieren accion</span>' in dashboard
     assert 'onClick={() => void loadBusinessOrders("open")}' in dashboard
-    assert 'const verificationCount = businessOrders.filter((order) => order.status === "payment_reported").length;' in orders_screen
-    assert '<strong>{verificationCount}</strong>' in orders_screen
+    assert 'count={filterCount("payment_reported")}' in orders_screen
+    assert 'onSelect={(filter) => void loadBusinessOrders(filter)}' in orders_screen
 
 
 def test_business_cancellation_attention_reconciles_detail_and_open_order_list() -> None:

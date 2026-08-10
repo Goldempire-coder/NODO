@@ -11,10 +11,20 @@
   `payment_reported -> payment_confirmed` and consumes publication credit once.
 - Business writing `recibido` in chat creates only a message and notification.
 - Business cannot use simple cancellation after `payment_reported`.
+- Business cannot create a new `payment_rejected` transition after
+  `payment_reported`; `Reportar problema con pago` atomically opens a dispute
+  with reason `payment_not_received_or_incomplete`.
+- Historical `payment_rejected` orders remain readable and can be escalated to
+  dispute without deleting their timeline.
 - Pre-report cancel/expiration releases operational capacity once.
 - `payment_reported`, `payment_rejected`, `payment_confirmed`, `delivered` and
   `disputed` retain operational capacity.
 - Manual and automatic completion consume operational capacity once.
+- Terminal `completed|cancelled` after `paid_reported_at` extends the business
+  publication pause to at least `database_now + 15 minutes` without changing
+  the terminal credit, capacity or ad effect.
+- Cancellation before payment reporting does not create the cooldown; an Admin
+  block or restriction still wins after the cooldown expires.
 
 ## Secure Receiver Details
 

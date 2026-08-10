@@ -235,6 +235,7 @@ def _configure_test_state(app: FastAPI) -> None:
         audit_writer=app.state.audit_writer,
         dispute_repository=app.state.dispute_repository,
         job_repository=app.state.job_repository,
+        business_repository=app.state.business_repository,
     )
     app.state.chat_repository = InMemoryChatRepository()
     app.state.support_repository = InMemorySupportRepository()

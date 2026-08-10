@@ -244,14 +244,13 @@ def _confirm_payment(client: TestClient, owner: dict, order_id: str, key: str) -
     return response.json()["data"]
 
 
-def _reject_payment(client: TestClient, owner: dict, order_id: str, key: str) -> dict:
-    response = client.post(
-        f"/api/v1/business/orders/{order_id}/reject-payment-report",
-        headers={**_headers(owner, key), "Content-Type": "application/json"},
-        json={"reason": "Referencia no coincide"},
-    )
-    assert response.status_code == 200, response.text
-    return response.json()["data"]
+def _seed_historical_payment_rejected(client: TestClient, order_id: str) -> None:
+    order = client.app.state.order_repository.get_by_id(order_id)
+    report = client.app.state.order_repository.get_submitted_payment_report_for_order(order_id)
+    assert order is not None
+    assert report is not None
+    client.app.state.order_repository.update_payment_report(report, status="rejected")
+    client.app.state.order_repository.update_order(order, status="payment_rejected")
 
 
 def _mark_delivered(client: TestClient, owner: dict, order_id: str, key: str) -> dict:
@@ -1438,11 +1437,110 @@ def test_open_dispute_from_payment_reported_keeps_credits_and_ad_state_and_enabl
     assert client.app.state.dispute_repository.events[-1].event_type == "dispute_opened"
 
 
+def test_business_reports_payment_problem_with_exact_reason_and_idempotency() -> None:
+    client = _client()
+    owner, business, ad, _, order = _seed_reported_order(client, owner_id=832, remitter_id=833)
+    other_owner = _login(client, 834, "other_business_owner")
+    _approved_business_with_method(client, other_owner, credits=1)
+    wallet_before = client.app.state.ad_repository.get_wallet(business["id"])
+    report_before = client.app.state.order_repository.get_submitted_payment_report_for_order(order["id"])
+    reservation_before = client.app.state.capacity_repository.get_reservation(order["id"])
+    payload = {
+        "reason": "payment_not_received_or_incomplete",
+        "description": "El pago reportado no aparece completo.",
+        "evidence_file_ids": [],
+    }
+
+    invalid_reason = client.post(
+        f"/api/v1/orders/{order['id']}/disputes",
+        headers={**_headers(owner, "business_payment_problem_invalid"), "Content-Type": "application/json"},
+        json={**payload, "reason": "amount_incorrect"},
+    )
+    foreign = client.post(
+        f"/api/v1/orders/{order['id']}/disputes",
+        headers={**_headers(other_owner, "business_payment_problem_foreign"), "Content-Type": "application/json"},
+        json=payload,
+    )
+    assert invalid_reason.status_code == 400
+    assert invalid_reason.json()["error"]["code"] == "DISPUTE_REASON_REQUIRED"
+    assert foreign.status_code == 404
+    assert foreign.json()["error"]["code"] == "ORDER_NOT_FOUND"
+    assert client.app.state.order_repository.get_by_id(order["id"]).status == "payment_reported"
+    assert client.app.state.dispute_repository.disputes == {}
+
+    opened = client.post(
+        f"/api/v1/orders/{order['id']}/disputes",
+        headers={**_headers(owner, "business_payment_problem"), "Content-Type": "application/json"},
+        json=payload,
+    )
+    replay = client.post(
+        f"/api/v1/orders/{order['id']}/disputes",
+        headers={**_headers(owner, "business_payment_problem"), "Content-Type": "application/json"},
+        json=payload,
+    )
+    mismatch = client.post(
+        f"/api/v1/orders/{order['id']}/disputes",
+        headers={**_headers(owner, "business_payment_problem"), "Content-Type": "application/json"},
+        json={**payload, "description": "Una carga distinta."},
+    )
+
+    assert opened.status_code == 201, opened.text
+    assert opened.json()["data"]["dispute"]["reason"] == "payment_not_received_or_incomplete"
+    assert opened.json()["data"]["dispute"]["previous_order_status"] == "payment_reported"
+    assert replay.status_code == 201
+    assert replay.json()["data"]["dispute"]["id"] == opened.json()["data"]["dispute"]["id"]
+    assert mismatch.status_code == 409
+    assert mismatch.json()["error"]["code"] == "IDEMPOTENCY_PAYLOAD_MISMATCH"
+    assert client.app.state.order_repository.get_by_id(order["id"]).status == "disputed"
+    assert client.app.state.order_repository.get_submitted_payment_report_for_order(order["id"]).status == report_before.status == "submitted"
+    assert client.app.state.ad_repository.get_ad(ad["id"]).status == "in_order"
+    assert client.app.state.capacity_repository.get_reservation(order["id"]).status == reservation_before.status == "reserved"
+    wallet_after = client.app.state.ad_repository.get_wallet(business["id"])
+    assert wallet_after.blocked_credits == wallet_before.blocked_credits
+    assert wallet_after.consumed_credits == wallet_before.consumed_credits
+    assert len(client.app.state.dispute_repository.disputes) == 1
+    assert len([event for event in client.app.state.dispute_repository.events if event.event_type == "dispute_opened"]) == 1
+    dispute_jobs = [
+        job
+        for job in client.app.state.job_repository.notification_jobs.values()
+        if job.notification_type == "order_disputed_parties_admin" and job.order_id == order["id"]
+    ]
+    assert len(dispute_jobs) == 4
+    serialized_jobs = json.dumps([job.__dict__ for job in dispute_jobs], default=str)
+    assert payload["description"] not in serialized_jobs
+    assert payload["reason"] not in serialized_jobs
+    assert "account_value" not in serialized_jobs
+    assert "storage_path" not in serialized_jobs
+
+
+def test_business_payment_problem_requires_submitted_payment_report() -> None:
+    client = _client()
+    owner, _, _, _, order = _seed_reported_order(client, owner_id=835, remitter_id=836)
+    report = client.app.state.order_repository.get_submitted_payment_report_for_order(order["id"])
+    assert report is not None
+    client.app.state.order_repository.payment_reports.pop(report.id)
+
+    response = client.post(
+        f"/api/v1/orders/{order['id']}/disputes",
+        headers={**_headers(owner, "business_payment_problem_missing_report"), "Content-Type": "application/json"},
+        json={
+            "reason": "payment_not_received_or_incomplete",
+            "description": "El pago reportado no aparece completo.",
+            "evidence_file_ids": [],
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "PAYMENT_REPORT_NOT_FOUND"
+    assert client.app.state.order_repository.get_by_id(order["id"]).status == "payment_reported"
+    assert client.app.state.dispute_repository.disputes == {}
+
+
 def test_open_dispute_effects_for_rejected_confirmed_and_delivered_states_are_contract_safe() -> None:
     client = _client()
 
     owner_rejected, business_rejected, ad_rejected, remitter_rejected, order_rejected = _seed_reported_order(client, owner_id=840, remitter_id=841)
-    _reject_payment(client, owner_rejected, order_rejected["id"], "reject_for_dispute")
+    _seed_historical_payment_rejected(client, order_rejected["id"])
     wallet_rejected = client.app.state.ad_repository.get_wallet(business_rejected["id"])
     rejected = client.post(
         f"/api/v1/orders/{order_rejected['id']}/disputes",

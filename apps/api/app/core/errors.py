@@ -108,7 +108,7 @@ ERROR_MESSAGES = {
     "PAYMENT_REPORT_NOT_ALLOWED": "La orden no permite reportar pago en este estado.",
     "PAYMENT_REPORT_NOT_FOUND": "No encontramos un reporte de pago pendiente para esta orden.",
     "PAYMENT_CONFIRMATION_NOT_ALLOWED": "La orden no permite confirmar pago en este estado.",
-    "PAYMENT_REJECTION_NOT_ALLOWED": "La orden no permite rechazar el reporte de pago en este estado.",
+    "PAYMENT_REJECTION_NOT_ALLOWED": "Esta acción ya no está disponible. Reporta el problema con el pago para que NODO lo revise.",
     "DELIVERY_NOT_ALLOWED": "La orden no permite marcar entrega en este estado.",
     "PAYMENT_EVIDENCE_REQUIRED": "Debes subir el comprobante de pago para este metodo.",
     "PAYMENT_REPORT_ALREADY_SUBMITTED": "Esta orden ya tiene un reporte de pago enviado.",

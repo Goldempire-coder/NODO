@@ -34,7 +34,7 @@ Acciones criticas:
 - credit_payment_create;
 - credit_tx_submit;
 - business_order_confirm_payment;
-- business_order_reject_payment_report;
+- business_order_dispute_open;
 - business_order_mark_delivered.
 
 ## Campos permitidos

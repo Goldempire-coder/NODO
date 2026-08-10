@@ -119,9 +119,13 @@ order.status:
 - cancelled
 - disputed
 
-Regla slice_06:
-- `payment_rejected` es estado persistente canonico cuando el negocio rechaza un reporte de pago.
-- `payment_rejected` no debe devolverse automaticamente a `waiting_payment`.
+Regla C0:
+- `payment_rejected` es estado persistente legacy/historico. Permanece en el
+  enum para filas existentes, filtros, timeline y recuperacion Admin.
+- Ninguna nueva accion del negocio desde `payment_reported` debe crearlo; el
+  problema de pago abre `disputed`.
+- Una fila historica `payment_rejected` no vuelve a `waiting_payment`; se escala
+  a disputa.
 
 order.completion_reason:
 - manual_confirmed
@@ -135,11 +139,17 @@ order.cancel_reason:
 
 order.dispute_reason:
 - business_no_payment_confirmation
+- payment_not_received_or_incomplete
 - business_confirmed_payment_but_not_delivered
 - payment_mobile_not_received
 - amount_incorrect
 - wrong_receiver_data
 - other
+
+`payment_not_received_or_incomplete` corresponde al problema Zelle/USDT
+reportado por el negocio desde `payment_reported`. `payment_mobile_not_received`
+corresponde al flujo posterior de entrega de Pago Movil; no sustituye la razon
+de problema con el pago inicial.
 
 message.sender_role:
 - remitter
@@ -192,7 +202,9 @@ payment_report.status:
 
 Regla slice_06:
 - `submitted -> accepted` cuando el negocio confirma pago recibido.
-- `submitted -> rejected` cuando el negocio rechaza reporte de pago.
+- `submitted -> rejected` queda reservado para datos/operaciones legacy. La
+  apertura nueva de disputa desde `payment_reported` conserva `submitted` hasta
+  resolucion Admin.
 - `corrected` queda para flujo futuro.
 
 credits_ledger.type:

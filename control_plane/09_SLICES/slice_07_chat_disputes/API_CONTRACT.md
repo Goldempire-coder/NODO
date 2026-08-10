@@ -215,6 +215,10 @@ Request:
 }
 ```
 
+Este ejemplo corresponde a una disputa de entrega de Pago Movil desde
+`delivered`. Para un problema Zelle/USDT iniciado por el negocio desde
+`payment_reported`, la razon es `payment_not_received_or_incomplete`.
+
 Allowed actors:
 
 - Remitter owner.

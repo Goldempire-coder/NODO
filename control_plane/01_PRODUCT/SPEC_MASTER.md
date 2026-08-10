@@ -709,7 +709,6 @@ created -> waiting_payment
 waiting_payment -> payment_reported
 waiting_payment -> cancelled
 payment_reported -> payment_confirmed
-payment_reported -> payment_rejected
 payment_reported -> disputed
 payment_rejected -> disputed
 payment_confirmed -> delivered
@@ -720,6 +719,11 @@ delivered -> completed
 disputed -> completed
 disputed -> cancelled
 ```
+
+`payment_reported -> disputed` incluye la accion del negocio `Reportar problema
+con pago` con razon `payment_not_received_or_incomplete`. La transicion
+`payment_reported -> payment_rejected` queda prohibida para nuevas operaciones;
+`payment_rejected` permanece en el enum solo para datos historicos.
 
 ### 7.2 Transiciones prohibidas
 

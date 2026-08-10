@@ -10,8 +10,12 @@ Todas las rutas usan prefijo `/api/v1`.
 - `GET /api/v1/business/orders/{id}`
 - `POST /api/v1/business/orders/{id}/confirm-payment`
 - `POST /api/v1/business/orders/{id}/cannot-attend`
-- `POST /api/v1/business/orders/{id}/reject-payment-report`
+- `POST /api/v1/orders/{id}/disputes` (`Reportar problema con pago`)
 - `POST /api/v1/business/orders/{id}/mark-delivered`
+
+`POST /api/v1/business/orders/{id}/reject-payment-report` is a legacy route.
+It must not create new `payment_rejected` transitions and, after C1, returns
+`PAYMENT_REJECTION_NOT_ALLOWED` for new attempts.
 
 ## Headers comunes
 
@@ -66,7 +70,8 @@ No expone `storage_path`, tokens, secretos ni instrucciones completas innecesari
   "auto_complete_at": "timestamp|null",
   "capabilities": {
     "can_confirm_payment": true,
-    "can_reject_payment_report": true,
+    "can_open_dispute": true,
+    "can_reject_payment_report": false,
     "can_mark_delivered": false,
     "receiver_details_shared": false,
     "can_decline_before_payment": false
@@ -299,44 +304,35 @@ Errores:
 - `RATE_LIMITED`
 - `VALIDATION_ERROR`
 
-## POST /api/v1/business/orders/{id}/reject-payment-report
+## POST /api/v1/orders/{id}/disputes - Reportar problema con pago
 
-Rechaza el reporte de pago del remitente.
+Abre una disputa formal cuando el negocio no identifica el pago completo. El
+contrato canonico del recurso vive en `DISPUTES_API.md`.
 
 Request:
 
 ```json
 {
-  "reason": "Referencia no encontrada en la cuenta"
+  "reason": "payment_not_received_or_incomplete",
+  "description": "Texto breve y seguro"
 }
 ```
 
 Response 200:
 
-```json
-{
-  "data": {
-    "order": {
-      "id": "uuid",
-      "status": "payment_rejected"
-    },
-    "payment_report": {
-      "id": "uuid",
-      "status": "rejected"
-    },
-    "disclaimer": "Rechazar el reporte no libera automaticamente el anuncio ni los creditos. El caso queda con trazabilidad para correccion, soporte o disputa futura."
-  },
-  "request_id": "req_..."
-}
-```
+Usa exactamente la proyeccion definida por
+`DISPUTES_API.md#POST /api/v1/orders/{id}/disputes`. La disputa devuelta queda
+`open`, con `previous_order_status = payment_reported`; la orden queda
+`disputed`. Este contrato no define un wrapper alternativo.
 
-Decision canonica:
+Decision canonica futura:
 
 ```txt
-payment_reported -> payment_rejected
+payment_reported -> disputed
 ```
 
-No se devuelve automaticamente a `waiting_payment`.
+No se devuelve a `waiting_payment`, no se cierra y no se marca unilateralmente
+el reporte como rechazado.
 
 Rules:
 
@@ -344,16 +340,17 @@ Rules:
 - Solo negocio dueno.
 - Requiere `orders.status = payment_reported`.
 - Requiere `payment_reports.status = submitted` existente.
-- `reason` obligatorio.
-- Cambia `orders.status = payment_rejected`.
-- Cambia `payment_reports.status = rejected`.
-- Crea `order_state_events`.
-- Audita `payment_report_rejected`.
+- `reason` debe ser `payment_not_received_or_incomplete`.
+- Crea una disputa `open` y cambia `orders.status = disputed` en una sola
+  transaccion junto con eventos y auditoria.
+- Mantiene `payment_reports.status = submitted` hasta resolucion Admin.
+- Audita `dispute_opened` sin exponer datos sensibles.
 - No consume creditos.
-- Creditos siguen bloqueados hasta resolucion, cancelacion o disputa futura.
+- Creditos y capacidad siguen bloqueados hasta resolucion Admin.
 - `ad.status` sigue `in_order`.
 - No libera el anuncio.
 - No devuelve orden al marketplace.
+- El chat permanece investigable.
 
 Errores:
 
@@ -363,13 +360,21 @@ Errores:
 - `ORDER_NOT_OWNED`
 - `ORDER_STATUS_INVALID`
 - `PAYMENT_REPORT_NOT_FOUND`
-- `PAYMENT_REJECTION_NOT_ALLOWED`
-- `ADMIN_REASON_REQUIRED`
+- `DISPUTE_NOT_ALLOWED`
+- `DISPUTE_REASON_REQUIRED`
 - `IDEMPOTENCY_KEY_REQUIRED`
 - `IDEMPOTENCY_CONFLICT`
 - `IDEMPOTENCY_PAYLOAD_MISMATCH`
 - `RATE_LIMITED`
 - `VALIDATION_ERROR`
+
+## POST /api/v1/business/orders/{id}/reject-payment-report - Legacy
+
+La ruta se conserva temporalmente por compatibilidad de clientes mientras C1 y
+C2 se despliegan. No es una transicion permitida: una nueva solicitud responde
+`409 PAYMENT_REJECTION_NOT_ALLOWED` con copy neutral. No modifica orden, reporte
+de pago, credito, capacidad, anuncio, eventos, auditoria ni notificaciones.
+`payment_rejected` permanece en DTOs y filtros solo para ordenes historicas.
 
 ## POST /api/v1/business/orders/{id}/mark-delivered
 
@@ -463,7 +468,7 @@ Aplicar rate limit backend por:
 
 ## Idempotencia
 
-Para `confirm-payment`, `reject-payment-report` y `mark-delivered`:
+Para `confirm-payment`, apertura de disputa y `mark-delivered`:
 
 - `Idempotency-Key` obligatorio.
 - Misma key + mismo payload devuelve mismo resultado.
