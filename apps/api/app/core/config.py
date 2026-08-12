@@ -119,6 +119,10 @@ def _read_bool(source: Mapping[str, str], key: str, default: bool) -> bool:
 
 def _release_metadata(source: Mapping[str, str]) -> tuple[str, str]:
     app_env = source.get("APP_ENV", "local")
+    release_commit_sha = source.get("NODO_RELEASE_COMMIT_SHA", "").strip().lower()
+    if GIT_COMMIT_SHA_PATTERN.fullmatch(release_commit_sha):
+        return f"{app_env}-{release_commit_sha[:7]}", release_commit_sha
+
     railway_commit_sha = source.get("RAILWAY_GIT_COMMIT_SHA", "").strip().lower()
     if GIT_COMMIT_SHA_PATTERN.fullmatch(railway_commit_sha):
         return f"{app_env}-{railway_commit_sha[:7]}", railway_commit_sha

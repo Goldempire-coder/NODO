@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 
 def _set_env() -> None:
+    os.environ.pop("NODO_RELEASE_COMMIT_SHA", None)
     os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
     os.environ.pop("RAILWAY_DEPLOYMENT_ID", None)
     os.environ["APP_ENV"] = "test"
@@ -73,6 +74,22 @@ def test_railway_git_sha_is_authoritative_for_version_and_health_aliases() -> No
             assert response.json()["data"]["build_id"] == commit_sha
     finally:
         os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
+
+
+def test_manual_release_sha_overrides_stale_railway_git_sha_for_cli_deploys() -> None:
+    settings = load_settings(
+        {
+            "APP_ENV": "staging",
+            "NODO_RELEASE_COMMIT_SHA": "b" * 40,
+            "RAILWAY_GIT_COMMIT_SHA": "a" * 40,
+            "RAILWAY_DEPLOYMENT_ID": "deployment-id",
+            "DATABASE_URL": "postgresql://user:password@127.0.0.1:1/nodo",
+            "REDIS_URL": "redis://127.0.0.1:1/0",
+        }
+    )
+
+    assert settings.app_version == "staging-bbbbbbb"
+    assert settings.build_id == "b" * 40
 
 
 def test_local_version_metadata_has_clear_fallback_without_sha_or_labels() -> None:

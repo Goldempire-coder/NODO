@@ -81,6 +81,7 @@ Railway must receive backend-only env vars:
 
 - APP_ENV
 - APP_NAME
+- NODO_RELEASE_COMMIT_SHA (explicit release source for CLI/manual deploys)
 - RAILWAY_GIT_COMMIT_SHA (provided automatically for GitHub-triggered deploys)
 - APP_VERSION (optional non-Railway fallback)
 - NODO_BUILD_ID (optional non-Railway fallback)
@@ -114,8 +115,9 @@ Railway must receive backend-only env vars:
 - STRIPE_WEBHOOK_SECRET
 - Storage backend secrets
 
-When `RAILWAY_GIT_COMMIT_SHA` is a valid commit SHA, it is authoritative over
-the manual fallback labels. Runtime metadata is exposed as
+When `NODO_RELEASE_COMMIT_SHA` is a valid commit SHA, it is authoritative for
+CLI/manual deploys. Otherwise, when `RAILWAY_GIT_COMMIT_SHA` is a valid commit
+SHA, it is authoritative over the manual fallback labels. Runtime metadata is exposed as
 `version=<APP_ENV>-<short_sha>` and `build_id=<full_sha>` by both root and
 `/api/v1` health/version routes. A Railway deployment without a valid Git SHA
 reports `<APP_ENV>-unknown` and `unknown` rather than reusing stale manual
