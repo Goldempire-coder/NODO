@@ -241,6 +241,8 @@ Rules:
 
 - `Idempotency-Key` obligatorio.
 - Solo negocio dueno.
+- No requiere desbloquear el PIN operativo. La sesion autenticada, ownership,
+  estado de la orden e idempotencia siguen siendo autoridad backend.
 - Requiere `orders.status = payment_reported`.
 - Requiere `payment_reports.status = submitted` existente.
 - Solo este endpoint oficial confirma recepcion y consume credito. Un mensaje de

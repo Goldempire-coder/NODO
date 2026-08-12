@@ -39,7 +39,6 @@ def confirm_business_payment(
     user: UserRecord = Depends(require_current_user_with_terms),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
-    _require_business_pin(request, user)
     return {
         "data": order_service(request).confirm_business_payment(user=user, order_id=order_id, payload=payload, request_id=request_id(request), idempotency_key=idempotency_key),
         "request_id": request_id(request),

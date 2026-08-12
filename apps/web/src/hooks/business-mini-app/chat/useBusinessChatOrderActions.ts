@@ -60,7 +60,10 @@ export function useBusinessChatOrderActions({
     const actionLabel = action === "confirm-payment"
       ? "confirmar Zelle recibido"
       : "marcar Pago Movil enviado";
-    if (!requireUnlockedBusinessPin({ action: actionLabel, business, setNotice, setView })) {
+    if (
+      action === "mark-delivered"
+      && !requireUnlockedBusinessPin({ action: actionLabel, business, setNotice, setView })
+    ) {
       return;
     }
     if (action === "confirm-payment" && !chatCapabilities.can_confirm_payment) {
@@ -100,7 +103,10 @@ export function useBusinessChatOrderActions({
       if (!session.isCurrentChatSession(targetOrderId, targetSessionEpoch)) {
         return;
       }
-      if (routeBusinessPinError({ action: actionLabel, error, setNotice, setView })) {
+      if (
+        action === "mark-delivered"
+        && routeBusinessPinError({ action: actionLabel, error, setNotice, setView })
+      ) {
         return;
       }
       setNotice(error instanceof Error ? error.message : "No pudimos operar la orden.");

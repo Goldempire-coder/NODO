@@ -367,3 +367,13 @@ def test_order_chat_actions_refresh_in_place_without_abbreviated_identifiers() -
     assert "Copiar identificacion" in business_settings
     back_css = global_css.split(".topbar-back.native-chat-back", 1)[1].split("}", 1)[0]
     assert "0 8px 24px" not in back_css
+
+
+def test_confirm_payment_in_chat_does_not_require_business_pin_unlock() -> None:
+    actions = _read(
+        "apps/web/src/hooks/business-mini-app/chat/useBusinessChatOrderActions.ts"
+    )
+
+    assert 'action === "mark-delivered"' in actions
+    assert 'action === "mark-delivered"\n      && !requireUnlockedBusinessPin' in actions
+    assert 'action === "confirm-payment"\n      && !requireUnlockedBusinessPin' not in actions

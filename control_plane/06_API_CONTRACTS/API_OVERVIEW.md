@@ -101,8 +101,9 @@ Reglas:
 - El PIN pertenece al `business_access_link`, no al dispositivo ni al frontend.
 - El backend guarda hash, no PIN en claro.
 - Crear/editar metodos de pago, publicar/editar/pausar/reactivar/republicar
-  anuncios, comprar creditos, aplicar referidos y confirmar/reportar
-  problema/entregar ordenes requieren PIN configurado y desbloqueado.
+  anuncios, comprar creditos, aplicar referidos y reportar problema/entregar
+  ordenes requieren PIN configurado y desbloqueado. Confirmar un pago recibido
+  desde el flujo P2P no requiere desbloquear el PIN.
 - Si el PIN falta, esta bloqueado o no esta desbloqueado, las mutaciones sensibles responden `423` con codigo `BUSINESS_PIN_NOT_SET`, `BUSINESS_PIN_LOCKED` o `BUSINESS_PIN_REQUIRED`.
 - Intentos invalidos responden `BUSINESS_PIN_INVALID`, incrementan contador seguro y pueden bloquear temporalmente el link.
 - Logs y audit events nunca deben contener el PIN en claro.

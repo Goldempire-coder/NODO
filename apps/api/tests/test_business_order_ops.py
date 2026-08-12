@@ -444,6 +444,28 @@ def test_confirm_payment_consumes_once_accepts_report_archives_ad_and_sets_deadl
     assert JWT_REFRESH_SECRET not in combined
 
 
+def test_confirm_payment_does_not_require_an_unlocked_business_pin() -> None:
+    client = _client()
+    owner, business, _, _, order = _seed_reported_order(
+        client, owner_id=714, remitter_id=715
+    )
+    access_link = client.app.state.business_repository.get_access_link_for_business_user(
+        business_id=business["id"],
+        user_id=owner["user"]["id"],
+    )
+    assert access_link is not None
+    client.app.state.business_repository.lock_access_link_pin(link_id=access_link.id)
+
+    response = client.post(
+        f"/api/v1/business/orders/{order['id']}/confirm-payment",
+        headers={**_headers(owner, "confirm_without_pin"), "Content-Type": "application/json"},
+        json={"reason": "Pago recibido"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["order"]["status"] == "payment_confirmed"
+
+
 def test_stale_per_process_auth_cache_cannot_confirm_payment_after_user_block() -> None:
     from app.shared.cache import InMemoryTTLCache
 
