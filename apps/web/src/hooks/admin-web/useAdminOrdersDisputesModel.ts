@@ -97,7 +97,7 @@ export function useAdminOrdersDisputesModel({
       async () => {
         const opened = await openAdminOrderDispute(request, order.id, normalizedReason, openKey);
         try {
-          await resolveAdminDispute<Record<string, unknown>>(
+          await resolveAdminDispute(
             request,
             opened.dispute.id,
             resolutionType,
@@ -146,4 +146,7 @@ export function useAdminOrdersDisputesModel({
   };
 }
 
-export type { AdminWebDisputeDetail, AdminWebOrderDetail } from "./adminOrdersDisputesTypes";
+export type {
+  AdminDisputeDetailResponse as AdminWebDisputeDetail,
+  AdminOrderDetailResponse as AdminWebOrderDetail
+} from "../../types/admin";

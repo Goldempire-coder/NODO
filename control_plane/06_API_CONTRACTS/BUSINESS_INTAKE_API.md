@@ -6,14 +6,15 @@ API para Bot Registro Negocios y Panel Admin Web.
 
 ## Bot endpoints
 
-### POST /api/v1/business-intake/telegram/webhook/{secret}
+### POST /api/v1/business-intake/telegram/webhook
 
 Endpoint canonico para el Bot Registro Negocios separado.
 
 Auth/secret:
-- `{secret}` debe derivarse/verificarse contra `BUSINESS_INTAKE_BOT_TOKEN`.
+- `X-Telegram-Bot-Api-Secret-Token` debe derivarse/verificarse contra `BUSINESS_INTAKE_BOT_TOKEN`. `X-NODO-Bot-Webhook-Secret` queda como alias interno transitorio.
 - `BOT_TOKEN` pertenece al bot cliente y no es valido en este endpoint.
 - Si `BUSINESS_INTAKE_BOT_TOKEN` no esta configurado, responder `TELEGRAM_BOT_NOT_CONFIGURED`.
+- `POST /api/v1/business-intake/telegram/webhook/{secret}` es compatibilidad legacy temporal. Debe retirarse despues de cambiar y verificar la configuracion Telegram en staging; no debe usarse en nuevas integraciones.
 
 Payload:
 - Update Telegram bruto firmado por el secret del webhook.

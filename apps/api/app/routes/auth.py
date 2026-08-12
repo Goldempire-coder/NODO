@@ -75,12 +75,20 @@ def auth_admin_login(payload: AdminCredentialLoginRequest, request: Request) -> 
 @router.post("/auth/refresh")
 def refresh(payload: RefreshRequest, request: Request) -> dict:
     service = _auth_service(request)
-    data = service.refresh(refresh_token=payload.refresh_token, request_id=_request_id(request))
+    data = service.refresh(
+        refresh_token=payload.refresh_token,
+        request_id=_request_id(request),
+        ip_address=request.client.host if request.client else None,
+    )
     return {"data": data, "request_id": _request_id(request)}
 
 
 @router.post("/auth/logout")
 def logout(payload: LogoutRequest, request: Request) -> dict:
     service = _auth_service(request)
-    data = service.logout(refresh_token=payload.refresh_token, request_id=_request_id(request))
+    data = service.logout(
+        refresh_token=payload.refresh_token,
+        request_id=_request_id(request),
+        ip_address=request.client.host if request.client else None,
+    )
     return {"data": data, "request_id": _request_id(request)}

@@ -88,6 +88,14 @@ export function writeAuthSession(surface: AuthSurface, session: StoredAuthSessio
   }
 }
 
+export function updateAuthSessionUser(surface: AuthSurface, user: PublicUser) {
+  const current = readAuthSession(surface);
+  if (!current) {
+    return;
+  }
+  writeAuthSession(surface, { ...current, user });
+}
+
 export function clearAuthSession(surface: AuthSurface) {
   if (!canUseSessionStorage()) {
     return;

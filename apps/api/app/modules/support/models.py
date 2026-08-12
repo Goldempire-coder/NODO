@@ -42,7 +42,6 @@ SUPPORT_CATEGORIES = {
 SUPPORT_PRIORITIES = {"low", "normal", "high", "urgent"}
 SUPPORT_MESSAGE_VISIBILITIES = {"participants", "support_internal", "admin_internal"}
 STRUCTURED_OPERATION_REPORT = "structured_operation_report"
-ALLOWED_SUPPORT_ATTACHMENT_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 MAX_SUPPORT_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024
 
 

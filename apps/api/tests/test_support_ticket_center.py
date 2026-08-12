@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -50,6 +51,8 @@ from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.support.models import ACTIVE_SUPPORT_STATUSES  # noqa: E402
 from app.modules.support.postgres_repository import PostgresSupportRepository  # noqa: E402
+from app.shared.keyset_pagination import encode_keyset_cursor  # noqa: E402
+from photo_test_data import photo_bytes, png_bytes  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -848,7 +851,7 @@ def test_resolved_and_closed_support_tickets_are_read_only_and_preserve_evidence
     uploaded = client.post(
         f"/api/v1/support/tickets/{ticket['id']}/attachments",
         headers=_headers(remitter, "archived_evidence_attachment"),
-        files={"file": ("evidence.png", b"safe-evidence", "image/png")},
+        files={"file": ("evidence.png", png_bytes(b"safe-evidence"), "image/png")},
     )
     assert uploaded.status_code == 201, uploaded.text
     evidence_message_id = uploaded.json()["data"]["message"]["id"]
@@ -1079,7 +1082,7 @@ def test_support_status_groups_are_filtered_before_the_first_50_for_all_surfaces
     assert client_active.status_code == 200, client_active.text
     assert len(client_active.json()["data"]["items"]) == 50
     assert all(item["status"] in ACTIVE_SUPPORT_STATUSES for item in client_active.json()["data"]["items"])
-    assert client_active.json()["data"]["next_cursor"] is not None
+    assert client_active.json()["data"]["next_cursor"] is None
 
     invalid_group = client.get(
         "/api/v1/support/tickets?status_group=unknown",
@@ -1133,9 +1136,9 @@ def test_postgres_support_status_group_is_applied_before_limit(monkeypatch) -> N
 
     normalized_sql = " ".join(captured["sql"].split())
     assert "status = any(%s)" in normalized_sql
-    assert normalized_sql.index("status = any(%s)") < normalized_sql.index("order by updated_at desc limit %s")
+    assert normalized_sql.index("status = any(%s)") < normalized_sql.index("order by updated_at desc, id desc limit %s")
     assert set(captured["params"][0]) == ACTIVE_SUPPORT_STATUSES
-    assert captured["params"][-1] == 50
+    assert captured["params"][-1] == 51
 
 
 def test_support_resolution_notifications_are_deduped_and_safe() -> None:
@@ -1265,7 +1268,7 @@ def test_support_attachments_are_private_limited_and_signed_url_not_persisted() 
     valid = client.post(
         f"/api/v1/support/tickets/{ticket['id']}/attachments",
         headers=_headers(remitter, "support_attachment"),
-        files={"file": ("proof.png", b"proof", "image/png")},
+        files={"file": ("proof.png", png_bytes(b"support-proof"), "image/png")},
     )
     assert valid.status_code == 201, valid.text
     upload_payload = valid.json()["data"]
@@ -1312,3 +1315,101 @@ def test_support_attachments_are_private_limited_and_signed_url_not_persisted() 
     assert "support_attachment_uploaded" in _events(client)
     assert "support_message_created" in _events(client)
     assert "support_attachment_viewed" in _events(client)
+
+
+@pytest.mark.parametrize(
+    ("image_format", "mime_type", "expected_extension"),
+    [
+        ("JPEG", "image/jpeg", ".jpg"),
+        ("PNG", "image/png", ".png"),
+        ("WEBP", "image/webp", ".webp"),
+    ],
+)
+def test_support_attachment_accepts_only_decodable_supported_photos(
+    image_format: str,
+    mime_type: str,
+    expected_extension: str,
+) -> None:
+    client = _client()
+    _owner, _business, _ad, remitter, order = _seed_order(client, base_id=26100)
+    ticket = _create_ticket(client, remitter, scope="client_order", key=f"valid_support_{image_format.lower()}", order_id=order["id"])
+
+    accepted = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/attachments",
+        headers=_headers(remitter, f"valid_support_photo_{image_format.lower()}"),
+        files={
+            "file": (
+                f"photo.{image_format.lower()}",
+                photo_bytes(image_format, image_format.encode("ascii")),
+                mime_type,
+            )
+        },
+    )
+
+    assert accepted.status_code == 201, accepted.text
+    assert accepted.json()["data"]["attachment"]["mime_type"] == mime_type
+    file_id = accepted.json()["data"]["attachment"]["id"]
+    assert client.app.state.support_repository.files[file_id].storage_path.endswith(expected_extension)
+
+
+@pytest.mark.parametrize(
+    ("file_name", "content", "declared_mime", "error_code"),
+    [
+        ("proof.png", b"proof", "image/png", "SUPPORT_ATTACHMENT_INVALID"),
+        ("photo.jpg", b"<html><script>alert(1)</script></html>", "image/jpeg", "SUPPORT_ATTACHMENT_INVALID"),
+        ("document.pdf", b"%PDF-1.7", "application/pdf", "SUPPORT_ATTACHMENT_TYPE_NOT_ALLOWED"),
+        ("document.jpg", b"%PDF-1.7", "image/jpeg", "SUPPORT_ATTACHMENT_INVALID"),
+        ("corrupt.webp", b"RIFF-corrupt-webp", "image/webp", "SUPPORT_ATTACHMENT_INVALID"),
+        ("photo.jpg", png_bytes(b"mismatched-support-photo"), "image/jpeg", "SUPPORT_ATTACHMENT_INVALID"),
+    ],
+)
+def test_support_attachment_rejects_disguised_or_invalid_files_without_persisting(
+    file_name: str,
+    content: bytes,
+    declared_mime: str,
+    error_code: str,
+) -> None:
+    client = _client()
+    _owner, _business, _ad, remitter, order = _seed_order(client, base_id=26200)
+    ticket = _create_ticket(client, remitter, scope="client_order", key="invalid_support_attachment", order_id=order["id"])
+
+    rejected = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/attachments",
+        headers=_headers(remitter, f"reject_support_{error_code.lower()}"),
+        files={"file": (file_name, content, declared_mime)},
+    )
+
+    assert rejected.status_code == 400
+    assert rejected.json()["error"]["code"] == error_code
+    assert rejected.json()["error"]["message"] == "No pudimos aceptar ese archivo. Usa una imagen valida."
+    assert client.app.state.support_repository.files == {}
+    assert not any(path.startswith(f"private/support/{ticket['id']}/") for path in client.app.state.private_storage._objects)
+
+
+def test_support_list_rejects_invalid_cursor_with_400() -> None:
+    client = _client()
+    remitter = _login(client, 26300, "support_cursor_invalid")
+
+    response = client.get(
+        "/api/v1/support/tickets?cursor=not-a-cursor",
+        headers=_bearer(remitter, "support_cursor_invalid"),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"
+
+
+def test_support_list_rejects_structurally_valid_cursor_with_non_uuid_id() -> None:
+    client = _client()
+    remitter = _login(client, 26301, "support_cursor_invalid_uuid")
+    cursor = encode_keyset_cursor(utc_now(), "not-a-uuid")
+
+    response = client.get(
+        "/api/v1/support/tickets",
+        params={"cursor": cursor},
+        headers=_bearer(remitter, "support_cursor_invalid_uuid"),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"
+    assert "not-a-uuid" not in response.text

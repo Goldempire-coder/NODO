@@ -22,6 +22,11 @@ export function Orders({ model }: { model: AdminWebModel }) {
         ))}
       </Table>
       {model.orders.length === 0 ? <Empty text="No hay ordenes para el filtro actual." /> : null}
+      {model.ordersNextCursor ? (
+        <button className="admin-web-button" disabled={model.ordersLoadingMore} type="button" onClick={() => void model.loadMoreOrders()}>
+          {model.ordersLoadingMore ? "Cargando..." : "Cargar mas"}
+        </button>
+      ) : null}
     </section>
   );
 }
@@ -126,6 +131,11 @@ export function Disputes({ model }: { model: AdminWebModel }) {
         ))}
       </Table>
       {model.disputes.length === 0 ? <Empty text="No hay disputas para ese filtro." /> : null}
+      {model.disputesNextCursor ? (
+        <button className="admin-web-button" disabled={model.disputesLoadingMore} type="button" onClick={() => void model.loadMoreDisputes()}>
+          {model.disputesLoadingMore ? "Cargando..." : "Cargar mas"}
+        </button>
+      ) : null}
     </section>
   );
 }

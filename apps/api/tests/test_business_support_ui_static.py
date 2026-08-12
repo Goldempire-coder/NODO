@@ -26,8 +26,8 @@ def test_support_active_and_archived_lists_request_backend_status_groups() -> No
     surface_support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     admin_support_model = _read("apps/web/src/hooks/admin-web/useAdminSupportModel.ts")
 
-    assert 'return `?status_group=${encodeURIComponent(filter)}&limit=50`;' in surface_support_model
-    assert 'return `?status_group=${encodeURIComponent(normalized)}&limit=50`;' in admin_support_model
+    assert 'params.set("status_group", filter);' in surface_support_model
+    assert 'params.set("status_group", normalized);' in admin_support_model
     assert "void filter;" not in surface_support_model
     assert 'normalized === "active" || normalized === "archived"' in admin_support_model
 
@@ -58,22 +58,21 @@ def test_support_reply_draft_is_cleared_only_after_backend_success() -> None:
 def test_business_support_is_a_single_chat_surface_with_active_archive_buckets() -> None:
     support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
-    client_support_screen = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
+    shared_support = _read("apps/web/src/screens/support/SurfaceSupportPrimitives.tsx")
     support_api = _read("apps/web/src/api/support.ts")
     global_css = _read("apps/web/src/app/globals.css")
 
-    assert 'className="business-support"' in support_screen
+    assert 'className="surface-support"' in support_screen
     assert "business-support--typing" not in support_screen
     assert 'className="business-card business-support-thread"' not in support_screen
-    assert "business-support-composer" in support_screen
-    assert "business-support-clip" in support_screen
-    assert "PaperclipIcon" in support_screen
-    assert "fileInputRef.current?.click()" in support_screen
-    assert "business-support-thread-selector" in support_screen
-    assert 'aria-label="Ver conversaciones"' in support_screen
+    assert "SurfaceSupportComposer" in shared_support
+    assert "surface-support-clip" in shared_support
+    assert "PaperclipIcon" in shared_support
+    assert "fileInputRef.current?.click()" in shared_support
+    assert "surface-support-thread-selector" in shared_support
     assert "business-support-tabs" not in support_screen
-    assert "business-support-ticket-list" in support_screen
-    assert "Soporte NODO" in support_screen
+    assert "surface-support-ticket-list" in shared_support
+    assert "Soporte NODO" in shared_support
     assert "Ayuda para tu negocio" not in support_screen
     assert "Soporte Operativo" not in support_screen
     assert "Volver a conversaciones" not in support_screen
@@ -87,40 +86,39 @@ def test_business_support_is_a_single_chat_surface_with_active_archive_buckets()
     assert "closingSupportTicketId" in support_model
     assert "closeOwnSupportTicket" in support_model
     assert "closeSupportTicket" in support_api
-    assert "Cerrar conversacion" in support_screen
-    assert "Cerrar ticket" in client_support_screen
-    assert "Cerrando..." in support_screen
-    assert "Cerrando..." in client_support_screen
-    assert "selectedArchived ? (" in support_screen
-    assert "selectedArchived ? (" in client_support_screen
-    assert ".business-support-composer" in global_css
+    assert "Cerrar conversacion" in shared_support
+    assert "Cerrar ticket" in shared_support
+    assert "Cerrando..." in shared_support
+    assert "!archived ? (" in shared_support
+    assert ".surface-support-composer" in global_css
     assert ".business-support-clip" in global_css
-    assert ".business-support-thread-selector" in global_css
-    assert ".business-support-inbox__actions" in global_css
-    assert ".business-support-new-button" in global_css
+    assert ".surface-support-thread-selector" in global_css
+    assert ".surface-support-inbox__actions" in global_css
+    assert ".surface-support-new-button" in global_css
     assert ".business-support__topbar" not in global_css
     assert "position: sticky" in global_css
-    assert 'className="business-support-new-button"' in support_screen
-    assert "Nuevo" in support_screen
+    assert 'className="surface-support-new-button"' in shared_support
+    assert "Nuevo" in shared_support
 
 
 def test_business_support_mobile_chat_uses_compact_native_sizing() -> None:
     global_css = _read("apps/web/src/app/globals.css")
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
     client_support = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
+    shared_support = _read("apps/web/src/screens/support/SurfaceSupportPrimitives.tsx")
 
     assert "composerFocused" not in support_screen
     assert "business-support--typing" not in support_screen
-    for source in [support_screen, client_support]:
+    for source in [support_screen, client_support, shared_support]:
         assert "business-support-thread__summary" not in source
-        assert "business-support-system-bubble" in source
-        assert "rows={1}" in source
-        assert "SendIcon" in source
-    assert ".business-shell--native-chat .business-support {" in global_css
+    assert "surface-support-system-bubble" in shared_support
+    assert "rows={1}" in shared_support
+    assert "SendIcon" in shared_support
+    assert ".business-shell--native-chat .surface-support {" in global_css
     assert "height: 100%;" in global_css
     assert "grid-template-rows: minmax(0, 1fr);" in global_css
-    assert ".business-support {\n  height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);" in global_css
-    assert ".business-support-thread {\n  min-height: 0;\n  height: 100%;" in global_css
+    assert ".surface-support {\n  height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);" in global_css
+    assert ".surface-support-thread {\n  min-height: 0;\n  height: 100%;" in global_css
     assert "overflow: hidden;" in global_css
     assert "overflow-y: auto;" in global_css
     assert "-webkit-overflow-scrolling: touch;" in global_css
@@ -157,7 +155,7 @@ def test_business_support_keyboard_mode_preserves_layout_and_internal_scroll() -
     assert ".primary-nav--hidden" in global_css
     assert "transform: translateY(calc(112% + env(safe-area-inset-bottom)));" in global_css
     assert ".business-support--typing" not in global_css
-    assert ".business-support-messages {" in global_css
+    assert ".surface-support-messages {" in global_css
     assert "overflow-y: auto;" in global_css
 
 
@@ -194,13 +192,13 @@ def test_business_support_shell_back_returns_from_chat_to_ticket_list() -> None:
 
 
 def test_business_support_upload_picker_and_message_attachment_contract() -> None:
-    support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    shared_support = _read("apps/web/src/screens/support/SurfaceSupportPrimitives.tsx")
     support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     support_api = _read("apps/web/src/api/support.ts")
     support_service = _read("apps/api/app/modules/support/service.py")
 
-    assert 'accept="image/*,application/pdf"' in support_screen
-    assert "capture=" not in support_screen
+    assert 'accept="image/jpeg,image/png,image/webp"' in shared_support
+    assert "capture=" not in shared_support
     assert "const payload = await uploadSupportAttachment" in support_model
     assert "applySupportMessageResult(current, payload.message, payload.ticket)" in support_model
     assert "Promise<SupportMessageResponse>" in support_api
@@ -210,6 +208,7 @@ def test_business_support_upload_picker_and_message_attachment_contract() -> Non
 
 def test_client_support_creates_general_tickets_only_from_support_surface() -> None:
     support_screen = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
+    shared_support = _read("apps/web/src/screens/support/SurfaceSupportPrimitives.tsx")
     client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
 
     assert "const startNewConversation = () => {" in support_screen
@@ -221,15 +220,15 @@ def test_client_support_creates_general_tickets_only_from_support_surface() -> N
     assert "openClientOrderSupport" not in client_model
     support_model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
     assert "ticket.order_id === (input.order_id || null)" in support_model
-    assert 'className="business-support-new-button"' in support_screen
-    assert "Nuevo" in support_screen
-    assert "Ver tickets" in support_screen
+    assert 'className="surface-support-new-button"' in shared_support
+    assert "Nuevo" in shared_support
+    assert 'collectionLabel="tickets"' in support_screen
     assert "No tienes tickets archivados." in support_screen
     assert "Este ticket esta archivado." in support_screen
-    assert "business-support-clip" in support_screen
-    assert 'accept="image/*,application/pdf"' in support_screen
-    assert "supportSenderLabel" in support_screen
-    assert '"Soporte NODO"' in support_screen
+    assert "surface-support-clip" in shared_support
+    assert 'accept="image/jpeg,image/png,image/webp"' in shared_support
+    assert "supportSenderLabel" in shared_support
+    assert '"Soporte NODO"' in shared_support
 
 
 def test_client_support_shell_back_returns_from_ticket_to_ticket_list() -> None:

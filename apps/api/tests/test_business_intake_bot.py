@@ -176,8 +176,11 @@ def _business_webhook_secret() -> str:
 def _business_webhook(client: TestClient, update: dict[str, Any], *, secret: str | None = None) -> Any:
     webhook_secret = secret or _business_webhook_secret()
     return client.post(
-        f"/api/v1/business-intake/telegram/webhook/{webhook_secret}",
-        headers={"X-Request-Id": f"req_business_intake_update_{update.get('update_id', 'missing')}"},
+        "/api/v1/business-intake/telegram/webhook",
+        headers={
+            "X-Telegram-Bot-Api-Secret-Token": webhook_secret,
+            "X-Request-Id": f"req_business_intake_update_{update.get('update_id', 'missing')}",
+        },
         json=update,
     )
 

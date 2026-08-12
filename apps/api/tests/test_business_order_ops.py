@@ -627,3 +627,24 @@ def test_no_chat_or_dispute_endpoints_and_migration_contains_slice_06_constraint
         "payment_reports_order_status_created_idx",
     ]:
         assert expected in migration
+
+
+def test_order_lists_reject_invalid_cursor_with_400() -> None:
+    client = _client()
+    owner = _login(client, 760, "business_cursor_invalid")
+    remitter = _login(client, 761, "client_cursor_invalid")
+    _approved_business_with_method(client, owner)
+
+    mine = client.get(
+        "/api/v1/orders/mine?cursor=not-a-cursor",
+        headers=_bearer(remitter, "client_cursor_invalid"),
+    )
+    business = client.get(
+        "/api/v1/business/orders?cursor=not-a-cursor",
+        headers=_bearer(owner, "business_cursor_invalid"),
+    )
+
+    assert mine.status_code == 400
+    assert mine.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"
+    assert business.status_code == 400, business.text
+    assert business.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"

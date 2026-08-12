@@ -17,6 +17,7 @@ import { useAdminNotificationsModel } from "./admin-web/useAdminNotificationsMod
 import { useAdminInvestigationModel } from "./admin-web/useAdminInvestigationModel";
 import { useAdminInvestigationCaseFileModel } from "./admin-web/useAdminInvestigationCaseFileModel";
 import { useAdminInvestigationCandidatesModel } from "./admin-web/useAdminInvestigationCandidatesModel";
+import { useVisibleAdminPolling } from "./admin-web/useVisibleAdminPolling";
 import type { PublicUser } from "../types/auth";
 
 const ADMIN_BACKGROUND_REFRESH_MS = 15000;
@@ -26,6 +27,9 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
   const [view, setView] = useState<AdminWebView>("dashboard");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("Admin Web separado. Backend RBAC valida cada accion.");
+  const clearNoticeIf = useCallback((expected: string) => {
+    setNotice((current) => current === expected ? "" : current);
+  }, []);
 
   const adminReadable = canReadAdmin(user);
   const adminMutable = canMutateAdmin(user);
@@ -51,6 +55,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     reason: criticalAction.reason,
     request,
     setBusy,
+    clearNoticeIf,
     setNotice,
     setReason: criticalAction.setReason,
     setView
@@ -180,30 +185,24 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     void overview.loadDashboard();
   }, [overview.loadDashboard]);
 
-  useEffect(() => {
-    if (!adminReadable) {
-      return;
+  useVisibleAdminPolling({
+    enabled: adminReadable,
+    intervalMs: ADMIN_BACKGROUND_REFRESH_MS,
+    poll: async (isCurrent) => {
+      await Promise.all([
+        overview.refreshDashboardSnapshot(isCurrent),
+        notifications.panelOpen
+          ? notifications.loadNotifications("unread", isCurrent)
+          : notifications.loadUnreadCount(isCurrent)
+      ]);
     }
-    const interval = window.setInterval(() => {
-      void overview.refreshDashboardSnapshot();
-      if (notifications.panelOpen) {
-        void notifications.loadNotifications("unread");
-      } else {
-        void notifications.loadUnreadCount();
-      }
-    }, ADMIN_BACKGROUND_REFRESH_MS);
-    return () => window.clearInterval(interval);
-  }, [adminReadable, notifications.loadNotifications, notifications.loadUnreadCount, notifications.panelOpen, overview.refreshDashboardSnapshot]);
+  });
 
-  useEffect(() => {
-    if (!adminReadable || view !== "support") {
-      return;
-    }
-    const interval = window.setInterval(() => {
-      void support.refreshSupportWorkspace();
-    }, ADMIN_SUPPORT_REFRESH_MS);
-    return () => window.clearInterval(interval);
-  }, [adminReadable, support.refreshSupportWorkspace, view]);
+  useVisibleAdminPolling({
+    enabled: adminReadable && view === "support",
+    intervalMs: ADMIN_SUPPORT_REFRESH_MS,
+    poll: support.refreshSupportWorkspace
+  });
 
   useEffect(() => {
     if (!adminReadable) {
@@ -271,12 +270,16 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     users: users.users,
     selectedUser: users.selectedUser,
     orders: ordersDisputes.orders,
+    ordersLoadingMore: ordersDisputes.ordersLoadingMore,
+    ordersNextCursor: ordersDisputes.ordersNextCursor,
     selectedOrder: ordersDisputes.selectedOrder,
     orderChatEvidence: ordersDisputes.evidence,
     orderChatEvidenceError: ordersDisputes.error,
     orderChatEvidenceLoading: ordersDisputes.loading,
     orderChatEvidenceLoadingMore: ordersDisputes.loadingMore,
     disputes: ordersDisputes.disputes,
+    disputesLoadingMore: ordersDisputes.disputesLoadingMore,
+    disputesNextCursor: ordersDisputes.disputesNextCursor,
     selectedDispute: ordersDisputes.selectedDispute,
     auditLogs: audit.auditLogs,
     creditPurchases: credits.creditPurchases,
@@ -287,6 +290,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     selectedBusinessIntake: businessIntake.selectedBusinessIntake,
     intakeEditDraft: businessIntake.intakeEditDraft,
     supportTickets: support.supportTickets,
+    supportTicketsLoadingMore: support.supportTicketsLoadingMore,
+    supportTicketsNextCursor: support.supportTicketsNextCursor,
     selectedSupportTicket: support.selectedSupportTicket,
     supportFilter: support.supportFilter,
     setSupportFilter: support.setSupportFilter,
@@ -384,11 +389,13 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     openUser: users.openUser,
     changeUserStatus: users.changeUserStatus,
     loadOrders: ordersDisputes.loadOrders,
+    loadMoreOrders: ordersDisputes.loadMoreOrders,
     openOrder: ordersDisputes.openOrder,
     loadOlderOrderChatEvidence: ordersDisputes.loadOlderOrderChatEvidence,
     loadNewerOrderChatEvidence: ordersDisputes.loadNewerOrderChatEvidence,
     retryOrderChatEvidence: ordersDisputes.retryOrderChatEvidence,
     loadDisputes: ordersDisputes.loadDisputes,
+    loadMoreDisputes: ordersDisputes.loadMoreDisputes,
     openDispute: ordersDisputes.openDispute,
     resolveDispute: ordersDisputes.resolveDispute,
     resolveAdminStuckOrder: ordersDisputes.resolveAdminStuckOrder,
@@ -406,6 +413,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     createBusinessFromIntake: businessIntake.createBusinessFromIntake,
     deleteBusinessIntake: businessIntake.deleteBusinessIntake,
     loadSupportTickets: support.loadSupportTickets,
+    loadMoreSupportTickets: support.loadMoreSupportTickets,
     openSupportTicket: support.openSupportTicket,
     refreshSupportWorkspace: support.refreshSupportWorkspace,
     refreshSelectedSupportTicket: support.refreshSelectedSupportTicket,

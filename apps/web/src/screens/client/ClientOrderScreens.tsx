@@ -32,7 +32,10 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
     extendOrder,
     extendingOrderId,
     loadingOrders,
+    loadingMoreMyOrders,
+    loadMoreMyOrders,
     myOrders,
+    myOrdersNextCursor,
     openingChatOrderId,
     openingOrderId,
     openOrderChat,
@@ -248,6 +251,11 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
                 </button>
               );
             })}
+            {myOrdersNextCursor ? (
+              <Button mode="outline" size="s" disabled={loadingMoreMyOrders} onClick={() => void loadMoreMyOrders()}>
+                {loadingMoreMyOrders ? "Cargando..." : "Cargar mas"}
+              </Button>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -277,6 +285,11 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
                 </button>
               );
             })}
+            {myOrdersNextCursor ? (
+              <Button mode="outline" size="s" disabled={loadingMoreMyOrders} onClick={() => void loadMoreMyOrders()}>
+                {loadingMoreMyOrders ? "Cargando..." : "Cargar mas"}
+              </Button>
+            ) : null}
           </div>
           <Text className="auth-entry__session-meta">El chat se abre desde que confirmas la negociacion.</Text>
         </div>

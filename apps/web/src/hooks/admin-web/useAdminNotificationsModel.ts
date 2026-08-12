@@ -11,6 +11,7 @@ import {
 import type { AdminNotification, AdminNotificationsList } from "../../types/admin";
 import { actionStartedAt, recordActionFailed } from "../actionTelemetry";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
+import type { AdminPollingResultGuard } from "./useVisibleAdminPolling";
 
 type OpenHandlers = {
   openBusinessIntake: (id: string) => Promise<void>;
@@ -61,6 +62,8 @@ export function useAdminNotificationsModel({
   const [notificationBusyId, setNotificationBusyId] = useState<string | null>(null);
   const unreadCountInitialized = useRef(false);
   const lastUnreadCount = useRef(0);
+  const unreadCountRequestEpoch = useRef(0);
+  const notificationsRequestEpoch = useRef(0);
 
   const applyUnreadCount = useCallback((nextCount: number, nextSupportCount: number) => {
     const previousCount = lastUnreadCount.current;
@@ -77,24 +80,40 @@ export function useAdminNotificationsModel({
     }
   }, [setNotice]);
 
-  const loadUnreadCount = useCallback(async () => {
+  const loadUnreadCount = useCallback(async (shouldApply: AdminPollingResultGuard = () => true) => {
+    const requestEpoch = ++unreadCountRequestEpoch.current;
+    const isLatest = () => requestEpoch === unreadCountRequestEpoch.current && shouldApply();
     const startedAt = actionStartedAt();
     try {
       const payload = await getAdminNotificationsUnreadCount<{ unread_count: number; support_unread_count?: number }>(request);
+      if (!isLatest()) {
+        return;
+      }
       applyUnreadCount(payload.unread_count, payload.support_unread_count ?? 0);
       setUnreadCountState("ready");
     } catch (error) {
+      if (!isLatest()) {
+        return;
+      }
       setUnreadCountState("stale");
       recordActionFailed("admin_notifications_unread_refresh", "admin_notifications", startedAt, error instanceof Error ? error.name : undefined);
     }
   }, [applyUnreadCount, request]);
 
-  const loadNotifications = useCallback(async (status = "unread") => {
+  const loadNotifications = useCallback(async (status = "unread", shouldApply: AdminPollingResultGuard = () => true) => {
+    const requestEpoch = ++notificationsRequestEpoch.current;
+    const isLatest = () => requestEpoch === notificationsRequestEpoch.current && shouldApply();
     try {
       const payload = await listAdminNotifications<AdminNotificationsList>(request, status);
+      if (!isLatest()) {
+        return;
+      }
       setNotifications(payload.items);
-      await loadUnreadCount();
+      await loadUnreadCount(shouldApply);
     } catch (error) {
+      if (!isLatest()) {
+        return;
+      }
       setNotice(error instanceof Error ? error.message : "No pudimos cargar notificaciones.");
     }
   }, [loadUnreadCount, request, setNotice]);

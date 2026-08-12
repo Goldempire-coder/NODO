@@ -15,6 +15,7 @@ ERROR_MESSAGES = {
     "ADMIN_LOGIN_INVALID": "Usuario o clave invalida.",
     "RATE_LIMITED": "Demasiados intentos. Intenta nuevamente en un momento.",
     "VALIDATION_ERROR": "Revisa los datos enviados.",
+    "PAGINATION_CURSOR_INVALID": "El cursor de paginacion no es valido.",
     "FORBIDDEN": "No tienes permiso para realizar esta accion.",
     "BUSINESS_NOT_FOUND": "No encontramos el negocio solicitado.",
     "BUSINESS_ALREADY_EXISTS": "Ya existe un negocio activo para este usuario.",

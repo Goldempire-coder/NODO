@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.modules.orders.models import OrderRecord
+from app.shared.keyset_pagination import paginate_descending
 
 
 class InMemoryOrderQueriesMixin:
@@ -86,12 +87,13 @@ class InMemoryOrderQueriesMixin:
     def _order_page(self, *, items: list[OrderRecord], status: str | None, cursor: str | None, limit: int) -> tuple[list[OrderRecord], str | None]:
         if status:
             items = [order for order in items if order.status == status]
-        if cursor:
-            items = [order for order in items if order.created_at.isoformat() < cursor]
-        items.sort(key=lambda order: order.created_at, reverse=True)
-        page = items[:limit]
-        next_cursor = page[-1].created_at.isoformat() if len(page) == limit else None
-        return page, next_cursor
+        return paginate_descending(
+            items,
+            timestamp_of=lambda order: order.created_at,
+            id_of=lambda order: order.id,
+            cursor=cursor,
+            limit=limit,
+        )
 
     def _attention_order_page(self, *, items: list[OrderRecord], limit: int) -> tuple[list[OrderRecord], bool]:
         items.sort(key=lambda order: (order.updated_at, order.id), reverse=True)

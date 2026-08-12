@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiClientError, apiRequest } from "../api/client";
+import { updateAuthSessionUser } from "../api/session";
 import { acceptTerms as acceptUserTerms, saveClientProfile } from "../api/users";
 import type { ClientView } from "../constants/clientViews";
 import { CURRENT_CLIENT_TERMS_VERSION } from "../constants/legal";
@@ -53,6 +54,7 @@ export function useClientWorkspaceModel({
     try {
       const updatedUser = await acceptUserTerms<PublicUser>(request, CURRENT_CLIENT_TERMS_VERSION);
       setCurrentUser(updatedUser);
+      updateAuthSessionUser("telegram", updatedUser);
       state.setNotice("");
       state.setView(state.clientProfileForm.phone ? "marketplace-search" : "client-profile-setup");
     } catch (error) {
@@ -67,6 +69,7 @@ export function useClientWorkspaceModel({
     try {
       const updatedUser = await saveClientProfile<PublicUser>(request, state.clientProfileForm);
       setCurrentUser(updatedUser);
+      updateAuthSessionUser("telegram", updatedUser);
       state.setNotice("");
       state.setView("marketplace-search");
     } catch (error) {
@@ -225,6 +228,8 @@ export function useClientWorkspaceModel({
     selectedOrder: state.selectedOrder,
     setSelectedOrder: state.setSelectedOrder,
     myOrders: state.myOrders,
+    loadingMoreMyOrders: remitterOrders.loadingMoreMyOrders,
+    myOrdersNextCursor: remitterOrders.myOrdersNextCursor,
     creatingOrder: state.creatingOrder,
     loadingOrders: state.loadingOrders,
     openingOrderId: state.openingOrderId,
@@ -263,6 +268,7 @@ export function useClientWorkspaceModel({
     openAdDetail: marketplace.openAdDetail,
     createOrder: remitterOrders.createOrder,
     loadMyOrders: remitterOrders.loadMyOrders,
+    loadMoreMyOrders: remitterOrders.loadMoreMyOrders,
     openAttentionAlert,
     openClientSupport,
     openOrderDetail: openClientOrderWithAttention,
@@ -287,6 +293,8 @@ export function useClientWorkspaceModel({
     confirmingOrderReceived: chatDisputes.confirmingOrderReceived,
     confirmOrderReceived: chatDisputes.confirmOrderReceived,
     supportTickets: support.supportTickets,
+    supportTicketsLoadingMore: support.supportTicketsLoadingMore,
+    supportTicketsNextCursor: support.supportTicketsNextCursor,
     supportFilter: support.supportFilter,
     creatingSupportTicket: support.creatingSupportTicket,
     loadingSupportTickets: support.loadingSupportTickets,
@@ -301,6 +309,7 @@ export function useClientWorkspaceModel({
     closingSupportTicketId: support.closingSupportTicketId,
     uploadingSupportAttachment: support.uploadingSupportAttachment,
     loadSupportTickets: support.loadSupportTickets,
+    loadMoreSupportTickets: support.loadMoreSupportTickets,
     refreshSupportWorkspace: support.refreshSupportWorkspace,
     openSupportTicket: openClientSupportTicketWithAttention,
     submitSupportTicket: support.submitSupportTicket,

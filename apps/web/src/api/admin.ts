@@ -1,15 +1,23 @@
 import type {
+  AdminDisputeDetailResponse,
+  AdminDisputeListResponse,
+  AdminDisputeResolveResponse,
+  AdminOrderDetailResponse,
   AdminOrderDisputeOpenResponse,
+  AdminOrderListResponse,
   AdminStaffActivityResponse,
   AdminStaffDetailResponse,
   AdminStaffListResponse
 } from "../types/admin";
 import type { AuthenticatedRequest } from "./client";
 
-function listParams(limit = 20, key?: string, value?: string) {
+function listParams(limit = 20, key?: string, value?: string, cursor?: string | null) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (key && value) {
     params.set(key, value);
+  }
+  if (cursor) {
+    params.set("cursor", cursor);
   }
   return params.toString();
 }
@@ -209,8 +217,8 @@ export function getAdminBusinessDocumentViewUrl<T>(request: AuthenticatedRequest
   });
 }
 
-export function listAdminOrders<T>(request: AuthenticatedRequest, status?: string) {
-  return request<T>(`/api/v1/admin/orders?${listParams(20, "status", status)}`);
+export function listAdminOrders(request: AuthenticatedRequest, status?: string, cursor?: string | null) {
+  return request<AdminOrderListResponse>(`/api/v1/admin/orders?${listParams(20, "status", status, cursor)}`);
 }
 
 export function listAdminUsers<T>(request: AuthenticatedRequest, filters: { phone?: string; telegram_id?: string; username?: string; role?: string; status?: string }) {
@@ -242,8 +250,8 @@ export function updateAdminUserStatus<T>(request: AuthenticatedRequest, userId: 
   });
 }
 
-export function getAdminOrder<T>(request: AuthenticatedRequest, orderId: string) {
-  return request<T>(`/api/v1/admin/orders/${orderId}`);
+export function getAdminOrder(request: AuthenticatedRequest, orderId: string) {
+  return request<AdminOrderDetailResponse>(`/api/v1/admin/orders/${orderId}`);
 }
 
 export function getAdminOrderChatEvidence<T>(
@@ -264,12 +272,12 @@ export function getAdminOrderChatEvidence<T>(
   return request<T>(`/api/v1/admin/orders/${orderId}/chat-evidence?${params.toString()}`, { cache: "no-store" });
 }
 
-export function listAdminDisputes<T>(request: AuthenticatedRequest, status?: string) {
-  return request<T>(`/api/v1/admin/disputes?${listParams(20, "status", status)}`);
+export function listAdminDisputes(request: AuthenticatedRequest, status?: string, cursor?: string | null) {
+  return request<AdminDisputeListResponse>(`/api/v1/admin/disputes?${listParams(20, "status", status, cursor)}`);
 }
 
-export function getAdminDispute<T>(request: AuthenticatedRequest, disputeId: string) {
-  return request<T>(`/api/v1/admin/disputes/${disputeId}`);
+export function getAdminDispute(request: AuthenticatedRequest, disputeId: string) {
+  return request<AdminDisputeDetailResponse>(`/api/v1/admin/disputes/${disputeId}`);
 }
 
 export function openAdminOrderDispute(
@@ -288,8 +296,8 @@ export function openAdminOrderDispute(
   });
 }
 
-export function resolveAdminDispute<T>(request: AuthenticatedRequest, disputeId: string, resolutionType: string, reason: string, idempotencyKey: string) {
-  return request<T>(`/api/v1/admin/disputes/${disputeId}/resolve`, {
+export function resolveAdminDispute(request: AuthenticatedRequest, disputeId: string, resolutionType: string, reason: string, idempotencyKey: string) {
+  return request<AdminDisputeResolveResponse>(`/api/v1/admin/disputes/${disputeId}/resolve`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

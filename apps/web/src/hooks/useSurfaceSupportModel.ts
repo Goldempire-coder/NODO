@@ -5,7 +5,9 @@ import { closeSupportTicket, createSupportTicket, getSupportTicket, listSupportT
 import type { SupportMessage, SupportTicket, SupportTicketCategory, SupportTicketCreateInput, SupportTicketScope } from "../types/support";
 import type { AuthenticatedRequest } from "../api/client";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "./actionTelemetry";
+import { appendUniqueById } from "./pagination";
 import { useStableIdempotencyKeys } from "./useStableIdempotencyKeys";
+import type { SurfacePollingResultGuard } from "./useVisibleSurfacePolling";
 
 const DEFAULT_CATEGORY: SupportTicketCategory = "technical_issue";
 const ACTIVE_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["open", "waiting_support", "waiting_user", "escalated"]);
@@ -21,11 +23,15 @@ function normalizeSupportFilter(filter?: string): SupportTicketListFilter {
   return "active";
 }
 
-function supportTicketsQuery(filter: SupportTicketListFilter): string {
+function supportTicketsQuery(filter: SupportTicketListFilter, cursor?: string | null): string {
+  const params = new URLSearchParams({ limit: "50" });
   if (filter === "active" || filter === "archived") {
-    return `?status_group=${encodeURIComponent(filter)}&limit=50`;
+    params.set("status_group", filter);
   }
-  return "?limit=50";
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return `?${params.toString()}`;
 }
 
 function filterSupportTickets(items: SupportTicket[], filter: SupportTicketListFilter): SupportTicket[] {
@@ -85,6 +91,8 @@ export function useSurfaceSupportModel({
 }) {
   void setBusy;
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [supportTicketsNextCursor, setSupportTicketsNextCursor] = useState<string | null>(null);
+  const [supportTicketsLoadingMore, setSupportTicketsLoadingMore] = useState(false);
   const [selectedSupportTicket, setSelectedSupportTicket] = useState<SupportTicket | null>(null);
   const [supportFilter, setSupportFilter] = useState<SupportTicketListFilter>("active");
   const [supportReply, setSupportReply] = useState("");
@@ -108,6 +116,9 @@ export function useSurfaceSupportModel({
   const uploadingAttachmentLockRef = useRef(false);
   const closingTicketLockRef = useRef<string | null>(null);
   const listRequestIdRef = useRef(0);
+  const supportRefreshEpochRef = useRef(0);
+  const supportRefreshInFlightRef = useRef<Promise<void> | null>(null);
+  const supportLoadedPageCountRef = useRef(1);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
 
   useEffect(() => {
@@ -119,6 +130,8 @@ export function useSurfaceSupportModel({
   }, [selectedSupportTicket]);
 
   const loadSupportTickets = useCallback(async (filter?: SupportTicketListFilter) => {
+    supportRefreshEpochRef.current += 1;
+    setSupportTicketsLoadingMore(false);
     const requestId = listRequestIdRef.current + 1;
     listRequestIdRef.current = requestId;
     const startedAt = actionStartedAt();
@@ -134,6 +147,8 @@ export function useSurfaceSupportModel({
         return;
       }
       setSupportTickets(filterSupportTickets(payload.items, normalizedFilter));
+      setSupportTicketsNextCursor(payload.next_cursor);
+      supportLoadedPageCountRef.current = 1;
       setSelectedSupportTicket((current) => {
         if (!current || normalizedFilter !== "active") {
           return current;
@@ -157,18 +172,61 @@ export function useSurfaceSupportModel({
     }
   }, [request, setNotice]);
 
-  const refreshSupportWorkspace = useCallback(async () => {
+  const loadMoreSupportTickets = useCallback(async () => {
+    const cursor = supportTicketsNextCursor;
+    if (!cursor || supportTicketsLoadingMore) {
+      return;
+    }
+    const requestId = listRequestIdRef.current + 1;
+    listRequestIdRef.current = requestId;
+    supportRefreshEpochRef.current += 1;
     const normalizedFilter = normalizeSupportFilter(supportFilterRef.current);
-    const currentTicket = selectedSupportTicketRef.current;
+    setSupportTicketsLoadingMore(true);
     try {
-      const payload = await listSupportTickets(request, supportTicketsQuery(normalizedFilter));
-      if (supportFilterRef.current !== normalizedFilter) {
+      const payload = await listSupportTickets(request, supportTicketsQuery(normalizedFilter, cursor));
+      if (requestId !== listRequestIdRef.current || supportFilterRef.current !== normalizedFilter) {
         return;
       }
-      setSupportTickets(filterSupportTickets(payload.items, normalizedFilter));
+      setSupportTickets((current) => appendUniqueById(current, filterSupportTickets(payload.items, normalizedFilter)));
+      setSupportTicketsNextCursor(payload.next_cursor);
+      supportLoadedPageCountRef.current += 1;
+    } catch (error) {
+      if (requestId === listRequestIdRef.current) {
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar mas tickets.");
+      }
+    } finally {
+      if (requestId === listRequestIdRef.current) {
+        setSupportTicketsLoadingMore(false);
+      }
+    }
+  }, [request, setNotice, supportTicketsLoadingMore, supportTicketsNextCursor]);
+
+  const performSupportRefresh = useCallback(async (shouldApply?: SurfacePollingResultGuard) => {
+    const epoch = ++supportRefreshEpochRef.current;
+    const normalizedFilter = normalizeSupportFilter(supportFilterRef.current);
+    const currentTicket = selectedSupportTicketRef.current;
+    const isLatest = () => (
+      epoch === supportRefreshEpochRef.current
+      && supportFilterRef.current === normalizedFilter
+      && (shouldApply?.() ?? true)
+    );
+    try {
+      const payload = await listSupportTickets(request, supportTicketsQuery(normalizedFilter));
+      if (!isLatest()) {
+        return;
+      }
+      const firstPage = filterSupportTickets(payload.items, normalizedFilter);
+      setSupportTickets((current) => (
+        supportLoadedPageCountRef.current > 1
+          ? appendUniqueById(firstPage, current.slice(50))
+          : firstPage
+      ));
+      if (supportLoadedPageCountRef.current === 1) {
+        setSupportTicketsNextCursor(payload.next_cursor);
+      }
       if (currentTicket) {
         const ticket = await getSupportTicket(request, currentTicket.id);
-        if (selectedSupportTicketRef.current?.id !== currentTicket.id) {
+        if (!isLatest() || selectedSupportTicketRef.current?.id !== currentTicket.id) {
           return;
         }
         if (normalizedFilter === "active" && ARCHIVED_SUPPORT_STATUSES.has(ticket.status)) {
@@ -181,6 +239,25 @@ export function useSurfaceSupportModel({
       // Background refresh should not interrupt the user's current action.
     }
   }, [request]);
+
+  const refreshSupportWorkspace = useCallback(async function runSupportRefresh(shouldApply?: SurfacePollingResultGuard): Promise<void> {
+    if (supportRefreshInFlightRef.current) {
+      const inFlight = supportRefreshInFlightRef.current;
+      if (shouldApply) {
+        return inFlight;
+      }
+      supportRefreshEpochRef.current += 1;
+      await inFlight;
+      return runSupportRefresh();
+    }
+    const refresh = performSupportRefresh(shouldApply).finally(() => {
+      if (supportRefreshInFlightRef.current === refresh) {
+        supportRefreshInFlightRef.current = null;
+      }
+    });
+    supportRefreshInFlightRef.current = refresh;
+    await refresh;
+  }, [performSupportRefresh]);
 
   const openSupportTicket = useCallback(async (ticketId: string) => {
     if (openingTicketLockRef.current) {
@@ -222,6 +299,7 @@ export function useSurfaceSupportModel({
       if (existingTicket) {
         const ticket = await getSupportTicket(request, existingTicket.id);
         setSelectedSupportTicket(ticket);
+        supportFilterRef.current = "active";
         setSupportFilter("active");
         setSupportForm((current) => ({ ...current, subject: "", message: "" }));
         setNotice("Ya existe una conversacion activa para este tema.");
@@ -231,8 +309,14 @@ export function useSurfaceSupportModel({
       const ticket = await createSupportTicket(request, payload, getIdempotencyKey(idempotencyScope, payload));
       clearIdempotencyKey(idempotencyScope);
       setSelectedSupportTicket(ticket);
+      supportFilterRef.current = "active";
       setSupportFilter("active");
-      setSupportTickets((current) => [ticket, ...current.filter((item) => item.id !== ticket.id)]);
+      setSupportTickets((current) => [
+        ticket,
+        ...current.filter((item) => item.id !== ticket.id && ACTIVE_SUPPORT_STATUSES.has(item.status))
+      ]);
+      setSupportTicketsNextCursor(null);
+      supportLoadedPageCountRef.current = 1;
       setSupportForm((current) => ({ ...current, subject: "", message: "" }));
       setNotice("Ticket enviado a soporte.");
       recordActionCompleted("support_ticket_create", "support", startedAt);
@@ -338,6 +422,8 @@ export function useSurfaceSupportModel({
         closedTicket,
         ...current.filter((item) => item.id !== closedTicket.id && ARCHIVED_SUPPORT_STATUSES.has(item.status))
       ]);
+      setSupportTicketsNextCursor(null);
+      supportLoadedPageCountRef.current = 1;
       setSupportReply("");
       setNotice("Conversacion cerrada y enviada a Archivados.");
       recordActionCompleted("support_ticket_close", "support", startedAt);
@@ -360,6 +446,8 @@ export function useSurfaceSupportModel({
     loadingSupportTickets: loadingSupportFilter !== null,
     openingSupportTicketId,
     supportTickets,
+    supportTicketsLoadingMore,
+    supportTicketsNextCursor,
     supportFilter,
     setSupportFilter,
     selectedSupportTicket,
@@ -372,6 +460,7 @@ export function useSurfaceSupportModel({
     sendingSupportReply,
     closingSupportTicketId,
     loadSupportTickets,
+    loadMoreSupportTickets,
     refreshSupportWorkspace,
     openSupportTicket,
     submitSupportTicket,

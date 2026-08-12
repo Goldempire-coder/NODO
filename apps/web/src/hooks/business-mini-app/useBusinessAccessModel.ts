@@ -77,12 +77,14 @@ export function useBusinessAccessModel({
       const session = await getBusinessSurfaceSession<{ business: BusinessSummary | null }>(request);
       const currentBusiness = session.business as BusinessSummary | null;
       setBusiness(currentBusiness);
-      await Promise.all([
-        paymentMethods.loadPaymentMethods(),
-        capacity.refreshBusinessCapacity().catch(() => null)
-      ]);
       setAccessState("ready");
-      setNotice("");
+      const secondaryLoads = await Promise.allSettled([
+        paymentMethods.loadPaymentMethods(),
+        capacity.refreshBusinessCapacity()
+      ]);
+      setNotice(secondaryLoads.some((result) => result.status === "rejected")
+        ? "Acceso validado. No pudimos cargar todos los datos; usa Actualizar."
+        : "");
     } catch (error) {
       setBusiness(null);
       setAccessState(accessStateFromError(error));

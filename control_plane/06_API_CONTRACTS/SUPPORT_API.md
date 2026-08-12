@@ -121,7 +121,9 @@ Rules:
 Multipart upload.
 
 Rules:
-- MIME permitido: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`.
+- Solo fotos JPG, PNG y WebP decodificables.
+- MIME permitido: `image/jpeg`, `image/png`, `image/webp`.
+- El backend valida el contenido real y la correspondencia con el MIME declarado; PDF, HTML, texto, contenido corrupto o disfrazado se rechazan antes de persistir.
 - Maximo 5 MB.
 - Ticket en estado activo.
 - `file_assets.file_type = support_attachment`.

@@ -13,7 +13,6 @@ from app.modules.businesses.models import BusinessRecord
 from app.modules.ads.marketplace_cache import MARKETPLACE_CACHE_PREFIX
 from app.modules.support.models import (
     ACTIVE_SUPPORT_STATUSES,
-    ALLOWED_SUPPORT_ATTACHMENT_MIME_TYPES,
     MAX_SUPPORT_ATTACHMENT_SIZE_BYTES,
     SUPPORT_CATEGORIES,
     SUPPORT_MESSAGE_VISIBILITIES,
@@ -43,6 +42,7 @@ from app.modules.support.schemas import (
 )
 from app.modules.staff.service import require_staff_permission
 from app.modules.users.models import UserRecord
+from app.shared.photo_uploads import PHOTO_UPLOAD_ERROR_MESSAGE, ValidatedPhoto, validate_photo_upload
 
 
 SUPPORT_DISCLAIMER = "NODO registra evidencia y estado; no recibe, retiene, transfiere ni garantiza fondos."
@@ -733,7 +733,9 @@ class SupportService:
             self._require_admin_actor(user)
         elif not self._ticket_visible_to_user(ticket=ticket, user=user) or user.role in ADMIN_ROLES:
             raise ApiError("SUPPORT_TICKET_NOT_FOUND", status_code=404)
-        self._validate_upload(user=user, ticket=ticket, mime_type=mime_type, content=content)
+        photo = self._validate_upload(user=user, ticket=ticket, mime_type=mime_type, content=content)
+        file_name = photo.storage_file_name
+        mime_type = photo.mime_type
         payload = {"ticket_id": ticket.id, "file_name": file_name, "mime_type": mime_type, "size_bytes": len(content), "content_sha256": hashlib.sha256(content).hexdigest()}
 
         def compute() -> dict[str, Any]:
@@ -905,13 +907,17 @@ class SupportService:
             raise ApiError("DISPUTE_NOT_FOUND", status_code=404)
         return dispute.id
 
-    def _validate_upload(self, *, user: UserRecord, ticket: SupportTicketRecord, mime_type: str, content: bytes) -> None:
+    def _validate_upload(self, *, user: UserRecord, ticket: SupportTicketRecord, mime_type: str, content: bytes) -> ValidatedPhoto:
         self._rate_limit("upload", user, ticket.id)
         if ticket.status not in ACTIVE_SUPPORT_STATUSES:
             raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
-        if mime_type not in ALLOWED_SUPPORT_ATTACHMENT_MIME_TYPES:
-            raise ApiError("SUPPORT_ATTACHMENT_TYPE_NOT_ALLOWED", status_code=400)
         if not content:
-            raise ApiError("SUPPORT_ATTACHMENT_INVALID", status_code=400)
+            raise ApiError("SUPPORT_ATTACHMENT_INVALID", message=PHOTO_UPLOAD_ERROR_MESSAGE, status_code=400)
         if len(content) > MAX_SUPPORT_ATTACHMENT_SIZE_BYTES:
             raise ApiError("SUPPORT_ATTACHMENT_TOO_LARGE", status_code=400)
+        return validate_photo_upload(
+            content=content,
+            declared_mime_type=mime_type,
+            invalid_error_code="SUPPORT_ATTACHMENT_INVALID",
+            type_error_code="SUPPORT_ATTACHMENT_TYPE_NOT_ALLOWED",
+        )

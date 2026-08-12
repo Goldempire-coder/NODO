@@ -2194,6 +2194,22 @@
     width: 100%;
   }
 
+  .admin-web-topbar-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-web-notifications {
+    width: 100%;
+  }
+
+  .admin-web-notification-panel {
+    left: 0;
+    right: auto;
+    width: 100%;
+    max-height: min(480px, calc(100dvh - 340px));
+  }
+
   .admin-web-session {
     min-width: 0;
     justify-items: start;

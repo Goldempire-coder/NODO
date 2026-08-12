@@ -133,7 +133,11 @@ function AdminEmergencyModePanel({ data, model }: { data: AdminDashboard; model:
       </dl>
       {data.emergency_mode?.message ? <p className="admin-dashboard-emergency-message">Mensaje visible: {data.emergency_mode.message}</p> : null}
       <div className="admin-dashboard-emergency-form">
-        <ReasonBox model={model} label="Reason obligatorio" />
+        <ReasonBox
+          model={model}
+          label="Razon obligatoria"
+          placeholder="Escribe el motivo operativo para auditar esta accion."
+        />
         <label className="admin-web-field">
           Mensaje para usuarios
           <textarea

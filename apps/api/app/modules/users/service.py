@@ -298,7 +298,8 @@ class AuthService:
             request_id=request_id,
         )
 
-    def refresh(self, *, refresh_token: str, request_id: str) -> dict:
+    def refresh(self, *, refresh_token: str, request_id: str, ip_address: str | None = None) -> dict:
+        self._check_rate_limit(f"auth:refresh:ip:{ip_address or 'unknown'}")
         jwt_secret, jwt_refresh_secret = self._require_session_secrets()
         refresh_hash = hash_refresh_token(refresh_token, jwt_refresh_secret)
         session = self._repository.get_session_by_refresh_hash(refresh_hash)
@@ -338,7 +339,8 @@ class AuthService:
             "expires_in": self._settings.access_token_ttl_seconds,
         }
 
-    def logout(self, *, refresh_token: str, request_id: str) -> dict:
+    def logout(self, *, refresh_token: str, request_id: str, ip_address: str | None = None) -> dict:
+        self._check_rate_limit(f"auth:logout:ip:{ip_address or 'unknown'}")
         _, jwt_refresh_secret = self._require_session_secrets()
         refresh_hash = hash_refresh_token(refresh_token, jwt_refresh_secret)
         session = self._repository.get_session_by_refresh_hash(refresh_hash)

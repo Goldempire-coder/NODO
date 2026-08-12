@@ -1257,3 +1257,23 @@ def test_platform_emergency_mode_migration_contract_is_dedicated_and_reversible(
     assert "insert into platform_emergency_mode" in migration
     assert "app_metadata" not in migration
     assert "drop table if exists platform_emergency_mode" in rollback
+
+
+def test_admin_order_and_dispute_lists_reject_invalid_cursor_with_400() -> None:
+    client = _client()
+    admin = _login(client, 8900, "admin_cursor_invalid")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "super_admin")
+
+    orders = client.get(
+        "/api/v1/admin/orders?cursor=not-a-cursor",
+        headers=_bearer(admin, "admin_order_cursor_invalid"),
+    )
+    disputes = client.get(
+        "/api/v1/admin/disputes?cursor=not-a-cursor",
+        headers=_bearer(admin, "admin_dispute_cursor_invalid"),
+    )
+
+    assert orders.status_code == 400
+    assert orders.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"
+    assert disputes.status_code == 400
+    assert disputes.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"

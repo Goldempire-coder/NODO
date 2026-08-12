@@ -24,8 +24,12 @@ export function createRemitterOrder<T>(request: AuthenticatedRequest, payload: C
   });
 }
 
-export function listMyOrders<T>(request: AuthenticatedRequest, limit = 20) {
-  return request<T>(`/api/v1/orders/mine?limit=${limit}`);
+export function listMyOrders<T>(request: AuthenticatedRequest, limit = 20, cursor?: string) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return request<T>(`/api/v1/orders/mine?${params.toString()}`);
 }
 
 export function getOrder<T>(request: AuthenticatedRequest, orderId: string) {

@@ -14,6 +14,7 @@ from app.modules.support.models import (
 )
 from app.modules.support.models import ACTIVE_SUPPORT_STATUSES, STRUCTURED_OPERATION_REPORT
 from app.core.errors import ApiError
+from app.shared.keyset_pagination import paginate_descending
 
 
 class InMemorySupportRepository:
@@ -185,11 +186,13 @@ class InMemorySupportRepository:
             items = [item for item in items if item.priority == priority]
         if assigned_support_user_id:
             items = [item for item in items if item.assigned_support_user_id == assigned_support_user_id]
-        items.sort(key=lambda item: item.updated_at, reverse=True)
-        if cursor:
-            items = [item for item in items if item.updated_at.isoformat() < cursor]
-        page = items[:limit]
-        return page, page[-1].updated_at.isoformat() if len(page) == limit else None
+        return paginate_descending(
+            items,
+            timestamp_of=lambda item: item.updated_at,
+            id_of=lambda item: item.id,
+            cursor=cursor,
+            limit=limit,
+        )
 
     def create_message(self, *, ticket_id: str, sender_user_id: str, sender_role: str, body: str, visibility: str) -> SupportMessageRecord:
         with self._lock:

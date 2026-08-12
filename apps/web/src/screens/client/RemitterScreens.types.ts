@@ -41,8 +41,10 @@ export type RemitterScreensModel = {
   selectedOrder: OrderSummary | null;
   setSelectedOrder: Dispatch<SetStateAction<OrderSummary | null>>;
   myOrders: OrderSummary[];
+  myOrdersNextCursor: string | null;
   creatingOrder: boolean;
   loadingOrders: boolean;
+  loadingMoreMyOrders: boolean;
   openingOrderId: string | null;
   extendingOrderId: string | null;
   cancellingOrderId: string | null;
@@ -68,6 +70,7 @@ export type RemitterScreensModel = {
   openAdDetail: (adId: string) => void | Promise<void>;
   createOrder: () => void | Promise<void>;
   loadMyOrders: (targetView?: "my-orders" | "messages") => void | Promise<void>;
+  loadMoreMyOrders: () => void | Promise<void>;
   openOrderDetail: (orderId: string) => void | Promise<void>;
   openClientSupport: () => void;
   openPaymentReport: (orderId: string) => void | Promise<boolean>;

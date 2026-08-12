@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Header, Request
 
 from app.core.errors import ApiError
 from app.modules.business_intake.policy import require_bot_secret
@@ -45,10 +45,9 @@ def _recoverable_message_for_step(*, code: str, last_step: str | None) -> str:
     return "No pude usar esa respuesta. Revisa la instruccion anterior o escribe /start para comenzar de nuevo."
 
 
-@telegram_router.post("/business-intake/telegram/webhook/{secret}")
-async def business_intake_telegram_webhook(secret: str, request: Request) -> dict:
+async def _handle_business_intake_telegram_webhook(*, provided_secret: str | None, request: Request) -> dict:
     require_bot_secret(
-        provided_secret=secret,
+        provided_secret=provided_secret,
         bot_token=request.app.state.settings.business_intake_bot_token,
     )
     try:
@@ -88,3 +87,17 @@ async def business_intake_telegram_webhook(secret: str, request: Request) -> dic
             "last_step": last_step,
         }
     return {"data": result, "request_id": request_id(request)}
+
+
+@telegram_router.post("/business-intake/telegram/webhook")
+async def business_intake_telegram_webhook(
+    request: Request,
+    telegram_secret: str | None = Header(default=None, alias="X-Telegram-Bot-Api-Secret-Token"),
+    nodo_secret: str | None = Header(default=None, alias="X-NODO-Bot-Webhook-Secret"),
+) -> dict:
+    return await _handle_business_intake_telegram_webhook(provided_secret=telegram_secret or nodo_secret, request=request)
+
+
+@telegram_router.post("/business-intake/telegram/webhook/{legacy_secret}", deprecated=True)
+async def legacy_business_intake_telegram_webhook(legacy_secret: str, request: Request) -> dict:
+    return await _handle_business_intake_telegram_webhook(provided_secret=legacy_secret, request=request)

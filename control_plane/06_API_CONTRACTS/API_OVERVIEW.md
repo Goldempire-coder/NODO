@@ -112,7 +112,8 @@ Reglas:
 - Telegram webhook: validar secret token, rate limit, logs.
 - Stripe webhook: validar firma, procesar event idempotente, nunca acreditar dos veces.
 - On-chain credit verifier/watcher: no es webhook publico; valida Base USDC por RPC/backend, nunca acredita por frontend, screenshot o texto libre.
-- Bot Registro Negocios webhook: `POST /api/v1/business-intake/telegram/webhook/{secret}`; validar secret derivado de `BUSINESS_INTAKE_BOT_TOKEN`, no aceptar `BOT_TOKEN`, no crear negocio activo, roles, access links, anuncios ni creditos desde webhook.
+- Bot cliente webhook: `POST /api/v1/telegram/webhook` con `X-Telegram-Bot-Api-Secret-Token`; validar contra `BOT_TOKEN`. `X-NODO-Bot-Webhook-Secret` queda como alias interno transitorio y la variante con secreto en path queda legacy temporal hasta completar el cambio de configuracion en staging.
+- Bot Registro Negocios webhook: `POST /api/v1/business-intake/telegram/webhook` con `X-Telegram-Bot-Api-Secret-Token`; validar secret derivado de `BUSINESS_INTAKE_BOT_TOKEN`, no aceptar `BOT_TOKEN`, no crear negocio activo, roles, access links, anuncios ni creditos desde webhook. `X-NODO-Bot-Webhook-Secret` queda como alias interno transitorio y la variante con secreto en path queda legacy temporal.
 - Las rutas activas de creditos/referrals deben usar `/api/v1`; rutas legacy como `/credits/balance`, `/credit-purchases` y `/credit-purchases/:id/manual-proof` no son contrato valido.
 - Webhooks deben responder rapido y delegar trabajo pesado a job.
 

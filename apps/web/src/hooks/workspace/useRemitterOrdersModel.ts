@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import { cancelRemitterOrder, createRemitterOrder, extendPaymentDeadline, getOrder, listMyOrders, submitOrderRating } from "../../api/orders";
 import type {
@@ -9,10 +9,16 @@ import type {
   OrderSummary
 } from "../../types/orders";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
+import { appendUniqueById } from "../pagination";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { ClientWorkspaceState } from "./useClientWorkspaceState";
 
 const CLIENT_ORDERS_CACHE_TTL_MS = 15_000;
+
+type RemitterOrdersPage = {
+  items: OrderSummary[];
+  next_cursor: string | null;
+};
 
 type RemitterOrdersState = Pick<
   ClientWorkspaceState,
@@ -60,7 +66,10 @@ export function useRemitterOrdersModel(
     setSubmittingRatingOrderId,
     setView
   } = state;
-  const ordersCacheRef = useRef<{ items: OrderSummary[]; loadedAt: number } | null>(null);
+  const [myOrdersNextCursor, setMyOrdersNextCursor] = useState<string | null>(null);
+  const [loadingMoreMyOrders, setLoadingMoreMyOrders] = useState(false);
+  const ordersCacheRef = useRef<{ items: OrderSummary[]; nextCursor: string | null; loadedAt: number } | null>(null);
+  const ordersLoadedPageCountRef = useRef(1);
   const orderListRequestIdRef = useRef(0);
   const orderDetailRequestIdRef = useRef(0);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
@@ -68,6 +77,7 @@ export function useRemitterOrdersModel(
   function rememberOrder(order: OrderSummary) {
     ordersCacheRef.current = {
       items: [order, ...(ordersCacheRef.current?.items || []).filter((item) => item.id !== order.id)],
+      nextCursor: ordersCacheRef.current?.nextCursor || null,
       loadedAt: Date.now()
     };
     setMyOrders(ordersCacheRef.current.items);
@@ -123,6 +133,7 @@ export function useRemitterOrdersModel(
   async function loadMyOrders(targetView: "my-orders" | "messages" = "my-orders") {
     const requestId = orderListRequestIdRef.current + 1;
     orderListRequestIdRef.current = requestId;
+    setLoadingMoreMyOrders(false);
     const screen = targetView === "messages" ? "messages" : "my-orders";
     const startedAt = actionStartedAt();
     recordActionStarted("client_orders_load", screen);
@@ -130,6 +141,7 @@ export function useRemitterOrdersModel(
     const cached = ordersCacheRef.current;
     if (cached && Date.now() - cached.loadedAt < CLIENT_ORDERS_CACHE_TTL_MS) {
       setMyOrders(cached.items);
+      setMyOrdersNextCursor(cached.nextCursor);
       setNotice(cached.items.length ? "" : targetView === "messages" ? "Todavia no tienes conversaciones." : "Todavia no tienes ordenes.");
       recordActionCompleted("client_orders_load", screen, startedAt);
       setLoadingOrders(false);
@@ -137,18 +149,21 @@ export function useRemitterOrdersModel(
     }
     if (cached) {
       setMyOrders(cached.items);
+      setMyOrdersNextCursor(cached.nextCursor);
       setNotice(cached.items.length ? "" : targetView === "messages" ? "Todavia no tienes conversaciones." : "Todavia no tienes ordenes.");
       setLoadingOrders(false);
     } else {
       setLoadingOrders(true);
     }
     try {
-      const data = await listMyOrders<{ items: OrderSummary[] }>(request);
+      const data = await listMyOrders<RemitterOrdersPage>(request);
       if (orderListRequestIdRef.current !== requestId) {
         return;
       }
-      ordersCacheRef.current = { items: data.items, loadedAt: Date.now() };
+      ordersCacheRef.current = { items: data.items, nextCursor: data.next_cursor, loadedAt: Date.now() };
+      ordersLoadedPageCountRef.current = 1;
       setMyOrders(data.items);
+      setMyOrdersNextCursor(data.next_cursor);
       setNotice(data.items.length ? "" : targetView === "messages" ? "Todavia no tienes conversaciones." : "Todavia no tienes ordenes.");
       recordActionCompleted("client_orders_load", screen, startedAt);
     } catch (error) {
@@ -164,11 +179,45 @@ export function useRemitterOrdersModel(
     }
   }
 
+  async function loadMoreMyOrders() {
+    const cursor = myOrdersNextCursor;
+    if (!cursor || loadingMoreMyOrders) {
+      return;
+    }
+    const requestId = orderListRequestIdRef.current + 1;
+    orderListRequestIdRef.current = requestId;
+    setLoadingMoreMyOrders(true);
+    try {
+      const data = await listMyOrders<RemitterOrdersPage>(request, 20, cursor);
+      if (orderListRequestIdRef.current !== requestId) {
+        return;
+      }
+      const merged = appendUniqueById(ordersCacheRef.current?.items || [], data.items);
+      ordersCacheRef.current = { items: merged, nextCursor: data.next_cursor, loadedAt: Date.now() };
+      ordersLoadedPageCountRef.current += 1;
+      setMyOrders(merged);
+      setMyOrdersNextCursor(data.next_cursor);
+    } catch (error) {
+      if (orderListRequestIdRef.current === requestId) {
+        setNotice(error instanceof Error ? error.message : "No logramos cargar mas ordenes.");
+      }
+    } finally {
+      if (orderListRequestIdRef.current === requestId) {
+        setLoadingMoreMyOrders(false);
+      }
+    }
+  }
+
   async function refreshMyOrdersSilently() {
     try {
-      const data = await listMyOrders<{ items: OrderSummary[] }>(request);
-      ordersCacheRef.current = { items: data.items, loadedAt: Date.now() };
-      setMyOrders(data.items);
+      const data = await listMyOrders<RemitterOrdersPage>(request);
+      const merged = appendUniqueById(data.items, ordersCacheRef.current?.items || []);
+      const nextCursor = ordersLoadedPageCountRef.current > 1
+        ? ordersCacheRef.current?.nextCursor || null
+        : data.next_cursor;
+      ordersCacheRef.current = { items: merged, nextCursor, loadedAt: Date.now() };
+      setMyOrders(merged);
+      setMyOrdersNextCursor(nextCursor);
     } catch {
       // The active chat remains authoritative; a background list refresh must not navigate or interrupt it.
     }
@@ -312,8 +361,9 @@ export function useRemitterOrdersModel(
       return;
     }
     try {
-      const data = await listMyOrders<{ items: OrderSummary[] }>(request);
-      ordersCacheRef.current = { items: data.items, loadedAt: Date.now() };
+      const data = await listMyOrders<RemitterOrdersPage>(request);
+      ordersCacheRef.current = { items: data.items, nextCursor: data.next_cursor, loadedAt: Date.now() };
+      ordersLoadedPageCountRef.current = 1;
     } catch {
       // Background warmup should never interrupt the active screen.
     }
@@ -324,6 +374,9 @@ export function useRemitterOrdersModel(
     createOrder,
     extendOrder,
     loadMyOrders,
+    loadMoreMyOrders,
+    loadingMoreMyOrders,
+    myOrdersNextCursor,
     openOrderDetail,
     prefetchMyOrders,
     refreshMyOrdersSilently,

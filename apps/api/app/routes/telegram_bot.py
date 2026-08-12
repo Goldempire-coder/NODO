@@ -5,7 +5,7 @@ import hmac
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Header, Request
 
 from app.core.config import Settings
 from app.core.errors import ApiError
@@ -88,14 +88,13 @@ async def _send_intake_start(settings: Settings, chat_id: int | str) -> None:
     )
 
 
-@router.post("/telegram/webhook/{secret}")
-async def telegram_webhook(secret: str, request: Request) -> dict[str, Any]:
+async def _handle_telegram_webhook(*, provided_secret: str | None, request: Request) -> dict[str, Any]:
     settings: Settings = request.app.state.settings
     if not settings.bot_token:
         raise ApiError("TELEGRAM_BOT_NOT_CONFIGURED", status_code=503)
 
     expected_secret = telegram_webhook_secret(settings.bot_token)
-    if not hmac.compare_digest(secret, expected_secret):
+    if not provided_secret or not hmac.compare_digest(provided_secret, expected_secret):
         raise ApiError("FORBIDDEN", status_code=403)
 
     try:
@@ -123,3 +122,17 @@ async def telegram_webhook(secret: str, request: Request) -> dict[str, Any]:
 
     await _send_open_hint(settings, chat_id)
     return {"data": {"ok": True, "handled": True, "action": "open_hint_sent"}, "request_id": _request_id(request)}
+
+
+@router.post("/telegram/webhook")
+async def telegram_webhook(
+    request: Request,
+    telegram_secret: str | None = Header(default=None, alias="X-Telegram-Bot-Api-Secret-Token"),
+    nodo_secret: str | None = Header(default=None, alias="X-NODO-Bot-Webhook-Secret"),
+) -> dict[str, Any]:
+    return await _handle_telegram_webhook(provided_secret=telegram_secret or nodo_secret, request=request)
+
+
+@router.post("/telegram/webhook/{legacy_secret}", deprecated=True)
+async def legacy_telegram_webhook(legacy_secret: str, request: Request) -> dict[str, Any]:
+    return await _handle_telegram_webhook(provided_secret=legacy_secret, request=request)

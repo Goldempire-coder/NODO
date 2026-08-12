@@ -18,9 +18,11 @@ import type {
   AdminSupportTicket
 } from "../../types/admin";
 import type { SupportMessage, SupportTicket } from "../../types/support";
+import { appendUniqueById } from "../pagination";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
 import { useAdminPublicationHoldModel } from "./useAdminPublicationHoldModel";
+import type { AdminPollingResultGuard } from "./useVisibleAdminPolling";
 
 type SupportAttachmentLink = {
   url: string;
@@ -32,15 +34,18 @@ const ACTIVE_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["open", "waiti
 const ARCHIVED_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["resolved", "closed"]);
 const ASSIGNABLE_STAFF_ROLES = new Set(["support_agent", "support_lead", "admin", "super_admin"]);
 
-function supportTicketsQuery(filter: string): string {
+function supportTicketsQuery(filter: string, cursor?: string | null): string {
   const normalized = filter.trim().toLowerCase();
+  const params = new URLSearchParams({ limit: "50" });
   if (normalized === "active" || normalized === "archived") {
-    return `?status_group=${encodeURIComponent(normalized)}&limit=50`;
+    params.set("status_group", normalized);
+  } else if (normalized && normalized !== "all") {
+    params.set("status", normalized);
   }
-  if (!normalized || normalized === "all") {
-    return "?limit=50";
+  if (cursor) {
+    params.set("cursor", cursor);
   }
-  return `?status=${encodeURIComponent(normalized)}&limit=50`;
+  return `?${params.toString()}`;
 }
 
 function filterSupportTickets(items: SupportTicket[], filter: string): SupportTicket[] {
@@ -127,6 +132,8 @@ export function useAdminSupportModel({
   setView: (view: AdminWebView) => void;
 }) {
   const [supportTickets, setSupportTickets] = useState<AdminSupportTicket[]>([]);
+  const [supportTicketsNextCursor, setSupportTicketsNextCursor] = useState<string | null>(null);
+  const [supportTicketsLoadingMore, setSupportTicketsLoadingMore] = useState(false);
   const [selectedSupportTicket, setSelectedSupportTicket] = useState<AdminSupportTicket | null>(null);
   const [supportFilter, setSupportFilter] = useState("active");
   const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<string, string>>({});
@@ -143,6 +150,9 @@ export function useAdminSupportModel({
   const supportAssigneesLoadingRef = useRef(false);
   const supportAssignmentInFlight = useRef(false);
   const selectedSupportTicketIdRef = useRef<string | null>(null);
+  const supportRequestEpoch = useRef(0);
+  const foregroundSupportRequests = useRef(0);
+  const supportLoadedPageCountRef = useRef(1);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
   const supportReply = selectedSupportTicket ? supportReplyDrafts[selectedSupportTicket.id] ?? "" : "";
 
@@ -180,11 +190,20 @@ export function useAdminSupportModel({
   }, []);
 
   const loadSupportTickets = useCallback(async (filter = supportFilter) => {
+    foregroundSupportRequests.current += 1;
+    const requestEpoch = ++supportRequestEpoch.current;
+    const isLatest = () => requestEpoch === supportRequestEpoch.current;
+    setSupportTicketsLoadingMore(false);
     setBusy(true);
     try {
       const normalizedFilter = filter.trim().toLowerCase() || "active";
       const payload = await adminListSupportTickets(request, supportTicketsQuery(normalizedFilter));
+      if (!isLatest()) {
+        return;
+      }
       setSupportTickets(filterSupportTickets(payload.items, normalizedFilter));
+      setSupportTicketsNextCursor(payload.next_cursor);
+      supportLoadedPageCountRef.current = 1;
       if (selectedSupportTicket && normalizedFilter === "active" && ARCHIVED_SUPPORT_STATUSES.has(selectedSupportTicket.status)) {
         selectSupportTicket(null);
       }
@@ -192,19 +211,42 @@ export function useAdminSupportModel({
       setView("support");
       setNotice("");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos cargar soporte.");
+      if (isLatest()) {
+        setSupportTicketsNextCursor(null);
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar soporte.");
+      }
     } finally {
+      foregroundSupportRequests.current = Math.max(0, foregroundSupportRequests.current - 1);
       setBusy(false);
     }
   }, [request, selectedSupportTicket, selectSupportTicket, setBusy, setNotice, setView, supportFilter]);
 
-  const refreshSupportWorkspace = useCallback(async () => {
+  const refreshSupportWorkspace = useCallback(async (shouldApply: AdminPollingResultGuard = () => true) => {
+    if (foregroundSupportRequests.current > 0) {
+      return;
+    }
+    const requestEpoch = ++supportRequestEpoch.current;
+    const isLatest = () => requestEpoch === supportRequestEpoch.current && shouldApply();
     const normalizedFilter = supportFilter.trim().toLowerCase() || "active";
     try {
       const payload = await adminListSupportTickets(request, supportTicketsQuery(normalizedFilter));
-      setSupportTickets(filterSupportTickets(payload.items, normalizedFilter));
+      if (!isLatest()) {
+        return;
+      }
+      const firstPage = filterSupportTickets(payload.items, normalizedFilter);
+      setSupportTickets((current) => (
+        supportLoadedPageCountRef.current > 1
+          ? appendUniqueById(firstPage, current.slice(50))
+          : firstPage
+      ));
+      if (supportLoadedPageCountRef.current === 1) {
+        setSupportTicketsNextCursor(payload.next_cursor);
+      }
       if (selectedSupportTicket) {
         const ticket = await adminGetSupportTicket(request, selectedSupportTicket.id);
+        if (!isLatest()) {
+          return;
+        }
         if (normalizedFilter === "active" && ARCHIVED_SUPPORT_STATUSES.has(ticket.status)) {
           selectSupportTicket(null);
           return;
@@ -216,10 +258,45 @@ export function useAdminSupportModel({
     }
   }, [request, selectedSupportTicket, selectSupportTicket, supportFilter]);
 
+  const loadMoreSupportTickets = useCallback(async () => {
+    const cursor = supportTicketsNextCursor;
+    if (!cursor || supportTicketsLoadingMore) {
+      return;
+    }
+    foregroundSupportRequests.current += 1;
+    const requestEpoch = ++supportRequestEpoch.current;
+    const normalizedFilter = supportFilter.trim().toLowerCase() || "active";
+    setSupportTicketsLoadingMore(true);
+    try {
+      const payload = await adminListSupportTickets(request, supportTicketsQuery(normalizedFilter, cursor));
+      if (requestEpoch !== supportRequestEpoch.current) {
+        return;
+      }
+      setSupportTickets((current) => appendUniqueById(current, filterSupportTickets(payload.items, normalizedFilter)));
+      setSupportTicketsNextCursor(payload.next_cursor);
+      supportLoadedPageCountRef.current += 1;
+    } catch (error) {
+      if (requestEpoch === supportRequestEpoch.current) {
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar mas tickets.");
+      }
+    } finally {
+      foregroundSupportRequests.current = Math.max(0, foregroundSupportRequests.current - 1);
+      if (requestEpoch === supportRequestEpoch.current) {
+        setSupportTicketsLoadingMore(false);
+      }
+    }
+  }, [request, setNotice, supportFilter, supportTicketsLoadingMore, supportTicketsNextCursor]);
+
   const openSupportTicket = useCallback(async (ticketId: string) => {
+    foregroundSupportRequests.current += 1;
+    const requestEpoch = ++supportRequestEpoch.current;
+    const isLatest = () => requestEpoch === supportRequestEpoch.current;
     setBusy(true);
     try {
       const ticket = await adminGetSupportTicket(request, ticketId);
+      if (!isLatest()) {
+        return;
+      }
       selectSupportTicket(ticket);
       setSupportAssigneeUserId("");
       setSupportAssignmentReason("");
@@ -227,8 +304,11 @@ export function useAdminSupportModel({
       setView("support");
       setNotice("");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos abrir el ticket.");
+      if (isLatest()) {
+        setNotice(error instanceof Error ? error.message : "No pudimos abrir el ticket.");
+      }
     } finally {
+      foregroundSupportRequests.current = Math.max(0, foregroundSupportRequests.current - 1);
       setBusy(false);
     }
   }, [request, selectSupportTicket, setBusy, setNotice, setView]);
@@ -312,10 +392,20 @@ export function useAdminSupportModel({
   ]);
 
   const refreshSupportTicket = useCallback(async (ticketId: string) => {
-    const ticket = await adminGetSupportTicket(request, ticketId);
-    setSupportTickets((items) => items.map((item) => (item.id === ticketId ? ticket : item)));
-    if (selectedSupportTicketIdRef.current === ticketId) {
-      selectSupportTicket(ticket);
+    foregroundSupportRequests.current += 1;
+    const requestEpoch = ++supportRequestEpoch.current;
+    const isLatest = () => requestEpoch === supportRequestEpoch.current;
+    try {
+      const ticket = await adminGetSupportTicket(request, ticketId);
+      if (!isLatest()) {
+        return;
+      }
+      setSupportTickets((items) => items.map((item) => (item.id === ticketId ? ticket : item)));
+      if (selectedSupportTicketIdRef.current === ticketId) {
+        selectSupportTicket(ticket);
+      }
+    } finally {
+      foregroundSupportRequests.current = Math.max(0, foregroundSupportRequests.current - 1);
     }
   }, [request, selectSupportTicket]);
 
@@ -446,6 +536,8 @@ export function useAdminSupportModel({
 
   return {
     supportTickets,
+    supportTicketsLoadingMore,
+    supportTicketsNextCursor,
     selectedSupportTicket,
     supportFilter,
     setSupportFilter,
@@ -466,6 +558,7 @@ export function useAdminSupportModel({
     assigningSupportTicketId,
     ...publicationHold,
     loadSupportTickets,
+    loadMoreSupportTickets,
     refreshSupportWorkspace,
     openSupportTicket,
     refreshSelectedSupportTicket,

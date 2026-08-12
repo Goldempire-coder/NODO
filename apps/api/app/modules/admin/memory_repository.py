@@ -5,6 +5,7 @@ from typing import Any
 from app.modules.admin.memory_investigation import InMemoryAdminInvestigationMixin
 from app.modules.admin.presenters import iso, mask_sensitive
 from app.modules.admin.user_presenters import admin_business_link_payload, admin_user_payload
+from app.shared.keyset_pagination import paginate_descending
 
 class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
     def __init__(self, *, users, businesses, orders, disputes, credits, audit_writer, business_intake=None, support=None) -> None:  # type: ignore[no-untyped-def]
@@ -166,11 +167,14 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
             items = [item for item in items if item.business_id == business_id]
         if remitter_user_id:
             items = [item for item in items if item.remitter_user_id == remitter_user_id]
-        if cursor:
-            items = [item for item in items if item.created_at.isoformat() < cursor]
-        items.sort(key=lambda item: item.created_at, reverse=True)
-        page = items[:limit]
-        return [self._order_summary(item) for item in page], page[-1].created_at.isoformat() if len(page) == limit else None
+        page, next_cursor = paginate_descending(
+            items,
+            timestamp_of=lambda item: item.created_at,
+            id_of=lambda item: item.id,
+            cursor=cursor,
+            limit=limit,
+        )
+        return [self._order_summary(item) for item in page], next_cursor
 
     def get_order(self, order_id: str) -> dict[str, Any] | None:
         order = getattr(self._orders, "orders", {}).get(order_id)

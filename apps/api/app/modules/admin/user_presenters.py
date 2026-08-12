@@ -25,7 +25,7 @@ def admin_user_payload(row: dict[str, Any], *, full_sensitive: bool) -> dict[str
         "username": row.get("username"),
         "first_name": row.get("first_name"),
         "last_name": row.get("last_name"),
-        "phone": phone if full_sensitive else None,
+        "phone": None,
         "phone_masked": mask_phone(phone),
         "telegram_id": int(telegram_id) if full_sensitive and telegram_id is not None else None,
         "telegram_id_masked": mask_telegram_id(telegram_id),

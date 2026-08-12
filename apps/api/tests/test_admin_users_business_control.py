@@ -153,7 +153,8 @@ def test_admin_user_search_support_masking_and_access_links_are_separated() -> N
     business_links = client.get(f"/api/v1/admin/businesses/{business['id']}/access-links", headers=_bearer(admin, "req_business_links"))
 
     assert admin_search.status_code == 200, admin_search.text
-    assert admin_search.json()["data"]["items"][0]["phone"] == "+58 414 999 2222"
+    assert admin_search.json()["data"]["items"][0]["phone"] is None
+    assert admin_search.json()["data"]["items"][0]["phone_masked"]
     assert admin_search.json()["data"]["items"][0]["telegram_id"] == 20103
     assert support_search.status_code == 200, support_search.text
     assert support_search.json()["data"]["items"][0]["phone"] is None
@@ -161,6 +162,8 @@ def test_admin_user_search_support_masking_and_access_links_are_separated() -> N
     assert support_search.json()["data"]["items"][0]["telegram_id"] is None
     assert support_search.json()["data"]["items"][0]["telegram_id_masked"]
     assert detail.status_code == 200, detail.text
+    assert detail.json()["data"]["user"]["phone"] is None
+    assert detail.json()["data"]["user"]["phone_masked"]
     assert detail.json()["data"]["access_links"][0]["id"] == link["id"]
     assert business_links.status_code == 200, business_links.text
     assert business_links.json()["data"]["items"][0]["user"]["telegram_id_masked"]

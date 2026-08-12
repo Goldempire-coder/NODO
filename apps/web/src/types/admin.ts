@@ -563,6 +563,19 @@ export type AdminOrderSummary = {
   created_at: string;
 };
 
+export type AdminOrderListResponse = {
+  items: AdminOrderSummary[];
+  next_cursor: string | null;
+  disclaimer?: string;
+};
+
+export type AdminOrderDetailResponse = {
+  order: AdminOrderSummary;
+  payment_report?: Record<string, unknown> | null;
+  timeline?: Record<string, unknown>[];
+  disclaimer?: string;
+};
+
 export type AdminOrderChatEvidenceAttachment = {
   attachment_id: string;
   mime_type: string;
@@ -600,6 +613,37 @@ export type AdminDisputeSummary = {
   resolution_type?: string | null;
   created_at: string;
   resolved_at?: string | null;
+};
+
+export type AdminDisputeOrderSummary = {
+  id: string;
+  public_order_code?: string | null;
+  status?: string | null;
+  amount_usd?: string | null;
+  business_id?: string | null;
+  created_at?: string | null;
+};
+
+export type AdminDisputeListResponse = {
+  items: AdminDisputeSummary[];
+  next_cursor: string | null;
+  disclaimer?: string;
+};
+
+export type AdminDisputeDetailResponse = {
+  dispute: AdminDisputeSummary;
+  order_summary?: AdminDisputeOrderSummary;
+  events?: Record<string, unknown>[];
+  messages?: Record<string, unknown>[];
+  disclaimer?: string;
+};
+
+export type AdminDisputeResolveResponse = {
+  dispute: AdminDisputeSummary;
+  order: AdminDisputeOrderSummary;
+  credit_effect?: Record<string, unknown> | null;
+  ad?: Record<string, unknown> | null;
+  disclaimer?: string;
 };
 
 export type AdminOrderDisputeOpenResponse = {

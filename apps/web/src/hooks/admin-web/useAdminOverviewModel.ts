@@ -13,6 +13,7 @@ export function useAdminOverviewModel({
   reason,
   request,
   setBusy,
+  clearNoticeIf,
   setNotice,
   setReason,
   setView
@@ -23,12 +24,14 @@ export function useAdminOverviewModel({
   reason: string;
   request: AuthenticatedRequest;
   setBusy: (busy: boolean) => void;
+  clearNoticeIf: (expected: string) => void;
   setNotice: (notice: string) => void;
   setReason: (reason: string) => void;
   setView: (view: AdminOverviewView) => void;
 }) {
   const dashboardMetrics = useAdminDashboardMetricsModel({
     adminReadable,
+    clearNoticeIf,
     request,
     setBusy,
     setNotice,

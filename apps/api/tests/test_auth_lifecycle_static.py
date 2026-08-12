@@ -57,7 +57,7 @@ def test_frontend_telegram_auth_persists_refresh_session_for_lifecycle() -> None
     assert "readAuthSession" in telegram_hook
     assert "refreshAuthSession" in telegram_hook
     assert "canUseStoredSession" in telegram_hook
-    assert "auth-2026071502" in telegram_hook
+    assert "auth-20260812-rc1" in telegram_hook
     assert "notifyTelegram" in telegram_hook
     assert "function wait(ms: number)" in telegram_hook
     assert "for (let attempt = 1; attempt <= 3; attempt += 1)" in telegram_hook
@@ -139,8 +139,8 @@ def test_admin_business_intake_defaults_to_active_submissions_for_real_flow_revi
     assert "const normalizedStatus = status.trim().toLowerCase() || \"submitted\"" in intake_model
     assert 'businessIntake.loadBusinessIntakes("submitted")' in admin_model
     assert "pending_business_intakes" in admin_model
-    assert "overview.refreshDashboardSnapshot()" in admin_model
-    assert "window.setInterval" in admin_model
+    assert "overview.refreshDashboardSnapshot(isCurrent)" in admin_model
+    assert "useVisibleAdminPolling" in admin_model
     assert "openBusinessIntakeDocument: businessIntake.openBusinessIntakeDocument" in admin_model
     assert 'normalizedStatus !== "all" ? normalizedStatus : undefined' in admin_api
     assert "getAdminBusinessIntakeDocumentViewUrl" in admin_api
@@ -194,9 +194,9 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
 
     assert 'action: () => support.loadSupportTickets("active")' in admin_model
     assert "ADMIN_SUPPORT_REFRESH_MS = 5000" in admin_model
-    assert "support.refreshSupportWorkspace()" in admin_model
-    assert "notifications.loadUnreadCount()" in admin_model
-    assert 'notifications.loadNotifications("unread")' in admin_model
+    assert "poll: support.refreshSupportWorkspace" in admin_model
+    assert "notifications.loadUnreadCount(isCurrent)" in admin_model
+    assert 'notifications.loadNotifications("unread", isCurrent)' in admin_model
     assert "badge: notifications.supportUnreadCount" in admin_model
     assert "adminSupportUnreadCount: notifications.supportUnreadCount" in admin_model
     assert "notifications.panelOpen" in admin_model
@@ -267,8 +267,8 @@ def test_admin_operational_notifications_surface_support_badge_and_new_notice() 
     admin_css = _read("apps/web/src/app/admin-web.css")
 
     assert "ADMIN_BACKGROUND_REFRESH_MS = 15000" in admin_model
-    assert "void notifications.loadUnreadCount()" in admin_model
-    assert "void notifications.loadNotifications(\"unread\")" in admin_model
+    assert "notifications.loadUnreadCount(isCurrent)" in admin_model
+    assert 'notifications.loadNotifications("unread", isCurrent)' in admin_model
     assert "supportUnreadCount" in notifications_model
     assert "support_unread_count" in notifications_model
     assert "Nueva notificacion operativa. Revisa la campana." in notifications_model
@@ -324,6 +324,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     orders_screen = _read("apps/web/src/screens/business-app/BusinessOrdersScreens.tsx")
     chat_screen = _read("apps/web/src/screens/business-app/BusinessChatScreen.tsx")
     support_screen = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+    shared_support = _read("apps/web/src/screens/support/SurfaceSupportPrimitives.tsx")
     business_settings = _read("apps/web/src/screens/business-app/BusinessSettingsScreen.tsx")
     credits_api = _read("apps/web/src/api/credits.ts")
     surface_api = _read("apps/web/src/api/surface.ts")
@@ -460,7 +461,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "creatingSupportTicket" in support_screen
     assert "sendingSupportReply" in support_screen
     assert "uploadingSupportAttachment" in support_screen
-    assert "business-support-thread" in support_screen
+    assert "SurfaceSupportThread" in support_screen
     assert "Identificacion del negocio" in business_settings
     assert "const businessId = business?.id || \"\"" in business_settings
     assert "copyBusinessId" in business_settings
@@ -470,15 +471,15 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "if (!copied)" in business_settings
     assert "business-identity-box" in business_settings
     assert ".business-identity-box" in app_css
-    assert "business-support-message--mine" in support_screen
-    assert "supportSenderLabel" in support_screen
-    assert '"Soporte NODO"' in support_screen
+    assert "surface-support-message--mine" in shared_support
+    assert "supportSenderLabel" in shared_support
+    assert '"Soporte NODO"' in shared_support
     assert "Nuevo" in support_screen
     assert "Archivadas" in support_screen
     assert "No tienes conversaciones archivadas." in support_screen
     assert "Conversacion archivada" in support_screen
     assert "}, [loadSupportTickets]);" in support_screen
-    assert "}, [refreshSupportWorkspace]);" in support_screen
+    assert "useVisibleSurfacePolling" in support_screen
     assert "}, [loadSupportTickets, supportFilter]);" not in support_screen
     assert 'setView("business-orders");\n    setBusy(true);' in orders_model
     assert "/api/v1/surface/session" in surface_api
@@ -623,7 +624,7 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "No tienes tickets archivados." in support_screen
     assert "Este ticket esta archivado." in support_screen
     assert "}, [loadSupportTickets]);" in support_screen
-    assert "}, [refreshSupportWorkspace]);" in support_screen
+    assert "useVisibleSurfacePolling" in support_screen
     assert "}, [loadSupportTickets, supportFilter]);" not in support_screen
     assert "openingChatOrderId: string | null" in remitter_types
     assert "recordBusinessActionStarted = recordActionStarted" in telemetry_helper

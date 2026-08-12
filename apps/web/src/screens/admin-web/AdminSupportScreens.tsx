@@ -109,6 +109,16 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
             ))
           )}
         </div>
+        {model.supportTicketsNextCursor ? (
+          <button
+            className="admin-web-button"
+            disabled={model.supportTicketsLoadingMore}
+            type="button"
+            onClick={() => void model.loadMoreSupportTickets()}
+          >
+            {model.supportTicketsLoadingMore ? "Cargando..." : "Cargar mas"}
+          </button>
+        ) : null}
       </div>
 
       <div className="admin-web-panel admin-web-support-thread-panel">

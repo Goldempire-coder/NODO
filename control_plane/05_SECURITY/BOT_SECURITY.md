@@ -8,7 +8,8 @@ Seguridad del Bot Registro Negocios.
 
 - Bot webhook con secreto/firma obligatoria.
 - Bot cliente y Bot Registro Negocios usan tokens separados: `BOT_TOKEN` para cliente y `BUSINESS_INTAKE_BOT_TOKEN` para intake.
-- El webhook canonico de intake es `POST /api/v1/business-intake/telegram/webhook/{secret}`.
+- El webhook canonico de intake es `POST /api/v1/business-intake/telegram/webhook` con `X-Telegram-Bot-Api-Secret-Token`; el secreto no forma parte de la URL. `X-NODO-Bot-Webhook-Secret` queda como compatibilidad interna temporal.
+- La ruta legacy con `{secret}` se mantiene solo durante la transicion de configuracion y debe retirarse despues de verificar el endpoint fijo en staging.
 - El secret de intake debe derivarse/verificarse contra `BUSINESS_INTAKE_BOT_TOKEN`; un secret derivado de `BOT_TOKEN` debe fallar.
 - El secret del bot cliente debe fallar si se usa en el webhook de intake, y viceversa.
 - Rate limit por Telegram user/chat, telefono y ventana temporal.

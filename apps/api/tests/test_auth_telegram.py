@@ -639,3 +639,20 @@ def test_auth_rate_limit_returns_rate_limited() -> None:
     assert first.status_code == 401
     assert second.status_code == 429
     assert second.json()["error"]["code"] == "RATE_LIMITED"
+
+
+def test_refresh_and_logout_have_independent_ip_rate_limits() -> None:
+    refresh_client = _client(AUTH_RATE_LIMIT_MAX_ATTEMPTS="1")
+    first_refresh = refresh_client.post("/api/v1/auth/refresh", json={"refresh_token": "invalid-refresh-token"})
+    second_refresh = refresh_client.post("/api/v1/auth/refresh", json={"refresh_token": "invalid-refresh-token"})
+
+    logout_client = _client(AUTH_RATE_LIMIT_MAX_ATTEMPTS="1")
+    first_logout = logout_client.post("/api/v1/auth/logout", json={"refresh_token": "invalid-refresh-token"})
+    second_logout = logout_client.post("/api/v1/auth/logout", json={"refresh_token": "invalid-refresh-token"})
+
+    assert first_refresh.status_code == 401
+    assert second_refresh.status_code == 429
+    assert second_refresh.json()["error"]["code"] == "RATE_LIMITED"
+    assert first_logout.status_code == 200
+    assert second_logout.status_code == 429
+    assert second_logout.json()["error"]["code"] == "RATE_LIMITED"

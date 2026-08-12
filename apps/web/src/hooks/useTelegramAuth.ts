@@ -6,7 +6,7 @@ import { readAuthSession, refreshAuthSession, type StoredAuthSession, writeAuthS
 import { notifyTelegram, readTelegramInitData, setupTelegramViewport } from "../theme/telegramTheme";
 import type { PublicUser, SessionState } from "../types/auth";
 
-const AUTH_BUILD_LABEL = "auth-2026071502";
+const AUTH_BUILD_LABEL = "auth-20260812-rc1";
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));

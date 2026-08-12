@@ -91,6 +91,42 @@ def test_start_webhook_sends_welcome_photo_without_inline_button(monkeypatch) ->
     assert "reply_markup" not in payload
 
 
+def test_fixed_webhook_authenticates_with_header_and_never_requires_secret_in_url(monkeypatch) -> None:
+    _FakeAsyncClient.calls = []
+    monkeypatch.setattr(telegram_bot.httpx, "AsyncClient", _FakeAsyncClient)
+    client = _client()
+    secret = telegram_bot.telegram_webhook_secret(BOT_TOKEN)
+
+    accepted = client.post(
+        "/api/v1/telegram/webhook",
+        headers={"X-Telegram-Bot-Api-Secret-Token": secret},
+        json={"callback_query": {"id": "ignored"}},
+    )
+    accepted_alias = client.post(
+        "/api/v1/telegram/webhook",
+        headers={"X-NODO-Bot-Webhook-Secret": secret},
+        json={"callback_query": {"id": "ignored"}},
+    )
+    rejected = client.post(
+        "/api/v1/telegram/webhook",
+        headers={"X-Telegram-Bot-Api-Secret-Token": "invalid"},
+        json={"callback_query": {"id": "ignored"}},
+    )
+    missing = client.post(
+        "/api/v1/telegram/webhook",
+        json={"callback_query": {"id": "ignored"}},
+    )
+
+    assert accepted.status_code == 200
+    assert accepted.headers["Cache-Control"] == "private, no-store"
+    assert accepted_alias.status_code == 200
+    assert accepted_alias.headers["Cache-Control"] == "private, no-store"
+    assert rejected.status_code == 403
+    assert rejected.headers["Cache-Control"] == "private, no-store"
+    assert missing.status_code == 403
+    assert missing.headers["Cache-Control"] == "private, no-store"
+
+
 def test_webhook_rejects_invalid_secret_without_calling_telegram(monkeypatch) -> None:
     _FakeAsyncClient.calls = []
     monkeypatch.setattr(telegram_bot.httpx, "AsyncClient", _FakeAsyncClient)

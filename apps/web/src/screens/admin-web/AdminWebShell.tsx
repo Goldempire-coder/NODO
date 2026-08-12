@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
 import { AdminWebScreens } from "./AdminWebScreens";
 
@@ -14,6 +15,22 @@ function priorityLabel(priority: string) {
 }
 
 export function AdminWebShell({ model }: { model: AdminWebModel }) {
+  const confirmCancelRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const confirmationOpenRef = useRef(false);
+
+  useEffect(() => {
+    const isOpen = Boolean(model.pendingAction);
+    if (isOpen && !confirmationOpenRef.current) {
+      previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      confirmCancelRef.current?.focus();
+    } else if (!isOpen && confirmationOpenRef.current) {
+      previousFocusRef.current?.focus();
+      previousFocusRef.current = null;
+    }
+    confirmationOpenRef.current = isOpen;
+  }, [model.pendingAction]);
+
   return (
     <main className="admin-web-shell">
       <aside className="admin-web-sidebar" aria-label="Admin navigation">
@@ -116,13 +133,18 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
         <AdminWebScreens model={model} />
 
         {model.pendingAction ? (
-          <section className="admin-web-confirm" aria-live="polite">
+          <section
+            aria-describedby="admin-web-confirm-detail"
+            aria-labelledby="admin-web-confirm-title"
+            className="admin-web-confirm"
+            role="dialog"
+          >
             <div>
-              <strong>{model.pendingAction.title}</strong>
-              <p>{model.pendingAction.detail}</p>
+              <strong id="admin-web-confirm-title">{model.pendingAction.title}</strong>
+              <p id="admin-web-confirm-detail">{model.pendingAction.detail}</p>
             </div>
             <div className="admin-web-actions">
-              <button type="button" onClick={() => model.setPendingAction(null)}>
+              <button ref={confirmCancelRef} type="button" onClick={() => model.setPendingAction(null)}>
                 Cancelar
               </button>
               <button className="danger" type="button" onClick={() => void model.confirmPendingAction()}>

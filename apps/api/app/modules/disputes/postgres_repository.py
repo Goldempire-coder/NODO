@@ -5,6 +5,7 @@ from typing import Any
 from app.modules.disputes.models import DisputeEventRecord, DisputeRecord
 from app.modules.disputes.row_mappers import dispute_from_row, event_from_row, jsonb
 from app.shared.db.connection import pooled_connect
+from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor
 
 
 class PostgresDisputeRepository:
@@ -84,14 +85,16 @@ class PostgresDisputeRepository:
             sql += " and status = %s"
             params.append(status)
         if cursor:
-            sql += " and created_at < %s"
-            params.append(cursor)
-        sql += " order by created_at desc limit %s"
-        params.append(limit)
+            position = decode_keyset_cursor(cursor)
+            sql += " and (created_at, id) < (%s, %s::uuid)"
+            params.extend((position.timestamp, position.item_id))
+        sql += " order by created_at desc, id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
-        items = [dispute_from_row(row) for row in rows]
-        return items, items[-1].created_at.isoformat() if len(items) == limit else None
+        items = [dispute_from_row(row) for row in rows[:limit]]
+        next_cursor = encode_keyset_cursor(items[-1].created_at, items[-1].id) if len(rows) > limit else None
+        return items, next_cursor
 
     def get_dispute(self, dispute_id: str) -> DisputeRecord | None:
         with self._connect() as conn:
