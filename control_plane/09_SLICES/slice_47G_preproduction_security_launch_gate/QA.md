@@ -29,6 +29,10 @@ Estado: CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW
 - CORS solo permite origenes aprobados.
 - CSP/headers de seguridad presentes en frontend y backend.
 - File upload rechaza tipo invalido, tamano excesivo y recurso ajeno.
+- 47G2 prueba JPG/PNG/WebP decodificables y PDF con envoltura valida en creditos,
+  Business Intake HTTP/Telegram y verificacion legacy interna.
+- 47G2 rechaza MIME discordante, HTML, SVG, ZIP, bytes corruptos y PDF incompleto
+  antes de storage, DB, eventos, audit y notificaciones.
 - Errores no exponen stack trace, SQL, storage path ni secretos.
 - Rate limits activos en auth, ordenes, chat, soporte, adjuntos y webhooks.
 - Dependency audit triageado sin fixes forzados.

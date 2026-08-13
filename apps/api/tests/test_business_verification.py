@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 BOT_TOKEN = "123456:test-bot-token"
 JWT_SECRET = "test-access-secret"
 JWT_REFRESH_SECRET = "test-refresh-secret"
+VALID_PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
 
 
 def _set_env(**overrides: str) -> None:
@@ -95,7 +96,7 @@ def _create_business(client: TestClient, login: dict, key: str = "create") -> di
     return response.json()["data"]["business"]
 
 
-def _upload_doc(client: TestClient, login: dict, business_id: str, file_type: str, *, content: bytes = b"safe-file") -> dict:
+def _upload_doc(client: TestClient, login: dict, business_id: str, file_type: str, *, content: bytes = VALID_PDF) -> dict:
     response = client.post(
         f"/api/v1/businesses/{business_id}/verification-documents",
         headers={
@@ -187,7 +188,7 @@ def test_legacy_owner_verification_endpoints_are_disabled_without_test_fixture_h
     upload = client.post(
         f"/api/v1/businesses/{business['id']}/verification-documents",
         headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": "req_legacy_upload_disabled"},
-        files={"file": ("document.pdf", b"safe-file", "application/pdf")},
+        files={"file": ("document.pdf", VALID_PDF, "application/pdf")},
         data={"file_type": "rif_document"},
     )
     submit = client.post(
@@ -374,6 +375,41 @@ def test_upload_rejects_invalid_mime_and_oversize_and_never_exposes_storage_path
     )
     assert oversize.status_code == 400
     assert "storage_path" not in invalid.text + oversize.text
+
+
+def test_legacy_verification_upload_rejects_disguised_files_without_side_effects() -> None:
+    client = _client()
+    login = _login(client, 106, "legacy_upload_hardening")
+    business = _create_business(client, login, "legacy_upload_hardening")
+    baseline = {
+        "files": len(client.app.state.business_repository.files),
+        "storage": len(client.app.state.private_storage._objects),
+        "audit": len(client.app.state.audit_writer.events),
+    }
+
+    for request_id, file_name, content, mime_type in (
+        ("html_pdf", "document.pdf", b"<html>not a pdf</html>", "application/pdf"),
+        ("pdf_jpg", "document.jpg", b"%PDF-1.7\n%%EOF\n", "image/jpeg"),
+        ("corrupt_webp", "document.webp", b"RIFFbrokenWEBP", "image/webp"),
+    ):
+        response = client.post(
+            f"/api/v1/businesses/{business['id']}/verification-documents",
+            headers={
+                "Authorization": f"Bearer {login['access_token']}",
+                "X-Request-Id": f"req_{request_id}",
+                "X-NODO-Test-Fixture": "business_create",
+            },
+            files={"file": (file_name, content, mime_type)},
+            data={"file_type": "rif_document"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "BUSINESS_DOCUMENT_INVALID"
+        assert "storage_path" not in response.text
+
+    assert len(client.app.state.business_repository.files) == baseline["files"]
+    assert len(client.app.state.private_storage._objects) == baseline["storage"]
+    assert len(client.app.state.audit_writer.events) == baseline["audit"]
 
 
 def test_admin_pending_pagination_support_readonly_and_approve_reject_permissions() -> None:

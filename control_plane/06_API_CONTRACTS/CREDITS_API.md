@@ -87,6 +87,10 @@ Rutas legacy prohibidas/no validas:
   - manual_tx_hash requerido para USDT TRC20
   - network = TRC20 requerido para USDT TRC20
   - proof file requerido
+  - tipos permitidos: JPG, PNG, WebP y PDF, maximo 5 MB
+  - el backend valida contenido real antes de storage; el MIME declarado debe coincidir y el nombre final usa extension canonica
+  - imagenes deben ser decodificables; PDF requiere encabezado PDF valido y marcador final `%%EOF`, sin ejecutar ni renderizar el documento
+  - archivo invalido no crea compra, `file_asset`, audit ni objeto en storage
 - Crea `credit_purchases.status = pending_manual_review`.
 - Guarda comprobante en `file_assets`:
   - resource_type = credit_purchase

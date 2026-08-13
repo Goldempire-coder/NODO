@@ -280,7 +280,7 @@ def _upload_intake_document(client: TestClient, intake_id: str, *, update_id: in
         f"/api/v1/business-intake/{intake_id}/documents",
         headers=_bot_headers(f"doc_{update_id}"),
         data={"document_kind": "identity_document", "telegram_update_id": update_id},
-        files={"file": ("doc.pdf", b"private-document", "application/pdf")},
+        files={"file": ("doc.pdf", b"%PDF-1.7\n%%EOF\n", "application/pdf")},
     )
     assert response.status_code == 201, response.text
 

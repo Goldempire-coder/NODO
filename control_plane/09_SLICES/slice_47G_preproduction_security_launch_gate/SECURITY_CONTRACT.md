@@ -69,6 +69,21 @@ Estado: CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW
 - No se permite `audit fix --force` sin revision humana.
 - Nuevas dependencias requieren revision de mantenimiento, origen y scripts.
 
+## Slice 47G2 - Upload hardening documental
+
+- Comprobantes manuales de creditos, documentos de Business Intake y el camino
+  legacy interno de verificacion aceptan solo JPG, PNG, WebP y PDF, maximo 5 MB.
+- El backend valida los bytes antes de storage. No confia en nombre, extension o
+  MIME declarado como prueba del tipo real.
+- JPG, PNG y WebP deben decodificar correctamente y coincidir con el MIME
+  declarado. PDF requiere encabezado PDF valido y marcador final `%%EOF`; no se
+  ejecuta, renderiza ni interpreta contenido activo.
+- Storage y metadata usan MIME y extension canonicos.
+- Un rechazo ocurre antes de crear compra, documento, `file_asset`, evento,
+  audit, notificacion Admin u objeto en storage.
+- El error publico es neutral y no expone parser, bytes, rutas ni metadata
+  interna.
+
 ## Gate 8 - Salida
 
 El slice solo puede cerrar como `READY_FOR_OWNER_REVIEW` si entrega:

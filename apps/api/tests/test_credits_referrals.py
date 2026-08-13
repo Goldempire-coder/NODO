@@ -7,9 +7,11 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from io import BytesIO
 from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.modules.credits.onchain import JsonRpcBaseUsdcVerifier, OnchainVerificationResult
 
@@ -20,6 +22,13 @@ JWT_REFRESH_SECRET = "test-refresh-secret"
 STRIPE_WEBHOOK_SECRET = "whsec_test_secret"
 BASE_WALLET = "0x1111111111111111111111111111111111111111"
 BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+VALID_PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
+
+
+def _image_bytes(image_format: str) -> bytes:
+    buffer = BytesIO()
+    Image.new("RGB", (2, 2), color=(20, 120, 220)).save(buffer, format=image_format)
+    return buffer.getvalue()
 
 
 def _set_env(**overrides: str) -> None:
@@ -194,7 +203,7 @@ def _manual_payment(client: TestClient, login: dict, key: str = "manual", method
         "/api/v1/business/credits/manual-payment",
         headers=_headers(login, key),
         data=data,
-        files={"file": ("proof.pdf", b"proof-bytes", "application/pdf")},
+        files={"file": ("proof.pdf", VALID_PDF, "application/pdf")},
     )
     assert response.status_code == 201, response.text
     return response.json()["data"]
@@ -386,7 +395,7 @@ def test_legacy_credit_payment_methods_can_be_disabled() -> None:
         "/api/v1/business/credits/manual-payment",
         headers=_headers(owner, "legacy_disabled_manual"),
         data={"package_code": "starter", "payment_method": "zelle_manual_admin_approved", "manual_payment_reference": "ZELLE-LEGACY"},
-        files={"file": ("proof.pdf", b"proof-bytes", "application/pdf")},
+        files={"file": ("proof.pdf", VALID_PDF, "application/pdf")},
     )
 
     assert stripe.status_code == 410
@@ -408,7 +417,7 @@ def test_manual_payment_submit_pending_admin_approve_once_and_reject_never_credi
         "/api/v1/business/credits/manual-payment",
         headers=_bearer(owner, "req_no_idem_manual"),
         data={"package_code": "starter", "payment_method": "zelle_manual_admin_approved", "manual_payment_reference": "ZELLE-NOKEY"},
-        files={"file": ("proof.pdf", b"proof-bytes", "application/pdf")},
+        files={"file": ("proof.pdf", VALID_PDF, "application/pdf")},
     )
     manual = _manual_payment(client, owner, key="manual_ok")
     assert no_key_manual.status_code == 400
@@ -460,6 +469,78 @@ def test_manual_payment_submit_pending_admin_approve_once_and_reject_never_credi
     assert rejected.json()["data"]["purchase"]["status"] == "rejected"
     assert client.app.state.ad_repository.get_wallet(reject_business["id"]).available_credits == 0
     assert {"manual_credit_payment_submitted", "manual_credit_payment_approved", "manual_credit_payment_rejected"}.issubset(set(_event_types(client)))
+
+
+def test_manual_payment_rejects_disguised_files_without_side_effects() -> None:
+    client = _client()
+    owner = _login(client, 924, "manual_upload_hardening")
+    _create_business(client, owner, "manual_upload_hardening")
+    baseline = {
+        "purchases": len(client.app.state.credit_repository.purchases),
+        "files": len(client.app.state.credit_repository.files),
+        "storage": len(client.app.state.private_storage._objects),
+        "audit": len(client.app.state.audit_writer.events),
+    }
+    cases = [
+        ("html-as-jpg", "proof.jpg", b"<html><script>alert(1)</script></html>", "image/jpeg"),
+        ("html-as-pdf", "proof.pdf", b"<html>not a pdf</html>", "application/pdf"),
+        ("pdf-as-jpg", "proof.jpg", b"%PDF-1.7\n%%EOF\n", "image/jpeg"),
+        ("arbitrary-pdf", "proof.pdf", b"not-a-document", "application/pdf"),
+        ("corrupt-png", "proof.png", b"\x89PNG\r\n\x1a\ncorrupt", "image/png"),
+        ("oversize", "proof.pdf", b"x" * (5 * 1024 * 1024 + 1), "application/pdf"),
+    ]
+
+    for key, file_name, content, mime_type in cases:
+        response = client.post(
+            "/api/v1/business/credits/manual-payment",
+            headers=_headers(owner, key),
+            data={
+                "package_code": "starter",
+                "payment_method": "zelle_manual_admin_approved",
+                "manual_payment_reference": "ZELLE-HARDENING",
+            },
+            files={"file": (file_name, content, mime_type)},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "MANUAL_PAYMENT_PROOF_REQUIRED"
+        assert "storage_path" not in response.text
+
+    assert len(client.app.state.credit_repository.purchases) == baseline["purchases"]
+    assert len(client.app.state.credit_repository.files) == baseline["files"]
+    assert len(client.app.state.private_storage._objects) == baseline["storage"]
+    assert len(client.app.state.audit_writer.events) == baseline["audit"]
+
+
+def test_manual_payment_accepts_allowed_content_and_uses_canonical_metadata() -> None:
+    client = _client()
+    owner = _login(client, 925, "manual_upload_formats")
+    _create_business(client, owner, "manual_upload_formats")
+    cases = (
+        ("jpeg", _image_bytes("JPEG"), "image/jpeg", ".jpg"),
+        ("png", _image_bytes("PNG"), "image/png", ".png"),
+        ("webp", _image_bytes("WEBP"), "image/webp", ".webp"),
+        ("pdf", VALID_PDF, "application/pdf", ".pdf"),
+    )
+
+    for label, content, mime_type, expected_suffix in cases:
+        response = client.post(
+            "/api/v1/business/credits/manual-payment",
+            headers=_headers(owner, f"manual_valid_{label}"),
+            data={
+                "package_code": "starter",
+                "payment_method": "zelle_manual_admin_approved",
+                "manual_payment_reference": f"ZELLE-{label.upper()}",
+            },
+            files={"file": ("untrusted-name.bin", content, mime_type)},
+        )
+
+        assert response.status_code == 201, response.text
+        payload = response.json()["data"]
+        assert payload["proof"]["mime_type"] == mime_type
+        assert "storage_path" not in response.text
+        stored_file = client.app.state.credit_repository.files[payload["proof"]["id"]]
+        assert stored_file.storage_path.endswith(expected_suffix)
 
 
 def test_admin_adjustment_requires_admin_and_keeps_wallet_non_negative() -> None:

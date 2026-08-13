@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from app.core.errors import ApiError
 from app.modules.business_intake.models import (
-    INTAKE_ALLOWED_MIME_TYPES,
     INTAKE_DOCUMENT_KINDS,
     INTAKE_MAX_FILE_SIZE_BYTES,
     new_id,
 )
+from app.shared.document_uploads import validate_document_upload
 
 
 class BusinessIntakePublicDocumentsMixin:
@@ -23,12 +23,15 @@ class BusinessIntakePublicDocumentsMixin:
     ) -> dict[str, object]:
         if document_kind not in INTAKE_DOCUMENT_KINDS:
             raise ApiError("BOT_UPLOAD_INVALID", status_code=400)
-        if mime_type not in INTAKE_ALLOWED_MIME_TYPES or mime_type.startswith("video/"):
-            raise ApiError("BOT_UPLOAD_INVALID", status_code=400)
-        if not content or len(content) > INTAKE_MAX_FILE_SIZE_BYTES:
-            raise ApiError("BOT_UPLOAD_INVALID", status_code=400)
         intake = self._get_intake(intake_id)  # type: ignore[attr-defined]
         self._rate_limit("document", str(intake.telegram_user_id))  # type: ignore[attr-defined]
+        if not content or len(content) > INTAKE_MAX_FILE_SIZE_BYTES:
+            raise ApiError("BOT_UPLOAD_INVALID", status_code=400)
+        validated_file = validate_document_upload(
+            content=content,
+            declared_mime_type=mime_type,
+            invalid_error_code="BOT_UPLOAD_INVALID",
+        )
         if intake.last_update_id == telegram_update_id:
             documents = self._repository.list_documents(intake.id)  # type: ignore[attr-defined]
             if documents:
@@ -40,7 +43,7 @@ class BusinessIntakePublicDocumentsMixin:
         stored = self._storage.store_business_intake_document(  # type: ignore[attr-defined]
             intake_id=intake.id,
             file_id=file_id,
-            file_name=file_name,
+            file_name=validated_file.storage_file_name,
             content=content,
         )
         document = self._repository.create_document(  # type: ignore[attr-defined]
@@ -49,7 +52,7 @@ class BusinessIntakePublicDocumentsMixin:
             intake_id=intake.id,
             document_kind=document_kind,
             storage_path=stored.storage_path,
-            mime_type=mime_type,
+            mime_type=validated_file.mime_type,
             size_bytes=stored.size_bytes,
         )
         updated = self._repository.mark_update_processed(  # type: ignore[attr-defined]
@@ -64,7 +67,7 @@ class BusinessIntakePublicDocumentsMixin:
             metadata={
                 "file_id": document.id,
                 "document_kind": document_kind,
-                "mime_type": mime_type,
+                "mime_type": validated_file.mime_type,
                 "size_bytes": stored.size_bytes,
             },
         )

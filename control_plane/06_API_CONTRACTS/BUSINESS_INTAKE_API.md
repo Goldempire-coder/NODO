@@ -25,7 +25,7 @@ Reglas:
 - `/start` crea o recupera draft y deja `last_step = awaiting_referral_code`.
 - Cada respuesta valida se guarda inmediatamente en `business_intake_requests`.
 - `last_step` avanza por la secuencia canonica del contrato de 14D2.
-- El bot acepta `photo` y `document` con MIME permitido; descarga archivos con Telegram `getFile` usando `BUSINESS_INTAKE_BOT_TOKEN`.
+- El bot acepta `photo` y `document` con MIME permitido; descarga archivos con Telegram `getFile` usando `BUSINESS_INTAKE_BOT_TOKEN` y valida los bytes reales antes de storage.
 - Rechaza `video`, `audio`, `voice`, `animation` y MIME no permitido con `BOT_UPLOAD_INVALID`.
 - El webhook responde `200 OK` ante errores recuperables del usuario (`BOT_INPUT_INVALID`, `BOT_UPLOAD_INVALID`, `RATE_LIMITED`) y envia mensaje correctivo al chat para evitar retries infinitos de Telegram.
 - No crea negocio activo.
@@ -169,6 +169,10 @@ Rules:
 - `file_assets.file_type = intake_document`.
 - MIME permitido: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`.
 - Tamano maximo: 5 MB.
+- El MIME declarado debe coincidir con el contenido. JPG, PNG y WebP deben ser imagenes decodificables; PDF requiere encabezado PDF valido y marcador final `%%EOF`.
+- El nombre original no decide el tipo almacenado. Storage usa MIME y extension canonicos.
+- Un archivo falso, corrupto o discordante responde `BOT_UPLOAD_INVALID` antes de crear documento, `file_asset`, audit, evento, notificacion Admin u objeto en storage.
+- El backend no ejecuta, renderiza ni interpreta contenido activo del PDF.
 - Video queda post-MVP; `video/*` y otros MIME deben responder `BOT_UPLOAD_INVALID`.
 - Idempotente por `telegram_chat_id + telegram_update_id`; repetir upload no duplica archivo ni audit.
 - `storage_path` nunca se expone.

@@ -228,6 +228,9 @@ Rules:
 - `storage_path` nunca se expone en response.
 - MIME permitido: `image/jpeg`, `image/png`, `image/webp`, `application/pdf`.
 - Max size: 5 MB.
+- Los caminos internos/test fixture validan bytes reales antes de storage: imagen decodificable o envoltura PDF valida; el MIME declarado debe coincidir.
+- Storage usa MIME y extension canonicos. Un rechazo no crea `file_asset`, audit ni objeto en storage.
+- Esta validacion no habilita el upload publico legacy: runtime real mantiene `403 BUSINESS_SELF_ONBOARDING_DISABLED`.
 - Auditar `verification_document_uploaded`.
 
 ## POST /api/v1/businesses/{id}/submit-verification

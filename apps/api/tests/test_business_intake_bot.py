@@ -5,15 +5,28 @@ import hmac
 import json
 import os
 import time
+from io import BytesIO
 from typing import Any
 from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 BOT_TOKEN = "123456:test-bot-token"
 BUSINESS_INTAKE_BOT_TOKEN = "123456:test-business-intake-bot-token"
 JWT_SECRET = "test-access-secret"
 JWT_REFRESH_SECRET = "test-refresh-secret"
+VALID_PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
+
+
+def _image_bytes(image_format: str) -> bytes:
+    buffer = BytesIO()
+    Image.new("RGB", (2, 2), color=(20, 120, 220)).save(buffer, format=image_format)
+    return buffer.getvalue()
+
+
+VALID_JPEG = _image_bytes("JPEG")
+VALID_PNG = _image_bytes("PNG")
 
 
 def _set_env(**overrides: str) -> None:
@@ -127,7 +140,7 @@ def _upload_intake_doc(client: TestClient, intake_id: str, *, update_id: int, re
         f"/api/v1/business-intake/{intake_id}/documents",
         headers=_bot_headers(request_id),
         data={"document_kind": "identity_document", "telegram_update_id": update_id},
-        files={"file": ("doc.pdf", b"private-document", "application/pdf")},
+        files={"file": ("doc.pdf", VALID_PDF, "application/pdf")},
     )
     assert response.status_code == 201, response.text
     return response.json()["data"]
@@ -410,13 +423,13 @@ def test_telegram_update_id_duplicate_does_not_duplicate_request_or_document() -
         f"/api/v1/business-intake/{first['id']}/documents",
         headers=_bot_headers("upload_one"),
         data={"document_kind": "identity_document", "telegram_update_id": "302"},
-        files={"file": ("doc.pdf", b"private-document", "application/pdf")},
+        files={"file": ("doc.pdf", VALID_PDF, "application/pdf")},
     )
     upload_2 = client.post(
         f"/api/v1/business-intake/{first['id']}/documents",
         headers=_bot_headers("upload_dup"),
         data={"document_kind": "identity_document", "telegram_update_id": "302"},
-        files={"file": ("doc.pdf", b"private-document", "application/pdf")},
+        files={"file": ("doc.pdf", VALID_PDF, "application/pdf")},
     )
 
     assert upload_1.status_code == 201, upload_1.text
@@ -435,7 +448,7 @@ def test_document_upload_validation_and_no_storage_path_exposure() -> None:
         f"/api/v1/business-intake/{started['id']}/documents",
         headers=_bot_headers("valid_doc"),
         data={"document_kind": "rif_document", "telegram_update_id": "402"},
-        files={"file": ("rif.png", b"image-bytes", "image/png")},
+        files={"file": ("rif.png", VALID_PNG, "image/png")},
     )
     assert valid.status_code == 201, valid.text
     assert valid.json()["data"]["file"]["file_type"] == "intake_document"
@@ -458,6 +471,43 @@ def test_document_upload_validation_and_no_storage_path_exposure() -> None:
     )
     assert too_large.status_code == 400
     assert too_large.json()["error"]["code"] == "BOT_UPLOAD_INVALID"
+
+
+def test_intake_document_rejects_disguised_files_without_side_effects() -> None:
+    client = _client()
+    started = _start(client, update_id=405, telegram_id=7032, chat_id=8032)
+    _contact(client, started["id"], update_id=406, telegram_id=7032, chat_id=8032)
+    baseline = {
+        "documents": len(client.app.state.business_intake_repository.documents),
+        "storage": len(client.app.state.private_storage._objects),
+        "audit": len(client.app.state.audit_writer.events),
+        "notifications": len(client.app.state.admin_notification_repository.notifications),
+        "last_update_id": client.app.state.business_intake_repository.get(started["id"]).last_update_id,
+    }
+    cases = [
+        (407, "false.pdf", b"<html>not a pdf</html>", "application/pdf"),
+        (408, "false.png", b"not-an-image", "image/png"),
+        (409, "archive.pdf", b"PK\x03\x04archive", "application/pdf"),
+        (410, "vector.png", b"<svg><script/></svg>", "image/png"),
+    ]
+
+    for update_id, file_name, content, mime_type in cases:
+        response = client.post(
+            f"/api/v1/business-intake/{started['id']}/documents",
+            headers=_bot_headers(f"invalid_doc_{update_id}"),
+            data={"document_kind": "identity_document", "telegram_update_id": str(update_id)},
+            files={"file": (file_name, content, mime_type)},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "BOT_UPLOAD_INVALID"
+        assert "storage_path" not in response.text
+
+    assert len(client.app.state.business_intake_repository.documents) == baseline["documents"]
+    assert len(client.app.state.private_storage._objects) == baseline["storage"]
+    assert len(client.app.state.audit_writer.events) == baseline["audit"]
+    assert len(client.app.state.admin_notification_repository.notifications) == baseline["notifications"]
+    assert client.app.state.business_intake_repository.get(started["id"]).last_update_id == baseline["last_update_id"]
 
 
 def test_admin_list_detail_and_review_require_rbac_reason_idempotency() -> None:
@@ -932,7 +982,7 @@ def test_admin_can_delete_bad_intake_with_reason_and_idempotency(monkeypatch: An
         f"/api/v1/business-intake/{started['id']}/documents",
         headers=_bot_headers("delete_doc"),
         data={"document_kind": "rif_document", "telegram_update_id": 653},
-        files={"file": ("rif.pdf", b"private-pdf", "application/pdf")},
+        files={"file": ("rif.pdf", VALID_PDF, "application/pdf")},
     )
     assert upload.status_code == 201, upload.text
 
@@ -1152,7 +1202,7 @@ def test_business_intake_conversation_persists_each_step_and_submits(monkeypatch
     assert all("horario habitual" not in message["text"].lower() for message in sent_messages)
 
     async def fake_download(bot_token: str, file_id: str) -> bytes:
-        return b"private-pdf-content"
+        return VALID_PDF
 
     monkeypatch.setattr(intake_service, "telegram_download_file", fake_download)
     upload = _business_webhook(
@@ -1225,7 +1275,7 @@ def test_business_intake_webhook_message_after_submitted_does_not_create_new_dra
     intake_id, _sent_messages = _drive_conversation_to_documents(client, monkeypatch, telegram_id=7361, chat_id=8361, start_update=1600)
 
     async def fake_download(bot_token: str, file_id: str) -> bytes:
-        return b"private-pdf-content"
+        return VALID_PDF
 
     monkeypatch.setattr(intake_service, "telegram_download_file", fake_download)
     upload = _business_webhook(
@@ -1374,7 +1424,7 @@ def test_business_intake_telegram_document_downloads_private_storage_and_dedupes
 
     async def fake_download(bot_token: str, file_id: str) -> bytes:
         downloads.append({"bot_token": bot_token, "file_id": file_id})
-        return b"private-pdf-content"
+        return VALID_PDF
 
     monkeypatch.setattr(intake_service, "telegram_download_file", fake_download)
 
@@ -1410,13 +1460,55 @@ def test_business_intake_telegram_document_downloads_private_storage_and_dedupes
     assert len(sent_messages) == prompt_count_before_upload
 
 
+def test_business_intake_telegram_rejects_disguised_pdf_without_side_effects(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    client = _client()
+    intake_id, _ = _drive_conversation_to_documents(client, monkeypatch, telegram_id=7332, chat_id=8332, start_update=1320)
+    baseline = {
+        "documents": len(client.app.state.business_intake_repository.documents),
+        "storage": len(client.app.state.private_storage._objects),
+        "audit": len(client.app.state.audit_writer.events),
+        "notifications": len(client.app.state.admin_notification_repository.notifications),
+    }
+
+    async def fake_download(bot_token: str, file_id: str) -> bytes:
+        return b"<html><script>alert(1)</script></html>"
+
+    monkeypatch.setattr(intake_service, "telegram_download_file", fake_download)
+    response = _business_webhook(
+        client,
+        _telegram_message(
+            1333,
+            telegram_id=7332,
+            chat_id=8332,
+            extra={
+                "document": {
+                    "file_id": "telegram-disguised-pdf",
+                    "file_unique_id": "telegram-disguised-pdf-unique",
+                    "file_name": "rif.pdf",
+                    "mime_type": "application/pdf",
+                    "file_size": 42,
+                }
+            },
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["recoverable_error"] == "BOT_UPLOAD_INVALID"
+    assert "storage_path" not in response.text
+    assert len(client.app.state.business_intake_repository.documents) == baseline["documents"]
+    assert len(client.app.state.private_storage._objects) == baseline["storage"]
+    assert len(client.app.state.audit_writer.events) == baseline["audit"]
+    assert len(client.app.state.admin_notification_repository.notifications) == baseline["notifications"]
+    assert client.app.state.business_intake_repository.get(intake_id).last_step == "awaiting_documents"
+
+
 def test_business_intake_photo_album_does_not_repeat_document_prompt(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     client = _client()
     intake_id, sent_messages = _drive_conversation_to_documents(client, monkeypatch, telegram_id=7371, chat_id=8371, start_update=1700)
     prompt_count_before_album = len(sent_messages)
 
     async def fake_download(bot_token: str, file_id: str) -> bytes:
-        return f"private-photo-{file_id}".encode()
+        return VALID_JPEG
 
     monkeypatch.setattr(intake_service, "telegram_download_file", fake_download)
 

@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import ApiError
-from app.modules.business_intake.models import BusinessIntakeRequestRecord, new_id
+from app.modules.business_intake.models import INTAKE_MAX_FILE_SIZE_BYTES, BusinessIntakeRequestRecord, new_id
 from app.modules.business_intake.presenters import public_business_intake_document
+from app.shared.document_uploads import validate_document_upload
 
 
 def store_intake_document(
@@ -24,6 +25,13 @@ def store_intake_document(
     storage,
     admin_notifications=None,
 ) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if not content or len(content) > INTAKE_MAX_FILE_SIZE_BYTES:
+        raise ApiError("BOT_UPLOAD_INVALID", status_code=400)
+    validated_file = validate_document_upload(
+        content=content,
+        declared_mime_type=mime_type,
+        invalid_error_code="BOT_UPLOAD_INVALID",
+    )
     if intake.status != "draft" or intake.last_step != "awaiting_documents":
         raise ApiError("BOT_INPUT_INVALID", status_code=400)
 
@@ -34,8 +42,8 @@ def store_intake_document(
         intake=intake,
         owner_user_id=applicant.id,
         document_kind=document_kind,
-        file_name=file_name,
-        mime_type=mime_type,
+        file_name=validated_file.storage_file_name,
+        mime_type=validated_file.mime_type,
         content=content,
         update_id=update_id,
         telegram_file_id=telegram_file_id,
@@ -47,7 +55,7 @@ def store_intake_document(
         intake=intake,
         document=document,
         document_kind=document_kind,
-        mime_type=mime_type,
+        mime_type=validated_file.mime_type,
         size_bytes=stored_size,
         request_id=request_id,
     )

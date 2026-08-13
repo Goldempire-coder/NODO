@@ -8,6 +8,7 @@ from app.modules.businesses.policy import require_business_owner
 from app.modules.businesses.presenters import file_payload
 from app.modules.businesses.state_machine import require_owner_upload_allowed
 from app.modules.users.models import UserRecord
+from app.shared.document_uploads import ValidatedDocumentUpload, validate_document_upload
 
 
 class LegacyBusinessDocumentMixin:
@@ -26,12 +27,12 @@ class LegacyBusinessDocumentMixin:
         business = self._business_or_404(business_id)  # type: ignore[attr-defined]
         require_business_owner(user, business)
         require_owner_upload_allowed(business)
-        self._validate_legacy_document(file_type=file_type, mime_type=mime_type, content=content)
+        validated_file = self._validate_legacy_document(file_type=file_type, mime_type=mime_type, content=content)
         file_id = new_id()
         stored = self._storage.store(  # type: ignore[attr-defined]
             business_id=business.id,
             file_id=file_id,
-            file_name=file_name,
+            file_name=validated_file.storage_file_name,
             content=content,
         )
         file = self._repository.create_file_asset(  # type: ignore[attr-defined]
@@ -40,7 +41,7 @@ class LegacyBusinessDocumentMixin:
             business_id=business.id,
             file_type=file_type,
             storage_path=stored.storage_path,
-            mime_type=mime_type,
+            mime_type=validated_file.mime_type,
             size_bytes=stored.size_bytes,
         )
         self._audit.write(  # type: ignore[attr-defined]
@@ -59,6 +60,17 @@ class LegacyBusinessDocumentMixin:
         )
         return {"file": file_payload(file)}
 
-    def _validate_legacy_document(self, *, file_type: str, mime_type: str, content: bytes) -> None:
+    def _validate_legacy_document(
+        self,
+        *,
+        file_type: str,
+        mime_type: str,
+        content: bytes,
+    ) -> ValidatedDocumentUpload:
         if file_type not in DOCUMENT_TYPES or mime_type not in ALLOWED_MIME_TYPES or not content or len(content) > MAX_DOCUMENT_SIZE_BYTES:
             raise ApiError("BUSINESS_DOCUMENT_INVALID", status_code=400)
+        return validate_document_upload(
+            content=content,
+            declared_mime_type=mime_type,
+            invalid_error_code="BUSINESS_DOCUMENT_INVALID",
+        )

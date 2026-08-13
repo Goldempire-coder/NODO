@@ -11,6 +11,7 @@ from app.modules.credits.onchain import price_to_usdc_units, validate_evm_addres
 from app.modules.credits.schemas import BaseUsdcPaymentRequest, BaseUsdcTxHashRequest, StripeCheckoutRequest
 from app.modules.credits.serializers import file_public, purchase_public
 from app.modules.users.models import UserRecord
+from app.shared.document_uploads import validate_document_upload
 
 
 def _mask_tx_hash(value: str, keep: int = 8) -> str:
@@ -177,6 +178,13 @@ class CreditBusinessPurchases:
     ) -> dict[str, Any]:
         self._rate_limit("manual_payment", business.id)
         stable_key = self._require_idempotency_key(idempotency_key)
+        if not content or len(content) > MAX_PROOF_SIZE_BYTES:
+            raise ApiError("MANUAL_PAYMENT_PROOF_REQUIRED", status_code=400)
+        validated_file = validate_document_upload(
+            content=content,
+            declared_mime_type=mime_type,
+            invalid_error_code="MANUAL_PAYMENT_PROOF_REQUIRED",
+        )
         content_hash = hashlib.sha256(content).hexdigest()
 
         def compute() -> dict[str, Any]:
@@ -188,8 +196,8 @@ class CreditBusinessPurchases:
                 manual_payment_reference=manual_payment_reference,
                 manual_tx_hash=manual_tx_hash,
                 manual_network=manual_network,
-                file_name=file_name,
-                mime_type=mime_type,
+                file_name=validated_file.storage_file_name,
+                mime_type=validated_file.mime_type,
                 content=content,
                 content_hash=content_hash,
                 stable_key=stable_key,
@@ -204,7 +212,7 @@ class CreditBusinessPurchases:
                 "manual_payment_reference": manual_payment_reference,
                 "manual_tx_hash": manual_tx_hash,
                 "manual_network": manual_network,
-                "mime_type": mime_type,
+                "mime_type": validated_file.mime_type,
                 "content_hash": content_hash,
             },
             compute=compute,
@@ -279,9 +287,7 @@ class CreditBusinessPurchases:
             raise ApiError("INVALID_PACKAGE", status_code=400)
         if payment_method not in {"zelle_manual_admin_approved", "usdt_manual_admin_approved"}:
             raise ApiError("INVALID_PAYMENT_METHOD", status_code=400)
-        if not content:
-            raise ApiError("MANUAL_PAYMENT_PROOF_REQUIRED", status_code=400)
-        if mime_type not in ALLOWED_PROOF_MIME_TYPES or len(content) > MAX_PROOF_SIZE_BYTES:
+        if mime_type not in ALLOWED_PROOF_MIME_TYPES:
             raise ApiError("MANUAL_PAYMENT_PROOF_REQUIRED", status_code=400)
         if payment_method == "zelle_manual_admin_approved" and not manual_payment_reference:
             raise ApiError("VALIDATION_ERROR", status_code=422)
