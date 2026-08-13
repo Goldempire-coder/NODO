@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime
 from decimal import Decimal
 
 from app.core.errors import ApiError
-from app.modules.credits.models import BASE_MAINNET_CHAIN_ID, BASE_USDC_CONTRACT_ADDRESS, BASE_USDC_DECIMALS
+from app.modules.credits.models import BASE_MAINNET_CHAIN_ID, BASE_USDC_CONTRACT_ADDRESS, BASE_USDC_DECIMALS, CreditPurchaseRecord
 
 TRANSFER_EVENT_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 
@@ -74,6 +75,53 @@ class BaseUsdcVerifier:
         latest_block_number: int | None = None,
     ) -> OnchainVerificationResult:
         raise NotImplementedError
+
+
+def normalize_credit_verification(
+    *,
+    purchase: CreditPurchaseRecord,
+    verification: OnchainVerificationResult,
+    submitted_tx_hash: str,
+    min_confirmations: int,
+    now: datetime,
+) -> OnchainVerificationResult:
+    """Fail closed if a verifier returns a result outside the purchase contract."""
+
+    normalized_tx_hash = validate_tx_hash(submitted_tx_hash)
+    expected_token = normalize_evm(purchase.token_contract_address)
+    expected_destination = normalize_evm(purchase.destination_wallet_address)
+
+    if verification.tx_hash.lower() != normalized_tx_hash:
+        return _verification_failure(verification, "ONCHAIN_VERIFICATION_FAILED")
+    if purchase.chain_id != BASE_MAINNET_CHAIN_ID or verification.chain_id != purchase.chain_id:
+        return _verification_failure(verification, "ONCHAIN_WRONG_CHAIN")
+    if (
+        expected_token != BASE_USDC_CONTRACT_ADDRESS
+        or normalize_evm(verification.token_contract_address) != expected_token
+        or not expected_destination
+        or normalize_evm(verification.destination_wallet_address) != expected_destination
+        or (verification.tx_to_address is not None and normalize_evm(verification.tx_to_address) != expected_destination)
+    ):
+        return _verification_failure(verification, "ONCHAIN_WRONG_TOKEN_OR_WALLET")
+    if verification.error_code:
+        return verification
+    if verification.verification_status != "verified":
+        return verification
+    if (
+        purchase.expected_amount_units is None
+        or verification.tx_amount_units is None
+        or verification.tx_amount_units < purchase.expected_amount_units
+        or verification.confirmations < min_confirmations
+        or verification.tx_log_index is None
+    ):
+        return _verification_failure(verification, "ONCHAIN_VERIFICATION_FAILED")
+    if purchase.expires_at is not None and now >= purchase.expires_at:
+        return replace(verification, verification_status="under_review", error_code=None)
+    return verification
+
+
+def _verification_failure(verification: OnchainVerificationResult, code: str) -> OnchainVerificationResult:
+    return replace(verification, verification_status="verification_failed", error_code=code)
 
 
 class JsonRpcBaseUsdcVerifier(BaseUsdcVerifier):

@@ -84,6 +84,25 @@ Estado: CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW
 - El error publico es neutral y no expone parser, bytes, rutas ni metadata
   interna.
 
+## Slice 47G5 - Wallet y acreditacion de creditos
+
+- `NODO_CREDIT_RECEIVING_WALLET_BASE` se lee exclusivamente desde env backend y
+  se valida como direccion EVM antes de crear una compra.
+- El frontend recibe la direccion publica solo como instruccion de pago de una
+  compra propia. No puede enviarla como autoridad ni cambiarla.
+- NODO no guarda private keys, seed phrases, mnemonics o signing keys y no firma
+  ni mueve fondos.
+- El resultado del verificador se revalida contra el snapshot durable de la
+  compra antes de acreditar: tx hash, chain, token, destino, monto,
+  confirmaciones y log index.
+- Wallet y ledger se actualizan exactamente una vez. PostgreSQL usa lock de fila
+  y unique por `chain_id + tx_hash + tx_log_index`.
+- Compra vencida, proveedor no disponible o resultado incompatible no acredita.
+- Audit usa tx hash enmascarado y codigos allowlist; nunca raw provider response,
+  RPC key ni material de firma.
+- Cambiar la wallet por configuracion es una operacion sensible con aprobacion,
+  fingerprint, evidencia y rollback. No existe endpoint/UI de cambio.
+
 ## Gate 8 - Salida
 
 El slice solo puede cerrar como `READY_FOR_OWNER_REVIEW` si entrega:

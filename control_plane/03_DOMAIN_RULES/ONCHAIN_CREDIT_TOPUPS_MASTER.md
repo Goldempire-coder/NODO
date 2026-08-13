@@ -215,6 +215,7 @@ Support es read-only y enmascarado.
 - onchain_payment_under_review
 - onchain_payment_rejected
 - onchain_payment_verification_failed
+- onchain_receiving_wallet_configuration_invalid
 - onchain_tx_duplicate_detected
 - onchain_watcher_run_started
 - onchain_watcher_run_finished
@@ -232,3 +233,15 @@ Support es read-only y enmascarado.
 - exponer `storage_path` o `account_value`.
 - crear creditos sin ledger.
 - mutar wallet directo fuera del servicio de creditos.
+
+## Cambio de wallet receptora
+
+`NODO_CREDIT_RECEIVING_WALLET_BASE` solo cambia mediante configuracion backend
+controlada. No existe endpoint ni UI para modificarla. Cada cambio requiere
+actor, aprobacion Owner, entorno, commit/build desplegado, fingerprint
+enmascarado anterior/nuevo, timestamp, motivo, evidencia de smoke y plan de
+rollback. La direccion es publica, pero el cambio de destino es una operacion
+sensible y nunca silenciosa.
+
+Private keys, seed phrases, mnemonics y signing keys no pertenecen a NODO. El
+backend verifica transferencias publicas; no firma transacciones ni mueve fondos.

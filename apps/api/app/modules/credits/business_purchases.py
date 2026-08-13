@@ -7,7 +7,7 @@ from typing import Any, Callable
 from app.core.errors import ApiError
 from app.modules.businesses.models import BusinessRecord
 from app.modules.credits.models import ALLOWED_PROOF_MIME_TYPES, BASE_USDC_TOKEN_SYMBOL, CREDIT_PACKAGES, MAX_PROOF_SIZE_BYTES, CreditPurchaseRecord, utc_now
-from app.modules.credits.onchain import price_to_usdc_units, validate_evm_address, validate_tx_hash
+from app.modules.credits.onchain import normalize_credit_verification, price_to_usdc_units, validate_evm_address, validate_tx_hash
 from app.modules.credits.schemas import BaseUsdcPaymentRequest, BaseUsdcTxHashRequest, StripeCheckoutRequest
 from app.modules.credits.serializers import file_public, purchase_public
 from app.modules.users.models import UserRecord
@@ -79,6 +79,15 @@ class CreditBusinessPurchases:
             try:
                 destination_wallet = validate_evm_address(self._settings.nodo_credit_receiving_wallet_base or "")
             except ApiError as exc:
+                self._audit.write(
+                    event_type="onchain_receiving_wallet_configuration_invalid",
+                    actor_user_id=user.id,
+                    actor_role=user.role,
+                    resource_type="business",
+                    resource_id=business.id,
+                    request_id=request_id,
+                    metadata_json={"code": "ONCHAIN_RECEIVING_WALLET_NOT_CONFIGURED"},
+                )
                 raise ApiError("ONCHAIN_RECEIVING_WALLET_NOT_CONFIGURED", status_code=503) from exc
             expected_units = price_to_usdc_units(package["price_usd"])
             expires_at = utc_now() + timedelta(minutes=self._settings.onchain_credit_purchase_ttl_minutes)
@@ -135,17 +144,52 @@ class CreditBusinessPurchases:
                 raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
             if purchase.payment_method != "base_usdc_onchain":
                 raise ApiError("PURCHASE_STATUS_INVALID", status_code=409)
-            if purchase.status in {"expired", "rejected", "verification_failed"}:
+            if purchase.status == "credited":
+                return {"purchase": purchase_public(purchase), "credited": False}
+            if purchase.status not in {"pending_payment", "pending_onchain_confirmation", "detected"}:
                 raise ApiError("PURCHASE_STATUS_INVALID", status_code=409)
             if purchase.expected_amount_units is None or not purchase.destination_wallet_address:
                 raise ApiError("ONCHAIN_VERIFICATION_FAILED", status_code=409)
-            verification = self._onchain_verifier.verify(
-                tx_hash=tx_hash,
-                expected_amount_units=purchase.expected_amount_units,
-                destination_wallet_address=purchase.destination_wallet_address,
-                min_confirmations=self._settings.onchain_credit_min_confirmations,
+            self._audit.write(
+                event_type="onchain_tx_hash_submitted",
+                actor_user_id=user.id,
+                actor_role=user.role,
+                resource_type="credit_purchase",
+                resource_id=purchase.id,
+                request_id=request_id,
+                metadata_json={"tx_hash_masked": _mask_tx_hash(tx_hash)},
             )
-            updated, ledger = self._repository.apply_onchain_verification(purchase=purchase, verification=verification, actor_user_id=user.id)
+            try:
+                verification = self._onchain_verifier.verify(
+                    tx_hash=tx_hash,
+                    expected_amount_units=purchase.expected_amount_units,
+                    destination_wallet_address=purchase.destination_wallet_address,
+                    min_confirmations=self._settings.onchain_credit_min_confirmations,
+                )
+                verification = normalize_credit_verification(
+                    purchase=purchase,
+                    verification=verification,
+                    submitted_tx_hash=tx_hash,
+                    min_confirmations=self._settings.onchain_credit_min_confirmations,
+                    now=utc_now(),
+                )
+                updated, ledger = self._repository.apply_onchain_verification(
+                    purchase=purchase,
+                    verification=verification,
+                    actor_user_id=user.id,
+                    min_confirmations=self._settings.onchain_credit_min_confirmations,
+                )
+            except ApiError as exc:
+                self._audit.write(
+                    event_type="onchain_payment_verification_failed",
+                    actor_user_id=user.id,
+                    actor_role=user.role,
+                    resource_type="credit_purchase",
+                    resource_id=purchase.id,
+                    request_id=request_id,
+                    metadata_json={"tx_hash_masked": _mask_tx_hash(tx_hash), "code": exc.code},
+                )
+                raise
             event_type = "onchain_credit_purchase_credited" if ledger else f"onchain_credit_purchase_{updated.status}"
             self._audit.write(event_type=event_type, actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"tx_hash_masked": _mask_tx_hash(tx_hash), "status": updated.status})
             if updated.status in {"under_review", "verification_failed", "failed", "expired"} and self._admin_notifications is not None:

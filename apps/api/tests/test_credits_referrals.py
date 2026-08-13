@@ -8,11 +8,13 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from io import BytesIO
+from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from app.core.errors import ApiError
 from app.modules.credits.onchain import JsonRpcBaseUsdcVerifier, OnchainVerificationResult
 
 
@@ -542,7 +544,6 @@ def test_manual_payment_accepts_allowed_content_and_uses_canonical_metadata() ->
         stored_file = client.app.state.credit_repository.files[payload["proof"]["id"]]
         assert stored_file.storage_path.endswith(expected_suffix)
 
-
 def test_admin_adjustment_requires_admin_and_keeps_wallet_non_negative() -> None:
     client = _client()
     owner = _login(client, 930, "adjust_owner")
@@ -702,6 +703,48 @@ def test_base_usdc_payment_requires_configured_receiving_wallet() -> None:
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "ONCHAIN_RECEIVING_WALLET_NOT_CONFIGURED"
     assert response.json()["error"]["message"] == "La wallet de recepcion BASE no esta configurada correctamente."
+    assert client.app.state.credit_repository.purchases == {}
+    assert "onchain_receiving_wallet_configuration_invalid" in _event_types(client)
+
+
+def test_base_usdc_payment_rejects_invalid_receiving_wallet_without_credit() -> None:
+    client = _client(NODO_CREDIT_RECEIVING_WALLET_BASE="not-an-evm-address")
+    owner = _login(client, 980, "base_invalid_wallet")
+    business = _create_business(client, owner, "base_invalid_wallet")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "base_invalid_wallet"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "ONCHAIN_RECEIVING_WALLET_NOT_CONFIGURED"
+    assert client.app.state.credit_repository.purchases == {}
+    wallet = client.app.state.ad_repository.get_wallet(business["id"])
+    assert wallet is None or wallet.available_credits == 0
+    events = [event for event in client.app.state.audit_writer.events if event.event_type == "onchain_receiving_wallet_configuration_invalid"]
+    assert len(events) == 1
+    assert events[0].metadata_json == {"code": "ONCHAIN_RECEIVING_WALLET_NOT_CONFIGURED"}
+
+
+def test_base_usdc_payment_rejects_client_supplied_destination_wallet() -> None:
+    client = _client()
+    owner = _login(client, 985, "base_client_wallet_override")
+    _create_business(client, owner, "base_client_wallet_override")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "base_client_wallet_override"), "Content-Type": "application/json"},
+        json={
+            "package_code": "starter",
+            "token_symbol": "USDC",
+            "destination_wallet_address": "0x4444444444444444444444444444444444444444",
+        },
+    )
+
+    assert response.status_code == 422
+    assert client.app.state.credit_repository.purchases == {}
 
 
 def test_base_usdc_wrong_chain_token_wallet_partial_and_pending_confirmations() -> None:
@@ -748,6 +791,119 @@ def test_base_usdc_wrong_chain_token_wallet_partial_and_pending_confirmations() 
     assert pending_response.json()["data"]["purchase"]["status"] == "pending_onchain_confirmation"
 
 
+def test_base_usdc_defense_in_depth_rejects_untrusted_verified_result_fields() -> None:
+    client = _client()
+    owner = _login(client, 982, "base_verified_result_guard")
+    business = _create_business(client, owner, "base_verified_result_guard")
+    cases = (
+        ("chain", {"chain_id": 1}, "ONCHAIN_WRONG_CHAIN"),
+        ("token", {"token": "0x3333333333333333333333333333333333333333"}, "ONCHAIN_WRONG_TOKEN_OR_WALLET"),
+        ("wallet", {"to_address": "0x4444444444444444444444444444444444444444"}, "ONCHAIN_WRONG_TOKEN_OR_WALLET"),
+        ("amount", {"amount_units": 1}, "ONCHAIN_VERIFICATION_FAILED"),
+        ("confirmations", {"confirmations": 0}, "ONCHAIN_VERIFICATION_FAILED"),
+    )
+
+    for suffix, overrides, expected_code in cases:
+        payment = _base_payment(client, owner, key=f"guard_{suffix}")
+        tx_hash = _tx_hash(f"guard-{suffix}")
+        result = _verification(tx_hash, **overrides)
+        client.app.state.onchain_credit_verifier.set_result(tx_hash, result)
+        response = client.post(
+            f"/api/v1/business/credits/purchases/{payment['purchase']['id']}/tx-hash",
+            headers={**_headers(owner, f"guard_tx_{suffix}"), "Content-Type": "application/json"},
+            json={"tx_hash": tx_hash},
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error"]["code"] == expected_code
+        assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 0
+
+
+def test_base_usdc_expired_purchase_and_unavailable_verifier_never_credit() -> None:
+    client = _client()
+    owner = _login(client, 983, "base_expiry_rpc_guard")
+    business = _create_business(client, owner, "base_expiry_rpc_guard")
+
+    expired = _base_payment(client, owner, key="expired_guard")
+    expired_record = client.app.state.credit_repository.get_purchase(expired["purchase"]["id"])
+    expired_record.expires_at = utc_now() - timedelta(seconds=1)
+    expired_hash = _tx_hash("expired-guard")
+    client.app.state.onchain_credit_verifier.set_result(expired_hash, _verification(expired_hash))
+    expired_response = client.post(
+        f"/api/v1/business/credits/purchases/{expired_record.id}/tx-hash",
+        headers={**_headers(owner, "expired_guard_tx"), "Content-Type": "application/json"},
+        json={"tx_hash": expired_hash},
+    )
+
+    class UnavailableVerifier:
+        def verify(self, **kwargs):  # type: ignore[no-untyped-def]
+            raise ApiError("ONCHAIN_RPC_UNAVAILABLE", status_code=503)
+
+    unavailable = _base_payment(client, owner, key="rpc_unavailable_guard")
+    unavailable_hash = _tx_hash("rpc-unavailable-guard")
+    client.app.state.onchain_credit_verifier = UnavailableVerifier()
+    unavailable_response = client.post(
+        f"/api/v1/business/credits/purchases/{unavailable['purchase']['id']}/tx-hash",
+        headers={**_headers(owner, "rpc_unavailable_guard_tx"), "Content-Type": "application/json"},
+        json={"tx_hash": unavailable_hash},
+    )
+
+    assert expired_response.status_code == 200, expired_response.text
+    assert expired_response.json()["data"]["credited"] is False
+    assert expired_response.json()["data"]["purchase"]["status"] == "under_review"
+    assert unavailable_response.status_code == 503
+    assert unavailable_response.json()["error"]["code"] == "ONCHAIN_RPC_UNAVAILABLE"
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 0
+    audit_json = json.dumps([event.__dict__ for event in client.app.state.audit_writer.events], default=str)
+    assert expired_hash not in audit_json
+    assert unavailable_hash not in audit_json
+    assert "onchain_payment_verification_failed" in _event_types(client)
+
+
+def test_base_usdc_different_idempotency_key_after_credit_does_not_repeat_effects() -> None:
+    client = _client()
+    owner = _login(client, 984, "base_replay_guard")
+    business = _create_business(client, owner, "base_replay_guard")
+    payment = _base_payment(client, owner, key="base_replay_guard")
+    tx_hash = _tx_hash("base-replay-guard")
+    client.app.state.onchain_credit_verifier.set_result(tx_hash, _verification(tx_hash, log_index=41))
+
+    first = client.post(
+        f"/api/v1/business/credits/purchases/{payment['purchase']['id']}/tx-hash",
+        headers={**_headers(owner, "base_replay_guard_first"), "Content-Type": "application/json"},
+        json={"tx_hash": tx_hash},
+    )
+    audit_count = len(client.app.state.audit_writer.events)
+    verifier_calls = len(client.app.state.onchain_credit_verifier.calls)
+    second = client.post(
+        f"/api/v1/business/credits/purchases/{payment['purchase']['id']}/tx-hash",
+        headers={**_headers(owner, "base_replay_guard_second"), "Content-Type": "application/json"},
+        json={"tx_hash": tx_hash},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["data"]["credited"] is False
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 5
+    assert len(client.app.state.onchain_credit_verifier.calls) == verifier_calls
+    assert len(client.app.state.audit_writer.events) == audit_count
+    ledgers = [item for item in client.app.state.ad_repository.ledger.values() if item.related_credit_purchase_id == payment["purchase"]["id"] and item.type == "purchase"]
+    assert len(ledgers) == 1
+
+
+def test_credit_wallet_configuration_is_backend_only_and_has_no_signing_material() -> None:
+    frontend = "\n".join(path.read_text(encoding="utf-8") for path in Path("apps/web/src").rglob("*.*") if path.suffix in {".ts", ".tsx"})
+    credit_runtime = "\n".join(path.read_text(encoding="utf-8") for path in Path("apps/api/app/modules/credits").glob("*.py"))
+    env_examples = "\n".join(Path(name).read_text(encoding="utf-8") for name in (".env.example", ".env.local.example", ".env.staging.example"))
+
+    assert "NEXT_PUBLIC_NODO_CREDIT_RECEIVING_WALLET_BASE" not in frontend
+    assert "NODO_CREDIT_RECEIVING_WALLET_BASE" not in frontend
+    for forbidden in ("PRIVATE_KEY", "MNEMONIC", "SEED_PHRASE", "SIGNING_KEY"):
+        assert forbidden not in frontend
+        assert forbidden not in credit_runtime
+        assert forbidden not in env_examples
+
+
 def test_base_usdc_pending_tx_is_credited_later_by_watcher() -> None:
     client = _client()
     owner = _login(client, 981, "base_pending_then_auto_credit")
@@ -787,6 +943,27 @@ def test_base_usdc_pending_tx_is_credited_later_by_watcher() -> None:
         if item.type == "purchase" and item.related_credit_purchase_id == purchase_id
     ]
     assert len(purchase_ledgers) == 1
+
+
+def test_base_usdc_watcher_moves_expired_verified_payment_to_review_without_credit() -> None:
+    client = _client()
+    owner = _login(client, 986, "base_watcher_expiry_guard")
+    business = _create_business(client, owner, "base_watcher_expiry_guard")
+    payment = _base_payment(client, owner, key="base_watcher_expiry_guard")
+    purchase = client.app.state.credit_repository.get_purchase(payment["purchase"]["id"])
+    purchase.expires_at = utc_now() - timedelta(seconds=1)
+    tx_hash = _tx_hash("base-watcher-expiry-guard")
+    purchase.tx_hash = tx_hash
+    client.app.state.onchain_credit_verifier.set_result(tx_hash, _verification(tx_hash, log_index=42))
+
+    result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(request_id="req_watcher_expiry_guard")
+
+    assert result["credited"] == 0
+    assert result["under_review"] == 1
+    assert client.app.state.credit_repository.get_purchase(purchase.id).status == "under_review"
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 0
+    ledgers = [item for item in client.app.state.ad_repository.ledger.values() if item.related_credit_purchase_id == purchase.id and item.type == "purchase"]
+    assert ledgers == []
 
 
 def test_admin_detail_and_reject_onchain_under_review_requires_admin_reason() -> None:

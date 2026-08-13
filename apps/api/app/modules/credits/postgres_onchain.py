@@ -12,7 +12,7 @@ from app.modules.credits.models import (
     ONCHAIN_CREDIT_LEDGER_REASON,
     CreditPurchaseRecord,
 )
-from app.modules.credits.onchain import OnchainVerificationResult
+from app.modules.credits.onchain import OnchainVerificationResult, normalize_credit_verification
 from app.modules.credits.postgres_purchase_review import _credit_wallet_for_update, _existing_purchase_ledger
 from app.modules.credits.postgres_referral_bonus import grant_referral_bonus_if_eligible_pg
 from app.modules.credits.row_mappers import ledger_from_row, purchase_from_row
@@ -70,9 +70,10 @@ def apply_onchain_verification_pg(
     purchase: CreditPurchaseRecord,
     verification: OnchainVerificationResult,
     actor_user_id: str | None,
+    min_confirmations: int,
 ):  # type: ignore[no-untyped-def]
     with connect() as conn:
-        current_row = conn.execute("select * from credit_purchases where id = %s for update", (purchase.id,)).fetchone()
+        current_row = conn.execute("select credit_purchases.*, now() as database_now from credit_purchases where id = %s for update", (purchase.id,)).fetchone()
         if current_row is None:
             conn.rollback()
             raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
@@ -83,6 +84,16 @@ def apply_onchain_verification_pg(
                 return current, ledger_from_row(existing_ledger)
             conn.rollback()
             raise ApiError("CREDIT_ALREADY_GRANTED", status_code=409)
+        if current.status not in {"pending_payment", "pending_onchain_confirmation", "detected"}:
+            conn.rollback()
+            raise ApiError("PURCHASE_STATUS_INVALID", status_code=409)
+        verification = normalize_credit_verification(
+            purchase=current,
+            verification=verification,
+            submitted_tx_hash=verification.tx_hash,
+            min_confirmations=min_confirmations,
+            now=current_row["database_now"],
+        )
         _insert_or_update_onchain_payment_or_raise(conn, current.id, verification)
         _mark_detected(conn, current.id, verification)
         if verification.error_code:

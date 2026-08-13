@@ -115,6 +115,24 @@ Railway must receive backend-only env vars:
 - STRIPE_WEBHOOK_SECRET
 - Storage backend secrets
 
+### Control de cambio de wallet de creditos
+
+`NODO_CREDIT_RECEIVING_WALLET_BASE` es una direccion publica, pero cambiarla
+modifica el destino de cobro. Solo se configura en backend. No debe existir como
+`NEXT_PUBLIC_*`, payload editable, endpoint de configuracion ni valor hardcoded.
+
+Antes de cambiarla en cualquier entorno registrar sin secretos:
+
+- actor y aprobacion Owner;
+- entorno y build/commit;
+- fingerprint enmascarado anterior y nuevo;
+- motivo y ventana;
+- verificacion EVM de la direccion;
+- evidencia de compra temporal controlada;
+- rollback a la configuracion anterior.
+
+NODO no almacena private key, seed phrase, mnemonic ni signing key de esa wallet.
+
 When `NODO_RELEASE_COMMIT_SHA` is a valid commit SHA, it is authoritative for
 CLI/manual deploys. Otherwise, when `RAILWAY_GIT_COMMIT_SHA` is a valid commit
 SHA, it is authoritative over the manual fallback labels. Runtime metadata is exposed as

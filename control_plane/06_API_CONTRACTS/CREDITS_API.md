@@ -180,6 +180,8 @@ Rutas legacy prohibidas/no validas:
 - Body:
   - tx_hash
 - Backend verifica on-chain antes de acreditar.
+- La wallet destino se toma del snapshot backend de la compra; el cliente no
+  puede enviarla ni reemplazarla.
 - Validaciones:
   - chain Base `8453`
   - token contract USDC oficial
@@ -188,6 +190,10 @@ Rutas legacy prohibidas/no validas:
   - confirmations minimas
   - tx/log no usado antes
   - purchase no terminal
+- Una respuesta del proveedor marcada `verified` se revalida contra el snapshot
+  durable de chain, token, destino, monto, confirmaciones, tx hash y log index.
+- Una compra vencida con pago verificable pasa a `under_review`; no acredita
+  automaticamente.
 - Response:
   - purchase id
   - status
@@ -357,16 +363,14 @@ Referral qualification:
 - MANUAL_PAYMENT_ALREADY_REVIEWED
 - ADMIN_REASON_REQUIRED
 - CREDIT_ALREADY_GRANTED
-- ONCHAIN_CHAIN_INVALID
+- ONCHAIN_WRONG_CHAIN
 - ONCHAIN_TOKEN_NOT_ALLOWED
-- ONCHAIN_DESTINATION_MISMATCH
-- ONCHAIN_AMOUNT_INSUFFICIENT
-- ONCHAIN_CONFIRMATIONS_PENDING
+- ONCHAIN_WRONG_TOKEN_OR_WALLET
 - ONCHAIN_TX_NOT_FOUND
 - ONCHAIN_TX_ALREADY_USED
-- ONCHAIN_TX_HASH_INVALID
+- ONCHAIN_TX_INVALID
 - ONCHAIN_PURCHASE_EXPIRED
-- ONCHAIN_PURCHASE_STATUS_INVALID
+- PURCHASE_STATUS_INVALID
 - ONCHAIN_RPC_UNAVAILABLE
 - ONCHAIN_VERIFICATION_FAILED
 - ONCHAIN_REVIEW_REQUIRED

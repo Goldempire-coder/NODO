@@ -33,6 +33,10 @@ Estado: CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW
   Business Intake HTTP/Telegram y verificacion legacy interna.
 - 47G2 rechaza MIME discordante, HTML, SVG, ZIP, bytes corruptos y PDF incompleto
   antes de storage, DB, eventos, audit y notificaciones.
+- 47G5 prueba wallet ausente/invalida, resultado `verified` inconsistente, RPC
+  caido, compra vencida, tx repetida y concurrencia exact-once.
+- 47G5 verifica que frontend/env examples no contienen material de firma y que
+  tx hash completo no aparece en response ni audit.
 - Errores no exponen stack trace, SQL, storage path ni secretos.
 - Rate limits activos en auth, ordenes, chat, soporte, adjuntos y webhooks.
 - Dependency audit triageado sin fixes forzados.

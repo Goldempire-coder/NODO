@@ -129,8 +129,14 @@ class PostgresCreditRepository:
     def approve_purchase(self, *, purchase: CreditPurchaseRecord, actor_user_id: str | None, event_id: str | None = None, payment_intent_id: str | None = None, admin_note: str | None = None) -> tuple[CreditPurchaseRecord, CreditLedgerRecord | None]:
         return approve_purchase_pg(self._connect, purchase=purchase, actor_user_id=actor_user_id, event_id=event_id, payment_intent_id=payment_intent_id, admin_note=admin_note)
 
-    def apply_onchain_verification(self, *, purchase: CreditPurchaseRecord, verification, actor_user_id: str | None) -> tuple[CreditPurchaseRecord, CreditLedgerRecord | None]:  # type: ignore[no-untyped-def]
-        return apply_onchain_verification_pg(self._connect, purchase=purchase, verification=verification, actor_user_id=actor_user_id)
+    def apply_onchain_verification(self, *, purchase: CreditPurchaseRecord, verification, actor_user_id: str | None, min_confirmations: int) -> tuple[CreditPurchaseRecord, CreditLedgerRecord | None]:  # type: ignore[no-untyped-def]
+        return apply_onchain_verification_pg(
+            self._connect,
+            purchase=purchase,
+            verification=verification,
+            actor_user_id=actor_user_id,
+            min_confirmations=min_confirmations,
+        )
 
     def reject_purchase(self, *, purchase: CreditPurchaseRecord, admin_user_id: str, reason: str) -> CreditPurchaseRecord:
         return reject_purchase_pg(self._connect, purchase=purchase, admin_user_id=admin_user_id, reason=reason)

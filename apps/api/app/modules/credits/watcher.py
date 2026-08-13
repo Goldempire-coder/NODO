@@ -4,6 +4,11 @@ from typing import Any
 
 from app.core.errors import ApiError
 from app.modules.credits.models import utc_now
+from app.modules.credits.onchain import normalize_credit_verification
+
+
+def _mask_tx_hash(value: str, keep: int = 8) -> str:
+    return f"***{value[-keep:]}" if len(value) > keep else "*" * len(value)
 
 
 class BaseUsdcCreditPurchaseWatcher:
@@ -54,7 +59,19 @@ class BaseUsdcCreditPurchaseWatcher:
                     min_confirmations=self._settings.onchain_credit_min_confirmations,
                     latest_block_number=latest_block_number,
                 )
-                updated, ledger = self._credits.apply_onchain_verification(purchase=purchase, verification=verification, actor_user_id=None)
+                verification = normalize_credit_verification(
+                    purchase=purchase,
+                    verification=verification,
+                    submitted_tx_hash=purchase.tx_hash,
+                    min_confirmations=self._settings.onchain_credit_min_confirmations,
+                    now=utc_now(),
+                )
+                updated, ledger = self._credits.apply_onchain_verification(
+                    purchase=purchase,
+                    verification=verification,
+                    actor_user_id=None,
+                    min_confirmations=self._settings.onchain_credit_min_confirmations,
+                )
                 if ledger:
                     result["credited"] += 1
                     self._audit.write(event_type="onchain_credit_purchase_credited", actor_user_id=None, actor_role=None, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"source": self.job_type})
@@ -65,6 +82,15 @@ class BaseUsdcCreditPurchaseWatcher:
                     result["pending"] += 1
             except ApiError as exc:
                 result["errors"].append({"purchase_id": purchase.id, "code": exc.code})
+                self._audit.write(
+                    event_type="onchain_payment_verification_failed",
+                    actor_user_id=None,
+                    actor_role=None,
+                    resource_type="credit_purchase",
+                    resource_id=purchase.id,
+                    request_id=request_id,
+                    metadata_json={"source": self.job_type, "tx_hash_masked": _mask_tx_hash(purchase.tx_hash), "code": exc.code},
+                )
                 current = self._credits.get_purchase(purchase.id)
                 if current is not None and current.status in {"verification_failed", "failed", "expired", "under_review"}:
                     self._notify_credit_attention(purchase=current, reason=current.status, request_id=request_id, error_code=exc.code)

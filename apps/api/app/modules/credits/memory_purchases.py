@@ -15,7 +15,7 @@ from app.modules.credits.models import (
     ONCHAIN_CREDIT_LEDGER_REASON,
     CreditPurchaseRecord,
 )
-from app.modules.credits.onchain import OnchainVerificationResult
+from app.modules.credits.onchain import OnchainVerificationResult, normalize_credit_verification
 
 
 class InMemoryCreditPurchaseStore:
@@ -179,6 +179,7 @@ class InMemoryCreditPurchaseStore:
         ledger_for_purchase,
         grant_referral_bonus,
         actor_user_id: str | None,
+        min_confirmations: int,
     ) -> tuple[CreditPurchaseRecord, CreditLedgerRecord | None]:
         with self._lock:
             existing_purchase = self.purchases.get(purchase.id)
@@ -189,6 +190,15 @@ class InMemoryCreditPurchaseStore:
                 if existing_purchase.status == "credited":
                     return existing_purchase, existing_ledger
                 raise ApiError("CREDIT_ALREADY_GRANTED", status_code=409)
+            if existing_purchase.status not in {"pending_payment", "pending_onchain_confirmation", "detected"}:
+                raise ApiError("PURCHASE_STATUS_INVALID", status_code=409)
+            verification = normalize_credit_verification(
+                purchase=existing_purchase,
+                verification=verification,
+                submitted_tx_hash=verification.tx_hash,
+                min_confirmations=min_confirmations,
+                now=utc_now(),
+            )
             duplicate = self._duplicate_onchain_tx(existing_purchase.id, verification)
             if duplicate:
                 raise ApiError("ONCHAIN_TX_ALREADY_USED", status_code=409)

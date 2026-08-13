@@ -110,7 +110,7 @@ class InMemoryCreditRepository:
             admin_note=admin_note,
         )
 
-    def apply_onchain_verification(self, *, purchase: CreditPurchaseRecord, verification, actor_user_id: str | None) -> tuple[CreditPurchaseRecord, CreditLedgerRecord | None]:  # type: ignore[no-untyped-def]
+    def apply_onchain_verification(self, *, purchase: CreditPurchaseRecord, verification, actor_user_id: str | None, min_confirmations: int) -> tuple[CreditPurchaseRecord, CreditLedgerRecord | None]:  # type: ignore[no-untyped-def]
         return self._purchase_store.apply_onchain_verification(
             purchase=purchase,
             verification=verification,
@@ -118,6 +118,7 @@ class InMemoryCreditRepository:
             ledger_for_purchase=self._wallet_store.ledger_for_purchase,
             grant_referral_bonus=self._grant_referral_bonus_if_eligible,
             actor_user_id=actor_user_id,
+            min_confirmations=min_confirmations,
         )
 
     def reject_purchase(self, *, purchase: CreditPurchaseRecord, admin_user_id: str, reason: str) -> CreditPurchaseRecord:
