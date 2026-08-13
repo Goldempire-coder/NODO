@@ -47,6 +47,11 @@ def _sanitize_body(value: str | None) -> str | None:
     return clean[:2000]
 
 
+def _message_body_rate_hash(value: str) -> str:
+    normalized = re.sub(r"\s+", " ", value).strip().casefold()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 def _attachment_payload(attachment) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     return {
         "id": attachment.id,
@@ -110,6 +115,35 @@ class ChatService:
             key,
             max_attempts=self._settings.business_rate_limit_max_attempts,
             window_seconds=self._settings.business_rate_limit_window_seconds,
+        ):
+            raise ApiError("RATE_LIMITED", status_code=429)
+
+    def _rate_limit_message_create(self, user: UserRecord, order_id: str) -> None:
+        key = f"chat:create:{user.id}:{order_id}"
+        if not self._rate_limiter.allow(
+            key,
+            max_attempts=self._settings.chat_message_rate_limit_max_attempts,
+            window_seconds=self._settings.chat_message_rate_limit_window_seconds,
+        ):
+            raise ApiError("RATE_LIMITED", status_code=429)
+
+    def _rate_limit_duplicate_message(self, *, user: UserRecord, order_id: str, body: str | None) -> None:
+        if not body:
+            return
+        key = f"chat:duplicate:{user.id}:{order_id}:{_message_body_rate_hash(body)}"
+        if not self._rate_limiter.allow(
+            key,
+            max_attempts=self._settings.chat_duplicate_message_rate_limit_max_attempts,
+            window_seconds=self._settings.chat_duplicate_message_rate_limit_window_seconds,
+        ):
+            raise ApiError("RATE_LIMITED", status_code=429)
+
+    def _rate_limit_attachment_upload(self, user: UserRecord, order_id: str) -> None:
+        key = f"chat:attachment:{user.id}:{order_id}"
+        if not self._rate_limiter.allow(
+            key,
+            max_attempts=self._settings.chat_attachment_rate_limit_max_attempts,
+            window_seconds=self._settings.chat_attachment_rate_limit_window_seconds,
         ):
             raise ApiError("RATE_LIMITED", status_code=429)
 
@@ -452,7 +486,7 @@ class ChatService:
         if is_official_payment_details_idempotency_key(idempotency_key):
             raise ApiError("VALIDATION_ERROR", status_code=400)
         order = self._order(order_id)
-        self._rate_limit("create", user, order.id)
+        self._rate_limit_message_create(user, order.id)
         require_message_state(order)
         require_chat_write(user, order, self._business_owner_id(order))
         self._require_business_actor_access(user, order)
@@ -465,6 +499,7 @@ class ChatService:
         request_payload = {"order_id": order.id, "body": body, "attachment_ids": normalized_attachments}
 
         def compute() -> dict[str, Any]:
+            self._rate_limit_duplicate_message(user=user, order_id=order.id, body=body)
             for attachment_id in normalized_attachments:
                 attachment = self._repository.get_attachment(attachment_id)
                 if attachment is None or attachment.order_id != order.id or attachment.uploaded_by_user_id != user.id or attachment.message_id is not None:
@@ -657,7 +692,7 @@ class ChatService:
         return self._idempotency.replay_or_store(f"chat:attachment:{user.id}:{order.id}:{idempotency_key}", payload=payload, compute=compute)
 
     def _validate_attachment_upload(self, *, user: UserRecord, order: OrderRecord, mime_type: str, content: bytes) -> ValidatedPhoto:
-        self._rate_limit("attachment", user, order.id)
+        self._rate_limit_attachment_upload(user, order.id)
         require_message_state(order)
         require_chat_write(user, order, self._business_owner_id(order))
         self._require_business_actor_access(user, order)

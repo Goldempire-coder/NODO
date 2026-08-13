@@ -65,6 +65,18 @@ class Settings:
     auth_rate_limit_window_seconds: int
     business_rate_limit_max_attempts: int
     business_rate_limit_window_seconds: int
+    chat_message_rate_limit_max_attempts: int
+    chat_message_rate_limit_window_seconds: int
+    chat_duplicate_message_rate_limit_max_attempts: int
+    chat_duplicate_message_rate_limit_window_seconds: int
+    chat_attachment_rate_limit_max_attempts: int
+    chat_attachment_rate_limit_window_seconds: int
+    support_message_rate_limit_max_attempts: int
+    support_message_rate_limit_window_seconds: int
+    support_duplicate_message_rate_limit_max_attempts: int
+    support_duplicate_message_rate_limit_window_seconds: int
+    support_attachment_rate_limit_max_attempts: int
+    support_attachment_rate_limit_window_seconds: int
     marketplace_rate_limit_max_attempts: int
     marketplace_rate_limit_ip_max_attempts: int
     marketplace_rate_limit_window_seconds: int
@@ -193,6 +205,18 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         auth_rate_limit_window_seconds=_read_int(source, "AUTH_RATE_LIMIT_WINDOW_SECONDS", 60),
         business_rate_limit_max_attempts=_read_int(source, "BUSINESS_RATE_LIMIT_MAX_ATTEMPTS", 30),
         business_rate_limit_window_seconds=_read_int(source, "BUSINESS_RATE_LIMIT_WINDOW_SECONDS", 60),
+        chat_message_rate_limit_max_attempts=_read_int(source, "CHAT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS", 10),
+        chat_message_rate_limit_window_seconds=_read_int(source, "CHAT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS", 60),
+        chat_duplicate_message_rate_limit_max_attempts=_read_int(source, "CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS", 2),
+        chat_duplicate_message_rate_limit_window_seconds=_read_int(source, "CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_WINDOW_SECONDS", 60),
+        chat_attachment_rate_limit_max_attempts=_read_int(source, "CHAT_ATTACHMENT_RATE_LIMIT_MAX_ATTEMPTS", 6),
+        chat_attachment_rate_limit_window_seconds=_read_int(source, "CHAT_ATTACHMENT_RATE_LIMIT_WINDOW_SECONDS", 60),
+        support_message_rate_limit_max_attempts=_read_int(source, "SUPPORT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS", 10),
+        support_message_rate_limit_window_seconds=_read_int(source, "SUPPORT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS", 60),
+        support_duplicate_message_rate_limit_max_attempts=_read_int(source, "SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS", 2),
+        support_duplicate_message_rate_limit_window_seconds=_read_int(source, "SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_WINDOW_SECONDS", 60),
+        support_attachment_rate_limit_max_attempts=_read_int(source, "SUPPORT_ATTACHMENT_RATE_LIMIT_MAX_ATTEMPTS", 6),
+        support_attachment_rate_limit_window_seconds=_read_int(source, "SUPPORT_ATTACHMENT_RATE_LIMIT_WINDOW_SECONDS", 60),
         marketplace_rate_limit_max_attempts=_read_int(source, "MARKETPLACE_RATE_LIMIT_MAX_ATTEMPTS", 30),
         marketplace_rate_limit_ip_max_attempts=_read_int(source, "MARKETPLACE_RATE_LIMIT_IP_MAX_ATTEMPTS", 120),
         marketplace_rate_limit_window_seconds=_read_int(source, "MARKETPLACE_RATE_LIMIT_WINDOW_SECONDS", 60),

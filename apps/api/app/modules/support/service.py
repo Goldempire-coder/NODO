@@ -79,6 +79,11 @@ def _sanitize_text(value: str, max_length: int) -> str:
     return clean[:max_length]
 
 
+def _message_body_rate_hash(value: str) -> str:
+    normalized = re.sub(r"\s+", " ", value).strip().casefold()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
 def _attachment_payload(file) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     return file_asset_public(file)
 
@@ -152,6 +157,33 @@ class SupportService:
             key,
             max_attempts=self._settings.business_rate_limit_max_attempts,
             window_seconds=self._settings.business_rate_limit_window_seconds,
+        ):
+            raise ApiError("RATE_LIMITED", status_code=429)
+
+    def _rate_limit_message_create(self, user: UserRecord, ticket_id: str) -> None:
+        key = f"support:message:{user.id}:{ticket_id}"
+        if not self._rate.allow(
+            key,
+            max_attempts=self._settings.support_message_rate_limit_max_attempts,
+            window_seconds=self._settings.support_message_rate_limit_window_seconds,
+        ):
+            raise ApiError("RATE_LIMITED", status_code=429)
+
+    def _rate_limit_duplicate_message(self, *, user: UserRecord, ticket_id: str, body: str) -> None:
+        key = f"support:duplicate:{user.id}:{ticket_id}:{_message_body_rate_hash(body)}"
+        if not self._rate.allow(
+            key,
+            max_attempts=self._settings.support_duplicate_message_rate_limit_max_attempts,
+            window_seconds=self._settings.support_duplicate_message_rate_limit_window_seconds,
+        ):
+            raise ApiError("RATE_LIMITED", status_code=429)
+
+    def _rate_limit_attachment_upload(self, user: UserRecord, ticket_id: str) -> None:
+        key = f"support:upload:{user.id}:{ticket_id}"
+        if not self._rate.allow(
+            key,
+            max_attempts=self._settings.support_attachment_rate_limit_max_attempts,
+            window_seconds=self._settings.support_attachment_rate_limit_window_seconds,
         ):
             raise ApiError("RATE_LIMITED", status_code=429)
 
@@ -856,12 +888,13 @@ class SupportService:
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
         if ticket.status not in ACTIVE_SUPPORT_STATUSES:
             raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
-        self._rate_limit("message", user, ticket.id)
+        self._rate_limit_message_create(user, ticket.id)
         body = _sanitize_text(body, 2000)
         if not body:
             raise ApiError("SUPPORT_MESSAGE_REQUIRED", status_code=400)
 
         def compute() -> dict[str, Any]:
+            self._rate_limit_duplicate_message(user=user, ticket_id=ticket.id, body=body)
             current = self._require_ticket(ticket.id)
             if current.status not in ACTIVE_SUPPORT_STATUSES:
                 raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
@@ -959,7 +992,7 @@ class SupportService:
         return dispute.id
 
     def _validate_upload(self, *, user: UserRecord, ticket: SupportTicketRecord, mime_type: str, content: bytes) -> ValidatedPhoto:
-        self._rate_limit("upload", user, ticket.id)
+        self._rate_limit_attachment_upload(user, ticket.id)
         if ticket.status not in ACTIVE_SUPPORT_STATUSES:
             raise ApiError("SUPPORT_TICKET_STATUS_INVALID", status_code=400)
         if not content:

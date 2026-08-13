@@ -6,6 +6,12 @@
 - Bot intake start/submit/upload: per Telegram user/chat/contact.
 - Business intake admin accept/reject: per admin actor.
 - Support ticket create/message/upload: per actor and ticket.
+- Chat message create: per actor and order, with a stricter loop cap than the
+  general business limit.
+- Chat duplicate message body: per actor, order and normalized body hash.
+- Support message create: per actor and ticket, with a stricter loop cap than
+  the general business limit.
+- Support duplicate message body: per actor, ticket and normalized body hash.
 - Support admin list/detail: per admin/support actor.
 - Support assignment/escalation/resolve/close and attachment view-url: per support/admin actor and ticket.
 - In-memory limits are allowed only in test environment; runtime normal uses Redis.
@@ -92,6 +98,21 @@ action_type
 - No filtrar informacion sensible en el error.
 - Loggear evento de abuso si el limite se repite.
 - Rate limit no reemplaza RBAC ni idempotencia.
+
+## Chat and Support anti-loop defaults
+
+These defaults are defensive and can be tuned by environment:
+
+```txt
+CHAT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS=10 / 60s
+CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS=2 / 60s
+CHAT_ATTACHMENT_RATE_LIMIT_MAX_ATTEMPTS=6 / 60s
+SUPPORT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS=10 / 60s
+SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS=2 / 60s
+SUPPORT_ATTACHMENT_RATE_LIMIT_MAX_ATTEMPTS=6 / 60s
+```
+
+Duplicate-body keys must use a normalized hash, never raw message text.
 
 ## Cooldowns de negocio
 

@@ -38,6 +38,12 @@ def _set_env(**overrides: str) -> None:
         "AUTH_RATE_LIMIT_WINDOW_SECONDS": "60",
         "BUSINESS_RATE_LIMIT_MAX_ATTEMPTS": "100",
         "BUSINESS_RATE_LIMIT_WINDOW_SECONDS": "60",
+        "SUPPORT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS": "100",
+        "SUPPORT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS": "60",
+        "SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS": "100",
+        "SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_WINDOW_SECONDS": "60",
+        "SUPPORT_ATTACHMENT_RATE_LIMIT_MAX_ATTEMPTS": "100",
+        "SUPPORT_ATTACHMENT_RATE_LIMIT_WINDOW_SECONDS": "60",
     }
     values.update(overrides)
     for key, value in values.items():
@@ -840,6 +846,69 @@ def test_admin_support_replies_notify_each_participant_once_without_private_cont
         notification.notification_type == "client_support_message_created"
         for notification in client.app.state.admin_notification_repository.notifications.values()
     )
+
+
+def test_support_message_loop_is_cut_before_general_business_limit() -> None:
+    client = _client(
+        BUSINESS_RATE_LIMIT_MAX_ATTEMPTS="100",
+        SUPPORT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS="2",
+        SUPPORT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS="60",
+    )
+    _owner, _business, _ad, remitter, _order = _seed_order(client, base_id=25100)
+    ticket = _create_ticket(client, remitter, scope="client_general", key="support_loop_ticket")
+
+    first = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(remitter, "support_loop_1"), "Content-Type": "application/json"},
+        json={"body": "Mensaje soporte 1"},
+    )
+    second = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(remitter, "support_loop_2"), "Content-Type": "application/json"},
+        json={"body": "Mensaje soporte 2"},
+    )
+    limited = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(remitter, "support_loop_3"), "Content-Type": "application/json"},
+        json={"body": "Mensaje soporte 3"},
+    )
+
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+    assert limited.status_code == 429
+    assert limited.json()["error"]["code"] == "RATE_LIMITED"
+
+
+def test_support_repeated_body_is_rate_limited_without_blocking_new_text() -> None:
+    client = _client(
+        BUSINESS_RATE_LIMIT_MAX_ATTEMPTS="100",
+        SUPPORT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS="100",
+        SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS="1",
+        SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_WINDOW_SECONDS="60",
+    )
+    _owner, _business, _ad, remitter, _order = _seed_order(client, base_id=25200)
+    ticket = _create_ticket(client, remitter, scope="client_general", key="support_repeat_ticket")
+
+    first = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(remitter, "support_repeat_1"), "Content-Type": "application/json"},
+        json={"body": "Mismo texto soporte"},
+    )
+    duplicate = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(remitter, "support_repeat_2"), "Content-Type": "application/json"},
+        json={"body": "  Mismo   texto soporte  "},
+    )
+    different = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/messages",
+        headers={**_headers(remitter, "support_repeat_3"), "Content-Type": "application/json"},
+        json={"body": "Texto nuevo soporte"},
+    )
+
+    assert first.status_code == 201, first.text
+    assert duplicate.status_code == 429
+    assert duplicate.json()["error"]["code"] == "RATE_LIMITED"
+    assert different.status_code == 201, different.text
 
 
 def test_resolved_and_closed_support_tickets_are_read_only_and_preserve_evidence() -> None:

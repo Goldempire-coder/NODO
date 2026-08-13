@@ -36,6 +36,12 @@ def _set_env(**overrides: str) -> None:
         "AUTH_RATE_LIMIT_WINDOW_SECONDS": "60",
         "BUSINESS_RATE_LIMIT_MAX_ATTEMPTS": "100",
         "BUSINESS_RATE_LIMIT_WINDOW_SECONDS": "60",
+        "CHAT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS": "100",
+        "CHAT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS": "60",
+        "CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS": "100",
+        "CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_WINDOW_SECONDS": "60",
+        "CHAT_ATTACHMENT_RATE_LIMIT_MAX_ATTEMPTS": "100",
+        "CHAT_ATTACHMENT_RATE_LIMIT_WINDOW_SECONDS": "60",
     }
     values.update(overrides)
     for key, value in values.items():
@@ -872,6 +878,67 @@ def test_messages_are_order_scoped_idempotent_and_audited() -> None:
     assert BOT_TOKEN not in audit_text
     assert JWT_SECRET not in audit_text
     assert JWT_REFRESH_SECRET not in audit_text
+
+
+def test_order_chat_message_loop_is_cut_before_general_business_limit() -> None:
+    client = _client(
+        BUSINESS_RATE_LIMIT_MAX_ATTEMPTS="100",
+        CHAT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS="2",
+        CHAT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS="60",
+    )
+    _owner, _, _, remitter, order = _seed_reported_order(client, owner_id=1803, remitter_id=1804)
+
+    first = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "chat_loop_1"), "Content-Type": "application/json"},
+        json={"body": "Mensaje normal 1", "attachment_ids": []},
+    )
+    second = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "chat_loop_2"), "Content-Type": "application/json"},
+        json={"body": "Mensaje normal 2", "attachment_ids": []},
+    )
+    limited = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "chat_loop_3"), "Content-Type": "application/json"},
+        json={"body": "Mensaje normal 3", "attachment_ids": []},
+    )
+
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+    assert limited.status_code == 429
+    assert limited.json()["error"]["code"] == "RATE_LIMITED"
+
+
+def test_order_chat_repeated_body_is_rate_limited_without_blocking_new_text() -> None:
+    client = _client(
+        BUSINESS_RATE_LIMIT_MAX_ATTEMPTS="100",
+        CHAT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS="100",
+        CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS="1",
+        CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_WINDOW_SECONDS="60",
+    )
+    _owner, _, _, remitter, order = _seed_reported_order(client, owner_id=1805, remitter_id=1806)
+
+    first = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "chat_repeat_1"), "Content-Type": "application/json"},
+        json={"body": "Mismo texto repetido", "attachment_ids": []},
+    )
+    duplicate = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "chat_repeat_2"), "Content-Type": "application/json"},
+        json={"body": "  Mismo   texto repetido  ", "attachment_ids": []},
+    )
+    different = client.post(
+        f"/api/v1/orders/{order['id']}/messages",
+        headers={**_headers(remitter, "chat_repeat_3"), "Content-Type": "application/json"},
+        json={"body": "Texto distinto permitido", "attachment_ids": []},
+    )
+
+    assert first.status_code == 201, first.text
+    assert duplicate.status_code == 429
+    assert duplicate.json()["error"]["code"] == "RATE_LIMITED"
+    assert different.status_code == 201, different.text
 
 
 def test_order_chat_messages_notify_only_the_counterparty_once_without_private_content() -> None:

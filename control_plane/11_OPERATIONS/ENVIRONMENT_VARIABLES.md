@@ -70,10 +70,26 @@ Common:
 - REDIS_URL
 - MARKETPLACE_CACHE_TTL_SECONDS
 - MARKETPLACE_READ_AUTH_CLAIM_TTL_SECONDS
+- CHAT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS
+- CHAT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS
+- CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS
+- CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_WINDOW_SECONDS
+- CHAT_ATTACHMENT_RATE_LIMIT_MAX_ATTEMPTS
+- CHAT_ATTACHMENT_RATE_LIMIT_WINDOW_SECONDS
+- SUPPORT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS
+- SUPPORT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS
+- SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS
+- SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_WINDOW_SECONDS
+- SUPPORT_ATTACHMENT_RATE_LIMIT_MAX_ATTEMPTS
+- SUPPORT_ATTACHMENT_RATE_LIMIT_WINDOW_SECONDS
 - AUTH_USER_CACHE_TTL_SECONDS
 - API_THREAD_LIMIT
 
 Use Upstash Redis for staging/production sensitive rate limits, idempotency, job locks and shared marketplace cache invalidation. Marketplace search uses a short-lived local cache layered over a shared Redis cache namespace with versioned invalidation so ad/order mutations invalidate stale reads across workers. `MARKETPLACE_CACHE_TTL_SECONDS` controls the short-lived marketplace search cache; default is `30` seconds and the cache is cleared by marketplace-changing actions such as ad create/update/pause/archive and order creation. `MARKETPLACE_READ_AUTH_CLAIM_TTL_SECONDS` controls the maximum age for JWT claims-only auth on safe marketplace reads; default is `300` seconds. This claims-only path is allowed only for public-safe marketplace reads and must never be used for order creation, payment instructions, reports, chat, business operations, credits, admin, bots or any mutation. Older tokens fall back to full user repository auth. `AUTH_USER_CACHE_TTL_SECONDS` remains as a legacy compatibility setting but is not an authorization source: private operations and mutations reload current user status from the repository. `API_THREAD_LIMIT` controls the AnyIO worker thread limit for synchronous FastAPI endpoints; default is `40`.
+
+Chat and Support anti-loop limits are backend-only. Defaults: chat/support
+messages `10/60s`, repeated normalized message bodies `2/60s`, and attachments
+`6/60s`. Duplicate-body limiter keys must use a hash, never raw message text.
 
 ## Railway backend env
 
@@ -92,6 +108,18 @@ Railway must receive backend-only env vars:
 - REDIS_URL
 - MARKETPLACE_CACHE_TTL_SECONDS
 - MARKETPLACE_READ_AUTH_CLAIM_TTL_SECONDS
+- CHAT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS
+- CHAT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS
+- CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS
+- CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_WINDOW_SECONDS
+- CHAT_ATTACHMENT_RATE_LIMIT_MAX_ATTEMPTS
+- CHAT_ATTACHMENT_RATE_LIMIT_WINDOW_SECONDS
+- SUPPORT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS
+- SUPPORT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS
+- SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS
+- SUPPORT_DUPLICATE_MESSAGE_RATE_LIMIT_WINDOW_SECONDS
+- SUPPORT_ATTACHMENT_RATE_LIMIT_MAX_ATTEMPTS
+- SUPPORT_ATTACHMENT_RATE_LIMIT_WINDOW_SECONDS
 - AUTH_USER_CACHE_TTL_SECONDS
 - API_THREAD_LIMIT
 - BOT_TOKEN
