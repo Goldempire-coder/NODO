@@ -125,6 +125,7 @@ export function SurfaceSupportThread({
   closing,
   emptyMessagesCopy,
   messagesEndRef,
+  loadingOlderMessages,
   notice,
   ownRole,
   reply,
@@ -133,6 +134,7 @@ export function SurfaceSupportThread({
   uploading,
   waitingUserLabel,
   onClose,
+  onLoadOlderMessages,
   onReplyChange,
   onSend,
   onUpload
@@ -142,6 +144,7 @@ export function SurfaceSupportThread({
   closing: boolean;
   emptyMessagesCopy: string;
   messagesEndRef: Ref<HTMLDivElement>;
+  loadingOlderMessages: boolean;
   notice: string;
   ownRole: "remitter" | "business_owner";
   reply: string;
@@ -150,6 +153,7 @@ export function SurfaceSupportThread({
   uploading: boolean;
   waitingUserLabel: string;
   onClose: () => void;
+  onLoadOlderMessages: () => void;
   onReplyChange: (value: string) => void;
   onSend: () => void;
   onUpload: (file: File | null) => void;
@@ -172,6 +176,11 @@ export function SurfaceSupportThread({
             </button>
           ) : null}
         </article>
+        {ticket.messages_next_cursor ? (
+          <button className="mini-action-button" type="button" disabled={loadingOlderMessages} onClick={onLoadOlderMessages}>
+            {loadingOlderMessages ? "Cargando..." : "Cargar mensajes anteriores"}
+          </button>
+        ) : null}
         {messages.length === 0 ? <Text>{emptyMessagesCopy}</Text> : null}
         {messages.map((message) => (
           <article className={message.sender_role === ownRole ? "surface-support-message surface-support-message--mine" : "surface-support-message"} key={message.id}>

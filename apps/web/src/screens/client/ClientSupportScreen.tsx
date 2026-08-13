@@ -12,6 +12,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
     closingSupportTicketId,
     loadSupportTickets,
     loadMoreSupportTickets,
+    loadMoreSupportMessages,
     loadingSupportTickets,
     openSupportTicket,
     openingSupportTicketId,
@@ -24,6 +25,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
     supportReply,
     supportTickets,
     supportTicketsLoadingMore,
+    supportMessagesLoadingMore,
     supportTicketsNextCursor,
     setSupportReply,
     sendingSupportReply,
@@ -36,6 +38,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
   const [showNewConversation, setShowNewConversation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const ticketMessages = selectedSupportTicket?.messages || [];
+  const latestMessageId = ticketMessages[ticketMessages.length - 1]?.id;
   const emptyCopy = supportFilter === "archived" ? "No tienes tickets archivados." : "No tienes tickets activos.";
   const conversationLabel = loadingSupportTickets ? "Actualizando..." : supportFilter === "archived" ? "Archivados" : "Activos";
 
@@ -57,7 +60,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
-  }, [selectedSupportTicket?.id, ticketMessages.length]);
+  }, [latestMessageId, selectedSupportTicket?.id]);
 
   const startNewConversation = () => {
     setSelectedSupportTicket(null);
@@ -130,6 +133,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
           closing={closingSupportTicketId === selectedSupportTicket.id}
           emptyMessagesCopy="Aun no hay mensajes en este ticket."
           messagesEndRef={messagesEndRef}
+          loadingOlderMessages={supportMessagesLoadingMore}
           notice={model.notice}
           ownRole="remitter"
           reply={supportReply}
@@ -138,6 +142,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
           uploading={uploadingSupportAttachment}
           waitingUserLabel="Tu respuesta pendiente"
           onClose={() => void closeOwnSupportTicket()}
+          onLoadOlderMessages={() => void loadMoreSupportMessages()}
           onReplyChange={setSupportReply}
           onSend={() => void submitSupportReply()}
           onUpload={(file) => void uploadTicketAttachment(file)}

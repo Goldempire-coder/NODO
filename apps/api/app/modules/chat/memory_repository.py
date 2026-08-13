@@ -9,6 +9,7 @@ from app.modules.chat.payment_sharing import (
     is_official_payment_details_idempotency_key,
     official_payment_details_idempotency_key,
 )
+from app.shared.keyset_pagination import paginate_descending
 
 
 class InMemoryChatRepository:
@@ -20,11 +21,14 @@ class InMemoryChatRepository:
 
     def list_messages(self, *, order_id: str, cursor: str | None, limit: int) -> tuple[list[MessageRecord], str | None]:
         items = [message for message in self.messages.values() if message.order_id == order_id and message.deleted_at is None]
-        items.sort(key=lambda message: (message.created_at, message.id))
-        if cursor:
-            items = [message for message in items if message.created_at.isoformat() < cursor]
-        page = items[-limit:]
-        next_cursor = page[0].created_at.isoformat() if len(items) > len(page) else None
+        page, next_cursor = paginate_descending(
+            items,
+            timestamp_of=lambda message: message.created_at,
+            id_of=lambda message: message.id,
+            cursor=cursor,
+            limit=limit,
+        )
+        page.reverse()
         return page, next_cursor
 
     def get_message(self, message_id: str) -> MessageRecord | None:

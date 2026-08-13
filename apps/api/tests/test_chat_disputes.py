@@ -690,6 +690,53 @@ def test_slice_50a_active_chat_lists_latest_window_with_shared_zelle_visible() -
     assert created_ids[-1] not in older_ids
 
 
+def test_chat_cursor_does_not_lose_messages_with_tied_created_at() -> None:
+    client = _client()
+    owner = _login(client, 7816, "tied_chat_owner")
+    _, method_id = _approved_business_with_method(client, owner, credits=1)
+    ad = _create_ad(client, owner, method_id, key="tied_chat_ad")
+    remitter = _login(client, 7817, "tied_chat_client")
+    order = _create_order(client, remitter, ad["id"], key="tied_chat_order")
+    repository = client.app.state.chat_repository
+    tied_at = utc_now() - timedelta(minutes=10)
+    created_ids: set[str] = set()
+
+    for index in range(55):
+        message = repository.create_message(
+            order_id=order["id"],
+            sender_user_id=remitter["user"]["id"],
+            sender_role="remitter",
+            body=f"Mensaje empatado {index + 1}",
+            idempotency_key=f"tied_chat_message_{index + 1}",
+        )
+        message.created_at = tied_at
+        message.updated_at = tied_at
+        created_ids.add(message.id)
+
+    seen: list[str] = []
+    cursor: str | None = None
+    for page_number in range(10):
+        params: dict[str, str | int] = {"limit": 20}
+        if cursor:
+            params["cursor"] = cursor
+        page = client.get(
+            f"/api/v1/orders/{order['id']}/messages",
+            params=params,
+            headers=_bearer(remitter, f"tied_chat_page_{page_number}"),
+        )
+        assert page.status_code == 200, page.text
+        data = page.json()["data"]
+        page_ids = [item["id"] for item in data["items"]]
+        assert not set(page_ids).intersection(seen)
+        seen.extend(page_ids)
+        cursor = data["next_cursor"]
+        if cursor is None:
+            break
+
+    assert set(seen) == created_ids
+    assert len(seen) == 55
+
+
 def test_free_text_configured_zelle_alerts_and_does_not_unlock_payment() -> None:
     client = _client()
     owner = _login(client, 7821, "slice50a_manual_owner")

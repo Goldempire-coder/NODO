@@ -23,6 +23,7 @@ import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
 import { useAdminPublicationHoldModel } from "./useAdminPublicationHoldModel";
 import type { AdminPollingResultGuard } from "./useVisibleAdminPolling";
+import { mergeSupportTicketPage } from "../supportDetailPagination";
 
 type SupportAttachmentLink = {
   url: string;
@@ -134,6 +135,7 @@ export function useAdminSupportModel({
   const [supportTickets, setSupportTickets] = useState<AdminSupportTicket[]>([]);
   const [supportTicketsNextCursor, setSupportTicketsNextCursor] = useState<string | null>(null);
   const [supportTicketsLoadingMore, setSupportTicketsLoadingMore] = useState(false);
+  const [supportMessagesLoadingMore, setSupportMessagesLoadingMore] = useState(false);
   const [selectedSupportTicket, setSelectedSupportTicket] = useState<AdminSupportTicket | null>(null);
   const [supportFilter, setSupportFilter] = useState("active");
   const [supportReplyDrafts, setSupportReplyDrafts] = useState<Record<string, string>>({});
@@ -251,7 +253,13 @@ export function useAdminSupportModel({
           selectSupportTicket(null);
           return;
         }
-        selectSupportTicket(ticket);
+        setSelectedSupportTicket((current) => {
+          const merged = current?.id === ticket.id
+            ? mergeSupportTicketPage(current, ticket, { preserveHistoryCursor: true })
+            : ticket;
+          selectedSupportTicketIdRef.current = merged.id;
+          return merged;
+        });
       }
     } catch {
       // Background refresh should not interrupt the operator's current action.
@@ -313,6 +321,35 @@ export function useAdminSupportModel({
     }
   }, [request, selectSupportTicket, setBusy, setNotice, setView]);
 
+  const loadMoreSupportMessages = useCallback(async () => {
+    const ticket = selectedSupportTicket;
+    const cursor = ticket?.messages_next_cursor;
+    if (!ticket || !cursor || supportMessagesLoadingMore) {
+      return;
+    }
+    foregroundSupportRequests.current += 1;
+    const requestEpoch = ++supportRequestEpoch.current;
+    setSupportMessagesLoadingMore(true);
+    try {
+      const olderPage = await adminGetSupportTicket(request, ticket.id, { messagesCursor: cursor });
+      if (requestEpoch !== supportRequestEpoch.current || selectedSupportTicketIdRef.current !== ticket.id) {
+        return;
+      }
+      setSelectedSupportTicket((current) => (
+        current?.id === ticket.id ? mergeSupportTicketPage(current, olderPage) : current
+      ));
+    } catch (error) {
+      if (requestEpoch === supportRequestEpoch.current) {
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar mensajes anteriores.");
+      }
+    } finally {
+      foregroundSupportRequests.current = Math.max(0, foregroundSupportRequests.current - 1);
+      if (requestEpoch === supportRequestEpoch.current) {
+        setSupportMessagesLoadingMore(false);
+      }
+    }
+  }, [request, selectedSupportTicket, setNotice, supportMessagesLoadingMore]);
+
   const loadSupportAssignees = useCallback(async () => {
     if (!adminMutable || supportAssigneesLoadingRef.current) {
       return;
@@ -370,7 +407,11 @@ export function useAdminSupportModel({
         getIdempotencyKey(idempotencyScope, { ticketId, assigneeUserId, reason })
       );
       clearIdempotencyKey(idempotencyScope);
-      setSelectedSupportTicket((current) => (current?.id === ticketId ? ticket : current));
+      setSelectedSupportTicket((current) => (
+        current?.id === ticketId
+          ? mergeSupportTicketPage(current, ticket, { preserveHistoryCursor: true })
+          : current
+      ));
       setSupportTickets((items) => items.map((item) => (item.id === ticketId ? ticket : item)));
       setSupportAssignmentReason("");
       setNotice("Responsable actualizado.");
@@ -402,7 +443,13 @@ export function useAdminSupportModel({
       }
       setSupportTickets((items) => items.map((item) => (item.id === ticketId ? ticket : item)));
       if (selectedSupportTicketIdRef.current === ticketId) {
-        selectSupportTicket(ticket);
+        setSelectedSupportTicket((current) => {
+          const merged = current?.id === ticket.id
+            ? mergeSupportTicketPage(current, ticket, { preserveHistoryCursor: true })
+            : ticket;
+          selectedSupportTicketIdRef.current = merged.id;
+          return merged;
+        });
       }
     } finally {
       foregroundSupportRequests.current = Math.max(0, foregroundSupportRequests.current - 1);
@@ -537,6 +584,7 @@ export function useAdminSupportModel({
   return {
     supportTickets,
     supportTicketsLoadingMore,
+    supportMessagesLoadingMore,
     supportTicketsNextCursor,
     selectedSupportTicket,
     supportFilter,
@@ -559,6 +607,7 @@ export function useAdminSupportModel({
     ...publicationHold,
     loadSupportTickets,
     loadMoreSupportTickets,
+    loadMoreSupportMessages,
     refreshSupportWorkspace,
     openSupportTicket,
     refreshSelectedSupportTicket,

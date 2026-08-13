@@ -128,8 +128,23 @@ def list_tickets(
 
 
 @router.get("/support/tickets/{ticket_id}")
-def ticket_detail(ticket_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
-    return {"data": _service(request).user_ticket_detail(user=user, ticket_id=ticket_id, request_id=_request_id(request)), "request_id": _request_id(request)}
+def ticket_detail(
+    ticket_id: str,
+    request: Request,
+    messages_cursor: str | None = Query(default=None),
+    messages_limit: int = Query(default=25, ge=1, le=50),
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    return {
+        "data": _service(request).user_ticket_detail(
+            user=user,
+            ticket_id=ticket_id,
+            messages_cursor=messages_cursor,
+            messages_limit=messages_limit,
+            request_id=_request_id(request),
+        ),
+        "request_id": _request_id(request),
+    }
 
 
 @router.post("/support/tickets/{ticket_id}/messages", status_code=201)
@@ -222,8 +237,27 @@ def admin_list_tickets(
 
 
 @router.get("/admin/support/tickets/{ticket_id}")
-def admin_ticket_detail(ticket_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
-    return {"data": _service(request).admin_ticket_detail(user=user, ticket_id=ticket_id, request_id=_request_id(request)), "request_id": _request_id(request)}
+def admin_ticket_detail(
+    ticket_id: str,
+    request: Request,
+    messages_cursor: str | None = Query(default=None),
+    messages_limit: int = Query(default=25, ge=1, le=50),
+    events_cursor: str | None = Query(default=None),
+    events_limit: int = Query(default=25, ge=1, le=50),
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    return {
+        "data": _service(request).admin_ticket_detail(
+            user=user,
+            ticket_id=ticket_id,
+            messages_cursor=messages_cursor,
+            messages_limit=messages_limit,
+            events_cursor=events_cursor,
+            events_limit=events_limit,
+            request_id=_request_id(request),
+        ),
+        "request_id": _request_id(request),
+    }
 
 
 @router.post("/admin/support/tickets/{ticket_id}/messages", status_code=201)

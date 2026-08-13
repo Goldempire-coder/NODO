@@ -234,6 +234,16 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
             </div>
 
             <div className="admin-web-support-chat" aria-label="Conversacion de soporte">
+              {selected.messages_next_cursor ? (
+                <button
+                  className="admin-web-button"
+                  type="button"
+                  disabled={model.supportMessagesLoadingMore}
+                  onClick={() => void model.loadMoreSupportMessages()}
+                >
+                  {model.supportMessagesLoadingMore ? "Cargando..." : "Cargar mensajes anteriores"}
+                </button>
+              ) : null}
               {selectedMessages.length === 0 ? (
                 <Empty text="Este ticket aun no tiene mensajes." />
               ) : (

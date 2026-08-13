@@ -14,7 +14,7 @@ from app.modules.support.models import (
 )
 from app.modules.support.models import ACTIVE_SUPPORT_STATUSES, STRUCTURED_OPERATION_REPORT
 from app.core.errors import ApiError
-from app.shared.keyset_pagination import paginate_descending
+from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor, paginate_descending
 
 
 class InMemorySupportRepository:
@@ -213,10 +213,38 @@ class InMemorySupportRepository:
             ticket.updated_at = now
             return message
 
-    def list_messages(self, *, ticket_id: str) -> list[SupportMessageRecord]:
-        items = [message for message in self.messages.values() if message.ticket_id == ticket_id and message.deleted_at is None]
-        items.sort(key=lambda message: message.created_at)
-        return items
+    def list_messages_page(
+        self,
+        *,
+        ticket_id: str,
+        cursor: str | None,
+        limit: int,
+        include_internal: bool,
+        viewer_user_id: str | None,
+    ) -> tuple[list[SupportMessageRecord], str | None]:
+        items = [
+            message
+            for message in self.messages.values()
+            if message.ticket_id == ticket_id
+            and message.deleted_at is None
+            and (
+                include_internal
+                or message.visibility == "participants"
+                or message.sender_user_id == viewer_user_id
+            )
+        ]
+        items.sort(key=lambda message: (message.created_at, message.id), reverse=True)
+        if cursor:
+            position = decode_keyset_cursor(cursor)
+            items = [
+                message
+                for message in items
+                if (message.created_at, message.id) < (position.timestamp, position.item_id)
+            ]
+        page = items[:limit]
+        next_cursor = encode_keyset_cursor(page[-1].created_at, page[-1].id) if len(items) > limit else None
+        page.reverse()
+        return page, next_cursor
 
     def latest_participant_messages_for_tickets(
         self,
@@ -269,10 +297,26 @@ class InMemorySupportRepository:
             self.events[event.id] = event
             return event
 
-    def list_events(self, *, ticket_id: str) -> list[SupportTicketEventRecord]:
+    def list_events_page(
+        self,
+        *,
+        ticket_id: str,
+        cursor: str | None,
+        limit: int,
+    ) -> tuple[list[SupportTicketEventRecord], str | None]:
         items = [event for event in self.events.values() if event.ticket_id == ticket_id]
-        items.sort(key=lambda event: event.created_at)
-        return items
+        items.sort(key=lambda event: (event.created_at, event.id), reverse=True)
+        if cursor:
+            position = decode_keyset_cursor(cursor)
+            items = [
+                event
+                for event in items
+                if (event.created_at, event.id) < (position.timestamp, position.item_id)
+            ]
+        page = items[:limit]
+        next_cursor = encode_keyset_cursor(page[-1].created_at, page[-1].id) if len(items) > limit else None
+        page.reverse()
+        return page, next_cursor
 
     def update_ticket(self, ticket: SupportTicketRecord, **fields) -> SupportTicketRecord:  # type: ignore[no-untyped-def]
         with self._lock:
@@ -310,6 +354,19 @@ class InMemorySupportRepository:
     def get_file_asset(self, file_id: str) -> FileAssetRecord | None:
         file = self.files.get(file_id)
         if file is None or file.deleted_at is not None:
+            return None
+        return file
+
+    def get_ticket_file_asset(self, *, ticket_id: str, file_id: str) -> FileAssetRecord | None:
+        file = self.get_file_asset(file_id)
+        if file is None or file.file_type != "support_attachment":
+            return None
+        if file.resource_type == "support_ticket":
+            return file if file.resource_id == ticket_id else None
+        if file.resource_type != "support_message":
+            return None
+        message = self.messages.get(file.resource_id)
+        if message is None or message.deleted_at is not None or message.ticket_id != ticket_id:
             return None
         return file
 

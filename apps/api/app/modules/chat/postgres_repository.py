@@ -11,6 +11,7 @@ from app.modules.chat.payment_sharing import (
 )
 from app.modules.chat.row_mappers import attachment_from_row, file_from_row, message_from_row
 from app.shared.db.connection import pooled_connect
+from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor
 
 
 class PostgresChatRepository:
@@ -24,8 +25,9 @@ class PostgresChatRepository:
         sql = "select * from messages where order_id = %s and deleted_at is null"
         params: list[Any] = [order_id]
         if cursor:
-            sql += " and created_at < %s"
-            params.append(cursor)
+            position = decode_keyset_cursor(cursor)
+            sql += " and (created_at, id) < (%s, %s::uuid)"
+            params.extend([position.timestamp, position.item_id])
         sql += " order by created_at desc, id desc limit %s"
         params.append(limit + 1)
         with self._connect() as conn:
@@ -33,7 +35,7 @@ class PostgresChatRepository:
         has_older = len(rows) > limit
         rows = list(reversed(rows[:limit]))
         items = [message_from_row(row) for row in rows]
-        return items, items[0].created_at.isoformat() if has_older else None
+        return items, encode_keyset_cursor(items[0].created_at, items[0].id) if has_older else None
 
     def get_message(self, message_id: str) -> MessageRecord | None:
         with self._connect() as conn:

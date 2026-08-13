@@ -332,13 +332,32 @@ class PostgresSupportRepository:
             conn.commit()
         return message_from_row(row)
 
-    def list_messages(self, *, ticket_id: str) -> list[SupportMessageRecord]:
+    def list_messages_page(
+        self,
+        *,
+        ticket_id: str,
+        cursor: str | None,
+        limit: int,
+        include_internal: bool,
+        viewer_user_id: str | None,
+    ) -> tuple[list[SupportMessageRecord], str | None]:
+        params: list[Any] = [ticket_id]
+        sql = "select * from support_messages where ticket_id = %s and deleted_at is null"
+        if not include_internal:
+            sql += " and (visibility = 'participants' or sender_user_id = %s)"
+            params.append(viewer_user_id)
+        if cursor:
+            position = decode_keyset_cursor(cursor)
+            sql += " and (created_at, id) < (%s, %s::uuid)"
+            params.extend([position.timestamp, position.item_id])
+        sql += " order by created_at desc, id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:
-            rows = conn.execute(
-                "select * from support_messages where ticket_id = %s and deleted_at is null order by created_at asc",
-                (ticket_id,),
-            ).fetchall()
-        return [message_from_row(row) for row in rows]
+            rows = conn.execute(sql, params).fetchall()
+        page = [message_from_row(row) for row in rows[:limit]]
+        next_cursor = encode_keyset_cursor(page[-1].created_at, page[-1].id) if len(rows) > limit else None
+        page.reverse()
+        return page, next_cursor
 
     def latest_participant_messages_for_tickets(
         self,
@@ -390,10 +409,27 @@ class PostgresSupportRepository:
             conn.commit()
         return event_from_row(row)
 
-    def list_events(self, *, ticket_id: str) -> list[SupportTicketEventRecord]:
+    def list_events_page(
+        self,
+        *,
+        ticket_id: str,
+        cursor: str | None,
+        limit: int,
+    ) -> tuple[list[SupportTicketEventRecord], str | None]:
+        params: list[Any] = [ticket_id]
+        sql = "select * from support_ticket_events where ticket_id = %s"
+        if cursor:
+            position = decode_keyset_cursor(cursor)
+            sql += " and (created_at, id) < (%s, %s::uuid)"
+            params.extend([position.timestamp, position.item_id])
+        sql += " order by created_at desc, id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:
-            rows = conn.execute("select * from support_ticket_events where ticket_id = %s order by created_at asc", (ticket_id,)).fetchall()
-        return [event_from_row(row) for row in rows]
+            rows = conn.execute(sql, params).fetchall()
+        page = [event_from_row(row) for row in rows[:limit]]
+        next_cursor = encode_keyset_cursor(page[-1].created_at, page[-1].id) if len(rows) > limit else None
+        page.reverse()
+        return page, next_cursor
 
     def update_ticket(self, ticket: SupportTicketRecord, **fields) -> SupportTicketRecord:  # type: ignore[no-untyped-def]
         assignments = ", ".join(f"{key} = %s" for key in fields)
@@ -437,6 +473,32 @@ class PostgresSupportRepository:
             row = conn.execute(
                 "select * from file_assets where id = %s and file_type = 'support_attachment' and deleted_at is null",
                 (file_id,),
+            ).fetchone()
+        return file_from_row(row) if row else None
+
+    def get_ticket_file_asset(self, *, ticket_id: str, file_id: str) -> FileAssetRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                select file_assets.*
+                from file_assets
+                where file_assets.id = %s
+                  and file_assets.deleted_at is null
+                  and file_assets.file_type = 'support_attachment'
+                  and (
+                    (file_assets.resource_type = 'support_ticket' and file_assets.resource_id = %s)
+                    or (
+                      file_assets.resource_type = 'support_message'
+                      and exists (
+                        select 1 from support_messages
+                        where support_messages.id = file_assets.resource_id
+                          and support_messages.ticket_id = %s
+                          and support_messages.deleted_at is null
+                      )
+                    )
+                  )
+                """,
+                (file_id, ticket_id, ticket_id),
             ).fetchone()
         return file_from_row(row) if row else None
 

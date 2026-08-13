@@ -1413,3 +1413,168 @@ def test_support_list_rejects_structurally_valid_cursor_with_non_uuid_id() -> No
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"
     assert "not-a-uuid" not in response.text
+
+
+def test_support_detail_pages_large_tied_message_history_without_leaks_or_duplicates() -> None:
+    client = _client()
+    _owner, _business, _ad, remitter, order = _seed_order(client, base_id=26400)
+    ticket = _create_ticket(client, remitter, scope="client_order", key="paged_support_detail", order_id=order["id"])
+    repository = client.app.state.support_repository
+    tied_at = utc_now() - timedelta(hours=1)
+
+    created_ids = {ticket["messages"][0]["id"]}
+    for index in range(124):
+        message = repository.create_message(
+            ticket_id=ticket["id"],
+            sender_user_id=remitter["user"]["id"],
+            sender_role="remitter",
+            body=f"Mensaje historico {index + 1}",
+            visibility="participants",
+        )
+        message.created_at = tied_at
+        message.updated_at = tied_at
+        created_ids.add(message.id)
+
+    oldest_message_id = min(created_ids)
+    old_file = repository.create_file_asset(
+        file_id=str(uuid4()),
+        owner_user_id=remitter["user"]["id"],
+        resource_type="support_message",
+        resource_id=oldest_message_id,
+        storage_path=f"private/support/{ticket['id']}/old.png",
+        mime_type="image/png",
+        size_bytes=128,
+    )
+
+    seen: list[str] = []
+    cursor: str | None = None
+    first_payload: dict | None = None
+    for page_number in range(10):
+        params = {"messages_limit": 25}
+        if cursor:
+            params["messages_cursor"] = cursor
+        response = client.get(
+            f"/api/v1/support/tickets/{ticket['id']}",
+            params=params,
+            headers=_bearer(remitter, f"paged_support_detail_{page_number}"),
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()["data"]
+        if first_payload is None:
+            first_payload = payload
+            assert len(payload["messages"]) == 25
+            assert old_file.id not in response.text
+        page_ids = [item["id"] for item in payload["messages"]]
+        assert len(page_ids) == len(set(page_ids))
+        assert not set(page_ids).intersection(seen)
+        seen.extend(page_ids)
+        cursor = payload["messages_next_cursor"]
+        if cursor is None:
+            break
+
+    assert first_payload is not None
+    assert set(seen) == created_ids
+    assert len(seen) == 125
+
+    invalid_cursor = client.get(
+        f"/api/v1/support/tickets/{ticket['id']}",
+        params={"messages_cursor": "not-a-cursor"},
+        headers=_bearer(remitter, "invalid_support_detail_cursor"),
+    )
+    assert invalid_cursor.status_code == 400
+    assert invalid_cursor.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"
+
+
+def test_admin_support_detail_limits_events_and_attachment_view_does_not_scan_messages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _client()
+    _owner, _business, _ad, remitter, order = _seed_order(client, base_id=26500)
+    ticket = _create_ticket(client, remitter, scope="client_order", key="paged_admin_detail", order_id=order["id"])
+    support = _make_admin(client, 26503, "support")
+    repository = client.app.state.support_repository
+    tied_at = utc_now() - timedelta(minutes=30)
+
+    for index in range(120):
+        event = repository.create_event(
+            ticket_id=ticket["id"],
+            actor_user_id=support["user"]["id"],
+            actor_role="support",
+            event_type="support_message_created",
+            metadata_json={"sequence": index},
+        )
+        event.created_at = tied_at
+
+    upload = client.post(
+        f"/api/v1/support/tickets/{ticket['id']}/attachments",
+        headers=_headers(remitter, "paged_support_attachment"),
+        files={"file": ("proof.png", png_bytes(b"paged-support-proof"), "image/png")},
+    )
+    assert upload.status_code == 201, upload.text
+    file_id = upload.json()["data"]["attachment"]["id"]
+    other_ticket = _create_ticket(client, remitter, scope="client_general", key="other_paged_attachment")
+    other_upload = client.post(
+        f"/api/v1/support/tickets/{other_ticket['id']}/attachments",
+        headers=_headers(remitter, "other_paged_support_attachment"),
+        files={"file": ("other.png", png_bytes(b"other-paged-support-proof"), "image/png")},
+    )
+    assert other_upload.status_code == 201, other_upload.text
+    other_file_id = other_upload.json()["data"]["attachment"]["id"]
+
+    detail = client.get(
+        f"/api/v1/admin/support/tickets/{ticket['id']}",
+        params={"messages_limit": 25, "events_limit": 25},
+        headers=_bearer(support, "paged_admin_support_detail"),
+    )
+    assert detail.status_code == 200, detail.text
+    assert len(detail.json()["data"]["events"]) == 25
+    assert detail.json()["data"]["events_next_cursor"] is not None
+
+    seen_events: list[str] = []
+    events_cursor: str | None = None
+    for page_number in range(10):
+        params = {"events_limit": 25}
+        if events_cursor:
+            params["events_cursor"] = events_cursor
+        events_page = client.get(
+            f"/api/v1/admin/support/tickets/{ticket['id']}",
+            params=params,
+            headers=_bearer(support, f"paged_admin_support_events_{page_number}"),
+        )
+        assert events_page.status_code == 200, events_page.text
+        events_data = events_page.json()["data"]
+        page_ids = [item["id"] for item in events_data["events"]]
+        assert not set(page_ids).intersection(seen_events)
+        seen_events.extend(page_ids)
+        events_cursor = events_data["events_next_cursor"]
+        if events_cursor is None:
+            break
+    assert len(seen_events) == 123
+    assert len(seen_events) == len(set(seen_events))
+
+    invalid_events_cursor = client.get(
+        f"/api/v1/admin/support/tickets/{ticket['id']}",
+        params={"events_cursor": "not-a-cursor"},
+        headers=_bearer(support, "invalid_admin_support_events_cursor"),
+    )
+    assert invalid_events_cursor.status_code == 400
+    assert invalid_events_cursor.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"
+
+    monkeypatch.setattr(
+        repository,
+        "list_messages_page",
+        lambda **_kwargs: pytest.fail("attachment authorization scanned the complete support thread"),
+    )
+    view_url = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/attachments/{file_id}/view-url",
+        headers={**_bearer(support, "paged_support_view_url"), "Content-Type": "application/json"},
+        json={"reason": "Validar adjunto acotado"},
+    )
+    assert view_url.status_code == 200, view_url.text
+    cross_ticket_view = client.post(
+        f"/api/v1/admin/support/tickets/{ticket['id']}/attachments/{other_file_id}/view-url",
+        headers={**_bearer(support, "cross_paged_support_view_url"), "Content-Type": "application/json"},
+        json={"reason": "No debe cruzar tickets"},
+    )
+    assert cross_ticket_view.status_code == 403
+    assert cross_ticket_view.json()["error"]["code"] == "SUPPORT_ATTACHMENT_ACCESS_DENIED"

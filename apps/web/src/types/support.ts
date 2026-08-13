@@ -78,7 +78,9 @@ export type SupportTicket = {
   updated_at: string;
   attachments?: SupportAttachment[];
   messages?: SupportMessage[];
+  messages_next_cursor?: string | null;
   events?: SupportEvent[];
+  events_next_cursor?: string | null;
   disclaimer?: string;
 };
 

@@ -29,6 +29,31 @@ export type AdminSupportAttachmentViewUrlResponse = {
   download_filename: string;
 };
 
+export type SupportDetailOptions = {
+  messagesCursor?: string | null;
+  messagesLimit?: number;
+  eventsCursor?: string | null;
+  eventsLimit?: number;
+};
+
+function supportDetailQuery(options: SupportDetailOptions = {}): string {
+  const params = new URLSearchParams();
+  if (options.messagesCursor) {
+    params.set("messages_cursor", options.messagesCursor);
+  }
+  if (options.messagesLimit) {
+    params.set("messages_limit", String(options.messagesLimit));
+  }
+  if (options.eventsCursor) {
+    params.set("events_cursor", options.eventsCursor);
+  }
+  if (options.eventsLimit) {
+    params.set("events_limit", String(options.eventsLimit));
+  }
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
 export async function createSupportTicket(request: AuthenticatedRequest, input: SupportTicketCreateInput, idempotencyKey: string): Promise<SupportTicket> {
   return request<SupportTicket>("/api/v1/support/tickets", {
     method: "POST",
@@ -60,8 +85,8 @@ export async function listSupportTickets(request: AuthenticatedRequest, query = 
   return request<SupportListResponse>(`/api/v1/support/tickets${query}`);
 }
 
-export async function getSupportTicket(request: AuthenticatedRequest, ticketId: string): Promise<SupportTicket> {
-  return request<SupportTicket>(`/api/v1/support/tickets/${ticketId}`);
+export async function getSupportTicket(request: AuthenticatedRequest, ticketId: string, options: SupportDetailOptions = {}): Promise<SupportTicket> {
+  return request<SupportTicket>(`/api/v1/support/tickets/${ticketId}${supportDetailQuery(options)}`);
 }
 
 export async function sendSupportMessage(request: AuthenticatedRequest, ticketId: string, body: string, idempotencyKey: string): Promise<SupportMessageResponse> {
@@ -100,8 +125,8 @@ export async function adminListSupportTickets(request: AuthenticatedRequest, que
   return request<AdminSupportTicketListResponse>(`/api/v1/admin/support/tickets${query}`);
 }
 
-export async function adminGetSupportTicket(request: AuthenticatedRequest, ticketId: string): Promise<AdminSupportTicket> {
-  return request<AdminSupportTicket>(`/api/v1/admin/support/tickets/${ticketId}`);
+export async function adminGetSupportTicket(request: AuthenticatedRequest, ticketId: string, options: SupportDetailOptions = {}): Promise<AdminSupportTicket> {
+  return request<AdminSupportTicket>(`/api/v1/admin/support/tickets/${ticketId}${supportDetailQuery(options)}`);
 }
 
 export async function releaseAdminBusinessPublicationHold(

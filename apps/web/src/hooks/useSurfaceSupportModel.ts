@@ -8,6 +8,7 @@ import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActio
 import { appendUniqueById } from "./pagination";
 import { useStableIdempotencyKeys } from "./useStableIdempotencyKeys";
 import type { SurfacePollingResultGuard } from "./useVisibleSurfacePolling";
+import { mergeSupportTicketPage } from "./supportDetailPagination";
 
 const DEFAULT_CATEGORY: SupportTicketCategory = "technical_issue";
 const ACTIVE_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["open", "waiting_support", "waiting_user", "escalated"]);
@@ -93,6 +94,7 @@ export function useSurfaceSupportModel({
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [supportTicketsNextCursor, setSupportTicketsNextCursor] = useState<string | null>(null);
   const [supportTicketsLoadingMore, setSupportTicketsLoadingMore] = useState(false);
+  const [supportMessagesLoadingMore, setSupportMessagesLoadingMore] = useState(false);
   const [selectedSupportTicket, setSelectedSupportTicket] = useState<SupportTicket | null>(null);
   const [supportFilter, setSupportFilter] = useState<SupportTicketListFilter>("active");
   const [supportReply, setSupportReply] = useState("");
@@ -233,7 +235,11 @@ export function useSurfaceSupportModel({
           setSelectedSupportTicket(null);
           return;
         }
-        setSelectedSupportTicket(ticket);
+        setSelectedSupportTicket((current) => (
+          current?.id === ticket.id
+            ? mergeSupportTicketPage(current, ticket, { preserveHistoryCursor: true })
+            : ticket
+        ));
       }
     } catch {
       // Background refresh should not interrupt the user's current action.
@@ -283,6 +289,33 @@ export function useSurfaceSupportModel({
       setOpeningSupportTicketId(null);
     }
   }, [request, setNotice]);
+
+  const loadMoreSupportMessages = useCallback(async () => {
+    const ticket = selectedSupportTicketRef.current;
+    const cursor = ticket?.messages_next_cursor;
+    if (!ticket || !cursor || supportMessagesLoadingMore) {
+      return;
+    }
+    const epoch = ++supportRefreshEpochRef.current;
+    setSupportMessagesLoadingMore(true);
+    try {
+      const olderPage = await getSupportTicket(request, ticket.id, { messagesCursor: cursor });
+      if (epoch !== supportRefreshEpochRef.current || selectedSupportTicketRef.current?.id !== ticket.id) {
+        return;
+      }
+      setSelectedSupportTicket((current) => (
+        current?.id === ticket.id ? mergeSupportTicketPage(current, olderPage) : current
+      ));
+    } catch (error) {
+      if (epoch === supportRefreshEpochRef.current) {
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar mensajes anteriores.");
+      }
+    } finally {
+      if (epoch === supportRefreshEpochRef.current) {
+        setSupportMessagesLoadingMore(false);
+      }
+    }
+  }, [request, setNotice, supportMessagesLoadingMore]);
 
   const submitSupportTicket = useCallback(async (input?: Partial<SupportTicketCreateInput>) => {
     if (creatingTicketLockRef.current) {
@@ -447,6 +480,7 @@ export function useSurfaceSupportModel({
     openingSupportTicketId,
     supportTickets,
     supportTicketsLoadingMore,
+    supportMessagesLoadingMore,
     supportTicketsNextCursor,
     supportFilter,
     setSupportFilter,
@@ -461,6 +495,7 @@ export function useSurfaceSupportModel({
     closingSupportTicketId,
     loadSupportTickets,
     loadMoreSupportTickets,
+    loadMoreSupportMessages,
     refreshSupportWorkspace,
     openSupportTicket,
     submitSupportTicket,

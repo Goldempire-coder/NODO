@@ -14,6 +14,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
     loadingSupportTickets,
     loadSupportTickets,
     loadMoreSupportTickets,
+    loadMoreSupportMessages,
     openSupportTicket,
     openingSupportTicketId,
     refreshSupportWorkspace,
@@ -26,6 +27,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
     supportReply,
     supportTickets,
     supportTicketsLoadingMore,
+    supportMessagesLoadingMore,
     supportTicketsNextCursor,
     setSupportReply,
     submitSupportReply,
@@ -37,6 +39,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
   const [showNewConversation, setShowNewConversation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const ticketMessages = selectedSupportTicket?.messages || [];
+  const latestMessageId = ticketMessages[ticketMessages.length - 1]?.id;
   const emptyCopy = supportFilter === "archived" ? "No tienes conversaciones archivadas." : "No tienes conversaciones activas.";
   const conversationLabel = loadingSupportFilter === supportFilter ? "Actualizando..." : supportFilter === "archived" ? "Archivadas" : "Activas";
 
@@ -58,7 +61,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
-  }, [selectedSupportTicket?.id, ticketMessages.length]);
+  }, [latestMessageId, selectedSupportTicket?.id]);
 
   const startNewConversation = () => {
     setSelectedSupportTicket(null);
@@ -138,6 +141,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
           closing={closingSupportTicketId === selectedSupportTicket.id}
           emptyMessagesCopy="Aun no hay mensajes en esta conversacion."
           messagesEndRef={messagesEndRef}
+          loadingOlderMessages={supportMessagesLoadingMore}
           notice={model.notice}
           ownRole="business_owner"
           reply={supportReply}
@@ -146,6 +150,7 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
           uploading={uploadingSupportAttachment}
           waitingUserLabel="Esperando tu respuesta"
           onClose={() => void closeOwnSupportTicket()}
+          onLoadOlderMessages={() => void loadMoreSupportMessages()}
           onReplyChange={setSupportReply}
           onSend={() => void submitSupportReply()}
           onUpload={(file) => void uploadTicketAttachment(file)}

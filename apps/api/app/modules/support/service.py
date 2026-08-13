@@ -315,23 +315,41 @@ class SupportService:
         if self._marketplace_cache is not None:
             self._marketplace_cache.clear_prefix(MARKETPLACE_CACHE_PREFIX)
 
-    def _detail_payload(self, *, ticket: SupportTicketRecord, user: UserRecord, admin: bool = False) -> dict[str, Any]:
-        messages = self._repository.list_messages(ticket_id=ticket.id)
+    def _detail_payload(
+        self,
+        *,
+        ticket: SupportTicketRecord,
+        user: UserRecord,
+        admin: bool = False,
+        messages_cursor: str | None = None,
+        messages_limit: int = 25,
+        events_cursor: str | None = None,
+        events_limit: int = 25,
+    ) -> dict[str, Any]:
+        messages, messages_next_cursor = self._repository.list_messages_page(
+            ticket_id=ticket.id,
+            cursor=messages_cursor,
+            limit=messages_limit,
+            include_internal=admin,
+            viewer_user_id=user.id,
+        )
         resources = [("support_ticket", ticket.id)] + [("support_message", message.id) for message in messages]
         attachments = self._repository.list_files_for_resources(resources=resources)
-        visible_messages = [
-            message
-            for message in messages
-            if admin or message.visibility == "participants" or message.sender_user_id == user.id
-        ]
+        events, events_next_cursor = (
+            self._repository.list_events_page(ticket_id=ticket.id, cursor=events_cursor, limit=events_limit)
+            if admin
+            else ([], None)
+        )
         payload = {
             **self._ticket_summary_payload(ticket),
             "attachments": [_attachment_payload(file) for file in attachments.get(("support_ticket", ticket.id), [])],
             "messages": [
                 message_public(message, attachments.get(("support_message", message.id), []))
-                for message in visible_messages
+                for message in messages
             ],
-            "events": [event_public(event) for event in self._repository.list_events(ticket_id=ticket.id)] if admin else [],
+            "messages_next_cursor": messages_next_cursor,
+            "events": [event_public(event) for event in events],
+            "events_next_cursor": events_next_cursor,
             "disclaimer": SUPPORT_DISCLAIMER,
         }
         if admin and ticket.report_kind == STRUCTURED_OPERATION_REPORT:
@@ -591,12 +609,25 @@ class SupportService:
         business_names = self._support_business_names(visible)
         return {"items": [self._ticket_summary_payload(ticket, business_names=business_names) for ticket in visible], "next_cursor": next_cursor}
 
-    def user_ticket_detail(self, *, user: UserRecord, ticket_id: str, request_id: str) -> dict[str, Any]:
+    def user_ticket_detail(
+        self,
+        *,
+        user: UserRecord,
+        ticket_id: str,
+        messages_cursor: str | None,
+        messages_limit: int,
+        request_id: str,
+    ) -> dict[str, Any]:
         ticket = self._require_ticket(ticket_id)
         self._rate_limit("detail", user, ticket.id)
         if not self._ticket_visible_to_user(ticket=ticket, user=user) or user.role in ADMIN_ROLES:
             raise ApiError("SUPPORT_TICKET_NOT_FOUND", status_code=404)
-        return self._detail_payload(ticket=ticket, user=user)
+        return self._detail_payload(
+            ticket=ticket,
+            user=user,
+            messages_cursor=messages_cursor,
+            messages_limit=messages_limit,
+        )
 
     def create_user_message(self, *, user: UserRecord, ticket_id: str, payload: SupportMessageCreateRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         if not idempotency_key:
@@ -671,14 +702,32 @@ class SupportService:
         business_names = self._support_business_names(items)
         return {"items": [self._ticket_summary_payload(ticket, business_names=business_names) for ticket in items], "next_cursor": next_cursor}
 
-    def admin_ticket_detail(self, *, user: UserRecord, ticket_id: str, request_id: str) -> dict[str, Any]:
+    def admin_ticket_detail(
+        self,
+        *,
+        user: UserRecord,
+        ticket_id: str,
+        messages_cursor: str | None,
+        messages_limit: int,
+        events_cursor: str | None,
+        events_limit: int,
+        request_id: str,
+    ) -> dict[str, Any]:
         ticket = self._require_ticket(ticket_id)
         if user.role == "support" and ticket.assigned_support_user_id == user.id:
             self._require_support_permission(user, "view_assigned_support_tickets", ticket)
         else:
             self._require_support_permission(user, "view_support_queue", ticket)
         self._rate_limit("admin_detail", user, ticket.id)
-        return self._detail_payload(ticket=ticket, user=user, admin=True)
+        return self._detail_payload(
+            ticket=ticket,
+            user=user,
+            admin=True,
+            messages_cursor=messages_cursor,
+            messages_limit=messages_limit,
+            events_cursor=events_cursor,
+            events_limit=events_limit,
+        )
 
     def create_admin_message(self, *, user: UserRecord, ticket_id: str, payload: AdminSupportMessageCreateRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         if payload.attachment_ids:
@@ -781,9 +830,11 @@ class SupportService:
         reason = _sanitize_text(reason, 500)
         if not reason:
             raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
-        file = self._repository.get_file_asset(_require_uuid(file_id, "SUPPORT_ATTACHMENT_NOT_FOUND"))
-        allowed_resource_ids = {ticket.id, *[message.id for message in self._repository.list_messages(ticket_id=ticket.id)]}
-        if file is None or file.file_type != "support_attachment" or file.resource_type not in {"support_ticket", "support_message"} or file.resource_id not in allowed_resource_ids:
+        file = self._repository.get_ticket_file_asset(
+            ticket_id=ticket.id,
+            file_id=_require_uuid(file_id, "SUPPORT_ATTACHMENT_NOT_FOUND"),
+        )
+        if file is None:
             raise ApiError("SUPPORT_ATTACHMENT_ACCESS_DENIED", status_code=403)
         url = self._storage.signed_view_url(storage_path=file.storage_path, expires_in=min(self._settings.storage_signed_url_ttl_seconds, 300))
         self._repository.create_event(ticket_id=ticket.id, actor_user_id=user.id, actor_role=user.role, event_type="support_attachment_viewed", reason=reason, metadata_json={"file_asset_id": file.id})

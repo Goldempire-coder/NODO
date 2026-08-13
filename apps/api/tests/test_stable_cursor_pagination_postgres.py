@@ -9,6 +9,7 @@ import pytest
 
 from app.core.errors import ApiError
 from app.modules.admin.postgres_repository import PostgresAdminRepository
+from app.modules.chat.postgres_repository import PostgresChatRepository
 from app.modules.disputes.postgres_repository import PostgresDisputeRepository
 from app.modules.orders.postgres_repository import PostgresOrderRepository
 from app.modules.support.postgres_repository import PostgresSupportRepository
@@ -94,6 +95,9 @@ def test_postgres_keyset_cursor_preserves_tied_support_orders_and_disputes(curso
     order_ids = [_uuid(index) for index in (301, 302, 303)]
     dispute_ids = [_uuid(index) for index in (401, 402, 403)]
     ticket_ids = [_uuid(index) for index in (501, 502, 503)]
+    support_message_ids = [_uuid(index) for index in range(600, 725)]
+    support_event_ids = [_uuid(index) for index in range(730, 785)]
+    chat_message_ids = [_uuid(index) for index in range(800, 855)]
     with psycopg.connect(cursor_database_url) as conn:
         conn.execute("insert into users (id, role, status) values (%s, 'remitter', 'active'), (%s, 'business_owner', 'active')", (remitter_id, owner_id))
         conn.execute(
@@ -162,12 +166,46 @@ def test_postgres_keyset_cursor_preserves_tied_support_orders_and_disputes(curso
                 """,
                 (ticket_id, remitter_id, TIED_AT, TIED_AT),
             )
+        for message_id in support_message_ids:
+            conn.execute(
+                """
+                insert into support_messages (
+                    id, ticket_id, sender_user_id, sender_role, body, visibility,
+                    created_at, updated_at
+                ) values (%s, %s, %s, 'remitter', 'Support cursor message',
+                          'participants', %s, %s)
+                """,
+                (message_id, ticket_ids[0], remitter_id, TIED_AT, TIED_AT),
+            )
+        for event_id in support_event_ids:
+            conn.execute(
+                """
+                insert into support_ticket_events (
+                    id, ticket_id, actor_user_id, actor_role, event_type,
+                    metadata_json, created_at
+                ) values (%s, %s, %s, 'support', 'support_message_created',
+                          '{}'::jsonb, %s)
+                """,
+                (event_id, ticket_ids[0], remitter_id, TIED_AT),
+            )
+        for message_id in chat_message_ids:
+            conn.execute(
+                """
+                insert into messages (
+                    id, order_id, sender_user_id, sender_role, body, visibility,
+                    status, created_at, updated_at
+                ) values (%s, %s, %s, 'remitter', 'Chat cursor message',
+                          'parties', 'visible', %s, %s)
+                """,
+                (message_id, order_ids[0], remitter_id, TIED_AT, TIED_AT),
+            )
         conn.commit()
 
     support = PostgresSupportRepository(cursor_database_url)
     orders = PostgresOrderRepository(cursor_database_url)
     admin = PostgresAdminRepository(cursor_database_url)
     disputes = PostgresDisputeRepository(cursor_database_url)
+    chat = PostgresChatRepository(cursor_database_url)
 
     support_ids = _collect_ids(
         lambda cursor: support.list_tickets(
@@ -191,9 +229,45 @@ def test_postgres_keyset_cursor_preserves_tied_support_orders_and_disputes(curso
     listed_dispute_ids = _collect_ids(
         lambda cursor: disputes.list_disputes(status=None, cursor=cursor, limit=2)
     )
+    listed_support_message_ids = _collect_ids(
+        lambda cursor: support.list_messages_page(
+            ticket_id=ticket_ids[0],
+            cursor=cursor,
+            limit=25,
+            include_internal=False,
+            viewer_user_id=remitter_id,
+        )
+    )
+    listed_admin_support_message_ids = _collect_ids(
+        lambda cursor: support.list_messages_page(
+            ticket_id=ticket_ids[0],
+            cursor=cursor,
+            limit=25,
+            include_internal=True,
+            viewer_user_id=None,
+        )
+    )
+    listed_support_event_ids = _collect_ids(
+        lambda cursor: support.list_events_page(
+            ticket_id=ticket_ids[0],
+            cursor=cursor,
+            limit=20,
+        )
+    )
+    listed_chat_message_ids = _collect_ids(
+        lambda cursor: chat.list_messages(order_id=order_ids[0], cursor=cursor, limit=20)
+    )
 
     assert support_ids == list(reversed(ticket_ids))
     assert order_ids_client == list(reversed(order_ids))
     assert order_ids_admin == list(reversed(order_ids))
     assert listed_dispute_ids == list(reversed(dispute_ids))
     assert all(len(ids) == len(set(ids)) for ids in (support_ids, order_ids_client, order_ids_admin, listed_dispute_ids))
+    assert set(listed_support_message_ids) == set(support_message_ids)
+    assert len(listed_support_message_ids) == len(set(listed_support_message_ids))
+    assert set(listed_admin_support_message_ids) == set(support_message_ids)
+    assert len(listed_admin_support_message_ids) == len(set(listed_admin_support_message_ids))
+    assert set(listed_support_event_ids) == set(support_event_ids)
+    assert len(listed_support_event_ids) == len(set(listed_support_event_ids))
+    assert set(listed_chat_message_ids) == set(chat_message_ids)
+    assert len(listed_chat_message_ids) == len(set(listed_chat_message_ids))

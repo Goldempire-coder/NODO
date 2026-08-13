@@ -88,10 +88,28 @@ Rules:
 
 ### GET /api/v1/support/tickets/{id}
 
+Query:
+
+```txt
+messages_cursor=optional
+messages_limit=1..50, default 25
+```
+
 Rules:
 - Solo requester/participantes autorizados o admin/support.
 - Devuelve mensajes con `visibility = participants`.
 - No devuelve `support_internal` ni `admin_internal` a usuarios finales.
+- La consulta inicial devuelve los 25 mensajes visibles mas recientes, ordenados
+  cronologicamente dentro de la pagina. Nunca devuelve el hilo completo por
+  defecto.
+- `messages_next_cursor` es opaco y usa el desempate estable
+  `(created_at, id)`. Si existe, el frontend puede solicitar mensajes anteriores
+  mediante una accion explicita con `messages_cursor`.
+- Los adjuntos de cada mensaje solo incluyen archivos asociados a los mensajes
+  de esa pagina. No se precargan adjuntos de paginas anteriores ni signed URLs.
+- El polling vuelve a consultar solo la pagina reciente. El frontend puede
+  combinarla por `message.id` con paginas ya cargadas.
+- Cursor invalido responde `400 PAGINATION_CURSOR_INVALID`.
 
 ### POST /api/v1/support/tickets/{id}/messages
 
@@ -177,11 +195,29 @@ Rules:
 
 Detalle Admin Web.
 
+Query:
+
+```txt
+messages_cursor=optional
+messages_limit=1..50, default 25
+events_cursor=optional
+events_limit=1..50, default 25
+```
+
 Rules:
-- Incluye mensajes, eventos y adjuntos como metadata segura.
+- Incluye paginas acotadas de mensajes y eventos, y adjuntos como metadata
+  segura solo para los mensajes incluidos.
+- `messages_next_cursor` y `events_next_cursor` son cursores opacos estables
+  por `(created_at, id)`.
+- En S0/S1, Admin Web ofrece accion explicita solo para mensajes anteriores.
+  `events_next_cursor` queda disponible como contrato backend para consumidores
+  administrativos futuros; esta interfaz no presenta ni pagina eventos.
 - No incluye `storage_path`.
 - No incluye body completo en audit.
 - Para staff con `assigned_only`, el ticket debe estar asignado al staff.
+- La signed URL valida directamente la relacion
+  `file_asset -> support_ticket|support_message -> ticket`; no recorre el hilo
+  completo para demostrar pertenencia.
 
 ### POST /api/v1/admin/support/tickets/{id}/messages
 

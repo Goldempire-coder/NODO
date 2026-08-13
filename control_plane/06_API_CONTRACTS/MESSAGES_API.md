@@ -50,6 +50,8 @@ Query:
 - Sin cursor, devuelve la ventana mas reciente.
 - Con `cursor`, devuelve la ventana inmediatamente anterior.
 - `items` siempre se ordena de antiguo a nuevo dentro de cada ventana.
+- `cursor` es opaco y representa `(created_at, id)` para no omitir ni duplicar
+  mensajes cuando varios comparten timestamp.
 
 Response:
 
@@ -123,6 +125,7 @@ Errors:
 - FORBIDDEN
 - RATE_LIMITED
 - UNAUTHENTICATED
+- PAGINATION_CURSOR_INVALID
 
 ## POST /api/v1/orders/{id}/messages
 
