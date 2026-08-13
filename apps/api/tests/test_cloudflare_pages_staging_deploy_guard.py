@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import urllib.error
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -119,6 +121,7 @@ def test_staging_api_smoke_requires_cors_on_auth(monkeypatch: pytest.MonkeyPatch
 def test_staging_api_smoke_accepts_healthy_api_with_auth_cors(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_module()
     calls: list[tuple[str, str]] = []
+    sha = "a" * 40
 
     def fake_urlopen(request: Any, timeout: float) -> _FakeResponse:
         method = request.get_method()
@@ -131,12 +134,31 @@ def test_staging_api_smoke_accepts_healthy_api_with_auth_cors(monkeypatch: pytes
                 _FakeHeaders({"content-type": "application/json", "access-control-allow-origin": "https://nodo-staging.pages.dev"}),
                 None,
             )
+        if request.full_url.endswith("/api/v1/version"):
+            return _FakeResponse(
+                status=200,
+                headers={"content-type": "application/json"},
+                body=json.dumps(
+                    {
+                        "data": {
+                            "service": "NODO",
+                            "version": "staging-aaaaaaa",
+                            "build_id": sha,
+                            "environment": "staging",
+                        }
+                    }
+                ).encode(),
+            )
         return _FakeResponse(status=200, headers={"content-type": "application/json"}, body=b'{"data":{}}')
 
     monkeypatch.setattr(module.urllib.request, "urlopen", fake_urlopen)
 
-    module.verify_public_api("https://nodo-api-production.up.railway.app", "https://nodo-staging.pages.dev")
+    identity = module.verify_public_api(
+        "https://nodo-api-production.up.railway.app",
+        "https://nodo-staging.pages.dev",
+    )
 
+    assert identity["build_id"] == sha
     assert calls == [
         ("GET", "https://nodo-api-production.up.railway.app/health"),
         ("GET", "https://nodo-api-production.up.railway.app/api/v1/version"),
@@ -183,3 +205,118 @@ def test_run_resolves_windows_cmd_shims(monkeypatch: pytest.MonkeyPatch) -> None
     module._run(["pnpm", "--version"])
 
     assert calls == [["C:/tools/pnpm.cmd", "--version"]]
+
+
+def _stub_successful_identity_gate(
+    monkeypatch: pytest.MonkeyPatch,
+    module: Any,
+    *,
+    deploy: bool = False,
+    confirm_deploy: bool = False,
+) -> None:
+    sha = "a" * 40
+    monkeypatch.setattr(
+        module,
+        "parse_args",
+        lambda: SimpleNamespace(
+            branch="staging",
+            confirm_staging_deploy=confirm_deploy,
+            deploy=deploy,
+            project_name="nodo-staging",
+            skip_build=True,
+            wrangler_command="wrangler",
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        "validate_public_env",
+        lambda env: {
+            "NEXT_PUBLIC_API_BASE_URL": "https://api.example.test",
+            "NEXT_PUBLIC_APP_URL": "https://app.example.test",
+            "NEXT_PUBLIC_APP_ENV": "staging",
+            "api_host": "api.example.test",
+            "app_host": "app.example.test",
+        },
+    )
+    monkeypatch.setattr(
+        module,
+        "verify_public_api",
+        lambda api_url, app_url: {"environment": "staging", "build_id": sha},
+    )
+    monkeypatch.setattr(
+        module,
+        "verify_static_export",
+        lambda api_url: {
+            "service": "nodo-web",
+            "environment": "staging",
+            "commit_sha": sha,
+            "build_id": "staging-aaaaaaa",
+            "source": "release_env",
+        },
+    )
+    monkeypatch.setattr(module, "current_git_commit", lambda: sha)
+
+
+def test_build_identity_main_rejects_dirty_worktree_before_pass(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_module()
+    _stub_successful_identity_gate(monkeypatch, module)
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(stdout=" M apps/web/src/app/page.tsx\n"),
+    )
+
+    result = module.main()
+    captured = capsys.readouterr()
+
+    assert result == 2
+    assert "dirty git working tree" in captured.err
+    assert "frontend/backend build identity guard: PASS" not in captured.out
+
+
+def test_build_identity_main_allows_clean_worktree(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_module()
+    _stub_successful_identity_gate(monkeypatch, module)
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(stdout=""),
+    )
+
+    result = module.main()
+    captured = capsys.readouterr()
+
+    assert result == 0
+    assert "frontend/backend build identity guard: PASS" in captured.out
+
+
+def test_deploy_still_requires_explicit_confirmation(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_module()
+    _stub_successful_identity_gate(monkeypatch, module, deploy=True, confirm_deploy=False)
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(stdout=""),
+    )
+    deploy_calls: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        module,
+        "deploy_to_cloudflare",
+        lambda project, branch, command: deploy_calls.append((project, branch, command)),
+    )
+
+    result = module.main()
+    captured = capsys.readouterr()
+
+    assert result == 2
+    assert "--deploy requires --confirm-staging-deploy" in captured.err
+    assert deploy_calls == []

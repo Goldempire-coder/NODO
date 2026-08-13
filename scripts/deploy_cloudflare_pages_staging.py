@@ -8,7 +8,9 @@ staging API, and only deploys when explicitly confirmed.
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -24,6 +26,14 @@ WEB_OUT = ROOT / "apps" / "web" / "out"
 DEFAULT_PROJECT_NAME = "nodo-staging"
 DEFAULT_BRANCH = "staging"
 EMPTY_API_FALLBACK_SIGNATURE = 'case"NEXT_PUBLIC_API_BASE_URL":return""'
+COMMIT_SHA_PATTERN = re.compile(r"^[0-9a-f]{40,64}$")
+FRONTEND_IDENTITY_SOURCES = {
+    "cloudflare_pages",
+    "release_env",
+    "release_env+cloudflare_pages",
+    "conflict",
+    "unknown",
+}
 
 
 class GuardrailError(RuntimeError):
@@ -110,13 +120,26 @@ def _ensure_json(headers: object, path: str) -> None:
         raise GuardrailError(f"Public API {path} did not return JSON")
 
 
-def verify_public_api(api_base_url: str, app_url: str) -> None:
+def _json_data(body: bytes, label: str) -> dict[str, object]:
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GuardrailError(f"{label} did not return valid JSON") from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), dict):
+        raise GuardrailError(f"{label} did not return a data object")
+    return payload["data"]
+
+
+def verify_public_api(api_base_url: str, app_url: str) -> dict[str, object]:
+    backend_identity: dict[str, object] | None = None
     for path in ("/health", "/api/v1/version"):
-        status, headers, _body = _public_api_request(api_base_url, path)
+        status, headers, body = _public_api_request(api_base_url, path)
         _ensure_not_railway_fallback(headers)
         if status != 200:
             raise GuardrailError(f"Public API {path} returned {status}")
         _ensure_json(headers, path)
+        if path == "/api/v1/version":
+            backend_identity = _json_data(body, "Backend /api/v1/version")
 
     status, headers, _body = _public_api_request(
         api_base_url,
@@ -135,6 +158,9 @@ def verify_public_api(api_base_url: str, app_url: str) -> None:
     allowed_origin = _header(headers, "access-control-allow-origin")
     if allowed_origin not in {"*", app_url.rstrip("/")}:
         raise GuardrailError("Public API auth smoke did not expose the expected CORS origin")
+    if backend_identity is None:
+        raise GuardrailError("Backend build identity is missing")
+    return backend_identity
 
 
 def _run(command: list[str], *, env: dict[str, str] | None = None) -> None:
@@ -159,7 +185,27 @@ def build_web() -> None:
     _run(["pnpm", "--filter", "@nodo/web", "build"], env=os.environ.copy())
 
 
-def verify_static_export(api_base_url: str, out_dir: Path = WEB_OUT) -> None:
+def _frontend_identity(out_dir: Path) -> dict[str, object]:
+    version_file = out_dir / "version.json"
+    if not version_file.is_file():
+        raise GuardrailError(f"Frontend build identity not found: {version_file}")
+    try:
+        identity = json.loads(version_file.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GuardrailError("Frontend version.json is not valid JSON") from exc
+    allowed_fields = {"service", "environment", "commit_sha", "build_id", "source"}
+    if not isinstance(identity, dict) or set(identity) != allowed_fields:
+        raise GuardrailError("Frontend version.json has an unexpected schema")
+    if identity.get("service") != "nodo-web":
+        raise GuardrailError("Frontend version.json has an unexpected service")
+    if not all(isinstance(identity.get(field), str) for field in allowed_fields):
+        raise GuardrailError("Frontend version.json fields must be strings")
+    if identity.get("source") not in FRONTEND_IDENTITY_SOURCES:
+        raise GuardrailError("Frontend version.json has an unexpected source")
+    return identity
+
+
+def verify_static_export(api_base_url: str, out_dir: Path = WEB_OUT) -> dict[str, object]:
     static_dir = out_dir / "_next" / "static"
     if not static_dir.is_dir():
         raise GuardrailError(f"Static export not found: {static_dir}")
@@ -180,6 +226,35 @@ def verify_static_export(api_base_url: str, out_dir: Path = WEB_OUT) -> None:
 
     if not found_api_url:
         raise GuardrailError("Static bundle does not contain the expected NEXT_PUBLIC_API_BASE_URL")
+    return _frontend_identity(out_dir)
+
+
+def verify_matching_builds(
+    frontend_identity: dict[str, object],
+    backend_identity: dict[str, object],
+    source_commit: str | None = None,
+) -> None:
+    frontend_commit = frontend_identity.get("commit_sha")
+    backend_commit = backend_identity.get("build_id")
+    frontend_environment = frontend_identity.get("environment")
+    backend_environment = backend_identity.get("environment")
+    if frontend_commit == "unknown" or backend_commit == "unknown":
+        raise GuardrailError("Frontend or backend build identity is unknown")
+    if frontend_environment == "unknown" or backend_environment == "unknown":
+        raise GuardrailError("Frontend or backend environment is unknown")
+    if not isinstance(frontend_commit, str) or not COMMIT_SHA_PATTERN.fullmatch(frontend_commit):
+        raise GuardrailError("Frontend commit SHA is invalid")
+    if not isinstance(backend_commit, str) or not COMMIT_SHA_PATTERN.fullmatch(backend_commit):
+        raise GuardrailError("Backend commit SHA is invalid")
+    expected_frontend_build_id = f"{frontend_environment}-{frontend_commit[:7]}"
+    if frontend_identity.get("build_id") != expected_frontend_build_id:
+        raise GuardrailError("Frontend build ID is inconsistent with its commit SHA")
+    if source_commit is not None and frontend_commit != source_commit:
+        raise GuardrailError("Frontend commit SHA does not match local Git HEAD")
+    if frontend_commit != backend_commit:
+        raise GuardrailError("Frontend and backend commit SHAs do not match")
+    if frontend_environment != backend_environment:
+        raise GuardrailError("Frontend and backend environments do not match")
 
 
 def require_clean_git_tree() -> None:
@@ -192,7 +267,22 @@ def require_clean_git_tree() -> None:
         stderr=subprocess.PIPE,
     )
     if result.stdout.strip():
-        raise GuardrailError("Refusing to deploy from a dirty git working tree")
+        raise GuardrailError("Refusing to validate build identity from a dirty git working tree")
+
+
+def current_git_commit() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    commit = result.stdout.strip().lower()
+    if not COMMIT_SHA_PATTERN.fullmatch(commit):
+        raise GuardrailError("Local Git HEAD is not a valid commit SHA")
+    return commit
 
 
 def deploy_to_cloudflare(project_name: str, branch: str, wrangler_command: str) -> None:
@@ -244,17 +334,22 @@ def main() -> int:
             "staging public env guard: PASS "
             f"api_host={public_env['api_host']} app_host={public_env['app_host']}"
         )
-        verify_public_api(public_env["NEXT_PUBLIC_API_BASE_URL"], public_env["NEXT_PUBLIC_APP_URL"])
+        backend_identity = verify_public_api(
+            public_env["NEXT_PUBLIC_API_BASE_URL"],
+            public_env["NEXT_PUBLIC_APP_URL"],
+        )
         print("public api smoke guard: PASS")
         if not args.skip_build:
             build_web()
-        verify_static_export(public_env["NEXT_PUBLIC_API_BASE_URL"])
+        frontend_identity = verify_static_export(public_env["NEXT_PUBLIC_API_BASE_URL"])
         print("static export guard: PASS")
+        verify_matching_builds(frontend_identity, backend_identity, current_git_commit())
+        require_clean_git_tree()
+        print("frontend/backend build identity guard: PASS")
 
         if args.deploy:
             if not args.confirm_staging_deploy:
                 raise GuardrailError("--deploy requires --confirm-staging-deploy")
-            require_clean_git_tree()
             deploy_to_cloudflare(args.project_name, args.branch, args.wrangler_command)
             print(f"cloudflare pages deploy requested: project={args.project_name} branch={args.branch}")
         else:
