@@ -64,3 +64,12 @@ def test_client_orders_and_surface_support_use_explicit_cursor_pagination() -> N
         assert "loadMoreSupportTickets" in screen
         assert "SurfaceSupportInbox" in screen
     assert "Cargar mas" in shared_support
+
+
+def test_client_marketplace_treats_cursor_as_opaque_api_input() -> None:
+    ads_api = _read("apps/web/src/api/ads.ts")
+    marketplace_model = _read("apps/web/src/hooks/workspace/useClientMarketplaceModel.ts")
+
+    assert "cursor?: string" in ads_api
+    assert "JSON.parse" not in marketplace_model
+    assert "atob(" not in marketplace_model

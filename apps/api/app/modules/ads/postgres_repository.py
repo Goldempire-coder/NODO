@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from app.core.errors import ApiError
 from app.modules.ads.active_guard import require_active_ad_candidate
+from app.modules.ads.marketplace_pagination import decode_marketplace_cursor, encode_marketplace_cursor
 from app.modules.ads.models import AdRecord
 from app.modules.ads.publication_access import require_ad_publication_access
 from app.modules.ads.postgres_credit_holds import PostgresAdCreditHoldsMixin
@@ -289,14 +290,15 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             sql += " and amount_min_usd <= %s and amount_max_usd >= %s"
             params.extend([amount_usd, amount_usd])
         if cursor:
-            sql += " and created_at < %s"
-            params.append(cursor)
-        sql += " order by rate_bs_per_usd desc, created_at desc limit %s"
-        params.append(limit)
+            position = decode_marketplace_cursor(cursor)
+            sql += " and (ads.rate_bs_per_usd, ads.created_at, ads.id) < (%s, %s, %s::uuid)"
+            params.extend([position.rate, position.created_at, position.ad_id])
+        sql += " order by ads.rate_bs_per_usd desc, ads.created_at desc, ads.id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
-        items = [ad_from_row(row) for row in rows]
-        return items, items[-1].created_at.isoformat() if len(items) == limit else None
+        items = [ad_from_row(row) for row in rows[:limit]]
+        return items, encode_marketplace_cursor(items[-1]) if len(rows) > limit else None
 
     def list_marketplace_ads_for_marketplace(
         self,
@@ -367,14 +369,15 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             sql += " and ads.amount_min_usd <= %s and ads.amount_max_usd >= %s"
             params.extend([amount_usd, amount_usd])
         if cursor:
-            sql += " and ads.created_at < %s"
-            params.append(cursor)
-        sql += " order by ads.rate_bs_per_usd desc, ads.created_at desc limit %s"
-        params.append(limit)
+            position = decode_marketplace_cursor(cursor)
+            sql += " and (ads.rate_bs_per_usd, ads.created_at, ads.id) < (%s, %s, %s::uuid)"
+            params.extend([position.rate, position.created_at, position.ad_id])
+        sql += " order by ads.rate_bs_per_usd desc, ads.created_at desc, ads.id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
-        items = [ad_from_row(row) for row in rows]
-        return items, items[-1].created_at.isoformat() if len(items) == limit else None
+        items = [ad_from_row(row) for row in rows[:limit]]
+        return items, encode_marketplace_cursor(items[-1]) if len(rows) > limit else None
 
     def list_marketplace_ads_with_businesses(
         self,
@@ -500,19 +503,20 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
             """
             params.extend([amount_usd, amount_usd, amount_usd, amount_usd])
         if cursor:
-            sql += " and ads.created_at < %s"
-            params.append(cursor)
-        sql += " order by ads.rate_bs_per_usd desc, ads.created_at desc limit %s"
-        params.append(limit)
+            position = decode_marketplace_cursor(cursor)
+            sql += " and (ads.rate_bs_per_usd, ads.created_at, ads.id) < (%s, %s, %s::uuid)"
+            params.extend([position.rate, position.created_at, position.ad_id])
+        sql += " order by ads.rate_bs_per_usd desc, ads.created_at desc, ads.id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:
             started = time.perf_counter()
             rows = conn.execute(sql, params).fetchall()
             profile_mark(current_profile(), "db:query:list_marketplace_ads_with_businesses", started)
         started = time.perf_counter()
-        items = [(ad_from_row(row), _business_from_marketplace_row(row)) for row in rows]
+        items = [(ad_from_row(row), _business_from_marketplace_row(row)) for row in rows[:limit]]
         profile_mark(current_profile(), "db:row_map:list_marketplace_ads_with_businesses", started)
         ads = [ad for ad, _business in items]
-        return items, ads[-1].created_at.isoformat() if len(ads) == limit else None
+        return items, encode_marketplace_cursor(ads[-1]) if len(rows) > limit else None
 
     def list_business_ads(self, *, business_id: str, archived: bool, cursor: str | None, limit: int) -> tuple[list[AdRecord], str | None]:
         statuses = ("archived", "expired") if archived else ("active", "paused", "in_order", "suspended")

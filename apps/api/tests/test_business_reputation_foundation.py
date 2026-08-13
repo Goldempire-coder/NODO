@@ -386,7 +386,9 @@ def test_marketplace_ranking_does_not_use_live_rating_aggregates() -> None:
     postgres_repository = (ROOT / "apps" / "api" / "app" / "modules" / "ads" / "postgres_repository.py").read_text(
         encoding="utf-8"
     ).lower()
-    memory_repository = (ROOT / "apps" / "api" / "app" / "modules" / "ads" / "memory_repository.py").read_text(
+    marketplace_pagination = (
+        ROOT / "apps" / "api" / "app" / "modules" / "ads" / "marketplace_pagination.py"
+    ).read_text(
         encoding="utf-8"
     )
     rank_source = marketplace_service.split("def _rank(", 1)[1].split("def _ad_within_current_business_limits", 1)[0]
@@ -401,10 +403,15 @@ def test_marketplace_ranking_does_not_use_live_rating_aggregates() -> None:
         "average_delivery_seconds",
     ):
         assert forbidden not in rank_source
+        assert forbidden not in marketplace_pagination
         assert f"order by businesses.{forbidden}" not in postgres_repository
-    assert "key=lambda ad: (ad.rate_bs_per_usd, ad.created_at)" in memory_repository
-    assert "order by rate_bs_per_usd desc, created_at desc limit" in postgres_repository
-    assert postgres_repository.count("order by ads.rate_bs_per_usd desc, ads.created_at desc limit") >= 2
+    assert "key=lambda ad: (ad.rate_bs_per_usd, ad.created_at, ad.id)" in marketplace_pagination
+    assert (
+        postgres_repository.count(
+            "order by ads.rate_bs_per_usd desc, ads.created_at desc, ads.id desc limit"
+        )
+        >= 3
+    )
 
 
 def test_marketplace_legacy_sorts_ignore_live_reputation_and_match_rate_order() -> None:
@@ -471,4 +478,4 @@ def test_marketplace_cache_namespace_is_versioned_for_private_reputation_project
         encoding="utf-8"
     )
 
-    assert 'MARKETPLACE_CACHE_PREFIX = "marketplace:ads:v3:"' in cache_source
+    assert 'MARKETPLACE_CACHE_PREFIX = "marketplace:ads:v4:"' in cache_source

@@ -2042,6 +2042,83 @@ def test_marketplace_search_filters_zelle_and_usdt_ads_by_exact_method() -> None
     assert {item["payment_method"] for item in usdt_items} == {"usdt_trc20"}
 
 
+def test_marketplace_cursor_preserves_tied_rate_and_created_at_for_each_method() -> None:
+    client = _client()
+    tied_at = utc_now() - timedelta(minutes=20)
+    ids_by_method: dict[str, list[str]] = {"zelle": [], "usdt_trc20": []}
+
+    for index, payment_method in enumerate(("zelle", "zelle", "zelle", "usdt_trc20", "usdt_trc20", "usdt_trc20")):
+        owner = _login(client, 19200 + index, f"marketplace_cursor_owner_{index}")
+        business, zelle_method_id = _approved_business_with_method(client, owner)
+        if payment_method == "zelle":
+            ad = _create_ad(client, owner, zelle_method_id, key=f"marketplace_cursor_zelle_{index}")
+        else:
+            usdt_method_id = _add_approved_usdt_method(
+                client,
+                business_id=business["id"],
+                suffix=f"MarketplaceCursor{index}",
+            )
+            response = _create_usdt_ad_response(
+                client,
+                owner,
+                usdt_method_id,
+                key=f"marketplace_cursor_usdt_{index}",
+            )
+            assert response.status_code == 201, response.text
+            ad = response.json()["data"]["ad"]
+        stored = client.app.state.ad_repository.get_ad(ad["id"])
+        stored.rate_bs_per_usd = Decimal("41.2500")
+        stored.created_at = tied_at
+        stored.updated_at = tied_at
+        ids_by_method[payment_method].append(stored.id)
+
+    remitter = _login(client, 19220, "marketplace_cursor_remitter")
+    for payment_method, expected_ids in ids_by_method.items():
+        seen: list[str] = []
+        cursor: str | None = None
+        for page_number in range(5):
+            params: dict[str, str | int] = {
+                "amount_usd": "50.00",
+                "payment_method": payment_method,
+                "delivery_method": "pago_movil_ve",
+                "sort": "rate",
+                "limit": 2,
+            }
+            if cursor:
+                params["cursor"] = cursor
+            response = client.get(
+                "/api/v1/ads/search",
+                params=params,
+                headers=_bearer(remitter, f"marketplace_cursor_{payment_method}_{page_number}"),
+            )
+            assert response.status_code == 200, response.text
+            data = response.json()["data"]
+            page_ids = [item["id"] for item in data["items"]]
+            assert not set(page_ids).intersection(seen)
+            assert {item["payment_method"] for item in data["items"]} <= {payment_method}
+            seen.extend(page_ids)
+            cursor = data["next_cursor"]
+            if cursor is None:
+                break
+
+        assert seen == sorted(expected_ids, reverse=True)
+        assert len(seen) == len(set(seen)) == 3
+
+
+def test_marketplace_rejects_invalid_composite_cursor_neutrally() -> None:
+    client = _client()
+    remitter = _login(client, 19230, "marketplace_invalid_cursor_remitter")
+
+    response = client.get(
+        "/api/v1/ads/search",
+        params={"amount_usd": "50.00", "sort": "rate", "cursor": "not-a-cursor"},
+        headers=_bearer(remitter, "marketplace_invalid_cursor"),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"
+
+
 def test_migration_0004_contains_required_tables_constraints_and_indexes() -> None:
     migration = open("database/migrations/0004_slice_03_ads_marketplace.up.sql", encoding="utf-8").read()
     for text in [

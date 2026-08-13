@@ -7,6 +7,7 @@ from threading import RLock
 from app.core.errors import ApiError
 from app.modules.ads.active_guard import METHOD_SLOT_STATUSES, require_active_ad_candidate
 from app.modules.ads.memory_credits import InMemoryAdCreditsMixin
+from app.modules.ads.marketplace_pagination import paginate_marketplace_ads
 from app.modules.ads.models import AdRecord, CreditLedgerRecord, CreditWalletRecord, new_id, utc_now
 from app.modules.ads.publication_access import require_ad_publication_access
 
@@ -254,12 +255,7 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
             and (delivery_method is None or ad.delivery_method == delivery_method)
             and (amount_usd is None or ad.amount_min_usd <= amount_usd <= ad.amount_max_usd)
         ]
-        if cursor:
-            items = [ad for ad in items if ad.created_at.isoformat() < cursor]
-        items.sort(key=lambda ad: (ad.rate_bs_per_usd, ad.created_at), reverse=True)
-        page = items[:limit]
-        next_cursor = page[-1].created_at.isoformat() if len(page) == limit else None
-        return page, next_cursor
+        return paginate_marketplace_ads(items, cursor=cursor, limit=limit)
 
     def list_business_ads(self, *, business_id: str, archived: bool, cursor: str | None, limit: int) -> tuple[list[AdRecord], str | None]:
         allowed = {"archived", "expired"} if archived else {"active", "paused", "in_order", "suspended"}

@@ -196,13 +196,16 @@ Rules:
 - Por compatibilidad v1 se aceptan `sort=trust` y `sort=speed`; Slice 42C los
   mantiene como aliases de `sort=rate` aun cuando exista snapshot publico.
 - `sort=null`, `sort=rate`, `sort=trust` y `sort=speed` usan el mismo orden
-  publico: `rate_bs_per_usd DESC`, `created_at DESC`.
+  publico: `rate_bs_per_usd DESC`, `created_at DESC`, `ad.id DESC`.
 - Ningun orden publico puede usar, rankear ni desempatar con `rating_avg`,
   `ratings_count`, `reputation_tier`, `trust_level`,
   `completed_orders_count`, `success_rate`, `average_delivery_seconds` ni otra
   metrica viva derivada de ratings, completions o disputas.
-- El cursor actual continua ligado a `created_at`. Un desempate compuesto por
-  `id` requiere un cambio compatible del cursor y queda fuera de este mini-fix.
+- El cursor es opaco y versionado. Representa la posicion completa
+  `(rate_bs_per_usd, created_at, ad.id)` y debe reenviarse sin interpretarlo.
+- La comparacion keyset usa exactamente las mismas claves y direccion que el
+  orden publico. Empates de tasa y fecha no omiten ni duplican anuncios.
+- Un cursor provisto pero invalido responde `400 PAGINATION_CURSOR_INVALID`.
 - El ranking reputacional queda fuera de Slice 42C. Queda prohibido ordenar con
   tier o promedio interno vivo; el snapshot tampoco participa en ranking hasta
   un contrato posterior con medicion de privacidad y costo.

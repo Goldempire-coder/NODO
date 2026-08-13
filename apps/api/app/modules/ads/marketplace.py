@@ -277,7 +277,7 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
     def _rank(self, items: list[AdRecord], *, sort: str | None) -> list[AdRecord]:
         # Legacy trust/speed tokens remain accepted, but all public sorts use
         # the same non-reputational order until a durable snapshot exists.
-        return sorted(items, key=lambda ad: (ad.rate_bs_per_usd, ad.created_at), reverse=True)
+        return sorted(items, key=lambda ad: (ad.rate_bs_per_usd, ad.created_at, ad.id), reverse=True)
 
     def _ad_within_current_business_limits(self, *, ad: AdRecord, business: BusinessRecord | None) -> bool:
         if business is None:

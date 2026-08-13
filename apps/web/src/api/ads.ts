@@ -5,6 +5,7 @@ export type MarketplaceSearchParams = {
   payment_method?: string;
   delivery_method?: string;
   sort?: string;
+  cursor?: string;
   limit?: string;
 };
 

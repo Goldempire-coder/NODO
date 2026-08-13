@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
+from decimal import Decimal
 from urllib.parse import urlparse
 
 import psycopg
@@ -9,6 +10,7 @@ import pytest
 
 from app.core.errors import ApiError
 from app.modules.admin.postgres_repository import PostgresAdminRepository
+from app.modules.ads.postgres_repository import PostgresAdRepository
 from app.modules.chat.postgres_repository import PostgresChatRepository
 from app.modules.disputes.postgres_repository import PostgresDisputeRepository
 from app.modules.orders.postgres_repository import PostgresOrderRepository
@@ -271,3 +273,91 @@ def test_postgres_keyset_cursor_preserves_tied_support_orders_and_disputes(curso
     assert len(listed_support_event_ids) == len(set(listed_support_event_ids))
     assert set(listed_chat_message_ids) == set(chat_message_ids)
     assert len(listed_chat_message_ids) == len(set(listed_chat_message_ids))
+
+
+def test_postgres_marketplace_cursor_preserves_tied_rate_date_and_method_filters(
+    cursor_database_url: str,
+) -> None:
+    owner_ids = [_uuid(index) for index in range(1100, 1106)]
+    business_ids = [_uuid(index) for index in range(1200, 1206)]
+    payment_method_ids = [_uuid(index) for index in range(1300, 1306)]
+    ad_ids = [_uuid(index) for index in range(1400, 1406)]
+    methods = ["zelle", "zelle", "zelle", "usdt_trc20", "usdt_trc20", "usdt_trc20"]
+
+    with psycopg.connect(cursor_database_url) as conn:
+        for owner_id, business_id, payment_method_id, ad_id, method in zip(
+            owner_ids,
+            business_ids,
+            payment_method_ids,
+            ad_ids,
+            methods,
+            strict=True,
+        ):
+            conn.execute(
+                "insert into users (id, role, status) values (%s, 'business_owner', 'active')",
+                (owner_id,),
+            )
+            conn.execute(
+                """
+                insert into businesses (
+                    id, owner_user_id, business_name, verification_status,
+                    max_order_amount_usd, daily_limit_usd, approved_at
+                ) values (%s, %s, %s, 'approved', 1000, 1000, %s)
+                """,
+                (business_id, owner_id, f"Marketplace Cursor {ad_id[-4:]}", TIED_AT),
+            )
+            conn.execute(
+                """
+                insert into business_payment_methods (
+                    id, business_id, method_type, network, account_value,
+                    account_masked, holder_name, verified_status, active
+                ) values (%s, %s, %s, %s, %s, 'masked', 'Cursor Owner', 'approved', true)
+                """,
+                (
+                    payment_method_id,
+                    business_id,
+                    method,
+                    None if method == "zelle" else "TRC20",
+                    f"cursor-{ad_id}@example.invalid",
+                ),
+            )
+            conn.execute(
+                """
+                insert into business_capacity (business_id, declared_available_capacity_usd)
+                values (%s, 1000)
+                """,
+                (business_id,),
+            )
+            conn.execute(
+                """
+                insert into ads (
+                    id, business_id, payment_method_id, payment_method, delivery_method,
+                    rate_bs_per_usd, amount_min_usd, amount_max_usd, required_credits,
+                    status, activated_at, expires_at, created_at, updated_at
+                ) values (%s, %s, %s, %s, 'pago_movil_ve', 41.25, 20, 100, 1,
+                          'active', %s, now() + interval '1 day', %s, %s)
+                """,
+                (ad_id, business_id, payment_method_id, method, TIED_AT, TIED_AT, TIED_AT),
+            )
+        conn.commit()
+
+    repository = PostgresAdRepository(cursor_database_url)
+    for method in {"zelle", "usdt_trc20"}:
+        expected_ids = sorted(
+            [ad_id for ad_id, ad_method in zip(ad_ids, methods, strict=True) if ad_method == method],
+            reverse=True,
+        )
+
+        def load_page(cursor: str | None):
+            rows, next_cursor = repository.list_marketplace_ads_with_businesses(
+                amount_usd=Decimal("50.00"),
+                payment_method=method,
+                delivery_method="pago_movil_ve",
+                cursor=cursor,
+                limit=2,
+            )
+            return [ad for ad, _business in rows], next_cursor
+
+        listed_ids = _collect_ids(load_page)
+        assert listed_ids == expected_ids
+        assert len(listed_ids) == len(set(listed_ids)) == 3
