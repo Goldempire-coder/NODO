@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from typing import Literal
 
 import redis
 from redis.exceptions import NoScriptError, RedisError
@@ -26,24 +27,31 @@ class RedisRateLimiter:
     return 0
     """
 
-    def __init__(self, redis_url: str) -> None:
+    def __init__(self, redis_url: str, *, failure_mode: Literal["local", "deny"] = "local") -> None:
         self._client = redis.Redis.from_url(redis_url, decode_responses=True)
         self._allow_script_sha: str | None = None
         self._fallback = InMemoryRateLimiter()
         self._redis_unavailable_until = 0.0
+        self._failure_mode = failure_mode
+
+    def _redis_unavailable_result(self, key: str, *, max_attempts: int, window_seconds: int) -> bool:
+        if self._failure_mode == "deny":
+            return False
+        return self._fallback.allow(key, max_attempts=max_attempts, window_seconds=window_seconds)
 
     def allow(self, key: str, *, max_attempts: int, window_seconds: int) -> bool:
         if time.time() < self._redis_unavailable_until:
-            return self._fallback.allow(key, max_attempts=max_attempts, window_seconds=window_seconds)
+            return self._redis_unavailable_result(key, max_attempts=max_attempts, window_seconds=window_seconds)
 
         redis_key = f"rate_limit:{key}"
         try:
-            if self._allow_script_sha is None:
+            try:
+                if self._allow_script_sha is None:
+                    self._allow_script_sha = self._client.script_load(self._ALLOW_SCRIPT)
+                allowed = self._client.evalsha(self._allow_script_sha, 1, redis_key, max_attempts, window_seconds)
+            except NoScriptError:
                 self._allow_script_sha = self._client.script_load(self._ALLOW_SCRIPT)
-            allowed = self._client.evalsha(self._allow_script_sha, 1, redis_key, max_attempts, window_seconds)
-        except NoScriptError:
-            self._allow_script_sha = self._client.script_load(self._ALLOW_SCRIPT)
-            allowed = self._client.evalsha(self._allow_script_sha, 1, redis_key, max_attempts, window_seconds)
+                allowed = self._client.evalsha(self._allow_script_sha, 1, redis_key, max_attempts, window_seconds)
         except RedisError as exc:
             self._redis_unavailable_until = time.time() + self._REDIS_ERROR_BACKOFF_SECONDS
             logger.warning(
@@ -55,5 +63,5 @@ class RedisRateLimiter:
                     }
                 ),
             )
-            return self._fallback.allow(key, max_attempts=max_attempts, window_seconds=window_seconds)
+            return self._redis_unavailable_result(key, max_attempts=max_attempts, window_seconds=window_seconds)
         return bool(int(allowed))

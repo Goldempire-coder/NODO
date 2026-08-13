@@ -182,6 +182,7 @@ ERROR_MESSAGES = {
     "OBSERVABILITY_EVENT_INVALID": "El evento de diagnostico no cumple el contrato.",
     "OBSERVABILITY_EVENT_TOO_LARGE": "El evento de diagnostico supera el tamano permitido.",
     "OBSERVABILITY_BATCH_TOO_LARGE": "La cantidad de eventos de diagnostico supera el limite permitido.",
+    "OBSERVABILITY_RATE_LIMITED": "Demasiados eventos de diagnostico. Intenta nuevamente en un momento.",
     "OBSERVABILITY_ACCESS_DENIED": "No tienes permiso para enviar diagnostico de esta superficie.",
     "NOT_FOUND": "No encontramos el recurso solicitado.",
     "STORAGE_UPLOAD_FAILED": "No logramos guardar el comprobante privado.",

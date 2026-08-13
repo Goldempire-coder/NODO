@@ -101,6 +101,12 @@ def build_private_storage(settings: Settings):  # type: ignore[no-untyped-def]
     return UnavailablePrivateStorage()
 
 
+def _build_cost_rate_limiter(redis_url: str | None):  # type: ignore[no-untyped-def]
+    if redis_url is None:
+        return InMemoryRateLimiter()
+    return RedisRateLimiter(redis_url, failure_mode="deny")
+
+
 def create_app() -> FastAPI:
     settings = load_settings()
     configure_logging(settings.app_env)
@@ -277,7 +283,8 @@ def _configure_test_state(app: FastAPI) -> None:
         support=app.state.support_repository,
     )
     app.state.rate_limiter = InMemoryRateLimiter()
-    app.state.marketplace_rate_limiter = InMemoryRateLimiter()
+    app.state.cost_rate_limiter = _build_cost_rate_limiter(None)
+    app.state.marketplace_rate_limiter = app.state.cost_rate_limiter
     app.state.idempotency_store = InMemoryIdempotencyStore()
     app.state.marketplace_cache = InMemoryTTLCache()
     app.state.admin_read_model_cache = InMemoryTTLCache()
@@ -326,7 +333,8 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     except Exception as exc:
         logger.warning("db_pool_warm_failed", extra={"error": str(exc)})
     app.state.rate_limiter = RedisRateLimiter(settings.redis_url)
-    app.state.marketplace_rate_limiter = InMemoryRateLimiter()
+    app.state.cost_rate_limiter = _build_cost_rate_limiter(settings.redis_url)
+    app.state.marketplace_rate_limiter = app.state.cost_rate_limiter
     app.state.idempotency_store = RedisIdempotencyStore(settings.redis_url)
     app.state.marketplace_cache = VersionedLayeredTTLCache(
         local_cache=InMemoryTTLCache(),

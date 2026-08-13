@@ -7,7 +7,14 @@ from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 
 
-def _set_env(*, enabled: bool = False, max_batch: int = 20, max_event_bytes: int = 2048) -> None:
+def _set_env(
+    *,
+    enabled: bool = False,
+    max_batch: int = 20,
+    max_event_bytes: int = 2048,
+    user_rate_limit: int = 30,
+    ip_rate_limit: int = 120,
+) -> None:
     os.environ["APP_ENV"] = "test"
     os.environ["APP_NAME"] = "NODO"
     os.environ["APP_VERSION"] = "0.0.0-slice-34T"
@@ -20,6 +27,9 @@ def _set_env(*, enabled: bool = False, max_batch: int = 20, max_event_bytes: int
     os.environ["OBSERVABILITY_INGEST_ENABLED"] = "1" if enabled else "0"
     os.environ["OBSERVABILITY_MAX_EVENTS_PER_BATCH"] = str(max_batch)
     os.environ["OBSERVABILITY_MAX_EVENT_BYTES"] = str(max_event_bytes)
+    os.environ["OBSERVABILITY_RATE_LIMIT_USER_MAX_ATTEMPTS"] = str(user_rate_limit)
+    os.environ["OBSERVABILITY_RATE_LIMIT_IP_MAX_ATTEMPTS"] = str(ip_rate_limit)
+    os.environ["OBSERVABILITY_RATE_LIMIT_WINDOW_SECONDS"] = "60"
 
 
 _set_env()
@@ -47,8 +57,21 @@ def _access_token_for_user(app, user) -> str:  # type: ignore[no-untyped-def]
     return token
 
 
-def _authenticated_client(*, enabled: bool = False, max_batch: int = 20, max_event_bytes: int = 2048) -> tuple[TestClient, str, str]:
-    _set_env(enabled=enabled, max_batch=max_batch, max_event_bytes=max_event_bytes)
+def _authenticated_client(
+    *,
+    enabled: bool = False,
+    max_batch: int = 20,
+    max_event_bytes: int = 2048,
+    user_rate_limit: int = 30,
+    ip_rate_limit: int = 120,
+) -> tuple[TestClient, str, str]:
+    _set_env(
+        enabled=enabled,
+        max_batch=max_batch,
+        max_event_bytes=max_event_bytes,
+        user_rate_limit=user_rate_limit,
+        ip_rate_limit=ip_rate_limit,
+    )
     app = create_app()
     user, _ = app.state.user_repository.upsert_telegram_user(
         telegram_id=6808095582,
@@ -235,3 +258,56 @@ def test_frontend_observability_ingest_rejects_oversized_events() -> None:
 
     assert response.status_code == 413
     assert response.json()["error"]["code"] == "OBSERVABILITY_EVENT_TOO_LARGE"
+
+
+def test_frontend_observability_rate_limit_is_scoped_by_user_and_surface() -> None:
+    client, token, _ = _authenticated_client(enabled=True, user_rate_limit=1)
+
+    accepted = client.post(
+        "/api/v1/observability/events",
+        headers=_headers(token, surface="business_mini_app"),
+        json=_payload(event_id="evt_business_1"),
+    )
+    limited = client.post(
+        "/api/v1/observability/events",
+        headers=_headers(token, surface="business_mini_app"),
+        json=_payload(event_id="evt_business_2"),
+    )
+    other_surface = client.post(
+        "/api/v1/observability/events",
+        headers=_headers(token, surface="client_mini_app"),
+        json=_payload(event_id="evt_client_1"),
+    )
+
+    assert accepted.status_code == 200
+    assert limited.status_code == 429
+    assert limited.json()["error"]["code"] == "OBSERVABILITY_RATE_LIMITED"
+    assert other_surface.status_code == 200
+    assert len(client.app.state.observability_repository._events) == 2
+
+
+def test_frontend_observability_rate_limit_has_ip_backstop() -> None:
+    client, token, _ = _authenticated_client(enabled=True, user_rate_limit=10, ip_rate_limit=1)
+
+    accepted = client.post(
+        "/api/v1/observability/events",
+        headers=_headers(token, surface="business_mini_app"),
+        json=_payload(event_id="evt_ip_1"),
+    )
+    limited = client.post(
+        "/api/v1/observability/events",
+        headers=_headers(token, surface="client_mini_app"),
+        json=_payload(event_id="evt_ip_2", metadata={"token": "must-not-appear"}),
+    )
+
+    assert accepted.status_code == 200
+    assert limited.status_code == 429
+    assert limited.json()["error"]["code"] == "OBSERVABILITY_RATE_LIMITED"
+    assert "must-not-appear" not in limited.text
+    assert len(client.app.state.observability_repository._events) == 1
+
+
+def test_test_runtime_shares_cost_limiter_with_marketplace() -> None:
+    client, _, _ = _authenticated_client(enabled=True)
+
+    assert client.app.state.marketplace_rate_limiter is client.app.state.cost_rate_limiter

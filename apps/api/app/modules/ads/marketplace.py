@@ -26,6 +26,7 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
         sort: str | None,
         cursor: str | None,
         limit: int,
+        ip_address: str,
         profile_enabled: bool = False,
     ) -> dict[str, Any]:
         profile = [] if profile_enabled else None
@@ -36,7 +37,7 @@ class AdMarketplaceMixin(MarketplaceCacheMixin):
             require_marketplace_user(user)
             profile_mark(profile, "service:marketplace_access", stage_started)
             stage_started = time.perf_counter()
-            self._marketplace_search_rate_limit(user)
+            self._marketplace_search_rate_limit(user, ip_address=ip_address)
             profile_mark(profile, "service:rate_limit", stage_started)
             stage_started = time.perf_counter()
             self._validate_search_params(payment_method=payment_method, delivery_method=delivery_method, sort=sort)

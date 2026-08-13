@@ -221,6 +221,9 @@ Rules:
 - Las senales de riesgo se aplican solo como filtro backend; nunca salen en la
   respuesta publica.
 - Rate limit por IP, user, route y metodo/monto.
+- Slice 47G1 aplica una cuota agregada mas estricta por usuario y una cuota de
+  respaldo por IP hasheada para `GET /ads/search`. Cambiar metodo, monto, sort o
+  cursor no crea una cuota nueva ni permite evadir el limite de la ruta.
 - Audit: no obligatorio; `search_started` opcional y no debe saturar audit logs.
 
 Errores:

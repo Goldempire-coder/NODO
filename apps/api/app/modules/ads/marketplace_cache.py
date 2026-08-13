@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from decimal import Decimal
 
 from app.core.errors import ApiError
@@ -50,11 +51,19 @@ class MarketplaceCacheMixin:
             return
         self._clear_marketplace_cache()
 
-    def _marketplace_search_rate_limit(self, user: UserRecord) -> None:
-        key = f"ads:search:{user.id}"
-        if not self._marketplace_rate_limiter.allow(  # type: ignore[attr-defined]
-            key,
-            max_attempts=self._settings.business_rate_limit_max_attempts,  # type: ignore[attr-defined]
-            window_seconds=self._settings.business_rate_limit_window_seconds,  # type: ignore[attr-defined]
-        ):
+    def _marketplace_search_rate_limit(self, user: UserRecord, *, ip_address: str) -> None:
+        user_allowed = self._marketplace_rate_limiter.allow(  # type: ignore[attr-defined]
+            f"ads:search:user:{user.id}",
+            max_attempts=self._settings.marketplace_rate_limit_max_attempts,  # type: ignore[attr-defined]
+            window_seconds=self._settings.marketplace_rate_limit_window_seconds,  # type: ignore[attr-defined]
+        )
+        if not user_allowed:
+            raise ApiError("RATE_LIMITED", status_code=429)
+        ip_hash = hashlib.sha256(ip_address.encode("utf-8")).hexdigest()[:16]
+        ip_allowed = self._marketplace_rate_limiter.allow(  # type: ignore[attr-defined]
+            f"ads:search:ip:{ip_hash}",
+            max_attempts=self._settings.marketplace_rate_limit_ip_max_attempts,  # type: ignore[attr-defined]
+            window_seconds=self._settings.marketplace_rate_limit_window_seconds,  # type: ignore[attr-defined]
+        )
+        if not ip_allowed:
             raise ApiError("RATE_LIMITED", status_code=429)

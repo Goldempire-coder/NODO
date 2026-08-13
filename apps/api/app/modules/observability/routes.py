@@ -20,13 +20,18 @@ def ingest_frontend_observability_events(
 ) -> dict[str, object]:
     resolved_surface = (surface or getattr(request.state, "surface", "") or "unknown").strip()
     request_id = get_request_id(request)
-    service = ObservabilityIngestService(settings=request.app.state.settings, repository=getattr(request.app.state, "observability_repository", None))
+    service = ObservabilityIngestService(
+        settings=request.app.state.settings,
+        repository=getattr(request.app.state, "observability_repository", None),
+        rate_limiter=request.app.state.cost_rate_limiter,
+    )
     return {
         "data": service.ingest(
             payload=payload,
             user=user,
             surface=resolved_surface,
             request_id=request_id,
+            ip_address=request.client.host if request.client else "unknown",
         ),
         "request_id": request_id,
     }

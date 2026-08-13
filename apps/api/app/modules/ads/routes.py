@@ -70,6 +70,7 @@ def search_ads(
         sort=sort,
         cursor=cursor,
         limit=limit,
+        ip_address=request.client.host if request.client else "unknown",
         profile_enabled=profile_enabled,
     )
     return {

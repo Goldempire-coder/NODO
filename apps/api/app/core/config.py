@@ -65,6 +65,9 @@ class Settings:
     auth_rate_limit_window_seconds: int
     business_rate_limit_max_attempts: int
     business_rate_limit_window_seconds: int
+    marketplace_rate_limit_max_attempts: int
+    marketplace_rate_limit_ip_max_attempts: int
+    marketplace_rate_limit_window_seconds: int
     marketplace_cache_ttl_seconds: int
     marketplace_cache_version_ttl_seconds: float
     marketplace_cache_shared_hit_local_ttl_seconds: int
@@ -75,6 +78,9 @@ class Settings:
     observability_ingest_enabled: bool
     observability_max_events_per_batch: int
     observability_max_event_bytes: int
+    observability_rate_limit_user_max_attempts: int
+    observability_rate_limit_ip_max_attempts: int
+    observability_rate_limit_window_seconds: int
     order_notification_sender_enabled: bool
     order_notification_sender_interval_seconds: int
     order_notification_sender_batch_size: int
@@ -187,6 +193,9 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         auth_rate_limit_window_seconds=_read_int(source, "AUTH_RATE_LIMIT_WINDOW_SECONDS", 60),
         business_rate_limit_max_attempts=_read_int(source, "BUSINESS_RATE_LIMIT_MAX_ATTEMPTS", 30),
         business_rate_limit_window_seconds=_read_int(source, "BUSINESS_RATE_LIMIT_WINDOW_SECONDS", 60),
+        marketplace_rate_limit_max_attempts=_read_int(source, "MARKETPLACE_RATE_LIMIT_MAX_ATTEMPTS", 30),
+        marketplace_rate_limit_ip_max_attempts=_read_int(source, "MARKETPLACE_RATE_LIMIT_IP_MAX_ATTEMPTS", 120),
+        marketplace_rate_limit_window_seconds=_read_int(source, "MARKETPLACE_RATE_LIMIT_WINDOW_SECONDS", 60),
         marketplace_cache_ttl_seconds=_read_int(source, "MARKETPLACE_CACHE_TTL_SECONDS", 30),
         marketplace_cache_version_ttl_seconds=float(source.get("MARKETPLACE_CACHE_VERSION_TTL_SECONDS", "1")),
         marketplace_cache_shared_hit_local_ttl_seconds=_read_int(source, "MARKETPLACE_CACHE_SHARED_HIT_LOCAL_TTL_SECONDS", 5),
@@ -197,6 +206,21 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         observability_ingest_enabled=_read_bool(source, "OBSERVABILITY_INGEST_ENABLED", False),
         observability_max_events_per_batch=_read_int(source, "OBSERVABILITY_MAX_EVENTS_PER_BATCH", 20),
         observability_max_event_bytes=_read_int(source, "OBSERVABILITY_MAX_EVENT_BYTES", 2048),
+        observability_rate_limit_user_max_attempts=_read_int(
+            source,
+            "OBSERVABILITY_RATE_LIMIT_USER_MAX_ATTEMPTS",
+            30,
+        ),
+        observability_rate_limit_ip_max_attempts=_read_int(
+            source,
+            "OBSERVABILITY_RATE_LIMIT_IP_MAX_ATTEMPTS",
+            120,
+        ),
+        observability_rate_limit_window_seconds=_read_int(
+            source,
+            "OBSERVABILITY_RATE_LIMIT_WINDOW_SECONDS",
+            60,
+        ),
         order_notification_sender_enabled=_read_bool(source, "ORDER_NOTIFICATION_SENDER_ENABLED", source.get("APP_ENV") != "test"),
         order_notification_sender_interval_seconds=_read_int(source, "ORDER_NOTIFICATION_SENDER_INTERVAL_SECONDS", 10),
         order_notification_sender_batch_size=_read_int(source, "ORDER_NOTIFICATION_SENDER_BATCH_SIZE", 50),

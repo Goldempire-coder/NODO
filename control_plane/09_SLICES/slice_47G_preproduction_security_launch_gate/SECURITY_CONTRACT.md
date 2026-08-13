@@ -79,3 +79,16 @@ El slice solo puede cerrar como `READY_FOR_OWNER_REVIEW` si entrega:
 - blockers;
 - riesgos residuales;
 - decision explicita de no declarar `READY_FOR_REAL_USE`.
+
+## Slice 47G1 - Data/cost protection
+
+- Observability aplica cuotas compartidas por actor+surface y por IP hasheada.
+- Marketplace usa una cuota Redis compartida de `30` busquedas por usuario y
+  `120` por IP hasheada cada `60` segundos; conserva `429 RATE_LIMITED` y los
+  filtros existentes.
+- Ambas rutas fallan cerradas si Redis queda no disponible. El fallback local
+  sigue permitido para rutas existentes no incluidas en 47G1, pero no es
+  autoridad para estas rutas costosas.
+- Los rechazos no persisten eventos ni registran payloads, IPs crudas, tokens o
+  datos privados.
+- Redis no autoriza pagos, permisos, ownership ni estado financiero.

@@ -41,6 +41,9 @@ def _set_env(**overrides: str) -> None:
         "AUTH_RATE_LIMIT_WINDOW_SECONDS": "60",
         "BUSINESS_RATE_LIMIT_MAX_ATTEMPTS": "100",
         "BUSINESS_RATE_LIMIT_WINDOW_SECONDS": "60",
+        "MARKETPLACE_RATE_LIMIT_MAX_ATTEMPTS": "100",
+        "MARKETPLACE_RATE_LIMIT_IP_MAX_ATTEMPTS": "1000",
+        "MARKETPLACE_RATE_LIMIT_WINDOW_SECONDS": "60",
     }
     values.update(overrides)
     for key, value in values.items():
@@ -103,6 +106,33 @@ def _headers(login: dict, key: str = "idem") -> dict[str, str]:
 
 def _bearer(login: dict, key: str = "req") -> dict[str, str]:
     return {"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": key}
+
+
+def test_marketplace_search_preserves_neutral_rate_limit_response() -> None:
+    client = _client(MARKETPLACE_RATE_LIMIT_MAX_ATTEMPTS="1")
+    remitter = _login(client, 10991, "marketplace_rate_limit")
+
+    accepted = client.get("/api/v1/ads/search", headers=_bearer(remitter, "marketplace_rate_first"))
+    limited = client.get("/api/v1/ads/search", headers=_bearer(remitter, "marketplace_rate_second"))
+
+    assert accepted.status_code == 200
+    assert limited.status_code == 429
+    assert limited.json()["error"]["code"] == "RATE_LIMITED"
+
+
+def test_marketplace_search_rate_limit_has_ip_backstop() -> None:
+    client = _client(
+        MARKETPLACE_RATE_LIMIT_MAX_ATTEMPTS="10",
+        MARKETPLACE_RATE_LIMIT_IP_MAX_ATTEMPTS="1",
+    )
+    remitter = _login(client, 10992, "marketplace_ip_rate_limit")
+
+    accepted = client.get("/api/v1/ads/search", headers=_bearer(remitter, "marketplace_ip_first"))
+    limited = client.get("/api/v1/ads/search", headers=_bearer(remitter, "marketplace_ip_second"))
+
+    assert accepted.status_code == 200
+    assert limited.status_code == 429
+    assert limited.json()["error"]["code"] == "RATE_LIMITED"
 
 
 def _access_token(

@@ -17,6 +17,8 @@ from app.shared.logging_redaction import redact_mapping, redact_text
 
 logger = get_logger("nodo.frontend_observability")
 
+ALLOWED_OBSERVABILITY_SURFACES = {"admin_web", "business_mini_app", "client_mini_app"}
+
 SENSITIVE_METADATA_FRAGMENTS = {
     "authorization",
     "cookie",
@@ -85,9 +87,10 @@ def _serialized_event_size(event: ObservabilityEvent) -> int:
 
 
 class ObservabilityIngestService:
-    def __init__(self, *, settings: Settings, repository=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, settings: Settings, repository=None, rate_limiter=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
+        self._rate_limiter = rate_limiter
 
     def ingest(
         self,
@@ -96,11 +99,13 @@ class ObservabilityIngestService:
         user: UserRecord,
         surface: str,
         request_id: str,
+        ip_address: str,
     ) -> dict[str, int]:
         if not self._settings.observability_ingest_enabled:
             raise ApiError("OBSERVABILITY_DISABLED", status_code=403)
-        if surface == "unknown" or not surface:
+        if surface not in ALLOWED_OBSERVABILITY_SURFACES:
             raise ApiError("OBSERVABILITY_ACCESS_DENIED", status_code=403)
+        self._require_rate_limit(user=user, surface=surface, ip_address=ip_address)
         if len(payload.events) > self._settings.observability_max_events_per_batch:
             raise ApiError("OBSERVABILITY_BATCH_TOO_LARGE", status_code=413)
 
@@ -114,6 +119,25 @@ class ObservabilityIngestService:
             self._record_event(payload=payload, event=event, user=user, surface=surface, request_id=request_id, metadata=metadata, resource_refs=resource_refs)
             accepted += 1
         return {"accepted": accepted}
+
+    def _require_rate_limit(self, *, user: UserRecord, surface: str, ip_address: str) -> None:
+        if self._rate_limiter is None:
+            return
+        window_seconds = self._settings.observability_rate_limit_window_seconds
+        user_allowed = self._rate_limiter.allow(
+            f"observability:user:{user.id}:surface:{surface}",
+            max_attempts=self._settings.observability_rate_limit_user_max_attempts,
+            window_seconds=window_seconds,
+        )
+        if not user_allowed:
+            raise ApiError("OBSERVABILITY_RATE_LIMITED", status_code=429)
+        ip_allowed = self._rate_limiter.allow(
+            f"observability:ip:{_stable_actor_hash(ip_address)}",
+            max_attempts=self._settings.observability_rate_limit_ip_max_attempts,
+            window_seconds=window_seconds,
+        )
+        if not ip_allowed:
+            raise ApiError("OBSERVABILITY_RATE_LIMITED", status_code=429)
 
     def _log_event(
         self,
