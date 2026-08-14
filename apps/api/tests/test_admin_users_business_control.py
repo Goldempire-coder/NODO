@@ -173,6 +173,79 @@ def test_admin_user_search_support_masking_and_access_links_are_separated() -> N
     assert BOT_TOKEN not in combined
 
 
+def test_admin_businesses_filter_by_business_id_or_name() -> None:
+    client = _client()
+    admin = _make_admin(client, 20111, "admin")
+    owner_a = _login(client, 20112, "owner_business_a")
+    owner_b = _login(client, 20113, "owner_business_b")
+    business_a = _approved_business(client, owner_a)
+    business_b = _approved_business(client, owner_b)
+    stored_b = client.app.state.business_repository.get_business(business_b["id"])
+    stored_b.business_name = "Envios Zulia"
+
+    by_id = client.get(
+        f"/api/v1/admin/businesses?business_id={business_b['id']}&limit=20",
+        headers=_bearer(admin, "req_business_filter_id"),
+    )
+    by_name = client.get(
+        "/api/v1/admin/businesses?business_name=zulia&limit=20",
+        headers=_bearer(admin, "req_business_filter_name"),
+    )
+    by_short_name = client.get(
+        "/api/v1/admin/businesses?business_name=zu&limit=20",
+        headers=_bearer(admin, "req_business_filter_short"),
+    )
+
+    assert by_id.status_code == 200, by_id.text
+    assert [item["id"] for item in by_id.json()["data"]["items"]] == [business_b["id"]]
+    assert by_name.status_code == 200, by_name.text
+    assert [item["id"] for item in by_name.json()["data"]["items"]] == [business_b["id"]]
+    assert business_a["id"] not in by_name.text
+    assert by_short_name.status_code == 400
+
+
+def test_admin_can_reveal_user_phone_with_reason_and_audit() -> None:
+    client = _client()
+    admin = _make_admin(client, 20121, "admin")
+    support = _make_admin(client, 20122, "support")
+    owner = _login(client, 20123, "owner_reveal_phone")
+    _profile(client, owner, "+58 414 999 3333")
+
+    detail = client.get(f"/api/v1/admin/users/{owner['user']['id']}", headers=_bearer(admin, "req_masked_user_detail"))
+    missing_reason = client.post(
+        f"/api/v1/admin/users/{owner['user']['id']}/phone/reveal",
+        headers={**_bearer(admin, "req_reveal_phone_missing"), "Content-Type": "application/json"},
+        json={"reason": ""},
+    )
+    support_forbidden = client.post(
+        f"/api/v1/admin/users/{owner['user']['id']}/phone/reveal",
+        headers={**_bearer(support, "req_reveal_phone_support"), "Content-Type": "application/json"},
+        json={"reason": "police report request"},
+    )
+    reveal_reason = "police report request"
+    revealed = client.post(
+        f"/api/v1/admin/users/{owner['user']['id']}/phone/reveal",
+        headers={**_bearer(admin, "req_reveal_phone_admin"), "Content-Type": "application/json"},
+        json={"reason": reveal_reason},
+    )
+
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["data"]["user"]["phone"] is None
+    assert "+58 414 999 3333" not in detail.text
+    assert missing_reason.status_code == 400
+    assert missing_reason.json()["error"]["code"] == "ADMIN_REASON_REQUIRED"
+    assert support_forbidden.status_code == 403
+    assert revealed.status_code == 200, revealed.text
+    assert revealed.headers["Cache-Control"] == "private, no-store"
+    assert revealed.json()["data"]["phone"] == "+58 414 999 3333"
+    assert revealed.json()["data"]["phone_masked"]
+    audit_events = client.app.state.audit_writer.events
+    assert any(event.event_type == "admin_user_phone_revealed" for event in audit_events)
+    audit_metadata = json.dumps([event.metadata_json for event in audit_events])
+    assert "+58 414 999 3333" not in audit_metadata
+    assert reveal_reason not in audit_metadata
+
+
 def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
     client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
     admin = _make_admin(client, 20201, "admin")

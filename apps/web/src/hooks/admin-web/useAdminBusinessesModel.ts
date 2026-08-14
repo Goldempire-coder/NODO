@@ -46,6 +46,7 @@ export function useAdminBusinessesModel({
     useState<AdminBusinessOperationalCapacity | null>(null);
   const [businessOperationalCapacityDraft, setBusinessOperationalCapacityDraft] = useState("0.00");
   const [businessFilter, setBusinessFilter] = useState("");
+  const [businessSearchFilter, setBusinessSearchFilter] = useState("");
   const [businessCapacityDraft, setBusinessCapacityDraft] = useState({
     trust_level: "new",
     min_order_amount_usd: "20.00",
@@ -54,13 +55,20 @@ export function useAdminBusinessesModel({
     active_order_limit: 1
   });
 
-  const loadBusinesses = useCallback(async (status = businessFilter) => {
+  const loadBusinesses = useCallback(async (status = businessFilter, search = businessSearchFilter) => {
     setBusy(true);
+    const normalizedSearch = search.trim();
+    const isBusinessId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalizedSearch);
     try {
-      const data = await listAdminBusinesses<ListResponse<BusinessSummaryForAdmin>>(request, status);
+      const data = await listAdminBusinesses<ListResponse<BusinessSummaryForAdmin>>(request, {
+        verification_status: status,
+        business_id: isBusinessId ? normalizedSearch : undefined,
+        business_name: normalizedSearch && !isBusinessId ? normalizedSearch : undefined
+      });
       setBusinesses(data.items);
       setView("businesses");
       setBusinessFilter(status);
+      setBusinessSearchFilter(normalizedSearch);
       setNotice(data.items.length ? "Negocios cargados." : "No hay negocios para ese filtro.");
     } catch (error) {
       setBusinesses([]);
@@ -68,7 +76,7 @@ export function useAdminBusinessesModel({
     } finally {
       setBusy(false);
     }
-  }, [businessFilter, request, setBusy, setNotice, setView]);
+  }, [businessFilter, businessSearchFilter, request, setBusy, setNotice, setView]);
 
   const loadPendingBusinesses = useCallback(async () => {
     setBusy(true);
@@ -241,6 +249,7 @@ export function useAdminBusinessesModel({
     businessOperationalCapacityDraft,
     businesses,
     businessFilter,
+    businessSearchFilter,
     changeBusinessAccessLink,
     createBusinessOwnerAccessLink,
     loadBusinesses,
@@ -249,6 +258,7 @@ export function useAdminBusinessesModel({
     openDocument,
     selectedBusiness,
     setBusinessCapacityDraft,
+    setBusinessSearchFilter,
     setBusinessOperationalCapacityDraft,
     setBusinessFilter,
     submitBusinessCapacity,

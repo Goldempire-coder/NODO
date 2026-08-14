@@ -123,8 +123,25 @@ export function getAdminInvestigationCaseFile<T>(
   return request<T>(`/api/v1/admin/investigation/case-file?${params.toString()}`, { cache: "no-store" });
 }
 
-export function listAdminBusinesses<T>(request: AuthenticatedRequest, status?: string) {
-  return request<T>(`/api/v1/admin/businesses?${listParams(20, "verification_status", status)}`);
+export function listAdminBusinesses<T>(
+  request: AuthenticatedRequest,
+  filters: { verification_status?: string; business_id?: string; business_name?: string },
+  cursor?: string | null
+) {
+  const params = new URLSearchParams({ limit: "20" });
+  if (filters.verification_status) {
+    params.set("verification_status", filters.verification_status);
+  }
+  if (filters.business_id) {
+    params.set("business_id", filters.business_id);
+  }
+  if (filters.business_name) {
+    params.set("business_name", filters.business_name);
+  }
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return request<T>(`/api/v1/admin/businesses?${params.toString()}`);
 }
 
 export function listPendingAdminBusinesses<T>(request: AuthenticatedRequest) {
@@ -217,8 +234,18 @@ export function getAdminBusinessDocumentViewUrl<T>(request: AuthenticatedRequest
   });
 }
 
-export function listAdminOrders(request: AuthenticatedRequest, status?: string, cursor?: string | null) {
-  return request<AdminOrderListResponse>(`/api/v1/admin/orders?${listParams(20, "status", status, cursor)}`);
+export function listAdminOrders(request: AuthenticatedRequest, status?: string, cursor?: string | null, publicOrderCode?: string | null) {
+  const params = new URLSearchParams({ limit: "20" });
+  if (status) {
+    params.set("status", status);
+  }
+  if (publicOrderCode) {
+    params.set("public_order_code", publicOrderCode);
+  }
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return request<AdminOrderListResponse>(`/api/v1/admin/orders?${params.toString()}`);
 }
 
 export function listAdminUsers<T>(request: AuthenticatedRequest, filters: { phone?: string; telegram_id?: string; username?: string; role?: string; status?: string }) {
@@ -233,6 +260,14 @@ export function listAdminUsers<T>(request: AuthenticatedRequest, filters: { phon
 
 export function getAdminUser<T>(request: AuthenticatedRequest, userId: string) {
   return request<T>(`/api/v1/admin/users/${userId}`);
+}
+
+export function revealAdminUserPhone<T>(request: AuthenticatedRequest, userId: string, reason: string) {
+  return request<T>(`/api/v1/admin/users/${userId}/phone/reveal`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason })
+  });
 }
 
 export function listAdminUserAccessLinks<T>(request: AuthenticatedRequest, userId: string) {

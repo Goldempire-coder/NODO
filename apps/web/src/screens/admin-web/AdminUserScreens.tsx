@@ -15,10 +15,17 @@ function userContact(user: { phone?: string | null; phone_masked?: string | null
 
 export function Users({ model }: { model: AdminWebModel }) {
   return (
-    <section className="admin-web-panel">
-      <Header title="A-10 Clientes" action={<button onClick={() => void model.loadUsers()} type="button">Buscar</button>} />
+    <section className="admin-web-panel admin-web-users-panel">
+      <Header title="A-10 Clientes" action={<button form="admin-users-filter" type="submit">Buscar</button>} />
       <p className="admin-web-muted">Aqui viven los clientes que compran bolivares. Los negocios se gestionan en Negocios.</p>
-      <div className="admin-web-toolbar">
+      <form
+        className="admin-web-toolbar admin-web-toolbar--users"
+        id="admin-users-filter"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void model.loadUsers(model.userFilters);
+        }}
+      >
         <label>
           <span>Telefono</span>
           <input value={model.userFilters.phone} onChange={(event) => model.setUserFilters({ ...model.userFilters, phone: event.target.value })} placeholder="+58..." />
@@ -35,22 +42,24 @@ export function Users({ model }: { model: AdminWebModel }) {
           <span>Estado</span>
           <input value={model.userFilters.status} onChange={(event) => model.setUserFilters({ ...model.userFilters, status: event.target.value })} placeholder="active, restricted..." />
         </label>
+      </form>
+      <div className="admin-web-users-list-scroll">
+        <Table headers={["Cliente", "Telefono", "Telegram", "Estado", "Ultima vez", ""]}>
+          {model.users.map((item) => {
+            const contact = userContact(item);
+            return (
+              <tr key={item.id}>
+                <td>{userName(item)}</td>
+                <td>{contact.phone}</td>
+                <td>{contact.telegram}</td>
+                <td>{item.status}</td>
+                <td>{dateText(item.last_seen_at || item.updated_at || item.created_at)}</td>
+                <td><button type="button" onClick={() => void model.openUser(item.id)}>Abrir</button></td>
+              </tr>
+            );
+          })}
+        </Table>
       </div>
-      <Table headers={["Cliente", "Telefono", "Telegram", "Estado", "Ultima vez", ""]}>
-        {model.users.map((item) => {
-          const contact = userContact(item);
-          return (
-            <tr key={item.id}>
-              <td>{userName(item)}</td>
-              <td>{contact.phone}</td>
-              <td>{contact.telegram}</td>
-              <td>{item.status}</td>
-              <td>{dateText(item.last_seen_at || item.updated_at || item.created_at)}</td>
-              <td><button type="button" onClick={() => void model.openUser(item.id)}>Abrir</button></td>
-            </tr>
-          );
-        })}
-      </Table>
       {model.users.length === 0 ? <Empty text="Busca clientes por telefono, Telegram ID, username o estado." /> : null}
     </section>
   );
@@ -61,6 +70,9 @@ export function UserDetail({ model }: { model: AdminWebModel }) {
   if (!detail) {
     return <Empty text="Selecciona un usuario." />;
   }
+  const revealedPhone = model.revealedUserPhone?.user_id === detail.user.id
+    ? model.revealedUserPhone.phone
+    : null;
   const contact = userContact(detail.user);
   return (
     <section className="admin-web-split">
@@ -74,7 +86,24 @@ export function UserDetail({ model }: { model: AdminWebModel }) {
           <dt>Estado</dt><dd>{detail.user.status}</dd>
           <dt>Terminos</dt><dd>{detail.user.terms_version || "-"} {dateText(detail.user.terms_accepted_at)}</dd>
         </dl>
-        <ReasonBox model={model} />
+        <ReasonBox
+          model={model}
+          label="Razon obligatoria para revelar telefono"
+          placeholder="Indica el motivo operativo antes de revelar el telefono"
+        />
+        <div className="admin-web-sensitive-action">
+          <div>
+            <strong>Telefono completo</strong>
+            <span>{revealedPhone || "Oculto hasta justificar la consulta."}</span>
+          </div>
+          <button
+            disabled={!model.adminMutable || !detail.capabilities.can_view_sensitive}
+            type="button"
+            onClick={() => model.revealUserPhone(detail.user.id)}
+          >
+            Ver telefono
+          </button>
+        </div>
         <div className="admin-web-actions">
           <button disabled={!model.adminMutable || !detail.capabilities.can_mutate_status} type="button" onClick={() => model.changeUserStatus(detail.user.id, "suspend")}>Suspender</button>
           <button disabled={!model.adminMutable || !detail.capabilities.can_mutate_status} type="button" onClick={() => model.changeUserStatus(detail.user.id, "reactivate")}>Reactivar</button>

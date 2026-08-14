@@ -8,6 +8,7 @@ from app.core.errors import ApiError
 from app.modules.admin.investigation import query_fingerprint
 from app.modules.jobs.serializers import job_run_summary
 from app.modules.admin.policy import require_admin_mutation, require_admin_read
+from app.modules.admin.user_presenters import mask_phone
 from app.modules.notifications.user_status_notifications import NoopUserStatusNotificationService, UserStatusNotificationService
 from app.modules.users.models import UserRecord
 from app.services.health_service import HealthService
@@ -22,6 +23,26 @@ def _require_uuid(value: str, code: str = "NOT_FOUND") -> str:
         return str(UUID(value))
     except (TypeError, ValueError) as exc:
         raise ApiError(code, status_code=404) from exc
+
+
+def _normalize_public_order_code(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().upper().replace(" ", "")
+    if not normalized:
+        return None
+    if normalized.startswith("NODO-"):
+        return normalized
+    if len(normalized) == 8:
+        return f"NODO-{normalized}"
+    return normalized
+
+
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(value.strip().split())
+    return normalized or None
 
 
 class AdminService:
@@ -318,10 +339,32 @@ class AdminService:
         actions.append("Usar request_id/correlation_id para buscar el detalle en logs provider.")
         return actions
 
-    def list_businesses(self, *, user: UserRecord, verification_status: str | None, risk_level: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
+    def list_businesses(
+        self,
+        *,
+        user: UserRecord,
+        verification_status: str | None,
+        risk_level: str | None,
+        business_id: str | None,
+        business_name: str | None,
+        cursor: str | None,
+        limit: int,
+        request_id: str,
+    ) -> dict[str, Any]:
         require_admin_read(user)
         self._rate_limit("businesses", user)
-        items, next_cursor = self._repository.list_businesses(verification_status=verification_status, risk_level=risk_level, cursor=cursor, limit=limit)
+        normalized_business_id = _require_uuid(business_id, "BUSINESS_NOT_FOUND") if business_id else None
+        normalized_business_name = _normalize_optional_text(business_name)
+        if normalized_business_name and len(normalized_business_name) < 3:
+            raise ApiError("ADMIN_BUSINESS_SEARCH_QUERY_TOO_SHORT", status_code=400)
+        items, next_cursor = self._repository.list_businesses(
+            verification_status=verification_status,
+            risk_level=risk_level,
+            business_id=normalized_business_id,
+            business_name=normalized_business_name,
+            cursor=cursor,
+            limit=limit,
+        )
         return {"items": items, "next_cursor": next_cursor, "disclaimer": ADMIN_DISCLAIMER}
 
     def business_detail(self, *, user: UserRecord, business_id: str, request_id: str) -> dict[str, Any]:
@@ -400,6 +443,36 @@ class AdminService:
                 "can_mutate_status": user.role in {"admin", "super_admin"},
                 "can_view_sensitive": self._can_view_sensitive_user_fields(user),
             },
+            "disclaimer": ADMIN_DISCLAIMER,
+        }
+
+    def reveal_user_phone(self, *, user: UserRecord, target_user_id: str, reason: str, request_id: str) -> dict[str, Any]:
+        require_admin_mutation(user)
+        target_user_id = _require_uuid(target_user_id, "USER_NOT_FOUND")
+        reason = reason.strip()
+        if not reason:
+            raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
+        self._rate_limit("user_phone_reveal", user)
+        target = self._repository.get_user_record_for_admin(target_user_id)
+        if target is None:
+            raise ApiError("USER_NOT_FOUND", status_code=404)
+        self._audit.write(
+            event_type="admin_user_phone_revealed",
+            actor_user_id=user.id,
+            actor_role=user.role,
+            resource_type="user",
+            resource_id=target_user_id,
+            request_id=request_id,
+            metadata_json={
+                "reason_hash": query_fingerprint(reason),
+                "target_role": target.role,
+                "has_phone": bool(target.phone),
+            },
+        )
+        return {
+            "user_id": target_user_id,
+            "phone": target.phone,
+            "phone_masked": mask_phone(target.phone),
             "disclaimer": ADMIN_DISCLAIMER,
         }
 
@@ -537,14 +610,15 @@ class AdminService:
     def _can_view_sensitive_user_fields(self, user: UserRecord) -> bool:
         return user.role in {"admin", "super_admin"}
 
-    def list_orders(self, *, user: UserRecord, status: str | None, business_id: str | None, remitter_user_id: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
+    def list_orders(self, *, user: UserRecord, status: str | None, business_id: str | None, remitter_user_id: str | None, public_order_code: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         require_admin_read(user)
         self._rate_limit("orders", user)
         if business_id:
             business_id = _require_uuid(business_id, "BUSINESS_NOT_FOUND")
         if remitter_user_id:
             remitter_user_id = _require_uuid(remitter_user_id, "USER_NOT_FOUND")
-        items, next_cursor = self._repository.list_orders(status=status, business_id=business_id, remitter_user_id=remitter_user_id, cursor=cursor, limit=limit)
+        public_order_code = _normalize_public_order_code(public_order_code)
+        items, next_cursor = self._repository.list_orders(status=status, business_id=business_id, remitter_user_id=remitter_user_id, public_order_code=public_order_code, cursor=cursor, limit=limit)
         return {"items": items, "next_cursor": next_cursor, "disclaimer": ADMIN_DISCLAIMER}
 
     def order_detail(self, *, user: UserRecord, order_id: str, request_id: str) -> dict[str, Any]:

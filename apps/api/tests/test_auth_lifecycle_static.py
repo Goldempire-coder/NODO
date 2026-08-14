@@ -110,7 +110,7 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
     assert "const validatedSession = readAuthSession(\"admin\")" in admin_entry
     assert "setSession({ token: validatedSession.accessToken, user })" in admin_entry
     assert '"X-NODO-Surface": "admin_web"' in admin_model
-    assert '{ view: "businesses" as const, label: "Negocios", action: () => businessIntake.loadBusinesses("") }' in admin_model
+    assert '{ view: "businesses" as const, label: "Negocios", action: () => businessIntake.loadBusinesses("", "") }' in admin_model
     assert '{ view: "users" as const, label: "Clientes", action: () => users.loadUsers() }' in admin_model
     assert 'const [businessFilter, setBusinessFilter] = useState("")' in admin_businesses_model
     assert 'role: "remitter"' in admin_users_model

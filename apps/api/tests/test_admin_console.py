@@ -1277,3 +1277,52 @@ def test_admin_order_and_dispute_lists_reject_invalid_cursor_with_400() -> None:
     assert orders.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"
     assert disputes.status_code == 400
     assert disputes.json()["error"]["code"] == "PAGINATION_CURSOR_INVALID"
+
+
+def test_admin_orders_can_filter_by_public_order_code() -> None:
+    client = _client()
+    owner = _login(client, 8910, "admin_order_code_owner")
+    business, method_id = _approved_business_with_method(client, owner, credits=4)
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=business["id"],
+        amount_usd=Decimal("800.00"),
+        actor_user_id=owner["user"]["id"],
+    )
+    other_owner = _login(client, 8914, "admin_order_code_other_owner")
+    other_business, other_method_id = _approved_business_with_method(client, other_owner, credits=4)
+    client.app.state.capacity_repository.set_declared_capacity(
+        business_id=other_business["id"],
+        amount_usd=Decimal("800.00"),
+        actor_user_id=other_owner["user"]["id"],
+    )
+    first_remitter = _login(client, 8911, "admin_order_code_first")
+    second_remitter = _login(client, 8912, "admin_order_code_second")
+    first_ad = _create_ad(client, owner, method_id, key="admin_code_first_ad")
+    first_order = _create_order(client, first_remitter, first_ad["id"], key="admin_code_first_order")
+    second_ad = _create_ad(client, other_owner, other_method_id, key="admin_code_second_ad")
+    second_order = _create_order(client, second_remitter, second_ad["id"], key="admin_code_second_order")
+    admin = _login(client, 8913, "admin_order_code_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    exact = client.get(
+        f"/api/v1/admin/orders?public_order_code={second_order['public_order_code']}",
+        headers=_bearer(admin, "admin_order_code_exact"),
+    )
+    suffix = client.get(
+        f"/api/v1/admin/orders?public_order_code={second_order['public_order_code'].replace('NODO-', '').lower()}",
+        headers=_bearer(admin, "admin_order_code_suffix"),
+    )
+    mismatched_status = client.get(
+        f"/api/v1/admin/orders?public_order_code={second_order['public_order_code']}&status=completed",
+        headers=_bearer(admin, "admin_order_code_status"),
+    )
+
+    assert exact.status_code == 200, exact.text
+    assert suffix.status_code == 200, suffix.text
+    assert mismatched_status.status_code == 200, mismatched_status.text
+    exact_items = exact.json()["data"]["items"]
+    suffix_items = suffix.json()["data"]["items"]
+    assert [item["id"] for item in exact_items] == [second_order["id"]]
+    assert [item["id"] for item in suffix_items] == [second_order["id"]]
+    assert first_order["id"] not in {item["id"] for item in exact_items}
+    assert mismatched_status.json()["data"]["items"] == []

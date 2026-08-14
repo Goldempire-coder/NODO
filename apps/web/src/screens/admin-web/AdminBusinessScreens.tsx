@@ -21,9 +21,16 @@ async function copyText(value: string) {
 
 export function Businesses({ model }: { model: AdminWebModel }) {
   return (
-    <section className="admin-web-panel">
-      <Header title="A-02 Negocios" action={<button onClick={() => void model.loadBusinesses(model.businessFilter)} type="button">Aplicar filtro</button>} />
-      <div className="admin-web-toolbar">
+    <section className="admin-web-panel admin-web-businesses-panel">
+      <Header title="A-02 Negocios" action={<button form="admin-businesses-filter" type="submit">Aplicar filtro</button>} />
+      <form
+        className="admin-web-toolbar admin-web-toolbar--businesses"
+        id="admin-businesses-filter"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void model.loadBusinesses(model.businessFilter, model.businessSearchFilter);
+        }}
+      >
         <label>
           <span>Estado del negocio</span>
           <select value={model.businessFilter} onChange={(event) => model.setBusinessFilter(event.target.value)}>
@@ -35,19 +42,25 @@ export function Businesses({ model }: { model: AdminWebModel }) {
             <option value="rejected">Rechazados</option>
           </select>
         </label>
+        <label>
+          <span>ID o nombre</span>
+          <input value={model.businessSearchFilter} onChange={(event) => model.setBusinessSearchFilter(event.target.value)} placeholder="ID o nombre del negocio" />
+        </label>
         <button type="button" onClick={() => void model.loadPendingBusinesses()}>Pendientes</button>
+      </form>
+      <div className="admin-web-businesses-list-scroll">
+        <Table headers={["Negocio", "Estado", "Riesgo", "Creado", ""]}>
+          {model.businesses.map((item) => (
+            <tr key={item.id}>
+              <td>{businessName(item)}</td>
+              <td>{item.verification_status || "-"}</td>
+              <td>{item.risk_level || "-"}</td>
+              <td>{dateText(item.created_at || item.submitted_at)}</td>
+              <td><button type="button" onClick={() => void model.openBusiness(item.id)}>Abrir</button></td>
+            </tr>
+          ))}
+        </Table>
       </div>
-      <Table headers={["Negocio", "Estado", "Riesgo", "Creado", ""]}>
-        {model.businesses.map((item) => (
-          <tr key={item.id}>
-            <td>{businessName(item)}</td>
-            <td>{item.verification_status || "-"}</td>
-            <td>{item.risk_level || "-"}</td>
-            <td>{dateText(item.created_at || item.submitted_at)}</td>
-            <td><button type="button" onClick={() => void model.openBusiness(item.id)}>Abrir</button></td>
-          </tr>
-        ))}
-      </Table>
       {model.businesses.length === 0 ? <Empty text="No hay negocios para el filtro actual." /> : null}
     </section>
   );

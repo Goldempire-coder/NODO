@@ -109,7 +109,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setBusy,
     setNotice,
     setReason: criticalAction.setReason,
-    setView
+    setView,
+    view
   });
 
   const support = useAdminSupportModel({
@@ -216,9 +217,9 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { view: "dashboard" as const, label: "Dashboard", action: overview.loadDashboard },
       { view: "incidents" as const, label: "Incidentes", action: overview.loadIncidentConsole },
       { view: "ux-friction" as const, label: "UX", action: overview.loadUXFriction },
-      { view: "businesses" as const, label: "Negocios", action: () => businessIntake.loadBusinesses("") },
+      { view: "businesses" as const, label: "Negocios", action: () => businessIntake.loadBusinesses("", "") },
       { view: "users" as const, label: "Clientes", action: () => users.loadUsers() },
-      { view: "orders" as const, label: "Ordenes", action: () => ordersDisputes.loadOrders("") },
+      { view: "orders" as const, label: "Ordenes", action: () => ordersDisputes.loadOrders("", "") },
       { view: "disputes" as const, label: "Disputas", action: () => ordersDisputes.loadDisputes("open") },
       { view: "credit-purchases" as const, label: "Creditos", action: () => credits.loadCreditPurchases("pending_manual_review") },
       { view: "audit-logs" as const, label: "Audit", action: audit.loadAuditLogs },
@@ -269,6 +270,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     businessOperationalCapacityDraft: businessIntake.businessOperationalCapacityDraft,
     users: users.users,
     selectedUser: users.selectedUser,
+    revealedUserPhone: users.revealedUserPhone,
     orders: ordersDisputes.orders,
     ordersLoadingMore: ordersDisputes.ordersLoadingMore,
     ordersNextCursor: ordersDisputes.ordersNextCursor,
@@ -329,7 +331,9 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     adminNotificationBusyId: notifications.notificationBusyId,
     adminSupportUnreadCount: notifications.supportUnreadCount,
     businessFilter: businessIntake.businessFilter,
+    businessSearchFilter: businessIntake.businessSearchFilter,
     setBusinessFilter: businessIntake.setBusinessFilter,
+    setBusinessSearchFilter: businessIntake.setBusinessSearchFilter,
     setBusinessCapacityDraft: businessIntake.setBusinessCapacityDraft,
     setBusinessOperationalCapacityDraft: businessIntake.setBusinessOperationalCapacityDraft,
     userFilters: users.userFilters,
@@ -337,7 +341,9 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     intakeFilter: businessIntake.intakeFilter,
     setIntakeFilter: businessIntake.setIntakeFilter,
     orderFilter: ordersDisputes.orderFilter,
+    orderCodeFilter: ordersDisputes.orderCodeFilter,
     setOrderFilter: ordersDisputes.setOrderFilter,
+    setOrderCodeFilter: ordersDisputes.setOrderCodeFilter,
     disputeFilter: ordersDisputes.disputeFilter,
     setDisputeFilter: ordersDisputes.setDisputeFilter,
     auditFilter: audit.auditFilter,
@@ -389,6 +395,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     loadUsers: users.loadUsers,
     openUser: users.openUser,
     changeUserStatus: users.changeUserStatus,
+    revealUserPhone: users.revealUserPhone,
     loadOrders: ordersDisputes.loadOrders,
     loadMoreOrders: ordersDisputes.loadMoreOrders,
     openOrder: ordersDisputes.openOrder,

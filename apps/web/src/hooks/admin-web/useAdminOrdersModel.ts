@@ -22,21 +22,24 @@ export function useAdminOrdersModel({
   const [ordersLoadingMore, setOrdersLoadingMore] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrderDetailResponse | null>(null);
   const [orderFilter, setOrderFilter] = useState("");
+  const [orderCodeFilter, setOrderCodeFilter] = useState("");
   const ordersRequestEpoch = useRef(0);
   const chatEvidence = useAdminOrderChatEvidenceModel({ request });
 
-  const loadOrders = useCallback(async (status = orderFilter) => {
+  const loadOrders = useCallback(async (status = orderFilter, publicOrderCode = orderCodeFilter) => {
     const requestEpoch = ++ordersRequestEpoch.current;
+    const normalizedCode = publicOrderCode.trim();
     setOrdersLoadingMore(false);
     setBusy(true);
     try {
-      const data = await listAdminOrders(request, status);
+      const data = await listAdminOrders(request, status, null, normalizedCode);
       if (requestEpoch !== ordersRequestEpoch.current) {
         return;
       }
       setOrders(data.items);
       setOrdersNextCursor(data.next_cursor);
       setOrderFilter(status);
+      setOrderCodeFilter(normalizedCode);
       setView("orders");
       setNotice(data.items.length ? "Ordenes admin cargadas." : "No hay ordenes para ese filtro.");
     } catch (error) {
@@ -50,7 +53,7 @@ export function useAdminOrdersModel({
         setBusy(false);
       }
     }
-  }, [orderFilter, request, setBusy, setNotice, setView]);
+  }, [orderCodeFilter, orderFilter, request, setBusy, setNotice, setView]);
 
   const loadMoreOrders = useCallback(async () => {
     const cursor = ordersNextCursor;
@@ -59,9 +62,10 @@ export function useAdminOrdersModel({
     }
     const requestEpoch = ++ordersRequestEpoch.current;
     const requestedFilter = orderFilter;
+    const requestedCode = orderCodeFilter;
     setOrdersLoadingMore(true);
     try {
-      const data = await listAdminOrders(request, requestedFilter, cursor);
+      const data = await listAdminOrders(request, requestedFilter, cursor, requestedCode);
       if (requestEpoch !== ordersRequestEpoch.current) {
         return;
       }
@@ -76,7 +80,7 @@ export function useAdminOrdersModel({
         setOrdersLoadingMore(false);
       }
     }
-  }, [orderFilter, ordersLoadingMore, ordersNextCursor, request, setNotice]);
+  }, [orderCodeFilter, orderFilter, ordersLoadingMore, ordersNextCursor, request, setNotice]);
 
   const openOrder = useCallback(async (orderId: string, highlightMessageId?: string) => {
     setBusy(true);
@@ -98,11 +102,13 @@ export function useAdminOrdersModel({
     loadMoreOrders,
     loadOrders,
     openOrder,
+    orderCodeFilter,
     orderFilter,
     orders,
     ordersLoadingMore,
     ordersNextCursor,
     selectedOrder,
+    setOrderCodeFilter,
     setOrderFilter
   };
 }

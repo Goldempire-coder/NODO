@@ -43,6 +43,7 @@ Todas las rutas admin requieren:
 - `POST /api/v1/admin/support/tickets/{id}/attachments/{file_id}/view-url`
 - `GET /api/v1/admin/users`
 - `GET /api/v1/admin/users/{id}`
+- `POST /api/v1/admin/users/{id}/phone/reveal`
 - `POST /api/v1/admin/users/{id}/suspend`
 - `POST /api/v1/admin/users/{id}/reactivate`
 - `POST /api/v1/admin/users/{id}/block`
@@ -341,6 +342,8 @@ Query:
 
 - `verification_status` optional.
 - `risk_level` optional.
+- `business_id` optional. Filtro exacto por UUID.
+- `business_name` optional. Filtro por nombre, minimo 3 caracteres.
 - `cursor` optional.
 - `limit` 1..50.
 
@@ -372,6 +375,8 @@ Query:
 - `status` optional.
 - `business_id` optional.
 - `remitter_user_id` optional.
+- `public_order_code` optional. Filtro exacto por codigo publico de orden; acepta
+  `NODO-XXXXXXXX` o el sufijo `XXXXXXXX` y se normaliza en backend.
 - `cursor` optional.
 - `limit` 1..50.
 
@@ -380,7 +385,11 @@ Rules:
 - No full payment instructions.
 - No `account_value`.
 - No `storage_path`.
+- `business_id` usa comparacion exacta y `business_name` es busqueda acotada
+  para uso operativo Admin; no debe convertirse en busqueda global costosa.
 - Return operational summary and capabilities only.
+- `public_order_code` no es busqueda libre; debe usar comparacion exacta contra
+  `orders.public_order_code` para evitar scans operativos caros.
 
 ### GET /api/v1/admin/orders/{id}
 
@@ -1101,6 +1110,7 @@ Rules:
 - `admin`, `super_admin` y `support` pueden listar segun RBAC.
 - `support` recibe solo campos enmascarados y read-only.
 - `telegram_id` completo solo se devuelve a `admin`/`super_admin`.
+- `phone` completo nunca se devuelve en listados.
 - Cursor pagination; no offset.
 - No expone tokens, refresh hashes, session internals, `storage_path`, `account_value` ni secretos.
 - Auditar `admin_user_list_viewed` cuando aplique.
@@ -1142,8 +1152,44 @@ Response 200:
 Rules:
 
 - No devuelve tokens, refresh hashes, session internals, raw auth headers ni secretos.
+- No devuelve `phone` completo por defecto. El telefono completo requiere la
+  accion explicita `POST /api/v1/admin/users/{id}/phone/reveal`.
 - `support` recibe detalle enmascarado y sin acciones mutantes.
 - Auditar `admin_user_detail_viewed` cuando aplique.
+
+### POST /api/v1/admin/users/{id}/phone/reveal
+
+Revela el telefono completo de un usuario puntual para investigacion operativa.
+
+Request:
+
+```json
+{
+  "reason": "requerimiento policial o investigacion de soporte"
+}
+```
+
+Response 200:
+
+```json
+{
+  "data": {
+    "user_id": "uuid",
+    "phone": "+584149991234",
+    "phone_masked": "+58*******234"
+  },
+  "request_id": "req_..."
+}
+```
+
+Rules:
+
+- Solo `admin` y `super_admin` activos.
+- `support` recibe `FORBIDDEN`.
+- `reason` es obligatorio y no vacio.
+- No es endpoint de lista ni bulk export.
+- Auditar `admin_user_phone_revealed` sin copiar el telefono ni la razon en claro
+  dentro del evento; se permite hash de razon y metadata no sensible.
 
 ### POST /api/v1/admin/users/{id}/suspend
 

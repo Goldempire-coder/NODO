@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { getAdminUser, listAdminUsers, updateAdminUserStatus } from "../../api/admin";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getAdminUser, listAdminUsers, revealAdminUserPhone, updateAdminUserStatus } from "../../api/admin";
 import type { AuthenticatedRequest } from "../../api/client";
 import type { AdminUserDetail, AdminUserSummary } from "../../types/admin";
 import { idempotencyKey } from "./helpers";
@@ -22,6 +22,12 @@ const EMPTY_FILTERS: AdminUserFilters = {
   status: ""
 };
 
+type RevealedUserPhone = {
+  user_id: string;
+  phone: string | null;
+  phone_masked?: string | null;
+};
+
 export function useAdminUsersModel({
   adminMutable,
   queueCriticalAction,
@@ -30,7 +36,8 @@ export function useAdminUsersModel({
   setBusy,
   setNotice,
   setReason,
-  setView
+  setView,
+  view
 }: {
   adminMutable: boolean;
   queueCriticalAction: QueueCriticalAction;
@@ -40,12 +47,24 @@ export function useAdminUsersModel({
   setNotice: (notice: string) => void;
   setReason: (reason: string) => void;
   setView: (view: AdminWebView) => void;
+  view: AdminWebView;
 }) {
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [selectedUser, setSelectedUser] = useState<AdminUserDetail | null>(null);
+  const [revealedUserPhone, setRevealedUserPhone] = useState<RevealedUserPhone | null>(null);
   const [userFilters, setUserFilters] = useState<AdminUserFilters>(EMPTY_FILTERS);
+  const activeUserDetailRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (view !== "user-detail") {
+      activeUserDetailRef.current = null;
+      setRevealedUserPhone(null);
+    }
+  }, [view]);
 
   const loadUsers = useCallback(async (filters = userFilters) => {
+    activeUserDetailRef.current = null;
+    setRevealedUserPhone(null);
     setBusy(true);
     try {
       const data = await listAdminUsers<ListResponse<AdminUserSummary>>(request, filters);
@@ -62,9 +81,12 @@ export function useAdminUsersModel({
   }, [request, setBusy, setNotice, setView, userFilters]);
 
   const openUser = useCallback(async (userId: string) => {
+    activeUserDetailRef.current = null;
+    setRevealedUserPhone(null);
     setBusy(true);
     try {
       const data = await getAdminUser<AdminUserDetail>(request, userId);
+      activeUserDetailRef.current = userId;
       setSelectedUser(data);
       setView("user-detail");
       setNotice("Detalle de usuario cargado.");
@@ -93,10 +115,33 @@ export function useAdminUsersModel({
     );
   }, [adminMutable, openUser, queueCriticalAction, reason, request, setNotice, setReason]);
 
+  const revealUserPhone = useCallback((userId: string) => {
+    if (!adminMutable) {
+      setNotice("Accion no permitida para este rol.");
+      return;
+    }
+    queueCriticalAction(
+      "Revelar telefono",
+      "Muestra el telefono completo mientras mantengas abierto este detalle. Backend exige razon y audita la lectura.",
+      async () => {
+        const data = await revealAdminUserPhone<RevealedUserPhone>(request, userId, reason);
+        if (activeUserDetailRef.current !== userId) {
+          return;
+        }
+        setRevealedUserPhone(data);
+        setReason("");
+        setNotice(data.phone ? "Telefono revelado con auditoria." : "Este cliente no tiene telefono registrado.");
+      },
+      { requiresReason: true }
+    );
+  }, [adminMutable, queueCriticalAction, reason, request, setNotice, setReason]);
+
   return {
     changeUserStatus,
     loadUsers,
     openUser,
+    revealedUserPhone,
+    revealUserPhone,
     selectedUser,
     setUserFilters,
     userFilters,

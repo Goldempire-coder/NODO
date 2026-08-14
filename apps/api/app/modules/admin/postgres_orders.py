@@ -7,7 +7,7 @@ from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cur
 
 
 class PostgresAdminOrdersMixin:
-    def list_orders(self, *, status: str | None, business_id: str | None, remitter_user_id: str | None, cursor: str | None, limit: int) -> tuple[list[dict[str, Any]], str | None]:
+    def list_orders(self, *, status: str | None, business_id: str | None, remitter_user_id: str | None, public_order_code: str | None = None, cursor: str | None, limit: int) -> tuple[list[dict[str, Any]], str | None]:
         sql = """
             select id, public_order_code, status, business_id, remitter_user_id, amount_usd,
                    amount_bs_calculated, payment_method_snapshot, delivery_method_snapshot,
@@ -19,6 +19,9 @@ class PostgresAdminOrdersMixin:
             if value:
                 sql += f" and {column} = %s"
                 params.append(value)
+        if public_order_code:
+            sql += " and public_order_code = %s"
+            params.append(public_order_code)
         if cursor:
             position = decode_keyset_cursor(cursor)
             sql += " and (created_at, id) < (%s, %s::uuid)"

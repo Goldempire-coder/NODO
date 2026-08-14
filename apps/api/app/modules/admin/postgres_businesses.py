@@ -3,8 +3,22 @@ from __future__ import annotations
 from typing import Any
 
 
+def _like_contains(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 class PostgresAdminBusinessesMixin:
-    def list_businesses(self, *, verification_status: str | None, risk_level: str | None, cursor: str | None, limit: int) -> tuple[list[dict[str, Any]], str | None]:
+    def list_businesses(
+        self,
+        *,
+        verification_status: str | None,
+        risk_level: str | None,
+        business_id: str | None,
+        business_name: str | None,
+        cursor: str | None,
+        limit: int,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         sql = "select id, business_name, verification_status, risk_level, trust_level, created_at from businesses where true"
         params: list[Any] = []
         if verification_status:
@@ -13,6 +27,12 @@ class PostgresAdminBusinessesMixin:
         if risk_level:
             sql += " and risk_level = %s"
             params.append(risk_level)
+        if business_id:
+            sql += " and id = %s"
+            params.append(business_id)
+        if business_name:
+            sql += " and business_name ilike %s escape E'\\\\'"
+            params.append(_like_contains(business_name))
         if cursor:
             sql += " and created_at < %s"
             params.append(cursor)

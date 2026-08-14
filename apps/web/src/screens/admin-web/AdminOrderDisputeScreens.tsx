@@ -5,27 +5,39 @@ import { AdminOrderChatEvidencePanel } from "./AdminOrderChatEvidencePanel";
 
 export function Orders({ model }: { model: AdminWebModel }) {
   return (
-    <section className="admin-web-panel">
-      <Header title="A-11 Ordenes" action={<button onClick={() => void model.loadOrders(model.orderFilter)} type="button">Aplicar filtro</button>} />
-      <div className="admin-web-toolbar">
+    <section className="admin-web-panel admin-web-orders-panel">
+      <Header title="A-11 Ordenes" action={<button form="admin-orders-filter" type="submit">Aplicar filtro</button>} />
+      <form
+        className="admin-web-toolbar admin-web-toolbar--orders"
+        id="admin-orders-filter"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void model.loadOrders(model.orderFilter, model.orderCodeFilter);
+        }}
+      >
         <label><span>Status</span><input value={model.orderFilter} onChange={(event) => model.setOrderFilter(event.target.value)} placeholder="disputed, delivered..." /></label>
+        <label><span>Codigo de orden</span><input value={model.orderCodeFilter} onChange={(event) => model.setOrderCodeFilter(event.target.value)} placeholder="NODO-7C25CBC6" /></label>
+      </form>
+      <div className="admin-web-orders-list-scroll">
+        <Table headers={["Codigo", "Status", "Monto", "Metodo", ""]}>
+          {model.orders.map((item: AdminOrderSummary) => (
+            <tr key={item.id}>
+              <td className="admin-web-order-code-cell">{item.public_order_code}</td>
+              <td>{item.status}</td>
+              <td>{item.amount_usd} USD</td>
+              <td>{item.payment_method_snapshot}</td>
+              <td><button type="button" onClick={() => void model.openOrder(item.id)}>Detalle</button></td>
+            </tr>
+          ))}
+        </Table>
       </div>
-      <Table headers={["Codigo", "Status", "Monto", "Metodo", ""]}>
-        {model.orders.map((item: AdminOrderSummary) => (
-          <tr key={item.id}>
-            <td>{item.public_order_code}</td>
-            <td>{item.status}</td>
-            <td>{item.amount_usd} USD</td>
-            <td>{item.payment_method_snapshot}</td>
-            <td><button type="button" onClick={() => void model.openOrder(item.id)}>Detalle</button></td>
-          </tr>
-        ))}
-      </Table>
       {model.orders.length === 0 ? <Empty text="No hay ordenes para el filtro actual." /> : null}
       {model.ordersNextCursor ? (
-        <button className="admin-web-button" disabled={model.ordersLoadingMore} type="button" onClick={() => void model.loadMoreOrders()}>
-          {model.ordersLoadingMore ? "Cargando..." : "Cargar mas"}
-        </button>
+        <div className="admin-web-orders-list-actions">
+          <button className="admin-web-button" disabled={model.ordersLoadingMore} type="button" onClick={() => void model.loadMoreOrders()}>
+            {model.ordersLoadingMore ? "Cargando..." : "Cargar mas"}
+          </button>
+        </div>
       ) : null}
     </section>
   );

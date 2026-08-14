@@ -54,12 +54,26 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
             "credits": {"consumed_ledger_entries": sum(1 for item in ledger if item.type == "consume"), "released_ledger_entries": sum(1 for item in ledger if item.type == "release")},
         }
 
-    def list_businesses(self, *, verification_status: str | None, risk_level: str | None, cursor: str | None, limit: int) -> tuple[list[dict[str, Any]], str | None]:
+    def list_businesses(
+        self,
+        *,
+        verification_status: str | None,
+        risk_level: str | None,
+        business_id: str | None,
+        business_name: str | None,
+        cursor: str | None,
+        limit: int,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         items = list(getattr(self._businesses, "businesses", {}).values())
         if verification_status:
             items = [item for item in items if item.verification_status == verification_status]
         if risk_level:
             items = [item for item in items if item.risk_level == risk_level]
+        if business_id:
+            items = [item for item in items if item.id == business_id]
+        if business_name:
+            needle = business_name.lower()
+            items = [item for item in items if item.business_name and needle in item.business_name.lower()]
         if cursor:
             items = [item for item in items if item.created_at.isoformat() < cursor]
         items.sort(key=lambda item: item.created_at, reverse=True)
@@ -159,7 +173,7 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
             )
         return [admin_business_link_payload(row, full_sensitive=full_sensitive) for row in rows]
 
-    def list_orders(self, *, status: str | None, business_id: str | None, remitter_user_id: str | None, cursor: str | None, limit: int) -> tuple[list[dict[str, Any]], str | None]:
+    def list_orders(self, *, status: str | None, business_id: str | None, remitter_user_id: str | None, public_order_code: str | None = None, cursor: str | None, limit: int) -> tuple[list[dict[str, Any]], str | None]:
         items = list(getattr(self._orders, "orders", {}).values())
         if status:
             items = [item for item in items if item.status == status]
@@ -167,6 +181,8 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
             items = [item for item in items if item.business_id == business_id]
         if remitter_user_id:
             items = [item for item in items if item.remitter_user_id == remitter_user_id]
+        if public_order_code:
+            items = [item for item in items if item.public_order_code.upper() == public_order_code]
         page, next_cursor = paginate_descending(
             items,
             timestamp_of=lambda item: item.created_at,

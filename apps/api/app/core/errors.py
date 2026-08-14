@@ -18,6 +18,7 @@ ERROR_MESSAGES = {
     "PAGINATION_CURSOR_INVALID": "El cursor de paginacion no es valido.",
     "FORBIDDEN": "No tienes permiso para realizar esta accion.",
     "BUSINESS_NOT_FOUND": "No encontramos el negocio solicitado.",
+    "ADMIN_BUSINESS_SEARCH_QUERY_TOO_SHORT": "Busca por ID de negocio o por al menos 3 caracteres del nombre.",
     "BUSINESS_ALREADY_EXISTS": "Ya existe un negocio activo para este usuario.",
     "BUSINESS_ALREADY_SUBMITTED": "Ya existe una verificacion pendiente para este negocio.",
     "BUSINESS_STATUS_INVALID": "El estado del negocio no permite esta accion.",

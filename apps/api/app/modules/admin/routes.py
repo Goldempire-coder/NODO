@@ -226,6 +226,8 @@ def list_businesses(
     request: Request,
     verification_status: str | None = Query(default=None),
     risk_level: str | None = Query(default=None),
+    business_id: str | None = Query(default=None),
+    business_name: str | None = Query(default=None, max_length=160),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
     user: UserRecord = Depends(require_current_user),
@@ -235,6 +237,8 @@ def list_businesses(
             user=user,
             verification_status=verification_status,
             risk_level=risk_level,
+            business_id=business_id,
+            business_name=business_name,
             cursor=cursor,
             limit=limit,
             request_id=_request_id(request),
@@ -274,6 +278,19 @@ def list_users(
 @router.get("/users/{user_id}")
 def user_detail(user_id: str, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
     return {"data": _service(request).user_detail(user=user, target_user_id=user_id, request_id=_request_id(request)), "request_id": _request_id(request)}
+
+
+@router.post("/users/{user_id}/phone/reveal")
+def reveal_user_phone(user_id: str, payload: AdminReasonRequest, request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
+    return {
+        "data": _service(request).reveal_user_phone(
+            user=user,
+            target_user_id=user_id,
+            reason=payload.reason,
+            request_id=_request_id(request),
+        ),
+        "request_id": _request_id(request),
+    }
 
 
 @router.get("/users/{user_id}/access-links")
@@ -357,6 +374,7 @@ def list_orders(
     status: str | None = Query(default=None),
     business_id: str | None = Query(default=None),
     remitter_user_id: str | None = Query(default=None),
+    public_order_code: str | None = Query(default=None, max_length=32),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
     user: UserRecord = Depends(require_current_user),
@@ -367,6 +385,7 @@ def list_orders(
             status=status,
             business_id=business_id,
             remitter_user_id=remitter_user_id,
+            public_order_code=public_order_code,
             cursor=cursor,
             limit=limit,
             request_id=_request_id(request),

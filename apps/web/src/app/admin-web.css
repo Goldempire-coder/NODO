@@ -818,6 +818,89 @@
   background: rgb(47 155 255 / 6%);
 }
 
+.admin-web-orders-panel,
+.admin-web-businesses-panel,
+.admin-web-users-panel {
+  display: flex;
+  max-height: min(720px, calc(100dvh - 190px));
+  flex-direction: column;
+}
+
+.admin-web-toolbar--orders,
+.admin-web-toolbar--businesses,
+.admin-web-toolbar--users {
+  align-items: end;
+}
+
+.admin-web-toolbar--orders label,
+.admin-web-toolbar--businesses label,
+.admin-web-toolbar--users label {
+  min-width: min(240px, 100%);
+}
+
+.admin-web-orders-list-scroll,
+.admin-web-businesses-list-scroll,
+.admin-web-users-list-scroll {
+  min-height: 220px;
+  max-height: min(520px, calc(100dvh - 340px));
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.admin-web-orders-list-scroll .admin-web-table-wrap,
+.admin-web-businesses-list-scroll .admin-web-table-wrap,
+.admin-web-users-list-scroll .admin-web-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-web-orders-list-scroll .admin-web-table th,
+.admin-web-businesses-list-scroll .admin-web-table th,
+.admin-web-users-list-scroll .admin-web-table th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+}
+
+.admin-web-order-code-cell {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.admin-web-orders-list-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
+.admin-web-sensitive-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 12px 0;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgb(7 9 17 / 46%);
+}
+
+.admin-web-sensitive-action div {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-web-sensitive-action strong {
+  color: #d9f2ff;
+  font-size: 12px;
+}
+
+.admin-web-sensitive-action span {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
 .admin-web-metrics,
 .admin-web-form-grid {
   display: grid;
