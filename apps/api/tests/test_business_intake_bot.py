@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import time
+from datetime import timedelta
 from io import BytesIO
 from typing import Any
 from urllib.parse import urlencode
@@ -1118,6 +1119,68 @@ def test_admin_can_complete_intake_manually_and_submit_for_review() -> None:
 
     assert approved.status_code == 200, approved.text
     assert approved.json()["data"]["intake"]["status"] == "accepted"
+
+
+def test_admin_business_intake_list_prioritizes_ready_submissions_and_filters_readiness() -> None:
+    client = _client()
+    admin = _login(client, 9027, "admin_intake_priority")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    ready = _start(client, update_id=670, telegram_id=7070, chat_id=8070)
+    _contact(client, ready["id"], update_id=671, telegram_id=7070, chat_id=8070)
+    _submit(client, ready["id"], update_id=672, telegram_id=7070, chat_id=8070)
+
+    incomplete = _start(client, update_id=680, telegram_id=7080, chat_id=8080)
+    _contact(client, incomplete["id"], update_id=681, telegram_id=7080, chat_id=8080)
+    updated = client.patch(
+        f"/api/v1/admin/business-intake/{incomplete['id']}",
+        headers={**_admin_headers(admin, "incomplete_intake_submit"), "Content-Type": "application/json"},
+        json={
+            "business_name": "Faltan Documentos",
+            "business_tax_id": "J-22222222-2",
+            "submit_for_review": True,
+        },
+    )
+    assert updated.status_code == 200, updated.text
+
+    ready_record = client.app.state.business_intake_repository.get(ready["id"])
+    incomplete_record = client.app.state.business_intake_repository.get(incomplete["id"])
+    assert ready_record is not None
+    assert incomplete_record is not None
+    incomplete_record.created_at = utc_now()
+    incomplete_record.updated_at = incomplete_record.created_at
+    ready_record.created_at = incomplete_record.created_at - timedelta(minutes=10)
+    ready_record.updated_at = ready_record.created_at
+
+    listed = client.get("/api/v1/admin/business-intake?status=submitted", headers=_bearer(admin, "req_intake_priority_list"))
+    assert listed.status_code == 200, listed.text
+    items = listed.json()["data"]["items"]
+    assert [item["id"] for item in items[:2]] == [ready["id"], incomplete["id"]]
+    assert items[0]["ready_for_review"] is True
+    assert items[0]["review_missing_count"] == 0
+    assert items[1]["ready_for_review"] is False
+    assert items[1]["review_missing_count"] > 0
+
+    first_page = client.get("/api/v1/admin/business-intake?status=submitted&limit=1", headers=_bearer(admin, "req_intake_priority_page_1"))
+    assert first_page.status_code == 200, first_page.text
+    first_page_data = first_page.json()["data"]
+    assert [item["id"] for item in first_page_data["items"]] == [ready["id"]]
+    assert first_page_data["next_cursor"]
+
+    second_page = client.get(
+        f"/api/v1/admin/business-intake?status=submitted&limit=1&cursor={first_page_data['next_cursor']}",
+        headers=_bearer(admin, "req_intake_priority_page_2"),
+    )
+    assert second_page.status_code == 200, second_page.text
+    assert [item["id"] for item in second_page.json()["data"]["items"]] == [incomplete["id"]]
+
+    ready_only = client.get("/api/v1/admin/business-intake?status=submitted&readiness=ready", headers=_bearer(admin, "req_intake_ready_only"))
+    assert ready_only.status_code == 200, ready_only.text
+    assert [item["id"] for item in ready_only.json()["data"]["items"]] == [ready["id"]]
+
+    needs_info = client.get("/api/v1/admin/business-intake?status=submitted&readiness=needs_info", headers=_bearer(admin, "req_intake_needs_info"))
+    assert needs_info.status_code == 200, needs_info.text
+    assert [item["id"] for item in needs_info.json()["data"]["items"]] == [incomplete["id"]]
 
 
 def test_admin_can_save_partial_intake_without_submitting_or_approving() -> None:

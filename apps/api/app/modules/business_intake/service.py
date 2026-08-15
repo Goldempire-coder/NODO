@@ -121,8 +121,8 @@ class BusinessIntakeService(BusinessIntakePublicActionsMixin):
     def _public_document(self, document) -> dict[str, Any]:  # type: ignore[no-untyped-def]
         return public_business_intake_document(document)
 
-    def admin_list(self, *, user: UserRecord, status: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
-        return self._admin_actions.list(user=user, status=status, cursor=cursor, limit=limit, request_id=request_id)
+    def admin_list(self, *, user: UserRecord, status: str | None, readiness: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
+        return self._admin_actions.list(user=user, status=status, readiness=readiness, cursor=cursor, limit=limit, request_id=request_id)
 
     def admin_detail(self, *, user: UserRecord, intake_id: str, request_id: str) -> dict[str, Any]:
         return self._admin_actions.detail(user=user, intake_id=intake_id, request_id=request_id)

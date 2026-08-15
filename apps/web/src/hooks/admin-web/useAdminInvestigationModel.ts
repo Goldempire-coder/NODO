@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { searchAdminInvestigation } from "../../api/admin";
 import type { AdminInvestigationSearchItem, AdminInvestigationSearchResponse } from "../../types/admin";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
@@ -28,12 +28,14 @@ type InvestigationHandlers = {
 
 export function useAdminInvestigationModel({
   handlers,
+  pushBackView,
   request,
   setBusy,
   setNotice,
   setView
 }: {
   handlers: InvestigationHandlers;
+  pushBackView: (view: AdminWebView) => void;
   request: RequestFn;
   setBusy: (busy: boolean) => void;
   setNotice: (notice: string) => void;
@@ -42,12 +44,32 @@ export function useAdminInvestigationModel({
   const [investigationQuery, setInvestigationQuery] = useState("");
   const [investigationResults, setInvestigationResults] = useState<AdminInvestigationSearchResponse>(EMPTY_SEARCH);
   const [investigationSearched, setInvestigationSearched] = useState(false);
+  const lastInvestigationQuery = useRef("");
+
+  const setInvestigationQueryValue = useCallback((value: string) => {
+    setInvestigationQuery(value);
+    if (investigationSearched && value.trim() !== lastInvestigationQuery.current) {
+      setInvestigationResults(EMPTY_SEARCH);
+      setInvestigationSearched(false);
+    }
+  }, [investigationSearched]);
+
+  const clearInvestigationSearch = useCallback(() => {
+    lastInvestigationQuery.current = "";
+    setInvestigationQuery("");
+    setInvestigationResults(EMPTY_SEARCH);
+    setInvestigationSearched(false);
+    setView("investigation");
+    setNotice("Busqueda limpia.");
+  }, [setNotice, setView]);
 
   const searchInvestigation = useCallback(async (query = investigationQuery) => {
     const normalizedQuery = query.trim();
     setInvestigationQuery(query);
     setView("investigation");
     if (normalizedQuery.length < 3) {
+      lastInvestigationQuery.current = "";
+      setInvestigationResults(EMPTY_SEARCH);
       setInvestigationSearched(false);
       setNotice("Escribe al menos 3 caracteres para buscar.");
       return;
@@ -55,6 +77,7 @@ export function useAdminInvestigationModel({
     setBusy(true);
     try {
       const data = await searchAdminInvestigation<AdminInvestigationSearchResponse>(request, normalizedQuery);
+      lastInvestigationQuery.current = normalizedQuery;
       setInvestigationResults(data);
       setInvestigationSearched(true);
       const total = Object.values(data.result_counts).reduce((sum, value) => sum + value, 0);
@@ -67,6 +90,7 @@ export function useAdminInvestigationModel({
   }, [investigationQuery, request, setBusy, setNotice, setView]);
 
   const openInvestigationResult = useCallback(async (item: AdminInvestigationSearchItem) => {
+    pushBackView("investigation");
     if (item.type === "user") {
       await handlers.openUser(item.id);
       return;
@@ -86,15 +110,21 @@ export function useAdminInvestigationModel({
     if (item.type === "support_ticket") {
       await handlers.openSupportTicket(item.id);
     }
-  }, [handlers]);
+  }, [handlers, pushBackView]);
+
+  const openInvestigationCaseFile = useCallback(async (item: AdminInvestigationSearchItem) => {
+    pushBackView("investigation");
+    await handlers.openCaseFile(item);
+  }, [handlers, pushBackView]);
 
   return {
     investigationQuery,
-    setInvestigationQuery,
+    setInvestigationQuery: setInvestigationQueryValue,
     investigationResults,
     investigationSearched,
+    clearInvestigationSearch,
     searchInvestigation,
     openInvestigationResult,
-    openInvestigationCaseFile: handlers.openCaseFile
+    openInvestigationCaseFile
   };
 }

@@ -72,3 +72,11 @@ export function Table({ headers, children }: { headers: string[]; children: Reac
     </div>
   );
 }
+
+export function ScrollableTable({ label, headers, children }: { label: string; headers: string[]; children: ReactNode }) {
+  return (
+    <div className="admin-web-table-scroll" role="region" aria-label={label} tabIndex={0}>
+      <Table headers={headers}>{children}</Table>
+    </div>
+  );
+}

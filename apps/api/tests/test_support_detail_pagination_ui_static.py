@@ -50,3 +50,25 @@ def test_admin_assignment_preserves_loaded_support_history() -> None:
 
     assert "mergeSupportTicketPage(current, ticket, { preserveHistoryCursor: true })" in assignment
     assert "current?.id === ticketId ? ticket : current" not in assignment
+
+
+def test_admin_support_lists_and_thread_use_internal_scroll_regions() -> None:
+    admin_screen = _read("apps/web/src/screens/admin-web/AdminSupportScreens.tsx")
+    admin_css = _read("apps/web/src/app/admin-web.css")
+
+    assert "admin-web-support-ticket-list-scroll" in admin_screen
+    assert 'aria-label="Lista de tickets de soporte admin"' in admin_screen
+    assert 'role="region"' in admin_screen
+    assert "tabIndex={0}" in admin_screen
+    assert "admin-web-support-thread-scroll" in admin_screen
+    assert 'aria-label="Conversacion del ticket de soporte admin"' in admin_screen
+    assert "supportTicketsNextCursor" in admin_screen
+    assert "loadMoreSupportTickets" in admin_screen
+    assert "messages_next_cursor" in admin_screen
+    assert "loadMoreSupportMessages" in admin_screen
+
+    assert ".admin-web-support-ticket-list-scroll" in admin_css
+    assert ".admin-web-support-thread-scroll" in admin_css
+    assert "overflow-y: auto" in admin_css
+    assert ".admin-web-support-ticket-list-scroll:focus-visible" in admin_css
+    assert ".admin-web-support-thread-scroll:focus-visible" in admin_css

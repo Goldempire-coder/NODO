@@ -104,12 +104,13 @@ async def upload_intake_document(
 def admin_list_intake(
     request: Request,
     status: str | None = Query(default=None),
+    readiness: str | None = Query(default="all"),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
     user: UserRecord = Depends(require_current_user),
 ) -> dict:
     return {
-        "data": _service(request).admin_list(user=user, status=status, cursor=cursor, limit=limit, request_id=_request_id(request)),
+        "data": _service(request).admin_list(user=user, status=status, readiness=readiness, cursor=cursor, limit=limit, request_id=_request_id(request)),
         "request_id": _request_id(request),
     }
 

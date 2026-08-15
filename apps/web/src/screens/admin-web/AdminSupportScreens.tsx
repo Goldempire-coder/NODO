@@ -61,6 +61,11 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
 
   return (
     <section className="admin-web-split admin-web-support-layout">
+      {model.adminCanGoBack ? (
+        <div className="admin-web-detail-backbar span-2">
+          <button type="button" onClick={() => model.goBackAdminView()}>{model.adminBackLabel}</button>
+        </div>
+      ) : null}
       <div className="admin-web-panel admin-web-support-list-panel">
         <Header
           title="Soporte"
@@ -85,29 +90,31 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
           </label>
         </div>
 
-        <div className="admin-web-support-list" aria-label="Tickets de soporte">
-          {model.supportTickets.length === 0 ? (
-            <Empty text="No hay tickets en esta vista." />
-          ) : (
-            model.supportTickets.map((ticket) => (
-              <button
-                className={`admin-web-support-ticket${selected?.id === ticket.id ? " is-selected" : ""}`}
-                key={ticket.id}
-                type="button"
-                onClick={() => void model.openSupportTicket(ticket.id)}
-              >
-                <span className="admin-web-support-ticket__top">
-                  <strong>{ticket.subject}</strong>
-                  <span>{statusLabel(ticket.status)}</span>
-                </span>
-                <small>{contextLine(ticket)}</small>
-                <span className="admin-web-support-ticket__meta">
-                  <span>{ticket.priority}</span>
-                  <time>{dateText(ticket.updated_at)}</time>
-                </span>
-              </button>
-            ))
-          )}
+        <div className="admin-web-support-ticket-list-scroll" role="region" aria-label="Lista de tickets de soporte admin" tabIndex={0}>
+          <div className="admin-web-support-list" aria-label="Tickets de soporte">
+            {model.supportTickets.length === 0 ? (
+              <Empty text="No hay tickets en esta vista." />
+            ) : (
+              model.supportTickets.map((ticket) => (
+                <button
+                  className={`admin-web-support-ticket${selected?.id === ticket.id ? " is-selected" : ""}`}
+                  key={ticket.id}
+                  type="button"
+                  onClick={() => void model.openSupportTicket(ticket.id)}
+                >
+                  <span className="admin-web-support-ticket__top">
+                    <strong>{ticket.subject}</strong>
+                    <span>{statusLabel(ticket.status)}</span>
+                  </span>
+                  <small>{contextLine(ticket)}</small>
+                  <span className="admin-web-support-ticket__meta">
+                    <span>{ticket.priority}</span>
+                    <time>{dateText(ticket.updated_at)}</time>
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
         {model.supportTicketsNextCursor ? (
           <button
@@ -233,47 +240,49 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
               )}
             </div>
 
-            <div className="admin-web-support-chat" aria-label="Conversacion de soporte">
-              {selected.messages_next_cursor ? (
-                <button
-                  className="admin-web-button"
-                  type="button"
-                  disabled={model.supportMessagesLoadingMore}
-                  onClick={() => void model.loadMoreSupportMessages()}
-                >
-                  {model.supportMessagesLoadingMore ? "Cargando..." : "Cargar mensajes anteriores"}
-                </button>
-              ) : null}
-              {selectedMessages.length === 0 ? (
-                <Empty text="Este ticket aun no tiene mensajes." />
-              ) : (
-                selectedMessages.map((message) => {
-                  const pending = isOptimisticMessage(message);
-                  return (
-                    <article className={`admin-web-support-message${isAdminMessage(message.sender_role) ? " admin-web-support-message--admin" : ""}${pending ? " admin-web-support-message--pending" : ""}`} key={message.id}>
-                      <span>
-                        <strong>{isAdminMessage(message.sender_role) ? "Soporte NODO" : message.sender_role}</strong>
-                        {pending ? <em>Enviando...</em> : <time>{dateText(message.created_at)}</time>}
-                      </span>
-                      <p>{message.body}</p>
-                      {(message.attachments || []).length > 0 ? (
-                        <div className="admin-web-support-attachments">
-                          {(message.attachments || []).map((file) => (
-                            <span className="admin-web-support-attachment-actions" key={file.id}>
-                              <button className="admin-web-link" type="button" onClick={() => void model.openSupportAttachment(file.id, model.reason || "admin_support_review", "view")}>
-                                Abrir {attachmentLabel(file.mime_type)}
-                              </button>
-                              <button className="admin-web-link" type="button" onClick={() => void model.openSupportAttachment(file.id, model.reason || "admin_support_review", "download")}>
-                                Descargar
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </article>
-                  );
-                })
-              )}
+            <div className="admin-web-support-thread-scroll" role="region" aria-label="Conversacion del ticket de soporte admin" tabIndex={0}>
+              <div className="admin-web-support-chat" aria-label="Conversacion de soporte">
+                {selected.messages_next_cursor ? (
+                  <button
+                    className="admin-web-button"
+                    type="button"
+                    disabled={model.supportMessagesLoadingMore}
+                    onClick={() => void model.loadMoreSupportMessages()}
+                  >
+                    {model.supportMessagesLoadingMore ? "Cargando..." : "Cargar mensajes anteriores"}
+                  </button>
+                ) : null}
+                {selectedMessages.length === 0 ? (
+                  <Empty text="Este ticket aun no tiene mensajes." />
+                ) : (
+                  selectedMessages.map((message) => {
+                    const pending = isOptimisticMessage(message);
+                    return (
+                      <article className={`admin-web-support-message${isAdminMessage(message.sender_role) ? " admin-web-support-message--admin" : ""}${pending ? " admin-web-support-message--pending" : ""}`} key={message.id}>
+                        <span>
+                          <strong>{isAdminMessage(message.sender_role) ? "Soporte NODO" : message.sender_role}</strong>
+                          {pending ? <em>Enviando...</em> : <time>{dateText(message.created_at)}</time>}
+                        </span>
+                        <p>{message.body}</p>
+                        {(message.attachments || []).length > 0 ? (
+                          <div className="admin-web-support-attachments">
+                            {(message.attachments || []).map((file) => (
+                              <span className="admin-web-support-attachment-actions" key={file.id}>
+                                <button className="admin-web-link" type="button" onClick={() => void model.openSupportAttachment(file.id, model.reason || "admin_support_review", "view")}>
+                                  Abrir {attachmentLabel(file.mime_type)}
+                                </button>
+                                <button className="admin-web-link" type="button" onClick={() => void model.openSupportAttachment(file.id, model.reason || "admin_support_review", "download")}>
+                                  Descargar
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             <div className="admin-web-support-composer">

@@ -1,8 +1,17 @@
 from __future__ import annotations
 
 from threading import RLock
+from uuid import UUID
 
 from app.core.errors import ApiError
+from app.modules.business_intake.admin_list_priority import (
+    decode_intake_list_cursor,
+    encode_intake_list_cursor,
+    intake_is_after_cursor,
+    normalize_readiness_filter,
+    priority_for_ready,
+)
+from app.modules.business_intake.intake_requirements import intake_review_metadata
 from app.modules.business_intake.memory_conversation import InMemoryBusinessIntakeConversationMixin
 from app.modules.business_intake.memory_documents import InMemoryBusinessIntakeDocumentsMixin
 from app.modules.business_intake.models import (
@@ -66,13 +75,56 @@ class InMemoryBusinessIntakeRepository(InMemoryBusinessIntakeConversationMixin, 
             intake.updated_at = now
             return intake
 
-    def list_intakes(self, *, status: str | None, cursor: str | None, limit: int) -> tuple[list[BusinessIntakeRequestRecord], str | None]:
-        items = [intake for intake in self.intakes.values() if status is None or intake.status == status]
-        items.sort(key=lambda item: item.created_at, reverse=True)
-        if cursor:
-            items = [item for item in items if item.created_at.isoformat() < cursor]
-        page = items[:limit]
-        next_cursor = page[-1].created_at.isoformat() if len(page) == limit else None
+    def _document_count_for_intake(self, intake_id: str) -> int:
+        return sum(
+            1
+            for document in self.documents.values()
+            if document.resource_type == "business_intake" and document.resource_id == intake_id and document.deleted_at is None
+        )
+
+    def _with_review_metadata(self, intake: BusinessIntakeRequestRecord) -> BusinessIntakeRequestRecord:
+        ready, missing_count = intake_review_metadata(intake, document_count=self._document_count_for_intake(intake.id))
+        intake.ready_for_review = ready
+        intake.review_missing_count = missing_count
+        return intake
+
+    def list_intakes(self, *, status: str | None, cursor: str | None, limit: int, readiness: str | None = None) -> tuple[list[BusinessIntakeRequestRecord], str | None]:
+        readiness_filter = normalize_readiness_filter(readiness)
+        items = [self._with_review_metadata(intake) for intake in self.intakes.values() if status is None or intake.status == status]
+        if readiness_filter == "ready":
+            items = [item for item in items if item.ready_for_review is True]
+        elif readiness_filter == "needs_info":
+            items = [item for item in items if item.ready_for_review is not True]
+        items.sort(
+            key=lambda item: (
+                priority_for_ready(item.ready_for_review is True),
+                -item.created_at.timestamp(),
+                -UUID(item.id).int,
+            )
+        )
+        position = decode_intake_list_cursor(cursor) if cursor else None
+        if position:
+            items = [
+                item
+                for item in items
+                if intake_is_after_cursor(
+                    priority=priority_for_ready(item.ready_for_review is True),
+                    created_at=item.created_at,
+                    item_id=item.id,
+                    cursor=position,
+                )
+            ]
+        window = items[: limit + 1]
+        page = window[:limit]
+        next_cursor = (
+            encode_intake_list_cursor(
+                priority=priority_for_ready(page[-1].ready_for_review is True),
+                created_at=page[-1].created_at,
+                item_id=page[-1].id,
+            )
+            if len(window) > limit
+            else None
+        )
         return page, next_cursor
 
     def review(self, *, intake: BusinessIntakeRequestRecord, status: str, admin_user_id: str, reason: str) -> BusinessIntakeRequestRecord:

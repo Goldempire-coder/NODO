@@ -56,10 +56,20 @@ export function InvestigationSearch({ model }: { model: AdminWebModel }) {
           onChange={(event) => model.setInvestigationQuery(event.target.value)}
           placeholder="Ej. telefono, NODO-AB12CD34, @usuario, REF..."
         />
-        <button type="submit">Buscar</button>
+        <div className="admin-web-investigation-search__actions">
+          <button type="submit">Buscar</button>
+          <button
+            disabled={!model.investigationQuery && !model.investigationSearched}
+            type="button"
+            onClick={model.clearInvestigationSearch}
+          >
+            Limpiar busqueda
+          </button>
+        </div>
       </form>
       {model.investigationSearched && total === 0 ? <Empty text="No encontramos resultados con esa pista." /> : null}
-      <div className="admin-web-investigation-groups">
+      <div className="admin-web-investigation-results-scroll" role="region" aria-label="Resultados de busqueda admin" tabIndex={0}>
+        <div className="admin-web-investigation-groups">
         {GROUPS.map((group) => {
           const items = model.investigationResults.groups[group.key];
           if (!items.length) {
@@ -74,6 +84,7 @@ export function InvestigationSearch({ model }: { model: AdminWebModel }) {
             </div>
           );
         })}
+        </div>
       </div>
     </section>
   );

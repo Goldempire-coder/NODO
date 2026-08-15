@@ -39,6 +39,8 @@ export type AdminBusinessIntakeSummary = {
   admin_reason?: string | null;
   created_business_id?: string | null;
   linked_telegram_user_id?: number | null;
+  ready_for_review?: boolean;
+  review_missing_count?: number;
 };
 
 export type AdminBusinessIntakeEditDraft = {

@@ -49,8 +49,9 @@ export function AdminOrderChatEvidencePanel({ model }: { model: AdminWebModel })
       ) : null}
 
       {evidence?.items.length ? (
-        <div className="admin-order-chat-evidence__messages" role="log" aria-live="polite">
-          {evidence.items.map((message) => (
+        <div className="admin-order-chat-evidence__messages" role="region" aria-label="Historial del chat de la orden" tabIndex={0}>
+          <div className="admin-order-chat-evidence__message-log" role="log" aria-live="polite">
+            {evidence.items.map((message) => (
             <article
               className={messageClass(message)}
               key={message.message_id}
@@ -72,7 +73,8 @@ export function AdminOrderChatEvidencePanel({ model }: { model: AdminWebModel })
                 </div>
               ) : null}
             </article>
-          ))}
+            ))}
+          </div>
         </div>
       ) : null}
 

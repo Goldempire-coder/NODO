@@ -53,11 +53,13 @@ function mergeSection(
 
 export function useAdminInvestigationCaseFileModel({
   handlers,
+  pushBackView,
   request,
   setNotice,
   setView
 }: {
   handlers: CaseFileHandlers;
+  pushBackView: (view: AdminWebView) => void;
   request: RequestFn;
   setNotice: (notice: string) => void;
   setView: (view: AdminWebView) => void;
@@ -142,17 +144,22 @@ export function useAdminInvestigationCaseFileModel({
     }
     const [, type, id] = match;
     if (type === "user") {
+      pushBackView("case-file");
       await handlers.openUser(id);
     } else if (type === "business") {
+      pushBackView("case-file");
       await handlers.openBusiness(id);
     } else if (type === "business-intake") {
+      pushBackView("case-file");
       await handlers.openBusinessIntake(id);
     } else if (type === "order") {
+      pushBackView("case-file");
       await handlers.openOrder(id);
     } else {
+      pushBackView("case-file");
       await handlers.openSupportTicket(id);
     }
-  }, [handlers, setNotice]);
+  }, [handlers, pushBackView, setNotice]);
 
   return {
     caseFile,

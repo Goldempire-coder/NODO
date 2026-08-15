@@ -85,6 +85,13 @@ function editPayload(draft: AdminBusinessIntakeEditDraft, submitForReview: boole
   return payload;
 }
 
+export type IntakeReadinessFilter = "all" | "ready" | "needs_info";
+
+function mergeIntakes(current: AdminBusinessIntakeSummary[], incoming: AdminBusinessIntakeSummary[]) {
+  const seen = new Set(current.map((item) => item.id));
+  return [...current, ...incoming.filter((item) => !seen.has(item.id))];
+}
+
 export function useAdminBusinessIntakesModel({
   adminMutable,
   queueCriticalAction,
@@ -105,27 +112,55 @@ export function useAdminBusinessIntakesModel({
   setView: (view: BusinessIntakeView) => void;
 }) {
   const [businessIntakes, setBusinessIntakes] = useState<AdminBusinessIntakeSummary[]>([]);
+  const [businessIntakesNextCursor, setBusinessIntakesNextCursor] = useState<string | null>(null);
   const [selectedBusinessIntake, setSelectedBusinessIntake] = useState<AdminBusinessIntakeDetail | null>(null);
   const [intakeFilter, setIntakeFilter] = useState("submitted");
+  const [intakeReadinessFilter, setIntakeReadinessFilter] = useState<IntakeReadinessFilter>("all");
   const [intakePublicBusinessName, setIntakePublicBusinessName] = useState("");
   const [intakeEditDraft, setIntakeEditDraft] = useState<AdminBusinessIntakeEditDraft>(() => editDraftFromIntake({ id: "", status: "", last_step: "", created_at: "", updated_at: "" }));
 
-  const loadBusinessIntakes = useCallback(async (status = intakeFilter) => {
+  const loadBusinessIntakes = useCallback(async (status = intakeFilter, readiness = intakeReadinessFilter) => {
     const normalizedStatus = status.trim().toLowerCase() || "submitted";
+    const normalizedReadiness = readiness || "all";
     setBusy(true);
     try {
-      const data = await listAdminBusinessIntakes<ListResponse<AdminBusinessIntakeSummary>>(request, normalizedStatus);
+      const data = await listAdminBusinessIntakes<ListResponse<AdminBusinessIntakeSummary>>(request, normalizedStatus, normalizedReadiness);
       setBusinessIntakes(data.items);
+      setBusinessIntakesNextCursor(data.next_cursor);
       setIntakeFilter(normalizedStatus);
+      setIntakeReadinessFilter(normalizedReadiness);
       setView("intake");
       setNotice(data.items.length ? "Solicitudes de negocio cargadas." : "No hay solicitudes para ese filtro.");
     } catch (error) {
       setBusinessIntakes([]);
+      setBusinessIntakesNextCursor(null);
       setNotice(error instanceof Error ? error.message : "No se pudo cargar solicitudes de negocio.");
     } finally {
       setBusy(false);
     }
-  }, [intakeFilter, request, setBusy, setNotice, setView]);
+  }, [intakeFilter, intakeReadinessFilter, request, setBusy, setNotice, setView]);
+
+  const loadMoreBusinessIntakes = useCallback(async () => {
+    if (!businessIntakesNextCursor) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const data = await listAdminBusinessIntakes<ListResponse<AdminBusinessIntakeSummary>>(
+        request,
+        intakeFilter,
+        intakeReadinessFilter,
+        businessIntakesNextCursor
+      );
+      setBusinessIntakes((current) => mergeIntakes(current, data.items));
+      setBusinessIntakesNextCursor(data.next_cursor);
+      setNotice(data.items.length ? "Mas solicitudes cargadas." : "No hay mas solicitudes para este filtro.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudieron cargar mas solicitudes.");
+    } finally {
+      setBusy(false);
+    }
+  }, [businessIntakesNextCursor, intakeFilter, intakeReadinessFilter, request, setBusy, setNotice]);
 
   const openBusinessIntake = useCallback(async (intakeId: string) => {
     setBusy(true);
@@ -313,18 +348,22 @@ export function useAdminBusinessIntakesModel({
   return {
     approveBusinessFromIntake,
     businessIntakes,
+    businessIntakesNextCursor,
     createBusinessFromIntake,
     deleteBusinessIntake,
     intakeFilter,
+    intakeReadinessFilter,
     intakeEditDraft,
     intakePublicBusinessName,
     loadBusinessIntakes,
+    loadMoreBusinessIntakes,
     openBusinessIntake,
     openBusinessIntakeDocument,
     saveBusinessIntakeManual,
     selectedBusinessIntake,
     setIntakeEditDraft,
     setIntakeFilter,
+    setIntakeReadinessFilter,
     setIntakePublicBusinessName
   };
 }

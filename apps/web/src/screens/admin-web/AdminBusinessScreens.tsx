@@ -48,7 +48,7 @@ export function Businesses({ model }: { model: AdminWebModel }) {
         </label>
         <button type="button" onClick={() => void model.loadPendingBusinesses()}>Pendientes</button>
       </form>
-      <div className="admin-web-businesses-list-scroll">
+      <div className="admin-web-businesses-list-scroll" role="region" aria-label="Lista de negocios admin" tabIndex={0}>
         <Table headers={["Negocio", "Estado", "Riesgo", "Creado", ""]}>
           {model.businesses.map((item) => (
             <tr key={item.id}>
@@ -79,6 +79,11 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
   };
   return (
     <section className="admin-web-split">
+      {model.adminCanGoBack ? (
+        <div className="admin-web-detail-backbar span-2">
+          <button type="button" onClick={() => model.goBackAdminView()}>{model.adminBackLabel}</button>
+        </div>
+      ) : null}
       <div className="admin-web-panel">
         <h2>A-03 Detalle negocio</h2>
         <div className="admin-web-copy-box">

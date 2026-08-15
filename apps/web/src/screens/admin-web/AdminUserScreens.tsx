@@ -43,7 +43,7 @@ export function Users({ model }: { model: AdminWebModel }) {
           <input value={model.userFilters.status} onChange={(event) => model.setUserFilters({ ...model.userFilters, status: event.target.value })} placeholder="active, restricted..." />
         </label>
       </form>
-      <div className="admin-web-users-list-scroll">
+      <div className="admin-web-users-list-scroll" role="region" aria-label="Lista de clientes admin" tabIndex={0}>
         <Table headers={["Cliente", "Telefono", "Telegram", "Estado", "Ultima vez", ""]}>
           {model.users.map((item) => {
             const contact = userContact(item);
@@ -76,6 +76,11 @@ export function UserDetail({ model }: { model: AdminWebModel }) {
   const contact = userContact(detail.user);
   return (
     <section className="admin-web-split">
+      {model.adminCanGoBack ? (
+        <div className="admin-web-detail-backbar span-2">
+          <button type="button" onClick={() => model.goBackAdminView()}>{model.adminBackLabel}</button>
+        </div>
+      ) : null}
       <div className="admin-web-panel">
         <h2>Detalle cliente</h2>
         <dl className="admin-web-dl">

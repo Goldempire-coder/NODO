@@ -4,23 +4,25 @@ import { Empty, Header, ReasonBox, Table } from "./AdminWebPrimitives";
 
 export function CreditPurchases({ model }: { model: AdminWebModel }) {
   return (
-    <section className="admin-web-panel">
+    <section className="admin-web-panel admin-web-credit-purchases-panel">
       <Header title="A-04 Pagos de creditos" action={<button onClick={() => void model.loadCreditPurchases(model.creditFilter)} type="button">Aplicar filtro</button>} />
       <div className="admin-web-toolbar">
         <label><span>Status</span><input value={model.creditFilter} onChange={(event) => model.setCreditFilter(event.target.value)} /></label>
         <button type="button" onClick={() => model.setView("credit-adjustments")}>Ajuste manual</button>
       </div>
-      <Table headers={["Business", "Paquete", "Creditos", "Status", ""]}>
-        {model.creditPurchases.map((item: CreditPurchase) => (
-          <tr key={item.id}>
-            <td>{item.business_id}</td>
-            <td>{item.package_code}</td>
-            <td>{item.credits_amount}</td>
-            <td>{item.status}</td>
-            <td><button type="button" onClick={() => { model.setSelectedCreditPurchase(item); model.setView("credit-detail"); }}>Detalle</button></td>
-          </tr>
-        ))}
-      </Table>
+      <div className="admin-web-credit-purchases-list-scroll" role="region" aria-label="Lista de compras de creditos admin" tabIndex={0}>
+        <Table headers={["Business", "Paquete", "Creditos", "Status", ""]}>
+          {model.creditPurchases.map((item: CreditPurchase) => (
+            <tr key={item.id}>
+              <td>{item.business_id}</td>
+              <td>{item.package_code}</td>
+              <td>{item.credits_amount}</td>
+              <td>{item.status}</td>
+              <td><button type="button" onClick={() => { model.setSelectedCreditPurchase(item); model.setView("credit-detail"); }}>Detalle</button></td>
+            </tr>
+          ))}
+        </Table>
+      </div>
       {model.creditPurchases.length === 0 ? <Empty text="Sin compras de creditos para ese filtro." /> : null}
     </section>
   );

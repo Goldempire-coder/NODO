@@ -100,10 +100,10 @@ class BusinessIntakeAdminActions(
         business_slug = "-".join(part for part in business_slug.split("-") if part)[:48] or "solicitud"
         return f"nodo-intake-{business_slug}-{document.document_kind}.{extension}"
 
-    def list(self, *, user: UserRecord, status: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
+    def list(self, *, user: UserRecord, status: str | None, readiness: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
         require_admin_read(user)
         self._rate_limit("admin_list", user.id)
-        items, next_cursor = self._repository.list_intakes(status=status, cursor=cursor, limit=limit)
+        items, next_cursor = self._repository.list_intakes(status=status, readiness=readiness, cursor=cursor, limit=limit)
         return {"items": [self._public_intake(item) for item in items], "next_cursor": next_cursor}
 
     def detail(self, *, user: UserRecord, intake_id: str, request_id: str) -> dict[str, Any]:

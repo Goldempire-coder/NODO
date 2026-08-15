@@ -185,11 +185,13 @@ Audit: `business_intake_document_uploaded`.
 
 Query:
 - `status`
+- `readiness`: `all` (default), `ready`, `needs_info`. `all` conserva todas las solicitudes del filtro y ordena primero las listas para revision.
 - `cursor`
 - `limit` 1..50
 
 Response:
 - Cursor pagination con datos enmascarados.
+- Las respuestas Admin pueden incluir `ready_for_review` y `review_missing_count` como senal operativa para priorizar revision. No reemplazan los checks de aprobacion del backend.
 
 ### GET /api/v1/admin/business-intake/{id}
 

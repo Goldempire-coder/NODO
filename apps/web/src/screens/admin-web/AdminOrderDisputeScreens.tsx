@@ -18,7 +18,7 @@ export function Orders({ model }: { model: AdminWebModel }) {
         <label><span>Status</span><input value={model.orderFilter} onChange={(event) => model.setOrderFilter(event.target.value)} placeholder="disputed, delivered..." /></label>
         <label><span>Codigo de orden</span><input value={model.orderCodeFilter} onChange={(event) => model.setOrderCodeFilter(event.target.value)} placeholder="NODO-7C25CBC6" /></label>
       </form>
-      <div className="admin-web-orders-list-scroll">
+      <div className="admin-web-orders-list-scroll" role="region" aria-label="Lista de ordenes admin" tabIndex={0}>
         <Table headers={["Codigo", "Status", "Monto", "Metodo", ""]}>
           {model.orders.map((item: AdminOrderSummary) => (
             <tr key={item.id}>
@@ -52,6 +52,11 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
   );
   return (
     <>
+      {model.adminCanGoBack ? (
+        <div className="admin-web-detail-backbar">
+          <button type="button" onClick={() => model.goBackAdminView()}>{model.adminBackLabel}</button>
+        </div>
+      ) : null}
       {order?.status === "payment_rejected" ? (
         <section className="admin-web-panel admin-web-order-resolution">
           <div className="admin-web-order-resolution__header">
@@ -126,22 +131,24 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
 
 export function Disputes({ model }: { model: AdminWebModel }) {
   return (
-    <section className="admin-web-panel">
+    <section className="admin-web-panel admin-web-disputes-panel">
       <Header title="A-06 Disputas" action={<button onClick={() => void model.loadDisputes(model.disputeFilter)} type="button">Aplicar filtro</button>} />
       <div className="admin-web-toolbar">
         <label><span>Status</span><input value={model.disputeFilter} onChange={(event) => model.setDisputeFilter(event.target.value)} placeholder="open, in_review..." /></label>
       </div>
-      <Table headers={["Orden", "Status", "Motivo", "Creada", ""]}>
-        {model.disputes.map((item: AdminDisputeSummary) => (
-          <tr key={item.id}>
-            <td>{item.order_id}</td>
-            <td>{item.status}</td>
-            <td>{item.reason}</td>
-            <td>{dateText(item.created_at)}</td>
-            <td><button type="button" onClick={() => void model.openDispute(item.id)}>Abrir</button></td>
-          </tr>
-        ))}
-      </Table>
+      <div className="admin-web-disputes-list-scroll" role="region" aria-label="Lista de disputas admin" tabIndex={0}>
+        <Table headers={["Orden", "Status", "Motivo", "Creada", ""]}>
+          {model.disputes.map((item: AdminDisputeSummary) => (
+            <tr key={item.id}>
+              <td>{item.order_id}</td>
+              <td>{item.status}</td>
+              <td>{item.reason}</td>
+              <td>{dateText(item.created_at)}</td>
+              <td><button type="button" onClick={() => void model.openDispute(item.id)}>Abrir</button></td>
+            </tr>
+          ))}
+        </Table>
+      </div>
       {model.disputes.length === 0 ? <Empty text="No hay disputas para ese filtro." /> : null}
       {model.disputesNextCursor ? (
         <button className="admin-web-button" disabled={model.disputesLoadingMore} type="button" onClick={() => void model.loadMoreDisputes()}>

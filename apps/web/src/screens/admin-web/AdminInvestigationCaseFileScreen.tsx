@@ -61,7 +61,9 @@ export function AdminInvestigationCaseFileScreen({ model }: { model: AdminWebMod
       <section className="admin-web-panel">
         <Header title="Ficha de investigacion" />
         <Empty text="No hay una ficha cargada." />
-        <button type="button" onClick={() => model.setView("investigation")}>Volver a buscar</button>
+        <button type="button" onClick={() => (model.adminCanGoBack ? model.goBackAdminView() : model.setView("investigation"))}>
+          Volver a buscar
+        </button>
       </section>
     );
   }
@@ -70,7 +72,11 @@ export function AdminInvestigationCaseFileScreen({ model }: { model: AdminWebMod
     <section className="admin-web-panel admin-case-file" data-read-only={readOnly}>
       <Header
         title={file.anchor.title}
-        action={<button type="button" onClick={() => model.setView("investigation")}>Volver</button>}
+        action={(
+          <button type="button" onClick={() => (model.adminCanGoBack ? model.goBackAdminView() : model.setView("investigation"))}>
+            {model.adminBackLabel}
+          </button>
+        )}
       />
       <div className="admin-case-file-summary">
         <div><span>Estado</span><strong>{file.anchor.status || "-"}</strong></div>

@@ -49,6 +49,10 @@ def public_intake_payload(intake: BusinessIntakeRequestRecord, *, admin: bool = 
             "created_business_id": intake.created_business_id,
             "linked_telegram_user_id": intake.linked_telegram_user_id,
         }
+        if intake.ready_for_review is not None:
+            payload["ready_for_review"] = intake.ready_for_review
+        if intake.review_missing_count is not None:
+            payload["review_missing_count"] = intake.review_missing_count
     return payload
 
 

@@ -18,6 +18,7 @@ def test_admin_orders_screen_has_code_filter_and_internal_scroll() -> None:
     assert "setOrderCodeFilter" in screen
     assert 'placeholder="NODO-7C25CBC6"' in screen
     assert "admin-web-orders-list-scroll" in screen
+    assert 'aria-label="Lista de ordenes admin"' in screen
     assert "admin-web-orders-list-actions" in screen
     assert "public_order_code" in api
     assert "orderCodeFilter" in model
@@ -25,6 +26,78 @@ def test_admin_orders_screen_has_code_filter_and_internal_scroll() -> None:
     assert ".admin-web-orders-list-scroll" in css
     assert "overflow-y: auto" in css
     assert ".admin-web-orders-panel" in css
+
+
+def test_admin_disputes_screen_has_internal_scroll() -> None:
+    screen = _read("apps/web/src/screens/admin-web/AdminOrderDisputeScreens.tsx")
+    css = _read("apps/web/src/app/admin-web.css")
+
+    assert "admin-web-disputes-panel" in screen
+    assert "admin-web-disputes-list-scroll" in screen
+    assert 'aria-label="Lista de disputas admin"' in screen
+    assert ".admin-web-disputes-panel" in css
+    assert ".admin-web-disputes-list-scroll" in css
+    assert ".admin-web-disputes-list-scroll:focus-visible" in css
+    assert ".admin-web-disputes-list-scroll .admin-web-table th" in css
+
+
+def test_admin_credit_purchases_screen_has_internal_scroll() -> None:
+    screen = _read("apps/web/src/screens/admin-web/AdminCreditScreens.tsx")
+    css = _read("apps/web/src/app/admin-web.css")
+
+    assert "admin-web-credit-purchases-panel" in screen
+    assert "admin-web-credit-purchases-list-scroll" in screen
+    assert 'aria-label="Lista de compras de creditos admin"' in screen
+    assert ".admin-web-credit-purchases-panel" in css
+    assert ".admin-web-credit-purchases-list-scroll" in css
+    assert ".admin-web-credit-purchases-list-scroll:focus-visible" in css
+    assert ".admin-web-credit-purchases-list-scroll .admin-web-table th" in css
+
+
+def test_admin_audit_logs_screen_has_internal_scroll() -> None:
+    screen = _read("apps/web/src/screens/admin-web/AdminAuditScreens.tsx")
+    css = _read("apps/web/src/app/admin-web.css")
+
+    assert "admin-web-audit-logs-panel" in screen
+    assert "admin-web-audit-logs-list-scroll" in screen
+    assert 'aria-label="Lista de audit logs admin"' in screen
+    assert ".admin-web-audit-logs-panel" in css
+    assert ".admin-web-audit-logs-list-scroll" in css
+    assert ".admin-web-audit-logs-list-scroll:focus-visible" in css
+    assert ".admin-web-audit-logs-list-scroll .admin-web-table th" in css
+
+
+def test_admin_business_intake_screen_has_internal_scroll() -> None:
+    screen = _read("apps/web/src/screens/admin-web/AdminBusinessIntakeScreens.tsx")
+    model = _read("apps/web/src/hooks/admin-web/useAdminBusinessIntakesModel.ts")
+    api = _read("apps/web/src/api/admin.ts")
+    css = _read("apps/web/src/app/admin-web.css")
+
+    assert "admin-web-business-intake-panel" in screen
+    assert "admin-web-business-intake-list-scroll" in screen
+    assert 'aria-label="Lista de intake de negocios admin"' in screen
+    assert "intakeReadinessFilter" in screen
+    assert "setIntakeReadinessFilter" in screen
+    assert "businessIntakesNextCursor" in screen
+    assert "loadMoreBusinessIntakes" in screen
+    assert "Cargar mas" in screen
+    assert "Listas primero" in screen
+    assert "Solo listas" in screen
+    assert "Faltan datos" in screen
+    assert "ready_for_review" in screen
+    assert "review_missing_count" in screen
+    assert "intakeReadinessFilter" in model
+    assert "setIntakeReadinessFilter" in model
+    assert "businessIntakesNextCursor" in model
+    assert "loadMoreBusinessIntakes" in model
+    assert "readiness" in api
+    assert "cursor" in api
+    assert ".admin-web-business-intake-panel" in css
+    assert ".admin-web-business-intake-list-scroll" in css
+    assert ".admin-web-intake-ready" in css
+    assert ".admin-web-intake-missing" in css
+    assert ".admin-web-business-intake-list-scroll:focus-visible" in css
+    assert ".admin-web-business-intake-list-scroll .admin-web-table th" in css
 
 
 def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() -> None:
@@ -40,12 +113,14 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert "setBusinessSearchFilter" in businesses
     assert 'placeholder="ID o nombre del negocio"' in businesses
     assert "admin-web-businesses-list-scroll" in businesses
+    assert 'aria-label="Lista de negocios admin"' in businesses
     assert "business_id" in api
     assert "business_name" in api
     assert "businessSearchFilter" in business_model
     assert "businessSearchFilter" in web_model
 
     assert "admin-web-users-list-scroll" in users
+    assert 'aria-label="Lista de clientes admin"' in users
     assert "revealUserPhone" in users
     assert "Ver telefono" in users
     assert "phone/reveal" in api
@@ -63,3 +138,4 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert "revealUserPhone" in web_model
     assert ".admin-web-businesses-list-scroll" in css
     assert ".admin-web-users-list-scroll" in css
+    assert ".admin-web-businesses-list-scroll:focus-visible" in css

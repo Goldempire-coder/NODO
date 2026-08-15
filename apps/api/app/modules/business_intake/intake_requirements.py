@@ -27,14 +27,27 @@ def missing_required_intake_fields(
     *,
     documents: Sequence[BusinessIntakeDocumentRecord],
 ) -> list[str]:
+    return missing_required_intake_field_labels(intake, document_count=len(documents))
+
+
+def missing_required_intake_field_labels(
+    intake: BusinessIntakeRequestRecord,
+    *,
+    document_count: int,
+) -> list[str]:
     missing: list[str] = []
     for field_name, label in REQUIRED_INTAKE_FIELDS:
         value: Any = getattr(intake, field_name)
         if value is None or value == "" or value == []:
             missing.append(label)
-    if not documents:
+    if document_count <= 0:
         missing.append("documentos")
     return missing
+
+
+def intake_review_metadata(intake: BusinessIntakeRequestRecord, *, document_count: int) -> tuple[bool, int]:
+    missing = missing_required_intake_field_labels(intake, document_count=document_count)
+    return len(missing) == 0, len(missing)
 
 
 def ensure_intake_ready_for_review(

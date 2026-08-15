@@ -75,6 +75,8 @@ class BusinessIntakeRequestRecord:
     created_at: datetime = field(default_factory=utc_now)
     updated_at: datetime = field(default_factory=utc_now)
     archived_at: datetime | None = None
+    ready_for_review: bool | None = None
+    review_missing_count: int | None = None
 
 
 @dataclass

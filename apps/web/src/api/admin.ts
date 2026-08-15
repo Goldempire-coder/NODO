@@ -380,10 +380,17 @@ export function listAdminJobRuns<T>(request: AuthenticatedRequest) {
   return request<T>("/api/v1/admin/jobs/runs?limit=20");
 }
 
-export function listAdminBusinessIntakes<T>(request: AuthenticatedRequest, status?: string) {
+export function listAdminBusinessIntakes<T>(request: AuthenticatedRequest, status?: string, readiness?: "all" | "ready" | "needs_info", cursor?: string | null) {
   const normalizedStatus = status?.trim().toLowerCase();
   const filter = normalizedStatus && normalizedStatus !== "all" ? normalizedStatus : undefined;
-  return request<T>(`/api/v1/admin/business-intake?${listParams(20, "status", filter)}`);
+  const params = new URLSearchParams({ limit: "20", readiness: readiness || "all" });
+  if (filter) {
+    params.set("status", filter);
+  }
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return request<T>(`/api/v1/admin/business-intake?${params.toString()}`);
 }
 
 export function getAdminBusinessIntake<T>(request: AuthenticatedRequest, intakeId: string) {

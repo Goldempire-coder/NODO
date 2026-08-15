@@ -42,9 +42,18 @@ function documentKindLabel(kind?: string | null) {
   }
 }
 
+function readinessText(item: AdminBusinessIntakeSummary) {
+  if (item.ready_for_review) {
+    return "Lista";
+  }
+  const missing = item.review_missing_count || 0;
+  return missing > 0 ? `Faltan ${missing}` : "Faltan datos";
+}
+
 function reviewChecklist(detail: AdminBusinessIntakeDetail) {
   const intake = detail.intake;
   return [
+    { label: "Codigo invitacion", ok: Boolean(intake.referral_code) },
     { label: "WhatsApp recibido", ok: Boolean(intake.contact_phone || intake.contact_phone_masked) },
     { label: "Nombre del negocio", ok: Boolean(intake.business_name) },
     { label: "Responsable", ok: Boolean(intake.responsible_name) },
@@ -60,27 +69,44 @@ function reviewChecklist(detail: AdminBusinessIntakeDetail) {
 
 export function BusinessIntake({ model }: { model: AdminWebModel }) {
   return (
-    <section className="admin-web-panel">
+    <section className="admin-web-panel admin-web-business-intake-panel">
       <Header title="Intake de negocios" action={<button onClick={() => void model.loadBusinessIntakes(model.intakeFilter)} type="button">Aplicar filtro</button>} />
       <div className="admin-web-toolbar">
         <label><span>Filtro</span><input value={model.intakeFilter} onChange={(event) => model.setIntakeFilter(event.target.value)} placeholder="submitted o draft" /></label>
+        <label>
+          <span>Prioridad</span>
+          <select value={model.intakeReadinessFilter} onChange={(event) => model.setIntakeReadinessFilter(event.target.value as typeof model.intakeReadinessFilter)}>
+            <option value="all">Listas primero</option>
+            <option value="ready">Solo listas</option>
+            <option value="needs_info">Faltan datos</option>
+          </select>
+        </label>
         <button type="button" onClick={() => void model.loadBusinessIntakes("submitted")}>En revision</button>
+        <button type="button" onClick={() => void model.loadBusinessIntakes("submitted", "ready")}>Solo listas</button>
         <button type="button" onClick={() => void model.loadBusinessIntakes("draft")}>Borradores</button>
       </div>
-      <p className="admin-web-muted">Intake muestra negocios que estan intentando entrar. Los aprobados pasan a Negocios.</p>
-      <Table headers={["Solicitud", "Status", "Codigo", "WhatsApp", "Ciudad", "Fecha", ""]}>
-        {model.businessIntakes.map((item) => (
-          <tr key={item.id}>
-            <td>{intakeName(item)}</td>
-            <td>{item.status}</td>
-            <td>{item.referral_code || "-"}</td>
-            <td>{item.contact_phone || item.contact_phone_masked || "-"}</td>
-            <td>{item.city || "-"}</td>
-            <td>{dateText(item.submitted_at || item.updated_at || item.created_at)}</td>
-            <td><button type="button" onClick={() => void model.openBusinessIntake(item.id)}>Abrir</button></td>
-          </tr>
-        ))}
-      </Table>
+      <p className="admin-web-muted">Intake muestra negocios que estan intentando entrar. Las solicitudes completas salen primero; los aprobados pasan a Negocios.</p>
+      <div className="admin-web-business-intake-list-scroll" role="region" aria-label="Lista de intake de negocios admin" tabIndex={0}>
+        <Table headers={["Solicitud", "Status", "Prioridad", "Codigo", "WhatsApp", "Ciudad", "Fecha", ""]}>
+          {model.businessIntakes.map((item) => (
+            <tr key={item.id}>
+              <td>{intakeName(item)}</td>
+              <td>{item.status}</td>
+              <td><span className={item.ready_for_review ? "admin-web-intake-ready" : "admin-web-intake-missing"}>{readinessText(item)}</span></td>
+              <td>{item.referral_code || "-"}</td>
+              <td>{item.contact_phone || item.contact_phone_masked || "-"}</td>
+              <td>{item.city || "-"}</td>
+              <td>{dateText(item.submitted_at || item.updated_at || item.created_at)}</td>
+              <td><button type="button" onClick={() => void model.openBusinessIntake(item.id)}>Abrir</button></td>
+            </tr>
+          ))}
+        </Table>
+      </div>
+      {model.businessIntakesNextCursor ? (
+        <div className="admin-web-orders-list-actions">
+          <button type="button" onClick={() => void model.loadMoreBusinessIntakes()}>Cargar mas</button>
+        </div>
+      ) : null}
       {model.businessIntakes.length === 0 ? <Empty text="No hay solicitudes activas en este filtro." /> : null}
     </section>
   );
@@ -127,6 +153,11 @@ export function BusinessIntakeDetail({ model }: { model: AdminWebModel }) {
     : `No apruebes todavia. Faltan: ${missing.join(", ")}.`;
   return (
     <section className="admin-web-split admin-web-intake-layout">
+      {model.adminCanGoBack ? (
+        <div className="admin-web-detail-backbar span-2">
+          <button type="button" onClick={() => model.goBackAdminView()}>{model.adminBackLabel}</button>
+        </div>
+      ) : null}
       <div className="admin-web-panel admin-web-intake-column">
         <Header title="Solicitud de negocio" action={<button type="button" onClick={() => void model.loadBusinessIntakes(model.intakeFilter)}>Volver a solicitudes</button>} />
         <div className="admin-web-intake-scroll">

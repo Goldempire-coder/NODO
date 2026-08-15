@@ -1,5 +1,5 @@
 import type { AdminWebJobRun, AdminWebModel } from "../../hooks/useAdminWebModel";
-import { dateText, Empty, Header, Metric, ReasonBox, Table } from "./AdminWebPrimitives";
+import { dateText, Empty, Header, Metric, ReasonBox, ScrollableTable } from "./AdminWebPrimitives";
 
 function statusText(status?: string) {
   if (status === "healthy") {
@@ -49,7 +49,7 @@ export function IncidentConsole({ model }: { model: AdminWebModel }) {
       <div className="admin-web-panel span-2">
         <h3>Dependencias</h3>
         {checks.length ? (
-          <Table headers={["Componente", "Estado", "Detalle"]}>
+          <ScrollableTable label="Checks de dependencias" headers={["Componente", "Estado", "Detalle"]}>
             {checks.map(([name, check]) => (
               <tr key={name}>
                 <td>{name}</td>
@@ -57,7 +57,7 @@ export function IncidentConsole({ model }: { model: AdminWebModel }) {
                 <td>{check.message || check.code || "-"}</td>
               </tr>
             ))}
-          </Table>
+          </ScrollableTable>
         ) : <Empty text="Sin checks cargados." />}
       </div>
 
@@ -81,7 +81,7 @@ export function IncidentConsole({ model }: { model: AdminWebModel }) {
       <div className="admin-web-panel span-2">
         <h3>Jobs recientes con problemas</h3>
         {data?.jobs.recent_failed.length ? (
-          <Table headers={["Tipo", "Estado", "Error", "Fecha"]}>
+          <ScrollableTable label="Jobs recientes con problemas" headers={["Tipo", "Estado", "Error", "Fecha"]}>
             {data.jobs.recent_failed.map((item) => (
               <tr key={item.id}>
                 <td>{item.job_type}</td>
@@ -90,14 +90,14 @@ export function IncidentConsole({ model }: { model: AdminWebModel }) {
                 <td>{dateText(item.finished_at || item.created_at)}</td>
               </tr>
             ))}
-          </Table>
+          </ScrollableTable>
         ) : <Empty text="Sin jobs fallidos visibles." />}
       </div>
 
       <div className="admin-web-panel span-2">
         <h3>Notificaciones con problemas</h3>
         {notificationProblems.length ? (
-          <Table headers={["Tipo", "Estado", "Intentos", "Orden", "Error"]}>
+          <ScrollableTable label="Notificaciones con problemas" headers={["Tipo", "Estado", "Intentos", "Orden", "Error"]}>
             {notificationProblems.map((item) => (
               <tr key={item.id}>
                 <td>{item.notification_type}</td>
@@ -107,14 +107,14 @@ export function IncidentConsole({ model }: { model: AdminWebModel }) {
                 <td>{item.last_error_code || "-"}</td>
               </tr>
             ))}
-          </Table>
+          </ScrollableTable>
         ) : <Empty text="Sin notificaciones fallidas visibles." />}
       </div>
 
       <div className="admin-web-panel span-2">
         <h3>Actividad reciente</h3>
         {data?.recent_audit.length ? (
-          <Table headers={["Evento", "Actor", "Recurso", "Fecha"]}>
+          <ScrollableTable label="Actividad reciente" headers={["Evento", "Actor", "Recurso", "Fecha"]}>
             {data.recent_audit.map((item) => (
               <tr key={`${item.event_type}_${item.resource_id}_${item.created_at}`}>
                 <td>{item.event_type}</td>
@@ -123,7 +123,7 @@ export function IncidentConsole({ model }: { model: AdminWebModel }) {
                 <td>{dateText(item.created_at)}</td>
               </tr>
             ))}
-          </Table>
+          </ScrollableTable>
         ) : <Empty text="Sin actividad reciente." />}
       </div>
     </section>
@@ -151,7 +151,7 @@ export function UXFriction({ model }: { model: AdminWebModel }) {
       <div className="admin-web-panel span-2">
         <h3>Por superficie</h3>
         {data?.surfaces.length ? (
-          <Table headers={["Superficie", "Eventos", "Friccion", "Pantallas", "API fallas", "Lentos"]}>
+          <ScrollableTable label="UX por superficie" headers={["Superficie", "Eventos", "Friccion", "Pantallas", "API fallas", "Lentos"]}>
             {data.surfaces.map((item) => (
               <tr key={item.surface}>
                 <td>{item.surface}</td>
@@ -162,14 +162,14 @@ export function UXFriction({ model }: { model: AdminWebModel }) {
                 <td>{item.slow_events}</td>
               </tr>
             ))}
-          </Table>
+          </ScrollableTable>
         ) : <Empty text="Sin eventos por superficie." />}
       </div>
 
       <div className="admin-web-panel span-2">
         <h3>Pantallas con mas friccion</h3>
         {data?.top_screens.length ? (
-          <Table headers={["Pantalla", "Superficie", "Vistas", "Friccion", "Fallos", "p95 ms"]}>
+          <ScrollableTable label="Pantallas con mas friccion" headers={["Pantalla", "Superficie", "Vistas", "Friccion", "Fallos", "p95 ms"]}>
             {data.top_screens.map((item) => (
               <tr key={`${item.surface}_${item.screen}`}>
                 <td>{item.screen}</td>
@@ -180,14 +180,14 @@ export function UXFriction({ model }: { model: AdminWebModel }) {
                 <td>{item.p95_duration_ms ?? "-"}</td>
               </tr>
             ))}
-          </Table>
+          </ScrollableTable>
         ) : <Empty text="Sin pantallas con friccion." />}
       </div>
 
       <div className="admin-web-panel span-2">
         <h3>Acciones con problemas</h3>
         {data?.top_actions.length ? (
-          <Table headers={["Accion", "Superficie", "Inicios", "Completadas", "Fallidas", "Lentas", "p95 ms"]}>
+          <ScrollableTable label="Acciones con problemas" headers={["Accion", "Superficie", "Inicios", "Completadas", "Fallidas", "Lentas", "p95 ms"]}>
             {data.top_actions.map((item) => (
               <tr key={`${item.surface}_${item.action}`}>
                 <td>{item.action}</td>
@@ -199,14 +199,14 @@ export function UXFriction({ model }: { model: AdminWebModel }) {
                 <td>{item.p95_duration_ms ?? "-"}</td>
               </tr>
             ))}
-          </Table>
+          </ScrollableTable>
         ) : <Empty text="Sin acciones con problemas." />}
       </div>
 
       <div className="admin-web-panel span-2">
         <h3>Errores API visibles al usuario</h3>
         {data?.api_failures.length ? (
-          <Table headers={["Ruta", "Superficie", "Cantidad", "Codigos"]}>
+          <ScrollableTable label="Errores API visibles al usuario" headers={["Ruta", "Superficie", "Cantidad", "Codigos"]}>
             {data.api_failures.map((item) => (
               <tr key={`${item.surface}_${item.route_template}`}>
                 <td>{item.route_template}</td>
@@ -215,7 +215,7 @@ export function UXFriction({ model }: { model: AdminWebModel }) {
                 <td>{Object.entries(item.error_codes).map(([code, count]) => `${code}:${count}`).join(", ")}</td>
               </tr>
             ))}
-          </Table>
+          </ScrollableTable>
         ) : <Empty text="Sin errores API visibles." />}
       </div>
 
@@ -231,7 +231,7 @@ export function UXFriction({ model }: { model: AdminWebModel }) {
       <div className="admin-web-panel">
         <h3>Friccion reciente</h3>
         {data?.recent_friction.length ? (
-          <Table headers={["Evento", "Pantalla", "Accion", "Error"]}>
+          <ScrollableTable label="Friccion reciente" headers={["Evento", "Pantalla", "Accion", "Error"]}>
             {data.recent_friction.map((item, index) => (
               <tr key={`${item.event_type}_${item.screen}_${item.action}_${index}`}>
                 <td>{item.event_type}</td>
@@ -240,7 +240,7 @@ export function UXFriction({ model }: { model: AdminWebModel }) {
                 <td>{item.error_code || item.status_code || "-"}</td>
               </tr>
             ))}
-          </Table>
+          </ScrollableTable>
         ) : <Empty text="Sin friccion reciente." />}
       </div>
     </section>
@@ -271,7 +271,7 @@ export function Jobs({ model }: { model: AdminWebModel }) {
       <Header title="Jobs admin" action={<button onClick={() => void model.loadJobs()} type="button">Recargar</button>} />
       <ReasonBox model={model} label="Reason para dry-run" />
       <button disabled={!model.adminMutable} type="button" onClick={() => model.dryRunJobs()}>Dry-run expire/escalate</button>
-      <Table headers={["Tipo", "Status", "Inicio", "Fin"]}>
+      <ScrollableTable label="Jobs admin" headers={["Tipo", "Status", "Inicio", "Fin"]}>
         {model.jobRuns.map((item: AdminWebJobRun) => (
           <tr key={item.id}>
             <td>{item.job_type}</td>
@@ -280,7 +280,7 @@ export function Jobs({ model }: { model: AdminWebModel }) {
             <td>{dateText(item.finished_at)}</td>
           </tr>
         ))}
-      </Table>
+      </ScrollableTable>
       {model.jobRuns.length === 0 ? <Empty text="Sin job runs." /> : null}
     </section>
   );

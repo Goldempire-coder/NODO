@@ -22,9 +22,19 @@ import type { PublicUser } from "../types/auth";
 
 const ADMIN_BACKGROUND_REFRESH_MS = 15000;
 const ADMIN_SUPPORT_REFRESH_MS = 5000;
+const ADMIN_DETAIL_BACK_VIEWS: AdminWebView[] = [
+  "business-detail",
+  "case-file",
+  "intake-detail",
+  "order-detail",
+  "staff-detail",
+  "support",
+  "user-detail"
+];
 
 export function useAdminWebModel({ token, user }: { user: PublicUser; token: string }) {
   const [view, setView] = useState<AdminWebView>("dashboard");
+  const [adminBackStack, setAdminBackStack] = useState<AdminWebView[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("Admin Web separado. Backend RBAC valida cada accion.");
   const clearNoticeIf = useCallback((expected: string) => {
@@ -47,6 +57,30 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
   );
 
   const criticalAction = useAdminCriticalAction({ setBusy, setNotice });
+  const pushAdminBackView = useCallback((returnView: AdminWebView) => {
+    setAdminBackStack((current) => {
+      if (current[current.length - 1] === returnView) {
+        return current;
+      }
+      return [...current, returnView];
+    });
+  }, []);
+  const adminBackTarget = adminBackStack[adminBackStack.length - 1] ?? null;
+  const adminCanGoBack = Boolean(adminBackTarget);
+  const adminBackLabel = !adminBackTarget || adminBackTarget === "investigation" ? "Volver a buscar" : "Volver";
+  const goBackAdminView = useCallback(() => {
+    if (!adminBackTarget) {
+      return;
+    }
+    setAdminBackStack((current) => current.slice(0, -1));
+    setView(adminBackTarget);
+  }, [adminBackTarget]);
+
+  useEffect(() => {
+    if (!ADMIN_DETAIL_BACK_VIEWS.includes(view)) {
+      setAdminBackStack([]);
+    }
+  }, [view]);
 
   const overview = useAdminOverviewModel({
     adminMutable,
@@ -133,6 +167,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
   });
 
   const investigationCaseFile = useAdminInvestigationCaseFileModel({
+    pushBackView: pushAdminBackView,
     request,
     setNotice,
     setView,
@@ -146,6 +181,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
   });
 
   const investigation = useAdminInvestigationModel({
+    pushBackView: pushAdminBackView,
     request,
     setBusy,
     setNotice,
@@ -256,6 +292,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setInvestigationQuery: investigation.setInvestigationQuery,
     investigationResults: investigation.investigationResults,
     investigationSearched: investigation.investigationSearched,
+    adminBackLabel,
+    adminCanGoBack,
     candidateFilters: investigationCandidates.candidateFilters,
     candidateResults: investigationCandidates.candidateResults,
     candidateLoading: investigationCandidates.candidateLoading,
@@ -289,6 +327,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setSelectedCreditPurchase: credits.setSelectedCreditPurchase,
     jobRuns: overview.jobRuns,
     businessIntakes: businessIntake.businessIntakes,
+    businessIntakesNextCursor: businessIntake.businessIntakesNextCursor,
     selectedBusinessIntake: businessIntake.selectedBusinessIntake,
     intakeEditDraft: businessIntake.intakeEditDraft,
     supportTickets: support.supportTickets,
@@ -339,7 +378,9 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     userFilters: users.userFilters,
     setUserFilters: users.setUserFilters,
     intakeFilter: businessIntake.intakeFilter,
+    intakeReadinessFilter: businessIntake.intakeReadinessFilter,
     setIntakeFilter: businessIntake.setIntakeFilter,
+    setIntakeReadinessFilter: businessIntake.setIntakeReadinessFilter,
     orderFilter: ordersDisputes.orderFilter,
     orderCodeFilter: ordersDisputes.orderCodeFilter,
     setOrderFilter: ordersDisputes.setOrderFilter,
@@ -375,6 +416,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     loadEmergencyMode: overview.loadEmergencyMode,
     loadMetrics: overview.loadMetrics,
     searchInvestigation: investigation.searchInvestigation,
+    clearInvestigationSearch: investigation.clearInvestigationSearch,
+    goBackAdminView,
     openInvestigationResult: investigation.openInvestigationResult,
     openInvestigationCaseFile: investigation.openInvestigationCaseFile,
     setCandidateFilter: investigationCandidates.setCandidateFilter,
@@ -414,6 +457,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     loadJobs: overview.loadJobs,
     dryRunJobs: overview.dryRunJobs,
     loadBusinessIntakes: businessIntake.loadBusinessIntakes,
+    loadMoreBusinessIntakes: businessIntake.loadMoreBusinessIntakes,
     openBusinessIntake: businessIntake.openBusinessIntake,
     openBusinessIntakeDocument: businessIntake.openBusinessIntakeDocument,
     saveBusinessIntakeManual: businessIntake.saveBusinessIntakeManual,
