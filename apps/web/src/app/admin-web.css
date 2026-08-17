@@ -905,6 +905,11 @@
   scrollbar-gutter: stable;
 }
 
+.admin-web-businesses-list-scroll {
+  height: min(360px, calc(100dvh - 360px));
+  overflow-y: scroll;
+}
+
 .admin-web-orders-list-scroll:focus-visible,
 .admin-web-disputes-list-scroll:focus-visible,
 .admin-web-credit-purchases-list-scroll:focus-visible,

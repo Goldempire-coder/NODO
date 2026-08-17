@@ -137,5 +137,7 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert "Indica el motivo operativo antes de revelar el telefono" in users
     assert "revealUserPhone" in web_model
     assert ".admin-web-businesses-list-scroll" in css
+    assert ".admin-web-businesses-list-scroll {\n  height:" in css
+    assert "overflow-y: scroll" in css
     assert ".admin-web-users-list-scroll" in css
     assert ".admin-web-businesses-list-scroll:focus-visible" in css
