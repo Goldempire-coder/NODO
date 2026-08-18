@@ -56,7 +56,7 @@ export function ClientReceiverDetailsBubble({
               </label>
               <label>
                 Telefono
-                <input type="tel" inputMode="tel" autoComplete="tel" placeholder="0414 1234567 o +58 414 1234567" required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+                <input type="tel" inputMode="tel" autoComplete="tel" placeholder="Escribe el numero completo" required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
               </label>
               <label>
                 Cedula

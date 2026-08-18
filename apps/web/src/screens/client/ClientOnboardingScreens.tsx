@@ -24,7 +24,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
             <Text className="exchange-card__eyebrow">NODO</Text>
             <Title level="1" className="welcome-hero__title">Bienvenido a NODO</Title>
             <Text className="welcome-hero__copy">
-              Compara perfiles registrados, elige una tasa y crea tu orden en pocos pasos.
+              Compara negocios registrados, revisa sus condiciones publicadas y crea tu orden en pocos pasos.
             </Text>
           </div>
           <div className="welcome-actions">
@@ -38,10 +38,11 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
       {view === "terms" ? (
         <div className="business-card terms-screen">
           <Text className="business-card__label">Antes de comenzar</Text>
-          <Title level="2" className="business-shell__title">Antes de cambiar</Title>
-          <Text>NODO te permite comparar perfiles registrados según la información publicada.</Text>
-          <Text>Tu pago se realiza directamente con el negocio que selecciones.</Text>
-          <Text>NODO registra la orden y su evidencia. El pago se realiza directamente entre las partes.</Text>
+          <Title level="2" className="business-shell__title">Antes de usar NODO</Title>
+          <Text>NODO es un directorio de negocios registrados que publican sus propias condiciones.</Text>
+          <Text>Revisamos datos del negocio antes de publicarlo y el acceso opera por invitacion.</Text>
+          <Text>Tu eliges el negocio y pagas directamente a los datos indicados en tu orden.</Text>
+          <Text>NODO registra la orden y su evidencia para soporte y auditoria, pero no recibe ni retiene fondos.</Text>
           <Text>Al continuar aceptas los terminos de uso vigentes y el registro de actividad de la orden.</Text>
           <Text className="auth-entry__session-meta">Version: {CURRENT_CLIENT_TERMS_VERSION}</Text>
           <Button mode="filled" stretched disabled={busy} onClick={() => void acceptTerms()}>
@@ -57,7 +58,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
         <div className="business-card terms-screen">
           <Text className="business-card__label">Tu contacto</Text>
           <Title level="2" className="business-shell__title">Antes de empezar</Title>
-          <Text>Indicanos tu nombre y telefono para identificar tus ordenes y ayudarte si necesitas soporte.</Text>
+          <Text>Indicanos tu nombre y telefono de contacto para identificar tus ordenes y ayudarte si necesitas soporte.</Text>
           <label className="business-field">
             <span>Nombre</span>
             <input
@@ -67,15 +68,16 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
             />
           </label>
           <label className="business-field">
-            <span>Telefono</span>
+            <span>Telefono de contacto</span>
             <input
               value={clientProfileForm.phone}
               onChange={(event) => setClientProfileForm((current) => ({ ...current, phone: sanitizePhoneInput(event.target.value) }))}
               inputMode="tel"
               autoComplete="tel"
-              placeholder="+58 412 000 0000"
+              placeholder="Escribe tu numero completo"
             />
           </label>
+          <Text className="auth-entry__session-meta">Puede ser de Venezuela, Estados Unidos u otro pais.</Text>
           <Button
             mode="filled"
             stretched

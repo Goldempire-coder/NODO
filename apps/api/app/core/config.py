@@ -276,7 +276,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         telegram_web_app_url=source.get("TELEGRAM_WEB_APP_URL", "https://nodo-staging.pages.dev").rstrip("/"),
         telegram_welcome_image_url=source.get(
             "TELEGRAM_WELCOME_IMAGE_URL",
-            "https://main.nodo-staging.pages.dev/telegram-welcome.jpg?v=20260707170427",
+            "https://main.nodo-staging.pages.dev/telegram-welcome.jpg?v=20260818120000",
         ),
         cors_origins=_split_csv(source.get("API_CORS_ORIGINS", "http://localhost:3000")),
     )

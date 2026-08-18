@@ -141,7 +141,7 @@ def main() -> None:
 
     add_wrapped_text(
         draw,
-        "Conecta con negocios verificados para cambiar de forma simple, rápida y confiable.",
+        "Compara negocios registrados, revisa sus condiciones y crea tu orden en pocos pasos.",
         (175, 520, 905, 620),
         font(34),
         (218, 228, 242),
@@ -154,10 +154,10 @@ def main() -> None:
     add_text_center(draw, (width // 2, 684), "Cómo funciona", font(42, bold=True), (255, 255, 255))
 
     steps = [
-        ("1", "Indica cuánto quieres cambiar."),
-        ("2", "Elige un negocio verificado."),
-        ("3", "Acuerda los detalles dentro de NODO."),
-        ("4", "Confirma y guarda evidencia."),
+        ("1", "Indica el monto que vas a enviar."),
+        ("2", "Elige un negocio registrado."),
+        ("3", "Revisa los datos publicados."),
+        ("4", "Guarda la evidencia de tu orden."),
     ]
     y = 730
     for number, text in steps:
@@ -171,13 +171,13 @@ def main() -> None:
     draw.rounded_rectangle(trust, radius=34, fill=(6, 20, 42, 226), outline=(34, 92, 124, 170), width=2)
     draw.rounded_rectangle((154, 1148, 230, 1216), radius=20, fill=(0, 230, 118, 32), outline=(0, 230, 118, 200), width=4)
     draw.line((176, 1183, 194, 1202, 214, 1168), fill=(255, 255, 255), width=8, joint="curve")
-    draw.text((270, 1146), "Tu confianza comienza", font=font(36, bold=True), fill=(255, 255, 255))
-    draw.text((270, 1192), "con negocios verificados.", font=font(36, bold=True), fill=(0, 230, 118))
+    draw.text((270, 1146), "NODO registra tu orden", font=font(36, bold=True), fill=(255, 255, 255))
+    draw.text((270, 1192), "y conserva evidencia.", font=font(36, bold=True), fill=(0, 230, 118))
 
     feature_y = 1290
-    add_text_center(draw, (310, feature_y), "Seguro", font(27, bold=True), (224, 235, 246))
-    add_text_center(draw, (540, feature_y), "Rápido", font(27, bold=True), (224, 235, 246))
-    add_text_center(draw, (770, feature_y), "Confiable", font(27, bold=True), (224, 235, 246))
+    add_text_center(draw, (310, feature_y), "Registro", font(27, bold=True), (224, 235, 246))
+    add_text_center(draw, (540, feature_y), "Orden", font(27, bold=True), (224, 235, 246))
+    add_text_center(draw, (770, feature_y), "Soporte", font(27, bold=True), (224, 235, 246))
     for x in (420, 660):
         draw.line((x, 1266, x, 1312), fill=(52, 86, 112), width=2)
 

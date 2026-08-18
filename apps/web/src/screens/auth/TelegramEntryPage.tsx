@@ -40,7 +40,7 @@ export function TelegramEntryPage({ surface }: { surface: string }) {
             <Title level="2" className="auth-entry__title">
               Directorio NODO
             </Title>
-            {state === "authenticated" ? <Text className="auth-entry__message">Hola, {displayName}. Listo para cambiar.</Text> : null}
+            {state === "authenticated" ? <Text className="auth-entry__message">Hola, {displayName}. Listo para usar NODO.</Text> : null}
           </div>
 
           <StatusPanel state={state} message={message} onRetry={() => void authenticate()} />

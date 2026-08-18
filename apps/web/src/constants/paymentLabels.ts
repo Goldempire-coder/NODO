@@ -93,9 +93,9 @@ export function formatDeliveryCurrency(value: unknown): string {
 export function formatExchangeRoute(paymentMethod: unknown, deliveryMethod: unknown): string {
   const currency = formatDeliveryCurrency(deliveryMethod);
   const parts = [
-    `Recibe ${formatPaymentMethod(paymentMethod)}`,
-    `Tipo de pago: ${formatDeliveryMethod(deliveryMethod)}`,
-    currency ? `Moneda: ${currency}` : null
+    `Pago al negocio: ${formatPaymentMethod(paymentMethod)}`,
+    `Entrega publicada: ${formatDeliveryMethod(deliveryMethod)}`,
+    currency ? `Moneda de entrega: ${currency}` : null
   ].filter(Boolean);
   return parts.join(" - ");
 }
@@ -103,9 +103,9 @@ export function formatExchangeRoute(paymentMethod: unknown, deliveryMethod: unkn
 export function formatOrderMethodLine(paymentMethod: unknown, deliveryMethod: unknown): string {
   const currency = formatDeliveryCurrency(deliveryMethod);
   const parts = [
-    `Metodo: ${formatPaymentMethod(paymentMethod)}`,
-    `Entrega: ${formatDeliveryMethod(deliveryMethod)}`,
-    currency ? `Moneda: ${currency}` : null
+    `Pago al negocio: ${formatPaymentMethod(paymentMethod)}`,
+    `Entrega publicada: ${formatDeliveryMethod(deliveryMethod)}`,
+    currency ? `Moneda de entrega: ${currency}` : null
   ].filter(Boolean);
   return parts.join(" - ");
 }

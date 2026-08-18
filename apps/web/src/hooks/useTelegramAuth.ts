@@ -22,7 +22,7 @@ export function useTelegramAuth(surface?: string) {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  const applyStoredSession = useCallback((session: StoredAuthSession, messageText = "Listo para cambiar") => {
+  const applyStoredSession = useCallback((session: StoredAuthSession, messageText = "Listo para usar NODO") => {
     if (!session.user) {
       return false;
     }
@@ -57,7 +57,7 @@ export function useTelegramAuth(surface?: string) {
 
     if (!initData) {
       if (canUseStoredSession(storedSession) && storedSession) {
-        applyStoredSession(storedSession, "Listo para cambiar. Telegram no envio sesion nueva.");
+        applyStoredSession(storedSession, "Listo para usar NODO. Telegram no envio sesion nueva.");
         return;
       }
       setState("error");
@@ -103,12 +103,12 @@ export function useTelegramAuth(surface?: string) {
       setUser(payload.data.user);
       setAccessToken(payload.data.access_token);
       setState("authenticated");
-      setMessage("Listo para cambiar");
+      setMessage("Listo para usar NODO");
       notifyTelegram("success");
     } catch (error) {
       const fallbackSession = readAuthSession("telegram");
       if (canUseStoredSession(fallbackSession) && fallbackSession) {
-        applyStoredSession(fallbackSession, "Listo para cambiar. Usamos tu sesion guardada.");
+        applyStoredSession(fallbackSession, "Listo para usar NODO. Usamos tu sesion guardada.");
         return;
       }
       setState("error");

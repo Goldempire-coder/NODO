@@ -44,7 +44,7 @@ async def _telegram_post(settings: Settings, method: str, payload: dict[str, Any
 
 
 async def _send_welcome(settings: Settings, chat_id: int | str) -> None:
-    fallback_text = "Bienvenido a NODO. Usa el boton Abrir NODO del menu de Telegram para comenzar."
+    fallback_text = "Bienvenido a NODO. Abre NODO desde el menu de Telegram para comenzar."
     try:
         await _telegram_post(
             settings,
@@ -52,7 +52,7 @@ async def _send_welcome(settings: Settings, chat_id: int | str) -> None:
             {
                 "chat_id": chat_id,
                 "photo": settings.telegram_welcome_image_url,
-                "caption": "Usa el boton Abrir NODO para comenzar.",
+                "caption": "Abre NODO desde el menu de Telegram para comenzar.",
             },
         )
     except ApiError:
@@ -72,7 +72,7 @@ async def _send_open_hint(settings: Settings, chat_id: int | str) -> None:
         "sendMessage",
         {
             "chat_id": chat_id,
-            "text": "Usa el boton Abrir NODO del menu de Telegram para continuar.",
+            "text": "Abre NODO desde el menu de Telegram para continuar.",
         },
     )
 

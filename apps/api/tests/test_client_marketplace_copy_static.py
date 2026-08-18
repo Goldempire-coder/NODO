@@ -7,13 +7,18 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_client_marketplace_copy_describes_registration_without_endorsement() -> None:
     runtime_paths = (
         ROOT / "apps" / "web" / "src" / "screens" / "auth" / "TelegramEntryPage.tsx",
+        ROOT / "apps" / "web" / "src" / "hooks" / "useTelegramAuth.ts",
         ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientMarketplaceScreens.tsx",
         ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientOnboardingScreens.tsx",
         ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientWorkspaceShell.tsx",
         ROOT / "apps" / "web" / "src" / "screens" / "client" / "RemitterScreens.types.ts",
+        ROOT / "apps" / "web" / "src" / "screens" / "client" / "chat" / "ClientReceiverDetailsBubble.tsx",
+        ROOT / "apps" / "web" / "src" / "constants" / "paymentLabels.ts",
         ROOT / "apps" / "web" / "src" / "constants" / "copy.ts",
         ROOT / "apps" / "api" / "app" / "modules" / "ads" / "marketplace.py",
         ROOT / "apps" / "api" / "app" / "modules" / "orders" / "payment_constants.py",
+        ROOT / "apps" / "api" / "app" / "routes" / "telegram_bot.py",
+        ROOT / "scripts" / "build_telegram_welcome_image.py",
     )
     runtime_copy = "\n".join(path.read_text(encoding="utf-8") for path in runtime_paths)
 
@@ -24,15 +29,48 @@ def test_client_marketplace_copy_describes_registration_without_endorsement() ->
         "Cambio verificado",
         "Paga directo al negocio verificado",
         "comparar con mas confianza",
+        "Listo para cambiar",
+        "Indica cuÃ¡nto quieres cambiar.",
+        "Conecta con negocios verificados para cambiar",
+        "Acuerda los detalles dentro de NODO.",
+        "Tu confianza comienza",
+        "con negocios verificados.",
+        "+58 412 000 0000",
+        "0414 1234567 o +58 414 1234567",
+        "¿Cuánto quieres cambiar?",
+        "Antes de cambiar",
+        "Tu familiar recibe",
+        "somos casa de cambio",
+        "casa de cambio",
+        "escrow",
+        "dinero protegido",
+        "fondos garantizados",
+        "garantizamos transacciones",
     ):
         assert forbidden not in runtime_copy
 
     for expected in (
-        "Busca negocios registrados",
-        "Ingresa un monto para ver negocios registrados en NODO.",
-        "Compara perfiles registrados en NODO segun tasa, limites y disponibilidad.",
+        "Directorio de negocios registrados",
+        "¿Cuánto vas a enviar?",
+        "Ingresa un monto para ver negocios que publican en NODO.",
+        "NODO revisa datos del negocio antes de publicarlo.",
         "Perfil registrado",
-        "Paga directamente al negocio seleccionado",
+        "Paga solo a los datos mostrados en esta orden.",
+        "NODO conecta usuarios con negocios registrados.",
+        "El pago y la entrega se coordinan directamente entre las partes.",
+        "Listo para usar NODO",
+        "Pago al negocio:",
+        "Entrega publicada:",
+        "Escribe tu numero completo",
+        "Puede ser de Venezuela, Estados Unidos u otro pais.",
+        "Escribe el numero completo",
+        "Compara negocios registrados, revisa sus condiciones y crea tu orden en pocos pasos.",
+        "Indica el monto que vas a enviar.",
+        "Elige un negocio registrado.",
+        "Revisa los datos publicados.",
+        "Guarda la evidencia de tu orden.",
+        "NODO registra tu orden",
+        "y conserva evidencia.",
     ):
         assert expected in runtime_copy
 
@@ -74,3 +112,40 @@ def test_visible_runtime_copy_describes_actions_without_safety_promises() -> Non
         "datos limitados",
     ):
         assert expected in runtime_copy
+
+
+def test_telegram_welcome_and_client_phone_copy_are_country_neutral() -> None:
+    onboarding = (ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientOnboardingScreens.tsx").read_text(encoding="utf-8")
+    receiver_details = (ROOT / "apps" / "web" / "src" / "screens" / "client" / "chat" / "ClientReceiverDetailsBubble.tsx").read_text(encoding="utf-8")
+    welcome_image_source = (ROOT / "scripts" / "build_telegram_welcome_image.py").read_text(encoding="utf-8")
+    bot_route = (ROOT / "apps" / "api" / "app" / "routes" / "telegram_bot.py").read_text(encoding="utf-8")
+    combined = "\n".join((onboarding, receiver_details, welcome_image_source, bot_route))
+
+    for forbidden in (
+        "+58 412 000 0000",
+        "0414 1234567 o +58 414 1234567",
+        "Indica cu\u00e1nto quieres cambiar.",
+        "Conecta con negocios verificados para cambiar",
+        "Acuerda los detalles dentro de NODO.",
+        "Tu confianza comienza",
+        "con negocios verificados.",
+        "Seguro",
+        "R\u00e1pido",
+        "Confiable",
+    ):
+        assert forbidden not in combined
+
+    for expected in (
+        "Escribe tu numero completo",
+        "Puede ser de Venezuela, Estados Unidos u otro pais.",
+        "Escribe el numero completo",
+        "Compara negocios registrados, revisa sus condiciones y crea tu orden en pocos pasos.",
+        "Indica el monto que vas a enviar.",
+        "Elige un negocio registrado.",
+        "Revisa los datos publicados.",
+        "Guarda la evidencia de tu orden.",
+        "NODO registra tu orden",
+        "y conserva evidencia.",
+        "Abre NODO desde el menu de Telegram para comenzar.",
+    ):
+        assert expected in combined

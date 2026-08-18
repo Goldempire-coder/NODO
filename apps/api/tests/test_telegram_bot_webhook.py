@@ -88,6 +88,7 @@ def test_start_webhook_sends_welcome_photo_without_inline_button(monkeypatch) ->
     payload = call["json"]
     assert payload["chat_id"] == 777
     assert payload["photo"] == "https://nodo-staging.pages.dev/telegram-welcome.jpg?v=test"
+    assert payload["caption"] == "Abre NODO desde el menu de Telegram para comenzar."
     assert "reply_markup" not in payload
 
 
