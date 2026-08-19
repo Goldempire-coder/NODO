@@ -10,9 +10,10 @@ Tests obligatorios:
 - suspend requiere reason.
 - suspend requiere `Idempotency-Key`.
 - suspend setea `users.status = restricted`.
-- reactivate setea `restricted|dormant -> active`.
+- reactivate setea `restricted|dormant|blocked -> active`.
 - block setea `active|restricted|dormant -> blocked`.
 - blocked user no accede a superficies.
+- un desbloqueo Admin auditado restaura acceso solo si las demas restricciones de superficie permiten entrada.
 - admin no muta admin/super_admin.
 - super_admin puede mutar admin segun contrato.
 - no se puede bloquear ultimo super_admin active.

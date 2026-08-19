@@ -29,6 +29,11 @@ type RevealedUserPhone = {
   phone_masked?: string | null;
 };
 
+type AdminUserStatusMutationResponse = {
+  user: AdminUserSummary;
+  disclaimer?: string;
+};
+
 export function useAdminUsersModel({
   adminMutable,
   queueCriticalAction,
@@ -145,18 +150,43 @@ export function useAdminUsersModel({
       setNotice("Accion no permitida para este rol.");
       return;
     }
+    const currentStatus = selectedUser?.user.id === userId
+      ? selectedUser.user.status
+      : users.find((candidate) => candidate.id === userId)?.status;
+    const title = action === "reactivate" && currentStatus === "blocked"
+      ? "Desbloquear cliente"
+      : `${action} usuario`;
+    const successMessage = action === "reactivate" && currentStatus === "blocked"
+      ? "Cliente desbloqueado."
+      : "Estado de usuario actualizado.";
     queueCriticalAction(
-      `${action} usuario`,
+      title,
       "Cambia el estado del usuario sin borrar historial. Backend valida transicion, reason, idempotencia y audit.",
       async () => {
-        await updateAdminUserStatus(request, userId, action, reason, idempotencyKey(`admin_user_${action}`));
+        const data = await updateAdminUserStatus<AdminUserStatusMutationResponse>(
+          request,
+          userId,
+          action,
+          reason,
+          idempotencyKey(`admin_user_${action}`)
+        );
+        setUsers((current) => current.map((candidate) => (
+          candidate.id === data.user.id
+            ? { ...candidate, status: data.user.status, updated_at: data.user.updated_at }
+            : candidate
+        )));
+        setSelectedUser((current) => current?.user.id === data.user.id
+          ? {
+              ...current,
+              user: { ...current.user, status: data.user.status, updated_at: data.user.updated_at }
+            }
+          : current);
         setReason("");
-        setNotice("Estado de usuario actualizado.");
-        await openUser(userId);
+        setNotice(successMessage);
       },
-      { requiresReason: false }
+      { requiresReason: true }
     );
-  }, [adminMutable, openUser, queueCriticalAction, reason, request, setNotice, setReason]);
+  }, [adminMutable, queueCriticalAction, reason, request, selectedUser, setNotice, setReason, users]);
 
   const revealUserPhone = useCallback((userId: string) => {
     if (!adminMutable) {

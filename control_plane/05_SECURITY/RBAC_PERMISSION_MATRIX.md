@@ -220,8 +220,8 @@ that future reveal.
 | admin | suspend_user | user | active user, reason required, cannot mutate admin/super_admin | user_suspended | yes |
 | super_admin | suspend_user | user | active user, reason required, cannot suspend last active super_admin | user_suspended | yes |
 | support | suspend_user | user | any | no | no |
-| admin | reactivate_user | user | restricted/dormant user, reason required, cannot mutate admin/super_admin | user_reactivated | yes |
-| super_admin | reactivate_user | user | restricted/dormant user, reason required | user_reactivated | yes |
+| admin | reactivate_user | user | restricted/dormant/blocked user, reason required, cannot mutate admin/super_admin | user_reactivated | yes |
+| super_admin | reactivate_user | user | restricted/dormant/blocked user, reason required | user_reactivated | yes |
 | support | reactivate_user | user | any | no | no |
 | admin | block_user | user | active/restricted/dormant user, reason required, cannot mutate admin/super_admin | user_blocked | yes |
 | super_admin | block_user | user | active/restricted/dormant user, reason required, cannot block last active super_admin | user_blocked | yes |
@@ -240,8 +240,8 @@ that future reveal.
 | support | reject_business | pending business | any | no | no |
 | admin | suspend_business | approved business | approved, reason required | business_suspended | yes |
 | super_admin | suspend_business | approved business | approved, reason required | business_suspended | yes |
-| admin | reactivate_business | suspended business | suspended, reason required | business_reactivated | yes |
-| super_admin | reactivate_business | suspended business | suspended, reason required | business_reactivated | yes |
+| admin | reactivate_business | suspended/blocked business | reason required | business_reactivated | yes |
+| super_admin | reactivate_business | suspended/blocked business | reason required | business_reactivated | yes |
 | admin | block_business | approved/suspended business | reason required | business_blocked | yes |
 | super_admin | block_business | approved/suspended business | reason required | business_blocked | yes |
 | support | suspend_business | business | any | no | no |

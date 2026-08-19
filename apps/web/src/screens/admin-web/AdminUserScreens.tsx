@@ -81,6 +81,7 @@ export function UserDetail({ model }: { model: AdminWebModel }) {
     ? model.revealedUserPhone.phone
     : null;
   const contact = userContact(detail.user);
+  const userStatus = detail.user.status;
   return (
     <section className="admin-web-split">
       {model.adminCanGoBack ? (
@@ -100,8 +101,8 @@ export function UserDetail({ model }: { model: AdminWebModel }) {
         </dl>
         <ReasonBox
           model={model}
-          label="Razon obligatoria para revelar telefono"
-          placeholder="Indica el motivo operativo antes de revelar el telefono"
+          label="Razon obligatoria para acciones sensibles"
+          placeholder="Indica el motivo operativo antes de revelar telefono o cambiar estado"
         />
         <div className="admin-web-sensitive-action">
           <div>
@@ -117,9 +118,18 @@ export function UserDetail({ model }: { model: AdminWebModel }) {
           </button>
         </div>
         <div className="admin-web-actions">
-          <button disabled={!model.adminMutable || !detail.capabilities.can_mutate_status} type="button" onClick={() => model.changeUserStatus(detail.user.id, "suspend")}>Suspender</button>
-          <button disabled={!model.adminMutable || !detail.capabilities.can_mutate_status} type="button" onClick={() => model.changeUserStatus(detail.user.id, "reactivate")}>Reactivar</button>
-          <button className="danger" disabled={!model.adminMutable || !detail.capabilities.can_mutate_status} type="button" onClick={() => model.changeUserStatus(detail.user.id, "block")}>Bloquear</button>
+          {userStatus === "active" ? (
+            <button disabled={!model.adminMutable || !detail.capabilities.can_mutate_status} type="button" onClick={() => model.changeUserStatus(detail.user.id, "suspend")}>Suspender</button>
+          ) : null}
+          {userStatus === "restricted" || userStatus === "dormant" ? (
+            <button disabled={!model.adminMutable || !detail.capabilities.can_mutate_status} type="button" onClick={() => model.changeUserStatus(detail.user.id, "reactivate")}>Reactivar</button>
+          ) : null}
+          {userStatus === "blocked" ? (
+            <button disabled={!model.adminMutable || !detail.capabilities.can_mutate_status} type="button" onClick={() => model.changeUserStatus(detail.user.id, "reactivate")}>Desbloquear cliente</button>
+          ) : null}
+          {userStatus !== "blocked" ? (
+            <button className="danger" disabled={!model.adminMutable || !detail.capabilities.can_mutate_status} type="button" onClick={() => model.changeUserStatus(detail.user.id, "block")}>Bloquear</button>
+          ) : null}
         </div>
       </div>
       <div className="admin-web-panel">

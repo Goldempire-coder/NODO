@@ -7,12 +7,12 @@ Transiciones permitidas por 20A:
 - `active -> restricted` por `POST /api/v1/admin/users/{id}/suspend`.
 - `restricted -> active` por `POST /api/v1/admin/users/{id}/reactivate`.
 - `dormant -> active` por `POST /api/v1/admin/users/{id}/reactivate`.
+- `blocked -> active` por `POST /api/v1/admin/users/{id}/reactivate`, como desbloqueo administrativo explicito.
 - `active -> blocked` por `POST /api/v1/admin/users/{id}/block`.
 - `restricted -> blocked` por `POST /api/v1/admin/users/{id}/block`.
 - `dormant -> blocked` por `POST /api/v1/admin/users/{id}/block`.
 
 Transiciones no permitidas en 20A:
-- `blocked -> active` salvo contrato futuro explicito de unblock/review.
 - hard delete de usuario.
 - cambio de rol desde estas acciones.
 - crear un estado `suspended` nuevo en `users.status`.

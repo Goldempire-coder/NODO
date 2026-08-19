@@ -56,13 +56,13 @@ Rules:
 
 ## POST /api/v1/admin/users/{id}/reactivate
 
-Reactiva `restricted|dormant -> active`.
+Reactiva o desbloquea `restricted|dormant|blocked -> active`.
 
 Rules:
 - Reason obligatorio.
 - `Idempotency-Key` obligatorio.
 - Audit `user_reactivated`.
-- No reactiva usuarios `blocked` en 20A.
+- El desbloqueo no borra historial ni reactiva negocios o access links asociados.
 
 ## POST /api/v1/admin/users/{id}/block
 

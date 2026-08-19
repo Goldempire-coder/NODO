@@ -35,7 +35,7 @@ Campos relevantes:
 
 Regla 20A:
 - Admin action `suspend` setea `users.status = restricted`.
-- Admin action `reactivate` setea `restricted|dormant -> active`.
+- Admin action `reactivate` setea `restricted|dormant|blocked -> active`.
 - Admin action `block` setea `active|restricted|dormant -> blocked`.
 - `blocked` no se borra ni elimina historial.
 - Reason de mutaciones vive en audit/idempotency metadata, no en una nueva columna de `users`.

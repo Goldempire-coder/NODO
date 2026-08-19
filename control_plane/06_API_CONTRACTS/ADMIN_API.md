@@ -973,7 +973,7 @@ Rules:
 
 ## POST /api/v1/admin/businesses/{id}/reactivate
 
-Reactiva un negocio suspendido.
+Reactiva o desbloquea un negocio sin borrar historial.
 
 Headers:
 
@@ -1009,8 +1009,8 @@ Response 200:
 Rules:
 
 - Solo `admin` o `super_admin`.
-- Solo cambia `suspended -> approved`.
-- No reactiva negocios `blocked`.
+- Cambia `suspended|blocked -> approved`.
+- La accion sobre el negocio no reactiva automaticamente access links `suspended`, `revoked` o `blocked`.
 - `reason` obligatorio y no vacio.
 - Invalida cache de marketplace.
 - Auditar `business_reactivated`.
@@ -1055,7 +1055,7 @@ Rules:
 
 - Solo `admin` o `super_admin`.
 - Cambia `pending`, `approved`, `rejected` o `suspended` a `blocked`.
-- No existe reactivacion desde `blocked` en este contrato.
+- Un desbloqueo posterior usa `POST /api/v1/admin/businesses/{id}/reactivate`, con reason, idempotencia y audit.
 - `reason` obligatorio y no vacio.
 - Corta acceso a Business Mini App con `BUSINESS_BLOCKED`.
 - Invalida cache de marketplace para no servir anuncios del negocio bloqueado.
@@ -1223,14 +1223,14 @@ Rules:
 
 ### POST /api/v1/admin/users/{id}/reactivate
 
-Setea `users.status = active` desde `restricted` o `dormant`.
+Setea `users.status = active` desde `restricted`, `dormant` o `blocked`.
 
 Rules:
 
 - Reason obligatorio.
 - Idempotencia obligatoria.
 - Audit `user_reactivated`.
-- `blocked -> active` no esta permitido en 20A.
+- `blocked -> active` representa un desbloqueo administrativo explicito; no borra historial ni reactiva access links del negocio.
 
 ### POST /api/v1/admin/users/{id}/block
 

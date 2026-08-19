@@ -116,6 +116,12 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
     assert 'role: "remitter"' in admin_users_model
     assert "A-10 Clientes" in admin_users_screen
     assert "Los negocios se gestionan en Negocios." in admin_users_screen
+    assert "Desbloquear cliente" in admin_users_screen
+    assert "Razon obligatoria para acciones sensibles" in admin_users_screen
+    assert "requiresReason: true" in admin_users_model
+    assert "status: data.user.status" in admin_users_model
+    assert "setSelectedUser((current)" in admin_users_model
+    assert "{ ...candidate, ...data.user }" not in admin_users_model
     assert "business_owner" not in admin_users_screen
     assert "reviewAdminBusiness" not in admin_api
     assert "reviewAdminBusiness" not in admin_businesses_model

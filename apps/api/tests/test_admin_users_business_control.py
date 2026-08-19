@@ -272,11 +272,18 @@ def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
         headers={**_headers(admin, "block_user"), "Content-Type": "application/json"},
         json={"reason": "confirmed account abuse"},
     )
+    denied_blocked = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_surface_after_block"))
     blocked_to_active = client.post(
         f"/api/v1/admin/users/{owner['user']['id']}/reactivate",
         headers={**_headers(admin, "reactivate_blocked"), "Content-Type": "application/json"},
-        json={"reason": "blocked cannot reactivate in 20A"},
+        json={"reason": "owner approved account unblock"},
     )
+    unblock_replay = client.post(
+        f"/api/v1/admin/users/{owner['user']['id']}/reactivate",
+        headers={**_headers(admin, "reactivate_blocked"), "Content-Type": "application/json"},
+        json={"reason": "owner approved account unblock"},
+    )
+    allowed_after_unblock = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_surface_after_unblock"))
 
     assert suspended.status_code == 200, suspended.text
     assert suspended.json()["data"]["user"]["status"] == "restricted"
@@ -286,15 +293,20 @@ def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
     assert reactivated.json()["data"]["user"]["status"] == "active"
     assert blocked.status_code == 200, blocked.text
     assert blocked.json()["data"]["user"]["status"] == "blocked"
-    assert blocked_to_active.status_code == 409
-    assert blocked_to_active.json()["error"]["code"] == "USER_STATUS_TRANSITION_INVALID"
+    assert denied_blocked.status_code == 403
+    assert denied_blocked.json()["error"]["code"] == "USER_BLOCKED"
+    assert blocked_to_active.status_code == 200, blocked_to_active.text
+    assert blocked_to_active.json()["data"]["user"]["status"] == "active"
+    assert unblock_replay.status_code == 200, unblock_replay.text
+    assert unblock_replay.json()["data"]["user"]["status"] == "active"
+    assert allowed_after_unblock.status_code == 200, allowed_after_unblock.text
     assert {"user_suspended", "user_reactivated", "user_blocked"}.issubset(set(_event_types(client)))
 
     suspended_notifications = _notifications_by_type(client, "user_suspended_account")
     reactivated_notifications = _notifications_by_type(client, "user_reactivated_account")
     blocked_notifications = _notifications_by_type(client, "user_blocked_account")
     assert len(suspended_notifications) == 1
-    assert len(reactivated_notifications) == 1
+    assert len(reactivated_notifications) == 2
     assert len(blocked_notifications) == 1
 
     for notification, expected_text in [

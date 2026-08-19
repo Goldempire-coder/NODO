@@ -38,8 +38,8 @@ Requieren confirmacion, nota obligatoria y audit log:
 Reglas de user control:
 
 - `suspend_user` usa `users.status = restricted`; no se crea enum `suspended` en usuarios.
-- `reactivate_user` solo permite `restricted|dormant -> active` en 20A.
-- `blocked -> active` queda fuera de 20A salvo contrato futuro.
+- `reactivate_user` permite `restricted|dormant|blocked -> active` con reason, idempotencia y audit.
+- El desbloqueo de usuario no reactiva automaticamente un negocio ni sus access links.
 - `admin` no puede mutar usuarios `admin` o `super_admin`.
 - `super_admin` no puede bloquear/suspender el ultimo `super_admin active`.
 - `support` es read-only.

@@ -194,3 +194,9 @@ READY_FOR_OWNER_APPROVAL_TO_BUILD_24
 | 2026-08-09 | La decision Owner C0 sustituye las decisiones de 2026-07-04 que permitian al negocio crear `payment_rejected`. Desde `payment_reported`, el negocio confirma el pago o usa `Reportar problema con pago`, que debe abrir disputa con razon `payment_not_received_or_incomplete`. | aprobado |
 | 2026-08-09 | `payment_rejected` permanece solo como estado legacy/historico para lectura, filtros, timeline y recuperacion administrativa; ninguna nueva accion del negocio debe crearlo. | aprobado |
 | 2026-08-09 | Una orden que tuvo pago reportado y termina en `completed` o `cancelled` inicia un cooldown neutral de publicacion de 15 minutos; la cancelacion pre-report no lo inicia y las restricciones Admin dominan. | aprobado |
+
+## 2026-08-19 - Admin unblock reconciliation
+
+| Fecha | Decision | Estado |
+|---|---|---|
+| 2026-08-19 | Admin/Super Admin puede revertir explicitamente `users.status = blocked` a `active` y `businesses.verification_status = blocked` a `approved` mediante los endpoints `reactivate`, con reason, idempotencia, audit y notificacion existentes. El desbloqueo de una entidad no reactiva automaticamente la otra ni modifica `business_access_links`. | aprobado |

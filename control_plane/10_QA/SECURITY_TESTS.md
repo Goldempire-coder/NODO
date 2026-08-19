@@ -242,9 +242,9 @@ Un slice sensible no pasa a `READY_FOR_OWNER_REVIEW` sin pruebas de seguridad ej
 - support no recibe Telegram ID completo.
 - suspend user exige reason e `Idempotency-Key`.
 - suspend user setea `users.status = restricted`; no crea `users.status = suspended`.
-- reactivate user solo permite `restricted|dormant -> active`.
+- reactivate user permite `restricted|dormant|blocked -> active` con reason, idempotencia y audit.
 - block user setea `blocked` y deniega acceso a superficies.
-- `blocked -> active` queda prohibido en 20A.
+- `blocked -> active` restaura acceso privado inmediatamente solo cuando las demas restricciones de superficie tambien permiten acceso.
 - admin no suspende/reactiva/bloquea usuarios admin/super_admin.
 - super_admin no puede suspender/bloquear el ultimo `super_admin active`.
 - mutation duplicada con misma idempotency key no duplica audit/efecto.

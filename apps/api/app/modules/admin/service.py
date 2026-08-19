@@ -593,7 +593,7 @@ class AdminService:
     def _ensure_user_transition_allowed(self, *, current_status: str, action: str) -> None:
         allowed = {
             "suspend": {"active"},
-            "reactivate": {"restricted", "dormant"},
+            "reactivate": {"restricted", "dormant", "blocked"},
             "block": {"active", "restricted", "dormant"},
         }[action]
         if current_status not in allowed:

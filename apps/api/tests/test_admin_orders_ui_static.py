@@ -147,8 +147,8 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert user_model.count("setRevealedUserPhone(null)") >= 3
     assert "user: { ...current.user, phone: data.phone" not in user_model
     assert "mientras mantengas abierto este detalle" in user_model
-    assert "Razon obligatoria para revelar telefono" in users
-    assert "Indica el motivo operativo antes de revelar el telefono" in users
+    assert "Razon obligatoria para acciones sensibles" in users
+    assert "Indica el motivo operativo antes de revelar telefono o cambiar estado" in users
     assert "revealUserPhone" in web_model
     assert ".admin-web-businesses-list-scroll" in css
     assert ".admin-web-businesses-list-scroll {\n  height:" in css
