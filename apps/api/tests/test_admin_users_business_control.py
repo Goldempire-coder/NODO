@@ -333,6 +333,78 @@ def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
         assert "confirmed account abuse" not in notification.metadata_json["message_text"]
 
 
+def test_admin_business_detail_diagnoses_the_same_blocked_owner_as_surface_gate() -> None:
+    client = _client()
+    admin = _make_admin(client, 20211, "admin")
+    owner = _login(client, 20212, "owner_diagnostic")
+    business = _approved_business(client, owner)
+    _link_business(client, admin, business, owner)
+    client.app.state.user_repository.set_user_status(owner["user"]["id"], "blocked")
+
+    denied = client.get(
+        "/api/v1/surface/session",
+        headers=_business_headers(owner, "req_surface_owner_blocked_diagnostic"),
+    )
+    detail = client.get(
+        f"/api/v1/admin/businesses/{business['id']}",
+        headers=_bearer(admin, "req_business_owner_blocked_diagnostic"),
+    )
+
+    assert denied.status_code == 403
+    assert denied.json()["error"]["code"] == "USER_BLOCKED"
+    assert detail.status_code == 200, detail.text
+    diagnostic = detail.json()["data"]["access_diagnostic"]
+    assert diagnostic == {
+        "business_status": "approved",
+        "business_risk_level": "normal",
+        "business_can_access_surface": False,
+        "owner_user_id": owner["user"]["id"],
+        "owner_user_status": "blocked",
+        "owner_role_valid": True,
+        "owner_link_id": diagnostic["owner_link_id"],
+        "owner_link_status": "active",
+        "owner_link_role": "owner",
+        "owner_link_conflict": False,
+        "telegram_matches": True,
+        "blocking_reason": "USER_BLOCKED",
+        "recommended_admin_action": "unblock_owner_user",
+    }
+    assert diagnostic["owner_link_id"]
+    assert "telegram_id_snapshot" not in detail.text
+    assert "init_data" not in detail.text
+
+
+def test_admin_business_detail_rejects_active_operator_as_owner_access() -> None:
+    client = _client()
+    admin = _make_admin(client, 20221, "admin")
+    owner = _login(client, 20222, "operator_diagnostic")
+    business = _approved_business(client, owner)
+    operator_link = client.app.state.business_repository.create_access_link(
+        business_id=business["id"],
+        user_id=owner["user"]["id"],
+        telegram_id_snapshot=20222,
+        role_in_business="operator",
+        linked_by_admin_id=admin["user"]["id"],
+        reason="operator role reserved for future use",
+    )
+
+    detail = client.get(
+        f"/api/v1/admin/businesses/{business['id']}",
+        headers=_bearer(admin, "req_business_operator_diagnostic"),
+    )
+
+    assert detail.status_code == 200, detail.text
+    diagnostic = detail.json()["data"]["access_diagnostic"]
+    assert diagnostic["business_can_access_surface"] is False
+    assert diagnostic["owner_link_id"] == operator_link.id
+    assert diagnostic["owner_link_status"] == "active"
+    assert diagnostic["owner_link_role"] == "operator"
+    assert diagnostic["blocking_reason"] == "BUSINESS_ACCESS_LINK_REQUIRED"
+    assert diagnostic["recommended_admin_action"] == "create_owner_link"
+    assert "telegram_id_snapshot" not in detail.text
+    assert "init_data" not in detail.text
+
+
 def test_admin_business_status_lifecycle_controls_business_surface_access() -> None:
     client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
     admin = _make_admin(client, 20231, "admin")

@@ -121,13 +121,13 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert "Activar acceso" in businesses
     assert 'detail.business.verification_status !== "approved"' in businesses
     assert "canEnterBusinessApp" in businesses
-    assert "ownerUserStatus" in businesses
-    assert 'ownerUserStatus === "active"' in businesses
-    assert "Acceso no habilitado" in businesses
-    assert "El dueno del negocio esta bloqueado" in businesses
+    assert "detail.access_diagnostic" in businesses
+    assert "Puede entrar" in businesses
+    assert "No puede entrar" in businesses
+    assert "La cuenta del dueno esta bloqueada" in businesses
     assert "Desbloquear dueno" in businesses
-    assert "el negocio esta bloqueado" in businesses
-    assert "el negocio esta suspendido" in businesses
+    assert "El negocio esta bloqueado" in businesses
+    assert "El negocio esta suspendido" in businesses
     assert "Estado operativo del negocio" in businesses
     assert "Desbloquear negocio" in businesses
     assert "Razon obligatoria para cambiar estado del negocio" in businesses
@@ -141,7 +141,13 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert "Sin accesos activos para este negocio" in businesses
     assert ".admin-web-inline-warning" in css
     assert ".admin-web-business-access-summary" in css
-
+    assert ".admin-web-business-access-gates" in css
+    assert "finishAccessMutation" in business_model
+    assert "DIAGNOSTIC_REFRESH_REQUIRED" in business_model
+    assert "No pudimos refrescar el diagnostico; usa Actualizar." in business_model
+    pending_index = business_model.index("DIAGNOSTIC_REFRESH_REQUIRED")
+    refresh_index = business_model.index("await loadBusinessDetail(businessId)", pending_index)
+    assert pending_index < refresh_index
     assert "admin-web-users-list-scroll" in users
     assert 'aria-label="Lista de clientes admin"' in users
     assert "revealUserPhone" in users
@@ -164,3 +170,16 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert "overflow-y: scroll" in css
     assert ".admin-web-users-list-scroll" in css
     assert ".admin-web-businesses-list-scroll:focus-visible" in css
+
+
+def test_admin_business_access_panel_uses_backend_diagnostic_as_authority() -> None:
+    businesses = _read("apps/web/src/screens/admin-web/AdminBusinessScreens.tsx")
+
+    assert "detail.access_diagnostic" in businesses
+    assert "diagnostic.business_can_access_surface" in businesses
+    assert "diagnostic.blocking_reason" in businesses
+    assert "diagnostic.recommended_admin_action" in businesses
+    assert "diagnostic.owner_link_role" in businesses
+    assert "BUSINESS_ACCESS_LINK_REQUIRED" in businesses
+    assert "Crear vinculo owner." in businesses
+    assert 'businessStatus === "approved" && activeAccessCount > 0' not in businesses

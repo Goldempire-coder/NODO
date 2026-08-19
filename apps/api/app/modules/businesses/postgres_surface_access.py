@@ -16,9 +16,10 @@ class PostgresBusinessSurfaceAccessMixin:
                 join businesses b on b.id = l.business_id
                 where l.user_id = %s
                   and l.status = 'active'
+                  and l.role_in_business = 'owner'
                   and b.owner_user_id = %s
                   and b.verification_status = 'approved'
-                order by l.updated_at desc, b.created_at desc
+                order by l.updated_at desc, l.id desc, b.created_at desc, b.id desc
                 limit 1
                 """,
                 (owner_user_id, owner_user_id),
@@ -40,7 +41,8 @@ class PostgresBusinessSurfaceAccessMixin:
                     from business_access_links l
                     join latest_business b on b.id = l.business_id
                     where l.user_id = %s
-                    order by l.updated_at desc
+                      and l.role_in_business = 'owner'
+                    order by l.updated_at desc, l.id desc
                     limit 1
                 )
                 select

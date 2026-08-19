@@ -24,11 +24,11 @@ class PostgresBusinessAccessLinksMixin:
             existing = conn.execute(
                 """
                 select * from business_access_links
-                where business_id = %s and user_id = %s and status = 'active'
-                order by updated_at desc
+                where business_id = %s and user_id = %s and role_in_business = %s and status = 'active'
+                order by updated_at desc, id desc
                 limit 1
                 """,
-                (business_id, user_id),
+                (business_id, user_id, role_in_business),
             ).fetchone()
             if existing:
                 return access_link_from_row(existing)
@@ -138,7 +138,7 @@ class PostgresBusinessAccessLinksMixin:
                 """
                 select * from business_access_links
                 where business_id = %s and user_id = %s
-                order by updated_at desc
+                order by (role_in_business = 'owner') desc, updated_at desc, id desc
                 limit 1
                 """,
                 (business_id, user_id),
@@ -150,13 +150,28 @@ class PostgresBusinessAccessLinksMixin:
             row = conn.execute(
                 """
                 select * from business_access_links
-                where business_id = %s and user_id = %s and status = 'active'
-                order by updated_at desc
+                where business_id = %s
+                  and user_id = %s
+                  and role_in_business = 'owner'
+                  and status = 'active'
+                order by updated_at desc, id desc
                 limit 1
                 """,
                 (business_id, user_id),
             ).fetchone()
         return access_link_from_row(row) if row else None
+
+    def list_access_links_for_business(self, business_id: str) -> list[BusinessAccessLinkRecord]:
+        with self._connect() as conn:  # type: ignore[attr-defined]
+            rows = conn.execute(
+                """
+                select * from business_access_links
+                where business_id = %s
+                order by updated_at desc, id desc
+                """,
+                (business_id,),
+            ).fetchall()
+        return [access_link_from_row(row) for row in rows]
 
     def set_access_link_status(self, *, link: BusinessAccessLinkRecord, status: str, reason: str) -> BusinessAccessLinkRecord:
         if status not in BUSINESS_ACCESS_STATUSES:

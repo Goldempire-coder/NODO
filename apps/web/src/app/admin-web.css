@@ -1162,6 +1162,11 @@
   font-size: 0.86rem;
 }
 
+.admin-web-business-access-gates {
+  grid-template-columns: minmax(90px, 0.45fr) minmax(0, 1fr);
+  margin: 0.35rem 0;
+}
+
 .admin-web-business-access-summary.is-ok {
   border-color: rgb(16 185 129 / 32%);
   background: rgb(16 185 129 / 8%);

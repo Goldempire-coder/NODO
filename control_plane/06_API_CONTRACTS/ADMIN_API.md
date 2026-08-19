@@ -709,6 +709,21 @@ Response 200:
       "created_at": "timestamp",
       "updated_at": "timestamp"
     },
+    "access_diagnostic": {
+      "business_status": "approved",
+      "business_risk_level": "normal",
+      "business_can_access_surface": false,
+      "owner_user_id": "uuid",
+      "owner_user_status": "blocked",
+      "owner_role_valid": true,
+      "owner_link_id": "uuid",
+      "owner_link_status": "active",
+      "owner_link_role": "owner",
+      "owner_link_conflict": false,
+      "telegram_matches": true,
+      "blocking_reason": "USER_BLOCKED",
+      "recommended_admin_action": "unblock_owner_user"
+    },
     "latest_submission": {
       "id": "uuid",
       "status": "pending",
@@ -734,6 +749,10 @@ Rules:
 
 - `support` puede ver metadata enmascarada; no obtiene signed URL completa por defecto.
 - Abrir documento completo requiere endpoint de signed URL y genera audit event.
+- `access_diagnostic` se calcula en backend con el mismo gate de `business_mini_app`; frontend no infiere el resultado final.
+- El diagnostico no expone Telegram completo, initData, token, telefono adicional ni secretos. `telegram_matches` solo indica coincidencia.
+- Solo `role_in_business = owner` autoriza `business_mini_app`; un link `operator` activo se muestra en el diagnostico, pero responde `BUSINESS_ACCESS_LINK_REQUIRED` y recomienda `create_owner_link`.
+- Si hay varios vinculos owner, backend elige de forma estable el owner activo mas reciente y marca `owner_link_conflict` para revision.
 
 ## POST /api/v1/admin/businesses/{id}/verification-documents/{file_id}/view-url
 

@@ -19,6 +19,35 @@ async function copyText(value: string) {
   document.body.removeChild(textarea);
 }
 
+const ACCESS_ACTION_COPY: Record<string, string> = {
+  none: "Sin accion pendiente.",
+  unblock_business: "Desbloquear negocio.",
+  reactivate_business: "Reactivar negocio.",
+  review_business_approval: "Revisar aprobacion del negocio.",
+  unblock_owner_user: "Desbloquear dueno.",
+  reactivate_owner_user: "Reactivar dueno.",
+  reactivate_owner_link: "Reactivar vinculo owner.",
+  create_owner_link: "Crear vinculo owner.",
+  regenerate_owner_link: "Regenerar o revisar vinculo owner.",
+  review_owner_binding: "Revisar vinculacion del dueno.",
+  refresh_diagnostic: "Actualizar el detalle para confirmar el acceso."
+};
+
+const ACCESS_REASON_COPY: Record<string, string> = {
+  BUSINESS_BLOCKED: "El negocio esta bloqueado.",
+  BUSINESS_SUSPENDED: "El negocio esta suspendido.",
+  BUSINESS_NOT_APPROVED: "El negocio no esta aprobado.",
+  USER_BLOCKED: "La cuenta del dueno esta bloqueada.",
+  USER_NOT_ACTIVE: "La cuenta del dueno no esta activa.",
+  BUSINESS_ACCESS_SUSPENDED: "El vinculo owner esta suspendido.",
+  BUSINESS_ACCESS_BLOCKED: "El vinculo owner esta bloqueado.",
+  BUSINESS_ACCESS_REVOKED: "El vinculo owner esta revocado.",
+  BUSINESS_ACCESS_LINK_REQUIRED: "Falta un vinculo owner valido.",
+  SURFACE_ACCESS_DENIED: "La vinculacion no coincide con el acceso autenticado.",
+  OWNER_USER_NOT_FOUND: "No se encontro el usuario dueno.",
+  DIAGNOSTIC_REFRESH_REQUIRED: "La accion se aplico; falta refrescar el diagnostico."
+};
+
 export function Businesses({ model }: { model: AdminWebModel }) {
   return (
     <section className="admin-web-panel admin-web-businesses-panel">
@@ -80,12 +109,8 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
     return <Empty text="Selecciona un negocio." />;
   }
   const businessStatus = detail.business.verification_status;
-  const ownerAccessLink = model.businessAccessLinks.find((link) => link.role_in_business === "owner")
-    ?? model.businessAccessLinks[0]
-    ?? null;
-  const ownerUserStatus = ownerAccessLink?.user?.status ?? null;
-  const activeAccessCount = model.businessAccessLinks.filter((link) => link.status === "active").length;
-  const canEnterBusinessApp = businessStatus === "approved" && activeAccessCount > 0 && ownerUserStatus === "active";
+  const diagnostic = detail.access_diagnostic;
+  const canEnterBusinessApp = diagnostic.business_can_access_surface;
   const copyBusinessId = async () => {
     await copyText(detail.business.id);
     setCopiedBusinessId(true);
@@ -282,20 +307,16 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
         />
         <p>El negocio solo puede entrar cuando esta aprobado y tiene un acceso activo para el Telegram del dueno.</p>
         <div className={`admin-web-business-access-summary ${canEnterBusinessApp ? "is-ok" : "is-warning"}`} role="status">
-          <strong>{canEnterBusinessApp ? "Acceso operativo listo" : "Acceso no habilitado"}</strong>
-          <span>
-            {businessStatus === "blocked"
-              ? "El link del dueno esta activo, pero el negocio esta bloqueado. La Mini App Negocio no debe abrir mientras el negocio siga bloqueado."
-              : businessStatus === "suspended"
-                ? "El link del dueno esta activo, pero el negocio esta suspendido. Reactiva primero el negocio para permitir entrada."
-                : businessStatus !== "approved"
-                  ? "El negocio debe estar aprobado antes de activar la entrada del dueno."
-                  : ownerUserStatus === "blocked"
-                    ? "El dueno del negocio esta bloqueado. Aunque el negocio y el acceso esten activos, la Mini App Negocio no abre hasta desbloquear ese usuario."
-                    : ownerUserStatus && ownerUserStatus !== "active"
-                      ? "El dueno del negocio no esta activo. Reactiva ese usuario antes de probar la Mini App Negocio."
-                      : "Falta un acceso activo para el Telegram del dueno."}
-          </span>
+          <strong>{canEnterBusinessApp ? "Puede entrar" : "No puede entrar"}</strong>
+          <span>{diagnostic.blocking_reason ? ACCESS_REASON_COPY[diagnostic.blocking_reason] || "Acceso no habilitado." : "Todas las puertas de acceso estan habilitadas."}</span>
+          <dl className="admin-web-dl admin-web-business-access-gates">
+            <dt>Negocio</dt><dd>{diagnostic.business_status}</dd>
+            <dt>Dueno</dt><dd>{diagnostic.owner_user_status}{diagnostic.owner_role_valid ? "" : " - rol no valido"}</dd>
+            <dt>Vinculo owner</dt><dd>{diagnostic.owner_link_status}{diagnostic.owner_link_role ? ` - ${diagnostic.owner_link_role}` : ""}</dd>
+            <dt>Telegram</dt><dd>{diagnostic.telegram_matches === true ? "coincide" : diagnostic.telegram_matches === false ? "no coincide" : "sin vinculo verificable"}</dd>
+          </dl>
+          {diagnostic.owner_link_conflict ? <span>Hay varios vinculos owner. Revisa la vinculacion antes de operar.</span> : null}
+          <span><strong>Accion recomendada:</strong> {ACCESS_ACTION_COPY[diagnostic.recommended_admin_action] || "Revisar vinculacion."}</span>
         </div>
         {detail.business.verification_status === "approved" && model.businessAccessLinks.length === 0 ? (
           <div className="admin-web-inline-warning">

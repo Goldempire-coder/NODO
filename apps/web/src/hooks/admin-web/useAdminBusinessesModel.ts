@@ -30,6 +30,10 @@ type AdminBusinessOwnerUserStatusMutationResponse = {
   };
 };
 
+type AdminBusinessAccessLinkMutationResponse = {
+  access_link: AdminBusinessAccessLink;
+};
+
 export function useAdminBusinessesModel({
   adminMutable,
   queueCriticalAction,
@@ -143,8 +147,7 @@ export function useAdminBusinessesModel({
     await loadBusinesses("pending", "");
   }, [loadBusinesses]);
 
-  const openBusiness = useCallback(async (businessId: string) => {
-    setBusy(true);
+  const loadBusinessDetail = useCallback(async (businessId: string) => {
     try {
       const [data, links, operationalCapacity] = await Promise.all([
         getAdminBusiness<AdminBusinessDetail>(request, businessId),
@@ -163,13 +166,44 @@ export function useAdminBusinessesModel({
       setBusinessOperationalCapacity(operationalCapacity);
       setBusinessOperationalCapacityDraft(operationalCapacity.declared_available_capacity_usd);
       setView("business-detail");
-      setNotice("Detalle de negocio cargado.");
+      return null;
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No se pudo cargar detalle de negocio.");
+      return error instanceof Error ? error.message : "No se pudo cargar detalle de negocio.";
+    }
+  }, [request, setView]);
+
+  const openBusiness = useCallback(async (businessId: string) => {
+    setBusy(true);
+    try {
+      const errorMessage = await loadBusinessDetail(businessId);
+      setNotice(errorMessage || "Detalle de negocio cargado.");
     } finally {
       setBusy(false);
     }
-  }, [request, setBusy, setNotice, setView]);
+  }, [loadBusinessDetail, setBusy, setNotice]);
+
+  const finishAccessMutation = useCallback(async (businessId: string, successMessage: string) => {
+    setSelectedBusiness((current) => current && current.business.id === businessId
+      ? {
+          ...current,
+          access_diagnostic: {
+            ...current.access_diagnostic,
+            business_can_access_surface: false,
+            blocking_reason: "DIAGNOSTIC_REFRESH_REQUIRED",
+            recommended_admin_action: "refresh_diagnostic"
+          }
+        }
+      : current);
+    setBusy(true);
+    try {
+      const refreshError = await loadBusinessDetail(businessId);
+      setNotice(refreshError
+        ? `${successMessage} No pudimos refrescar el diagnostico; usa Actualizar.`
+        : successMessage);
+    } finally {
+      setBusy(false);
+    }
+  }, [loadBusinessDetail, setBusy, setNotice]);
 
   const submitBusinessCapacity = useCallback(() => {
     if (!selectedBusiness || !adminMutable) {
@@ -261,10 +295,9 @@ export function useAdminBusinessesModel({
         idempotencyKey("business_access_link_create")
       );
       setReason("");
-      setNotice("Acceso de negocio creado.");
-      await openBusiness(selectedBusiness.business.id);
+      await finishAccessMutation(selectedBusiness.business.id, "Acceso de negocio creado.");
     }, { requiresReason: false });
-  }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
+  }, [adminMutable, finishAccessMutation, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
   const changeBusinessStatus = useCallback((action: "suspend" | "reactivate" | "block") => {
     if (!selectedBusiness || !adminMutable) {
@@ -294,13 +327,15 @@ export function useAdminBusinessesModel({
         setBusinesses((current) => current.map((item) => (
           item.id === data.business.id ? { ...item, verification_status: data.business.verification_status } : item
         )));
+        setSelectedBusiness((current) => current && current.business.id === data.business.id
+          ? { ...current, business: { ...current.business, verification_status: data.business.verification_status } }
+          : current);
         setReason("");
-        await openBusiness(selectedBusiness.business.id);
-        setNotice(successMessage);
+        await finishAccessMutation(selectedBusiness.business.id, successMessage);
       },
       { requiresReason: true }
     );
-  }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
+  }, [adminMutable, finishAccessMutation, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
   const changeBusinessOwnerUserStatus = useCallback((userId: string, action: "reactivate") => {
     if (!selectedBusiness || !adminMutable) {
@@ -332,12 +367,11 @@ export function useAdminBusinessesModel({
             : candidate
         )));
         setReason("");
-        await openBusiness(selectedBusiness.business.id);
-        setNotice(successMessage);
+        await finishAccessMutation(selectedBusiness.business.id, successMessage);
       },
       { requiresReason: true }
     );
-  }, [adminMutable, businessAccessLinks, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
+  }, [adminMutable, businessAccessLinks, finishAccessMutation, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
   const changeBusinessAccessLink = useCallback((linkId: string, action: "suspend" | "reactivate" | "revoke" | "block") => {
     if (!selectedBusiness || !adminMutable) {
@@ -348,7 +382,7 @@ export function useAdminBusinessesModel({
       `${action} acceso negocio`,
       "Cambia el acceso del negocio sin borrar historial. Backend valida estado, permisos, idempotencia y audit.",
       async () => {
-        await updateAdminBusinessAccessLink(
+        const data = await updateAdminBusinessAccessLink<AdminBusinessAccessLinkMutationResponse>(
           request,
           selectedBusiness.business.id,
           linkId,
@@ -356,13 +390,15 @@ export function useAdminBusinessesModel({
           reason,
           idempotencyKey(`business_access_link_${action}`)
         );
+        setBusinessAccessLinks((current) => current.map((link) => (
+          link.id === data.access_link.id ? { ...link, ...data.access_link, user: link.user, business: link.business } : link
+        )));
         setReason("");
-        setNotice("Acceso de negocio actualizado.");
-        await openBusiness(selectedBusiness.business.id);
+        await finishAccessMutation(selectedBusiness.business.id, "Acceso de negocio actualizado.");
       },
       { requiresReason: false }
     );
-  }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
+  }, [adminMutable, finishAccessMutation, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
   return {
     businessAccessLinks,

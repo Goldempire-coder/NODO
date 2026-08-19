@@ -36,6 +36,33 @@ export type DocumentFile = {
   created_at: string;
 };
 
+export type AdminBusinessAccessDiagnostic = {
+  business_status: string;
+  business_risk_level: string;
+  business_can_access_surface: boolean;
+  owner_user_id: string;
+  owner_user_status: string;
+  owner_role_valid: boolean;
+  owner_link_id: string | null;
+  owner_link_status: string;
+  owner_link_role: string | null;
+  owner_link_conflict: boolean;
+  telegram_matches: boolean | null;
+  blocking_reason: string | null;
+  recommended_admin_action:
+    | "none"
+    | "unblock_business"
+    | "reactivate_business"
+    | "review_business_approval"
+    | "unblock_owner_user"
+    | "reactivate_owner_user"
+    | "reactivate_owner_link"
+    | "create_owner_link"
+    | "regenerate_owner_link"
+    | "review_owner_binding"
+    | "refresh_diagnostic";
+};
+
 export type AdminBusinessDetail = {
   business: BusinessSummary & {
     address?: string | null;
@@ -49,6 +76,7 @@ export type AdminBusinessDetail = {
     created_at?: string;
     updated_at?: string;
   };
+  access_diagnostic: AdminBusinessAccessDiagnostic;
   latest_submission: {
     id: string;
     status: string;

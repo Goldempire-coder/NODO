@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import ApiError
+from app.modules.businesses.access_control import business_access_diagnostic
 from app.modules.businesses.access_link_rules import admin_reason_or_default
 from app.modules.businesses.models import TRUST_LEVELS
 from app.modules.businesses.policy import require_admin_mutation, require_admin_view
@@ -39,8 +40,14 @@ class BusinessAdminReviewServiceMixin:
         require_admin_view(user)
         business = self._business_or_404(business_id)  # type: ignore[attr-defined]
         latest = self._repository.get_latest_submission(business.id)  # type: ignore[attr-defined]
+        owner_user = self._users.get_user_by_id(business.owner_user_id)  # type: ignore[attr-defined]
         return {
             "business": business_payload(business, admin=user.role in {"admin", "super_admin"}),
+            "access_diagnostic": business_access_diagnostic(
+                business=business,
+                owner_user=owner_user,
+                links=self._repository.list_access_links_for_business(business.id),  # type: ignore[attr-defined]
+            ),
             "latest_submission": self._latest_submission_payload(latest=latest, user=user),
             "documents": [file_payload(file) for file in self._repository.list_files_for_business(business.id)],  # type: ignore[attr-defined]
         }

@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import time
+from dataclasses import replace
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -45,9 +46,95 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
-from app.modules.businesses.models import BusinessRecord, new_id, utc_now  # noqa: E402
+from app.modules.businesses.access_control import business_access_diagnostic  # noqa: E402
+from app.modules.businesses.models import BusinessAccessLinkRecord, BusinessRecord, new_id, utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.businesses.row_mappers import access_link_from_row  # noqa: E402
+from app.modules.users.models import UserRecord  # noqa: E402
+
+
+def test_business_access_diagnostic_covers_each_gate_and_stable_owner_link_selection() -> None:
+    now = utc_now()
+    owner_id = new_id()
+    business = BusinessRecord(
+        id=new_id(),
+        owner_user_id=owner_id,
+        business_name="Casa Diagnostico",
+        rif=None,
+        address=None,
+        phone=None,
+        verification_status="approved",
+    )
+    owner = UserRecord(
+        id=owner_id,
+        telegram_id=14199,
+        username="owner_diagnostic_matrix",
+        first_name="Owner",
+        last_name=None,
+        role="business_owner",
+        status="active",
+    )
+    active_link = BusinessAccessLinkRecord(
+        id=new_id(),
+        business_id=business.id,
+        user_id=owner.id,
+        telegram_id_snapshot=owner.telegram_id,
+        role_in_business="owner",
+        status="active",
+        linked_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+
+    cases = [
+        (business, owner, [active_link], True, None, "none"),
+        (replace(business, verification_status="blocked"), owner, [active_link], False, "BUSINESS_BLOCKED", "unblock_business"),
+        (business, replace(owner, status="blocked"), [active_link], False, "USER_BLOCKED", "unblock_owner_user"),
+        (business, replace(owner, role="remitter"), [active_link], False, "SURFACE_ACCESS_DENIED", "review_owner_binding"),
+        (business, owner, [replace(active_link, status="suspended")], False, "BUSINESS_ACCESS_SUSPENDED", "reactivate_owner_link"),
+        (business, owner, [replace(active_link, status="blocked")], False, "BUSINESS_ACCESS_BLOCKED", "reactivate_owner_link"),
+        (business, owner, [replace(active_link, status="revoked")], False, "BUSINESS_ACCESS_REVOKED", "reactivate_owner_link"),
+        (business, owner, [replace(active_link, role_in_business="operator")], False, "BUSINESS_ACCESS_LINK_REQUIRED", "create_owner_link"),
+        (business, owner, [replace(active_link, telegram_id_snapshot=14200)], False, "SURFACE_ACCESS_DENIED", "regenerate_owner_link"),
+        (business, owner, [], False, "BUSINESS_ACCESS_LINK_REQUIRED", "create_owner_link"),
+    ]
+
+    for case_business, case_owner, links, can_access, reason, action in cases:
+        diagnostic = business_access_diagnostic(business=case_business, owner_user=case_owner, links=links)
+        assert diagnostic["business_can_access_surface"] is can_access
+        assert diagnostic["blocking_reason"] == reason
+        assert diagnostic["recommended_admin_action"] == action
+
+    newer_revoked_link = replace(
+        active_link,
+        id=new_id(),
+        status="revoked",
+        updated_at=now + timedelta(seconds=1),
+    )
+    conflict = business_access_diagnostic(
+        business=business,
+        owner_user=owner,
+        links=[newer_revoked_link, active_link],
+    )
+    assert conflict["owner_link_id"] == active_link.id
+    assert conflict["owner_link_conflict"] is True
+    assert conflict["business_can_access_surface"] is True
+
+    newer_operator_link = replace(
+        active_link,
+        id=new_id(),
+        role_in_business="operator",
+        updated_at=now + timedelta(seconds=2),
+    )
+    owner_preferred = business_access_diagnostic(
+        business=business,
+        owner_user=owner,
+        links=[newer_operator_link, active_link],
+    )
+    assert owner_preferred["owner_link_id"] == active_link.id
+    assert owner_preferred["owner_link_role"] == "owner"
+    assert owner_preferred["owner_link_conflict"] is False
+    assert owner_preferred["business_can_access_surface"] is True
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -204,6 +291,62 @@ def test_surface_session_allows_approved_business_with_active_link() -> None:
     assert "trust_level" not in data["business"]
     assert "telegram_id" not in data["user"]
     assert "business.ads.create" in data["capabilities"]
+
+
+def test_surface_session_denies_active_operator_link_without_owner_link() -> None:
+    client = _client()
+    owner = _login(client, 14104, "operator_only")
+    business = _create_approved_business(client, owner)
+    admin = _admin_login(client, 14105)
+    client.app.state.business_repository.create_access_link(
+        business_id=business["id"],
+        user_id=owner["user"]["id"],
+        telegram_id_snapshot=14104,
+        role_in_business="operator",
+        linked_by_admin_id=admin["user"]["id"],
+        reason="operator access does not authorize the owner surface",
+    )
+
+    response = client.get(
+        "/api/v1/surface/session",
+        headers=_business_headers(owner, "req_surface_operator_only"),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "BUSINESS_ACCESS_LINK_REQUIRED"
+
+
+def test_surface_session_prefers_owner_link_when_operator_is_also_active() -> None:
+    client = _client()
+    owner = _login(client, 14108, "operator_and_owner")
+    business = _create_approved_business(client, owner)
+    admin = _admin_login(client, 14109)
+    operator_link = client.app.state.business_repository.create_access_link(
+        business_id=business["id"],
+        user_id=owner["user"]["id"],
+        telegram_id_snapshot=14108,
+        role_in_business="operator",
+        linked_by_admin_id=admin["user"]["id"],
+        reason="operator role reserved for future use",
+    )
+    owner_link = client.app.state.business_repository.create_access_link(
+        business_id=business["id"],
+        user_id=owner["user"]["id"],
+        telegram_id_snapshot=14108,
+        role_in_business="owner",
+        linked_by_admin_id=admin["user"]["id"],
+        reason="owner access approved",
+    )
+
+    response = client.get(
+        "/api/v1/surface/session",
+        headers=_business_headers(owner, "req_surface_operator_and_owner"),
+    )
+
+    assert owner_link.id != operator_link.id
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["business"]["access_link"]["id"] == owner_link.id
+    assert response.json()["data"]["business"]["access_link"]["role_in_business"] == "owner"
 
 
 def test_surface_session_uses_approved_business_with_active_link_when_owner_has_duplicate_business_records() -> None:

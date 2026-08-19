@@ -26,7 +26,16 @@ class InMemoryBusinessAccessLinksMixin:
         if role_in_business not in BUSINESS_ACCESS_ROLES:
             raise ApiError("VALIDATION_ERROR", status_code=422)
         with self._lock:  # type: ignore[attr-defined]
-            existing = self.get_active_access_link_for_business_user(business_id=business_id, user_id=user_id)
+            existing_links = [
+                link
+                for link in self.access_links.values()  # type: ignore[attr-defined]
+                if link.business_id == business_id
+                and link.user_id == user_id
+                and link.role_in_business == role_in_business
+                and link.status == "active"
+            ]
+            existing_links.sort(key=lambda link: (link.updated_at, link.id), reverse=True)
+            existing = existing_links[0] if existing_links else None
             if existing is not None:
                 return existing
             if role_in_business == "owner":
@@ -75,7 +84,10 @@ class InMemoryBusinessAccessLinksMixin:
         ]
         if not links:
             return None
-        links.sort(key=lambda item: item.updated_at, reverse=True)
+        links.sort(
+            key=lambda item: (item.role_in_business == "owner", item.updated_at, item.id),
+            reverse=True,
+        )
         return links[0]
 
     def get_active_access_link_for_business_user(
@@ -84,8 +96,23 @@ class InMemoryBusinessAccessLinksMixin:
         business_id: str,
         user_id: str,
     ) -> BusinessAccessLinkRecord | None:
-        link = self.get_access_link_for_business_user(business_id=business_id, user_id=user_id)
-        return link if link is not None and link.status == "active" else None
+        links = [
+            link
+            for link in self.access_links.values()  # type: ignore[attr-defined]
+            if link.business_id == business_id
+            and link.user_id == user_id
+            and link.role_in_business == "owner"
+            and link.status == "active"
+        ]
+        links.sort(key=lambda link: (link.updated_at, link.id), reverse=True)
+        return links[0] if links else None
+
+    def list_access_links_for_business(self, business_id: str) -> list[BusinessAccessLinkRecord]:
+        return sorted(
+            [link for link in self.access_links.values() if link.business_id == business_id],  # type: ignore[attr-defined]
+            key=lambda link: (link.updated_at, link.id),
+            reverse=True,
+        )
 
     def set_access_link_status(
         self,
