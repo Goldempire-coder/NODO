@@ -281,6 +281,13 @@ export function Jobs({ model }: { model: AdminWebModel }) {
           </tr>
         ))}
       </ScrollableTable>
+      {model.jobRunsNextCursor ? (
+        <div className="admin-web-orders-list-actions">
+          <button disabled={model.jobRunsLoadingMore} type="button" onClick={() => void model.loadMoreJobs()}>
+            {model.jobRunsLoadingMore ? "Cargando..." : "Cargar mas"}
+          </button>
+        </div>
+      ) : null}
       {model.jobRuns.length === 0 ? <Empty text="Sin job runs." /> : null}
     </section>
   );

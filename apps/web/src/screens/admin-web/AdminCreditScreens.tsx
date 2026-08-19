@@ -23,6 +23,13 @@ export function CreditPurchases({ model }: { model: AdminWebModel }) {
           ))}
         </Table>
       </div>
+      {model.creditPurchasesNextCursor ? (
+        <div className="admin-web-orders-list-actions">
+          <button disabled={model.creditPurchasesLoadingMore} type="button" onClick={() => void model.loadMoreCreditPurchases()}>
+            {model.creditPurchasesLoadingMore ? "Cargando..." : "Cargar mas"}
+          </button>
+        </div>
+      ) : null}
       {model.creditPurchases.length === 0 ? <Empty text="Sin compras de creditos para ese filtro." /> : null}
     </section>
   );

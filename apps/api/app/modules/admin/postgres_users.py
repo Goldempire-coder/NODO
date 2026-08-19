@@ -4,6 +4,7 @@ from typing import Any
 
 from app.modules.admin.user_presenters import admin_business_link_payload, admin_user_payload
 from app.modules.users.row_mappers import user_from_row
+from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor
 
 
 class PostgresAdminUsersMixin:
@@ -37,14 +38,16 @@ class PostgresAdminUsersMixin:
             sql += " and status = %s"
             params.append(status)
         if cursor:
-            sql += " and created_at < %s"
-            params.append(cursor)
-        sql += " order by created_at desc limit %s"
-        params.append(limit)
+            position = decode_keyset_cursor(cursor)
+            sql += " and (created_at, id) < (%s, %s::uuid)"
+            params.extend((position.timestamp, position.item_id))
+        sql += " order by created_at desc, id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:  # type: ignore[attr-defined]
             rows = conn.execute(sql, params).fetchall()
-        items = [admin_user_payload(dict(row), full_sensitive=full_sensitive) for row in rows]
-        next_cursor = rows[-1]["created_at"].isoformat() if len(rows) == limit else None
+        page = rows[:limit]
+        items = [admin_user_payload(dict(row), full_sensitive=full_sensitive) for row in page]
+        next_cursor = encode_keyset_cursor(page[-1]["created_at"], str(page[-1]["id"])) if len(rows) > limit else None
         return items, next_cursor
 
     def get_user_admin(self, user_id: str, *, full_sensitive: bool) -> dict[str, Any] | None:

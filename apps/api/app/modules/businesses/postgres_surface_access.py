@@ -9,6 +9,25 @@ class PostgresBusinessSurfaceAccessMixin:
         with self._connect() as conn:  # type: ignore[attr-defined]
             row = conn.execute(
                 """
+                select
+                    row_to_json(b) as business_json,
+                    row_to_json(l) as link_json
+                from business_access_links l
+                join businesses b on b.id = l.business_id
+                where l.user_id = %s
+                  and l.status = 'active'
+                  and b.owner_user_id = %s
+                  and b.verification_status = 'approved'
+                order by l.updated_at desc, b.created_at desc
+                limit 1
+                """,
+                (owner_user_id, owner_user_id),
+            ).fetchone()
+            if row is not None and row["business_json"] is not None:
+                return business_from_row(row["business_json"]), access_link_from_row(row["link_json"])
+
+            row = conn.execute(
+                """
                 with latest_business as (
                     select *
                     from businesses

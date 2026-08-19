@@ -10,9 +10,12 @@ import pytest
 
 from app.core.errors import ApiError
 from app.modules.admin.postgres_repository import PostgresAdminRepository
+from app.modules.admin_notifications.postgres_repository import PostgresAdminNotificationRepository
 from app.modules.ads.postgres_repository import PostgresAdRepository
 from app.modules.chat.postgres_repository import PostgresChatRepository
+from app.modules.credits.postgres_repository import PostgresCreditRepository
 from app.modules.disputes.postgres_repository import PostgresDisputeRepository
+from app.modules.jobs.postgres_repository import PostgresJobRepository
 from app.modules.orders.postgres_repository import PostgresOrderRepository
 from app.modules.support.postgres_repository import PostgresSupportRepository
 from app.shared.keyset_pagination import encode_keyset_cursor
@@ -44,10 +47,30 @@ def cursor_database_url() -> str:
             where table_schema = 'public'
               and table_name = any(%s)
             """,
-            (["orders", "disputes", "support_tickets"],),
+            ([
+                "orders",
+                "disputes",
+                "support_tickets",
+                "businesses",
+                "users",
+                "audit_logs",
+                "credit_purchases",
+                "job_runs",
+                "admin_notifications",
+            ],),
         ).fetchall()
     assert current_database.lower().startswith("nodo_cursor_")
-    assert {row[0] for row in required_tables} == {"orders", "disputes", "support_tickets"}
+    assert {row[0] for row in required_tables} == {
+        "orders",
+        "disputes",
+        "support_tickets",
+        "businesses",
+        "users",
+        "audit_logs",
+        "credit_purchases",
+        "job_runs",
+        "admin_notifications",
+    }
     return database_url
 
 
@@ -60,6 +83,30 @@ def _collect_ids(page_loader) -> list[str]:  # type: ignore[no-untyped-def]
         if cursor is None:
             return ids
     raise AssertionError("pagination did not terminate")
+
+
+def _truncate_cursor_test_data(conn) -> None:  # type: ignore[no-untyped-def]
+    conn.execute(
+        """
+        truncate table
+            admin_notifications,
+            credit_purchases,
+            job_runs,
+            audit_logs,
+            messages,
+            support_ticket_events,
+            support_messages,
+            support_tickets,
+            disputes,
+            orders,
+            ads,
+            business_capacity,
+            business_payment_methods,
+            businesses,
+            users
+        cascade
+        """
+    )
 
 
 def test_postgres_rejects_non_uuid_cursor_before_connect(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -88,6 +135,305 @@ def test_postgres_rejects_non_uuid_cursor_before_connect(monkeypatch: pytest.Mon
     assert exc_info.value.status_code == 400
 
 
+@pytest.mark.parametrize(
+    ("repository_factory", "invoke"),
+    [
+        (
+            PostgresAdminRepository,
+            lambda repository, cursor: repository.list_businesses(
+                verification_status=None,
+                risk_level=None,
+                business_id=None,
+                business_name=None,
+                cursor=cursor,
+                limit=2,
+            ),
+        ),
+        (
+            PostgresAdminRepository,
+            lambda repository, cursor: repository.list_users(
+                phone=None,
+                telegram_id=None,
+                username=None,
+                role=None,
+                status=None,
+                cursor=cursor,
+                limit=2,
+                full_sensitive=False,
+            ),
+        ),
+        (
+            PostgresAdminRepository,
+            lambda repository, cursor: repository.list_audit_logs(
+                event_type=None,
+                actor_user_id=None,
+                resource_type=None,
+                resource_id=None,
+                cursor=cursor,
+                limit=2,
+            ),
+        ),
+        (
+            PostgresCreditRepository,
+            lambda repository, cursor: repository.list_purchases(
+                status=None,
+                business_id=None,
+                cursor=cursor,
+                limit=2,
+            ),
+        ),
+        (
+            PostgresJobRepository,
+            lambda repository, cursor: repository.list_job_runs(
+                job_type=None,
+                status=None,
+                cursor=cursor,
+                limit=2,
+            ),
+        ),
+        (
+            PostgresAdminNotificationRepository,
+            lambda repository, cursor: repository.list_notifications(
+                status=None,
+                priority=None,
+                cursor=cursor,
+                limit=2,
+            ),
+        ),
+    ],
+)
+def test_postgres_admin_cursor_rejects_non_uuid_before_connect(
+    monkeypatch: pytest.MonkeyPatch,
+    repository_factory,
+    invoke,
+) -> None:
+    repository = repository_factory("postgresql://unused")
+    monkeypatch.setattr(
+        repository,
+        "_connect",
+        lambda: pytest.fail("invalid cursor reached PostgreSQL"),
+    )
+    cursor = encode_keyset_cursor(TIED_AT, "not-a-uuid")
+
+    with pytest.raises(ApiError) as exc_info:
+        invoke(repository, cursor)
+
+    assert exc_info.value.code == "PAGINATION_CURSOR_INVALID"
+    assert exc_info.value.status_code == 400
+
+
+def test_postgres_keyset_cursor_preserves_tied_admin_lists(cursor_database_url: str) -> None:
+    admin_user_ids = [_uuid(index) for index in (2101, 2102, 2103)]
+    business_owner_ids = [_uuid(index) for index in (2201, 2202, 2203)]
+    business_ids = [_uuid(index) for index in (2301, 2302, 2303)]
+    audit_ids = [_uuid(index) for index in (2401, 2402, 2403)]
+    credit_owner_id = _uuid(2500)
+    credit_business_id = _uuid(2501)
+    credit_purchase_ids = [_uuid(index) for index in (2601, 2602, 2603)]
+    job_run_ids = [_uuid(index) for index in (2701, 2702, 2703)]
+    notification_ids = [_uuid(index) for index in (2801, 2802, 2803)]
+
+    with psycopg.connect(cursor_database_url) as conn:
+        _truncate_cursor_test_data(conn)
+        for index, user_id in enumerate(admin_user_ids, start=1):
+            conn.execute(
+                """
+                insert into users (
+                    id, telegram_id, username, first_name, role, status, created_at, updated_at
+                ) values (%s, %s, %s, 'Cursor', 'support', 'active', %s, %s)
+                on conflict (id) do nothing
+                """,
+                (user_id, 500000 + index, f"admin_cursor_support_{index}", TIED_AT, TIED_AT),
+            )
+        for index, (owner_id, business_id) in enumerate(zip(business_owner_ids, business_ids, strict=True), start=1):
+            conn.execute(
+                """
+                insert into users (
+                    id, telegram_id, username, role, status, created_at, updated_at
+                ) values (%s, %s, %s, 'business_owner', 'active', %s, %s)
+                on conflict (id) do nothing
+                """,
+                (owner_id, 501000 + index, f"admin_cursor_owner_{index}", TIED_AT, TIED_AT),
+            )
+            conn.execute(
+                """
+                insert into businesses (
+                    id, owner_user_id, business_name, verification_status,
+                    risk_level, trust_level, approved_at, created_at, updated_at
+                ) values (%s, %s, %s, 'approved', 'normal', 'basic', %s, %s, %s)
+                on conflict (id) do nothing
+                """,
+                (business_id, owner_id, f"Admin Cursor Business {index}", TIED_AT, TIED_AT, TIED_AT),
+            )
+        conn.execute(
+            """
+            insert into users (
+                id, telegram_id, username, role, status, created_at, updated_at
+            ) values (%s, 502000, 'admin_cursor_credit_owner', 'business_owner', 'active', %s, %s)
+            on conflict (id) do nothing
+            """,
+            (credit_owner_id, TIED_AT, TIED_AT),
+        )
+        conn.execute(
+            """
+            insert into businesses (
+                id, owner_user_id, business_name, verification_status,
+                risk_level, trust_level, approved_at, created_at, updated_at
+            ) values (%s, %s, 'Admin Cursor Credit Business', 'approved',
+                      'normal', 'basic', %s, %s, %s)
+            on conflict (id) do nothing
+            """,
+            (credit_business_id, credit_owner_id, TIED_AT, TIED_AT, TIED_AT),
+        )
+        for index, audit_id in enumerate(audit_ids, start=1):
+            conn.execute(
+                """
+                insert into audit_logs (
+                    id, actor_user_id, actor_role, event_type, resource_type,
+                    resource_id, request_id, metadata_json, created_at
+                ) values (%s, %s, 'super_admin', 'admin_cursor_event',
+                          'admin_cursor', %s, %s, '{}'::jsonb, %s)
+                on conflict (id) do nothing
+                """,
+                (audit_id, admin_user_ids[0], business_ids[0], f"req-admin-cursor-{index}", TIED_AT),
+            )
+        for index, purchase_id in enumerate(credit_purchase_ids, start=1):
+            conn.execute(
+                """
+                insert into credit_purchases (
+                    id, business_id, package_code, credits_amount, price_usd,
+                    payment_method, status, idempotency_key,
+                    stripe_checkout_session_id, created_at, updated_at
+                ) values (%s, %s, 'starter', 5, 10.00, 'stripe_checkout',
+                          'created', %s, %s, %s, %s)
+                on conflict (id) do nothing
+                """,
+                (
+                    purchase_id,
+                    credit_business_id,
+                    f"admin-cursor-credit-{index}",
+                    f"cs_admin_cursor_{index}",
+                    TIED_AT,
+                    TIED_AT,
+                ),
+            )
+        for index, run_id in enumerate(job_run_ids, start=1):
+            conn.execute(
+                """
+                insert into job_runs (
+                    id, job_type, status, lock_acquired, attempts,
+                    metadata_json, created_at, updated_at
+                ) values (%s, 'expire_and_escalate_orders', 'started',
+                          false, 0, '{}'::jsonb, %s, %s)
+                on conflict (id) do nothing
+                """,
+                (run_id, TIED_AT, TIED_AT),
+            )
+        for index, notification_id in enumerate(notification_ids, start=1):
+            conn.execute(
+                """
+                insert into admin_notifications (
+                    id, notification_type, priority, status, source_surface,
+                    resource_type, title, summary, dedupe_key, metadata_json,
+                    first_seen_at, last_seen_at, created_at, updated_at
+                ) values (%s, 'admin_cursor_notice', 'attention', 'unread',
+                          'admin_web', 'admin_cursor', %s, 'Cursor summary',
+                          %s, '{}'::jsonb, %s, %s, %s, %s)
+                on conflict (id) do nothing
+                """,
+                (
+                    notification_id,
+                    f"Cursor notification {index}",
+                    f"admin-cursor-notification-{index}",
+                    TIED_AT,
+                    TIED_AT,
+                    TIED_AT,
+                    TIED_AT,
+                ),
+            )
+        conn.commit()
+
+    admin = PostgresAdminRepository(cursor_database_url)
+    credits = PostgresCreditRepository(cursor_database_url)
+    jobs = PostgresJobRepository(cursor_database_url)
+    notifications = PostgresAdminNotificationRepository(cursor_database_url)
+
+    listed_business_ids = _collect_ids(
+        lambda cursor: admin.list_businesses(
+            verification_status="approved",
+            risk_level=None,
+            business_id=None,
+            business_name="Admin Cursor Business",
+            cursor=cursor,
+            limit=2,
+        )
+    )
+    listed_user_ids = _collect_ids(
+        lambda cursor: admin.list_users(
+            phone=None,
+            telegram_id=None,
+            username="admin_cursor_support",
+            role="support",
+            status="active",
+            cursor=cursor,
+            limit=2,
+            full_sensitive=False,
+        )
+    )
+    listed_audit_ids = _collect_ids(
+        lambda cursor: admin.list_audit_logs(
+            event_type="admin_cursor_event",
+            actor_user_id=None,
+            resource_type="admin_cursor",
+            resource_id=None,
+            cursor=cursor,
+            limit=2,
+        )
+    )
+    listed_credit_ids = _collect_ids(
+        lambda cursor: credits.list_purchases(
+            status="created",
+            business_id=credit_business_id,
+            cursor=cursor,
+            limit=2,
+        )
+    )
+    listed_job_ids = _collect_ids(
+        lambda cursor: jobs.list_job_runs(
+            job_type="expire_and_escalate_orders",
+            status="started",
+            cursor=cursor,
+            limit=2,
+        )
+    )
+    listed_notification_ids = _collect_ids(
+        lambda cursor: notifications.list_notifications(
+            status="unread",
+            priority="attention",
+            cursor=cursor,
+            limit=2,
+        )
+    )
+
+    assert listed_business_ids == list(reversed(business_ids))
+    assert listed_user_ids == list(reversed(admin_user_ids))
+    assert listed_audit_ids == list(reversed(audit_ids))
+    assert listed_credit_ids == list(reversed(credit_purchase_ids))
+    assert listed_job_ids == list(reversed(job_run_ids))
+    assert listed_notification_ids == list(reversed(notification_ids))
+    assert all(
+        len(ids) == len(set(ids)) == 3
+        for ids in (
+            listed_business_ids,
+            listed_user_ids,
+            listed_audit_ids,
+            listed_credit_ids,
+            listed_job_ids,
+            listed_notification_ids,
+        )
+    )
+
+
 def test_postgres_keyset_cursor_preserves_tied_support_orders_and_disputes(cursor_database_url: str) -> None:
     remitter_id = _uuid(100)
     owner_id = _uuid(101)
@@ -101,6 +447,7 @@ def test_postgres_keyset_cursor_preserves_tied_support_orders_and_disputes(curso
     support_event_ids = [_uuid(index) for index in range(730, 785)]
     chat_message_ids = [_uuid(index) for index in range(800, 855)]
     with psycopg.connect(cursor_database_url) as conn:
+        _truncate_cursor_test_data(conn)
         conn.execute("insert into users (id, role, status) values (%s, 'remitter', 'active'), (%s, 'business_owner', 'active')", (remitter_id, owner_id))
         conn.execute(
             """
@@ -285,6 +632,7 @@ def test_postgres_marketplace_cursor_preserves_tied_rate_date_and_method_filters
     methods = ["zelle", "zelle", "zelle", "usdt_trc20", "usdt_trc20", "usdt_trc20"]
 
     with psycopg.connect(cursor_database_url) as conn:
+        _truncate_cursor_test_data(conn)
         for owner_id, business_id, payment_method_id, ad_id, method in zip(
             owner_ids,
             business_ids,

@@ -45,7 +45,7 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
-from app.modules.businesses.models import utc_now  # noqa: E402
+from app.modules.businesses.models import BusinessRecord, new_id, utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.businesses.row_mappers import access_link_from_row  # noqa: E402
 
@@ -204,6 +204,49 @@ def test_surface_session_allows_approved_business_with_active_link() -> None:
     assert "trust_level" not in data["business"]
     assert "telegram_id" not in data["user"]
     assert "business.ads.create" in data["capabilities"]
+
+
+def test_surface_session_uses_approved_business_with_active_link_when_owner_has_duplicate_business_records() -> None:
+    client = _client()
+    owner = _login(client, 14106, "owner_duplicate_businesses")
+    admin = _admin_login(client, 14107)
+    owner_id = owner["user"]["id"]
+    client.app.state.user_repository.set_user_role(owner_id, "business_owner")
+
+    unlinked_business = BusinessRecord(
+        id=new_id(),
+        owner_user_id=owner_id,
+        business_name="Ficha sin acceso",
+        rif="J-00000000-1",
+        address=None,
+        phone=None,
+        verification_status="pending",
+    )
+    linked_business = BusinessRecord(
+        id=new_id(),
+        owner_user_id=owner_id,
+        business_name="Ficha con acceso",
+        rif="J-00000000-2",
+        address=None,
+        phone=None,
+        verification_status="approved",
+        approved_at=utc_now(),
+    )
+    client.app.state.business_repository.businesses[unlinked_business.id] = unlinked_business
+    client.app.state.business_repository.businesses[linked_business.id] = linked_business
+    client.app.state.business_repository.create_access_link(
+        business_id=linked_business.id,
+        user_id=owner_id,
+        telegram_id_snapshot=14106,
+        role_in_business="owner",
+        linked_by_admin_id=admin["user"]["id"],
+        reason="admin approved owner access",
+    )
+
+    response = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_surface_duplicate_businesses"))
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["business"]["id"] == linked_business.id
 
 
 def test_business_availability_requires_pin_and_idempotency() -> None:

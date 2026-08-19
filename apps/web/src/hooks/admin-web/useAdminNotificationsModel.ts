@@ -10,6 +10,7 @@ import {
 } from "../../api/admin";
 import type { AdminNotification, AdminNotificationsList } from "../../types/admin";
 import { actionStartedAt, recordActionFailed } from "../actionTelemetry";
+import { appendUniqueById } from "../pagination";
 import type { AdminWebView, RequestFn } from "./adminWebTypes";
 import type { AdminPollingResultGuard } from "./useVisibleAdminPolling";
 
@@ -55,6 +56,9 @@ export function useAdminNotificationsModel({
   setNotice: (notice: string) => void;
 }) {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [notificationsNextCursor, setNotificationsNextCursor] = useState<string | null>(null);
+  const [notificationsLoadingMore, setNotificationsLoadingMore] = useState(false);
+  const [notificationsStatus, setNotificationsStatus] = useState("unread");
   const [unreadCount, setUnreadCount] = useState(0);
   const [supportUnreadCount, setSupportUnreadCount] = useState(0);
   const [unreadCountState, setUnreadCountState] = useState<"idle" | "ready" | "stale">("idle");
@@ -64,6 +68,8 @@ export function useAdminNotificationsModel({
   const lastUnreadCount = useRef(0);
   const unreadCountRequestEpoch = useRef(0);
   const notificationsRequestEpoch = useRef(0);
+  const notificationsHaveLoadedMore = useRef(false);
+  const notificationsLoadingMoreRef = useRef(false);
 
   const applyUnreadCount = useCallback((nextCount: number, nextSupportCount: number) => {
     const previousCount = lastUnreadCount.current;
@@ -100,15 +106,33 @@ export function useAdminNotificationsModel({
     }
   }, [applyUnreadCount, request]);
 
-  const loadNotifications = useCallback(async (status = "unread", shouldApply: AdminPollingResultGuard = () => true) => {
+  const loadNotifications = useCallback(async (
+    status = "unread",
+    shouldApply: AdminPollingResultGuard = () => true,
+    preserveLoadedPages = false
+  ) => {
+    if (preserveLoadedPages && notificationsLoadingMoreRef.current) {
+      return;
+    }
     const requestEpoch = ++notificationsRequestEpoch.current;
     const isLatest = () => requestEpoch === notificationsRequestEpoch.current && shouldApply();
+    if (!preserveLoadedPages) {
+      notificationsHaveLoadedMore.current = false;
+      notificationsLoadingMoreRef.current = false;
+      setNotificationsLoadingMore(false);
+    }
     try {
-      const payload = await listAdminNotifications<AdminNotificationsList>(request, status);
+      const payload: AdminNotificationsList = await listAdminNotifications(request, status);
       if (!isLatest()) {
         return;
       }
-      setNotifications(payload.items);
+      if (preserveLoadedPages && notificationsHaveLoadedMore.current) {
+        setNotifications((current) => appendUniqueById(payload.items, current));
+      } else {
+        setNotifications(payload.items);
+        setNotificationsNextCursor(payload.next_cursor ?? null);
+      }
+      setNotificationsStatus(status);
       await loadUnreadCount(shouldApply);
     } catch (error) {
       if (!isLatest()) {
@@ -117,6 +141,35 @@ export function useAdminNotificationsModel({
       setNotice(error instanceof Error ? error.message : "No pudimos cargar notificaciones.");
     }
   }, [loadUnreadCount, request, setNotice]);
+
+  const loadMoreNotifications = useCallback(async () => {
+    const cursor = notificationsNextCursor;
+    if (!cursor || notificationsLoadingMore) {
+      return;
+    }
+    const requestEpoch = ++notificationsRequestEpoch.current;
+    const requestedStatus = notificationsStatus;
+    notificationsLoadingMoreRef.current = true;
+    setNotificationsLoadingMore(true);
+    try {
+      const payload = await listAdminNotifications(request, requestedStatus, cursor);
+      if (requestEpoch !== notificationsRequestEpoch.current) {
+        return;
+      }
+      setNotifications((current) => appendUniqueById(current, payload.items));
+      setNotificationsNextCursor(payload.next_cursor ?? null);
+      notificationsHaveLoadedMore.current = true;
+    } catch (error) {
+      if (requestEpoch === notificationsRequestEpoch.current) {
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar mas notificaciones.");
+      }
+    } finally {
+      if (requestEpoch === notificationsRequestEpoch.current) {
+        notificationsLoadingMoreRef.current = false;
+        setNotificationsLoadingMore(false);
+      }
+    }
+  }, [notificationsLoadingMore, notificationsNextCursor, notificationsStatus, request, setNotice]);
 
   const togglePanel = useCallback(async () => {
     const nextOpen = !panelOpen;
@@ -206,9 +259,12 @@ export function useAdminNotificationsModel({
     unreadCount,
     panelOpen,
     notificationBusyId,
+    notificationsLoadingMore,
+    notificationsNextCursor,
     supportUnreadCount,
     unreadCountState,
     loadNotifications,
+    loadMoreNotifications,
     loadUnreadCount,
     togglePanel,
     markRead,

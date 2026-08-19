@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   createAdminBusinessAccessLink,
   getAdminBusiness,
@@ -6,10 +6,10 @@ import {
   getAdminBusinessDocumentViewUrl,
   listAdminBusinessAccessLinks,
   listAdminBusinesses,
-  listPendingAdminBusinesses,
   updateAdminBusinessCapacity,
   updateAdminBusinessOperationalCapacity,
-  updateAdminBusinessAccessLink
+  updateAdminBusinessAccessLink,
+  updateAdminBusinessStatus
 } from "../../api/admin";
 import type { AuthenticatedRequest } from "../../api/client";
 import type {
@@ -18,7 +18,8 @@ import type {
   AdminBusinessOperationalCapacity
 } from "../../types/admin";
 import { idempotencyKey } from "./helpers";
-import type { BusinessIntakeView, BusinessSummaryForAdmin, ListResponse, QueueCriticalAction } from "./adminBusinessIntakeTypes";
+import { appendUniqueById } from "../pagination";
+import type { BusinessIntakeView, BusinessSummaryForAdmin, QueueCriticalAction } from "./adminBusinessIntakeTypes";
 
 export function useAdminBusinessesModel({
   adminMutable,
@@ -40,6 +41,8 @@ export function useAdminBusinessesModel({
   setView: (view: BusinessIntakeView) => void;
 }) {
   const [businesses, setBusinesses] = useState<BusinessSummaryForAdmin[]>([]);
+  const [businessesNextCursor, setBusinessesNextCursor] = useState<string | null>(null);
+  const [businessesLoadingMore, setBusinessesLoadingMore] = useState(false);
   const [selectedBusiness, setSelectedBusiness] = useState<AdminBusinessDetail | null>(null);
   const [businessAccessLinks, setBusinessAccessLinks] = useState<AdminBusinessAccessLink[]>([]);
   const [businessOperationalCapacity, setBusinessOperationalCapacity] =
@@ -47,6 +50,8 @@ export function useAdminBusinessesModel({
   const [businessOperationalCapacityDraft, setBusinessOperationalCapacityDraft] = useState("0.00");
   const [businessFilter, setBusinessFilter] = useState("");
   const [businessSearchFilter, setBusinessSearchFilter] = useState("");
+  const businessesRequestEpoch = useRef(0);
+  const businessesQueryRef = useRef({ status: "", search: "" });
   const [businessCapacityDraft, setBusinessCapacityDraft] = useState({
     trust_level: "new",
     min_order_amount_usd: "20.00",
@@ -56,43 +61,78 @@ export function useAdminBusinessesModel({
   });
 
   const loadBusinesses = useCallback(async (status = businessFilter, search = businessSearchFilter) => {
+    const requestEpoch = ++businessesRequestEpoch.current;
+    setBusinessesLoadingMore(false);
     setBusy(true);
     const normalizedSearch = search.trim();
     const isBusinessId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalizedSearch);
     try {
-      const data = await listAdminBusinesses<ListResponse<BusinessSummaryForAdmin>>(request, {
+      const data = await listAdminBusinesses(request, {
         verification_status: status,
         business_id: isBusinessId ? normalizedSearch : undefined,
         business_name: normalizedSearch && !isBusinessId ? normalizedSearch : undefined
       });
+      if (requestEpoch !== businessesRequestEpoch.current) {
+        return;
+      }
       setBusinesses(data.items);
+      setBusinessesNextCursor(data.next_cursor);
       setView("businesses");
       setBusinessFilter(status);
       setBusinessSearchFilter(normalizedSearch);
+      businessesQueryRef.current = { status, search: normalizedSearch };
       setNotice(data.items.length ? "Negocios cargados." : "No hay negocios para ese filtro.");
     } catch (error) {
-      setBusinesses([]);
-      setNotice(error instanceof Error ? error.message : "No se pudo cargar negocios.");
+      if (requestEpoch === businessesRequestEpoch.current) {
+        setBusinesses([]);
+        setBusinessesNextCursor(null);
+        setNotice(error instanceof Error ? error.message : "No se pudo cargar negocios.");
+      }
     } finally {
-      setBusy(false);
+      if (requestEpoch === businessesRequestEpoch.current) {
+        setBusy(false);
+      }
     }
   }, [businessFilter, businessSearchFilter, request, setBusy, setNotice, setView]);
 
-  const loadPendingBusinesses = useCallback(async () => {
-    setBusy(true);
-    try {
-      const data = await listPendingAdminBusinesses<ListResponse<BusinessSummaryForAdmin>>(request);
-      setBusinesses(data.items);
-      setView("businesses");
-      setBusinessFilter("pending");
-      setNotice(data.items.length ? "Negocios pendientes cargados." : "No hay negocios pendientes.");
-    } catch (error) {
-      setBusinesses([]);
-      setNotice(error instanceof Error ? error.message : "No se pudo cargar negocios pendientes.");
-    } finally {
-      setBusy(false);
+  const loadMoreBusinesses = useCallback(async () => {
+    const cursor = businessesNextCursor;
+    if (!cursor || businessesLoadingMore) {
+      return;
     }
-  }, [request, setBusy, setNotice, setView]);
+    const requestEpoch = ++businessesRequestEpoch.current;
+    const { status: requestedStatus, search: requestedSearch } = businessesQueryRef.current;
+    const isBusinessId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedSearch);
+    setBusinessesLoadingMore(true);
+    try {
+      const data = await listAdminBusinesses(
+        request,
+        {
+          verification_status: requestedStatus,
+          business_id: isBusinessId ? requestedSearch : undefined,
+          business_name: requestedSearch && !isBusinessId ? requestedSearch : undefined
+        },
+        cursor
+      );
+      if (requestEpoch !== businessesRequestEpoch.current) {
+        return;
+      }
+      setBusinesses((current) => appendUniqueById(current, data.items));
+      setBusinessesNextCursor(data.next_cursor);
+    } catch (error) {
+      if (requestEpoch === businessesRequestEpoch.current) {
+        setNotice(error instanceof Error ? error.message : "No se pudieron cargar mas negocios.");
+      }
+    } finally {
+      if (requestEpoch === businessesRequestEpoch.current) {
+        setBusinessesLoadingMore(false);
+      }
+    }
+  }, [businessesLoadingMore, businessesNextCursor, request, setNotice]);
+
+  const loadPendingBusinesses = useCallback(async () => {
+    await loadBusinesses("pending", "");
+  }, [loadBusinesses]);
 
   const openBusiness = useCallback(async (businessId: string) => {
     setBusy(true);
@@ -217,6 +257,41 @@ export function useAdminBusinessesModel({
     }, { requiresReason: false });
   }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
+  const changeBusinessStatus = useCallback((action: "suspend" | "reactivate" | "block") => {
+    if (!selectedBusiness || !adminMutable) {
+      setNotice("Accion no permitida para este rol.");
+      return;
+    }
+    const currentStatus = selectedBusiness.business.verification_status;
+    const title =
+      action === "reactivate"
+        ? currentStatus === "blocked" ? "Desbloquear negocio" : "Reactivar negocio"
+        : action === "suspend" ? "Suspender negocio" : "Bloquear negocio";
+    const successMessage =
+      action === "reactivate"
+        ? currentStatus === "blocked" ? "Negocio desbloqueado." : "Negocio reactivado."
+        : action === "suspend" ? "Negocio suspendido." : "Negocio bloqueado.";
+    queueCriticalAction(
+      title,
+      "Cambia el estado operativo del negocio. El acceso del dueno se gestiona por separado.",
+      async () => {
+        const data = await updateAdminBusinessStatus<{ business: { id: string; verification_status: string } }>(
+          request,
+          selectedBusiness.business.id,
+          action,
+          reason,
+          idempotencyKey(`business_status_${action}`)
+        );
+        setBusinesses((current) => current.map((item) => (
+          item.id === data.business.id ? { ...item, verification_status: data.business.verification_status } : item
+        )));
+        setReason("");
+        await openBusiness(selectedBusiness.business.id);
+        setNotice(successMessage);
+      }
+    );
+  }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
+
   const changeBusinessAccessLink = useCallback((linkId: string, action: "suspend" | "reactivate" | "revoke" | "block") => {
     if (!selectedBusiness || !adminMutable) {
       setNotice("Accion no permitida para este rol.");
@@ -249,10 +324,14 @@ export function useAdminBusinessesModel({
     businessOperationalCapacityDraft,
     businesses,
     businessFilter,
+    businessesLoadingMore,
+    businessesNextCursor,
     businessSearchFilter,
     changeBusinessAccessLink,
+    changeBusinessStatus,
     createBusinessOwnerAccessLink,
     loadBusinesses,
+    loadMoreBusinesses,
     loadPendingBusinesses,
     openBusiness,
     openDocument,

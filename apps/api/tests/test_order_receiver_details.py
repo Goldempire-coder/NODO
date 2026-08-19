@@ -595,7 +595,8 @@ def test_slice_50b2_frontend_uses_structured_compact_chat_ui_and_copy_controls()
     assert "setReceiverDetailsForm" in client_chat
     assert "Compartir Pago Movil" in client_chat
     assert "Pago Movil compartido" in client_chat
-    assert "0414 1234567" in client_chat
+    assert "Escribe el numero completo" in client_chat
+    assert "0414 1234567" not in client_chat
     assert 'placeholder="12345678"' in client_chat
     assert 'placeholder="V12345678"' not in client_chat
     assert 'placeholder="+584121234567"' not in client_chat

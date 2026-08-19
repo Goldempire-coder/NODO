@@ -1,4 +1,5 @@
 import type { BusinessOperationalCapacity, BusinessSummary } from "./business";
+import type { CreditPurchase } from "./credits";
 import type { SupportTicket } from "./support";
 
 export type AdminBusinessPublicationHold = {
@@ -56,6 +57,23 @@ export type AdminBusinessDetail = {
     reviewed_at: string | null;
   } | null;
   documents: DocumentFile[];
+};
+
+export type AdminBusinessSummary = {
+  id: string;
+  business_name?: string;
+  display_name?: string;
+  verification_status?: string;
+  risk_level?: string;
+  trust_level?: string;
+  created_at?: string;
+  submitted_at?: string | null;
+};
+
+export type AdminBusinessListResponse = {
+  items: AdminBusinessSummary[];
+  next_cursor: string | null;
+  disclaimer?: string;
 };
 
 export type AdminBusinessOperationalCapacity = BusinessOperationalCapacity & {
@@ -127,6 +145,12 @@ export type AdminUserSummary = {
   last_seen_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+};
+
+export type AdminUserListResponse = {
+  items: AdminUserSummary[];
+  next_cursor: string | null;
+  disclaimer?: string;
 };
 
 export type AdminUserDetail = {
@@ -653,11 +677,24 @@ export type AdminOrderDisputeOpenResponse = {
 };
 
 export type AdminAuditLog = {
+  id: string;
   event_type: string;
   actor_role: string | null;
   resource_type: string;
   resource_id: string | null;
   created_at: string;
+};
+
+export type AdminAuditLogListResponse = {
+  items: AdminAuditLog[];
+  next_cursor: string | null;
+  disclaimer?: string;
+};
+
+export type AdminCreditPurchaseListResponse = {
+  items: CreditPurchase[];
+  next_cursor: string | null;
+  disclaimer?: string;
 };
 
 export type AdminWebJobRun = {
@@ -674,6 +711,50 @@ export type AdminWebJobRun = {
   failed_count?: number;
   error_code?: string | null;
   error_message_safe?: string | null;
+};
+
+export type AdminJobRunListResponse = {
+  items: AdminWebJobRun[];
+  next_cursor: string | null;
+  disclaimer?: string;
+};
+
+export type AdminBusinessIntakeSummary = {
+  id: string;
+  status: string;
+  last_step: string;
+  referral_code?: string | null;
+  business_name?: string | null;
+  business_tax_id?: string | null;
+  responsible_name?: string | null;
+  responsible_id_number?: string | null;
+  city?: string | null;
+  operation?: string | null;
+  contact_phone?: string | null;
+  contact_phone_masked?: string | null;
+  business_phone?: string | null;
+  business_phone_masked?: string | null;
+  submitted_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  banks?: string[];
+  methods?: string[];
+  min_amount_usd?: string | null;
+  max_amount_usd?: string | null;
+  daily_limit_usd?: string | null;
+  schedule?: string | null;
+  references?: string[];
+  reviewed_at?: string | null;
+  admin_reason?: string | null;
+  created_business_id?: string | null;
+  linked_telegram_user_id?: number | null;
+  ready_for_review?: boolean;
+  review_missing_count?: number;
+};
+
+export type AdminBusinessIntakeListResponse = {
+  items: AdminBusinessIntakeSummary[];
+  next_cursor: string | null;
 };
 
 export type AdminNotificationPriority = "info" | "attention" | "high" | "critical";

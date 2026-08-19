@@ -1,13 +1,20 @@
 import type {
+  AdminAuditLogListResponse,
+  AdminBusinessIntakeListResponse,
+  AdminBusinessListResponse,
+  AdminCreditPurchaseListResponse,
   AdminDisputeDetailResponse,
   AdminDisputeListResponse,
   AdminDisputeResolveResponse,
+  AdminJobRunListResponse,
+  AdminNotificationsList,
   AdminOrderDetailResponse,
   AdminOrderDisputeOpenResponse,
   AdminOrderListResponse,
   AdminStaffActivityResponse,
   AdminStaffDetailResponse,
-  AdminStaffListResponse
+  AdminStaffListResponse,
+  AdminUserListResponse
 } from "../types/admin";
 import type { AuthenticatedRequest } from "./client";
 
@@ -123,7 +130,7 @@ export function getAdminInvestigationCaseFile<T>(
   return request<T>(`/api/v1/admin/investigation/case-file?${params.toString()}`, { cache: "no-store" });
 }
 
-export function listAdminBusinesses<T>(
+export function listAdminBusinesses(
   request: AuthenticatedRequest,
   filters: { verification_status?: string; business_id?: string; business_name?: string },
   cursor?: string | null
@@ -141,11 +148,7 @@ export function listAdminBusinesses<T>(
   if (cursor) {
     params.set("cursor", cursor);
   }
-  return request<T>(`/api/v1/admin/businesses?${params.toString()}`);
-}
-
-export function listPendingAdminBusinesses<T>(request: AuthenticatedRequest) {
-  return request<T>("/api/v1/admin/businesses/pending?limit=20");
+  return request<AdminBusinessListResponse>(`/api/v1/admin/businesses?${params.toString()}`);
 }
 
 export function getAdminBusiness<T>(request: AuthenticatedRequest, businessId: string) {
@@ -169,6 +172,17 @@ export function createAdminBusinessAccessLink<T>(request: AuthenticatedRequest, 
 
 export function updateAdminBusinessAccessLink<T>(request: AuthenticatedRequest, businessId: string, linkId: string, action: "suspend" | "reactivate" | "revoke" | "block", reason: string, idempotencyKey: string) {
   return request<T>(`/api/v1/admin/businesses/${businessId}/access-links/${linkId}/${action}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({ reason })
+  });
+}
+
+export function updateAdminBusinessStatus<T>(request: AuthenticatedRequest, businessId: string, action: "suspend" | "reactivate" | "block", reason: string, idempotencyKey: string) {
+  return request<T>(`/api/v1/admin/businesses/${businessId}/${action}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -248,14 +262,21 @@ export function listAdminOrders(request: AuthenticatedRequest, status?: string, 
   return request<AdminOrderListResponse>(`/api/v1/admin/orders?${params.toString()}`);
 }
 
-export function listAdminUsers<T>(request: AuthenticatedRequest, filters: { phone?: string; telegram_id?: string; username?: string; role?: string; status?: string }) {
+export function listAdminUsers(
+  request: AuthenticatedRequest,
+  filters: { phone?: string; telegram_id?: string; username?: string; role?: string; status?: string },
+  cursor?: string | null
+) {
   const params = new URLSearchParams({ limit: "20" });
   Object.entries(filters).forEach(([key, value]) => {
     if (value) {
       params.set(key, value);
     }
   });
-  return request<T>(`/api/v1/admin/users?${params.toString()}`);
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return request<AdminUserListResponse>(`/api/v1/admin/users?${params.toString()}`);
 }
 
 export function getAdminUser<T>(request: AuthenticatedRequest, userId: string) {
@@ -342,12 +363,12 @@ export function resolveAdminDispute(request: AuthenticatedRequest, disputeId: st
   });
 }
 
-export function listAdminAuditLogs<T>(request: AuthenticatedRequest, eventType?: string) {
-  return request<T>(`/api/v1/admin/audit-logs?${listParams(20, "event_type", eventType)}`);
+export function listAdminAuditLogs(request: AuthenticatedRequest, eventType?: string, cursor?: string | null) {
+  return request<AdminAuditLogListResponse>(`/api/v1/admin/audit-logs?${listParams(20, "event_type", eventType, cursor)}`);
 }
 
-export function listAdminCreditPurchases<T>(request: AuthenticatedRequest, status?: string) {
-  return request<T>(`/api/v1/admin/credit-purchases?${listParams(20, "status", status)}`);
+export function listAdminCreditPurchases(request: AuthenticatedRequest, status?: string, cursor?: string | null) {
+  return request<AdminCreditPurchaseListResponse>(`/api/v1/admin/credit-purchases?${listParams(20, "status", status, cursor)}`);
 }
 
 export function reviewAdminCreditPurchase<T>(request: AuthenticatedRequest, purchaseId: string, action: "approve" | "reject", reason: string, idempotencyKey: string) {
@@ -376,11 +397,11 @@ export function submitAdminCreditAdjustment<T>(
   });
 }
 
-export function listAdminJobRuns<T>(request: AuthenticatedRequest) {
-  return request<T>("/api/v1/admin/jobs/runs?limit=20");
+export function listAdminJobRuns(request: AuthenticatedRequest, cursor?: string | null) {
+  return request<AdminJobRunListResponse>(`/api/v1/admin/jobs/runs?${listParams(20, undefined, undefined, cursor)}`);
 }
 
-export function listAdminBusinessIntakes<T>(request: AuthenticatedRequest, status?: string, readiness?: "all" | "ready" | "needs_info", cursor?: string | null) {
+export function listAdminBusinessIntakes(request: AuthenticatedRequest, status?: string, readiness?: "all" | "ready" | "needs_info", cursor?: string | null) {
   const normalizedStatus = status?.trim().toLowerCase();
   const filter = normalizedStatus && normalizedStatus !== "all" ? normalizedStatus : undefined;
   const params = new URLSearchParams({ limit: "20", readiness: readiness || "all" });
@@ -390,7 +411,7 @@ export function listAdminBusinessIntakes<T>(request: AuthenticatedRequest, statu
   if (cursor) {
     params.set("cursor", cursor);
   }
-  return request<T>(`/api/v1/admin/business-intake?${params.toString()}`);
+  return request<AdminBusinessIntakeListResponse>(`/api/v1/admin/business-intake?${params.toString()}`);
 }
 
 export function getAdminBusinessIntake<T>(request: AuthenticatedRequest, intakeId: string) {
@@ -521,12 +542,15 @@ export function listAdminStaffActivity(request: AuthenticatedRequest, staffId: s
   return request<AdminStaffActivityResponse>(`/api/v1/admin/staff/${staffId}/activity?limit=20`);
 }
 
-export function listAdminNotifications<T>(request: AuthenticatedRequest, status = "unread") {
+export function listAdminNotifications(request: AuthenticatedRequest, status = "unread", cursor?: string | null) {
   const params = new URLSearchParams({ limit: "20" });
   if (status) {
     params.set("status", status);
   }
-  return request<T>(`/api/v1/admin/notifications?${params.toString()}`);
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return request<AdminNotificationsList>(`/api/v1/admin/notifications?${params.toString()}`);
 }
 
 export function getAdminNotificationsUnreadCount<T>(request: AuthenticatedRequest) {

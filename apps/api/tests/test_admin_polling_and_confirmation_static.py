@@ -51,3 +51,19 @@ def test_admin_critical_confirmation_has_required_copy_dialog_semantics_and_focu
     assert 'aria-describedby="admin-web-confirm-detail"' in shell
     assert "confirmCancelRef.current?.focus()" in shell
     assert "previousFocusRef.current?.focus()" in shell
+
+
+def test_admin_notification_panel_has_internal_scroll_region() -> None:
+    shell = _read("apps/web/src/screens/admin-web/AdminWebShell.tsx")
+    css = _read("apps/web/src/app/admin-web.css")
+
+    assert 'className="admin-web-notification-list"' in shell
+    assert 'role="region"' in shell
+    assert 'aria-label="Lista de notificaciones operativas"' in shell
+    assert "tabIndex={0}" in shell
+    assert ".admin-web-notification-panel {" in css
+    assert "grid-template-rows: auto minmax(0, 1fr);" in css
+    assert ".admin-web-notification-list {" in css
+    assert "min-height: 0;" in css
+    assert "overflow-y: auto;" in css
+    assert "overflow-x: hidden;" in css

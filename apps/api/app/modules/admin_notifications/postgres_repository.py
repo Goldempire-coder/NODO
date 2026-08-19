@@ -4,6 +4,7 @@ from typing import Any
 
 from app.modules.admin_notifications.models import AdminNotificationRecord
 from app.shared.db.connection import pooled_connect
+from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor
 
 
 def _jsonb_metadata(value: dict | None) -> Any:
@@ -118,14 +119,21 @@ class PostgresAdminNotificationRepository:
             sql += " and priority = %s"
             params.append(priority)
         if cursor:
-            sql += " and last_seen_at < %s"
-            params.append(cursor)
-        sql += " order by last_seen_at desc limit %s"
-        params.append(limit)
+            position = decode_keyset_cursor(cursor)
+            sql += " and (last_seen_at, id) < (%s, %s::uuid)"
+            params.extend((position.timestamp, position.item_id))
+        sql += " order by last_seen_at desc, id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
-        items = [_record_from_row(row) for row in rows]
-        return items, items[-1].last_seen_at.isoformat() if len(items) == limit else None
+        page = rows[:limit]
+        items = [_record_from_row(row) for row in page]
+        next_cursor = (
+            encode_keyset_cursor(items[-1].last_seen_at, items[-1].id)
+            if len(rows) > limit and items
+            else None
+        )
+        return items, next_cursor
 
     def unread_count(self) -> int:
         with self._connect() as conn:

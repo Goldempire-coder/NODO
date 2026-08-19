@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { dryRunExpireAndEscalateOrders, listAdminJobRuns } from "../../api/admin";
 import type { AuthenticatedRequest } from "../../api/client";
+import { appendUniqueById } from "../pagination";
 import { idempotencyKey } from "./helpers";
-import type { AdminOverviewView, AdminWebJobRun, ListResponse, QueueCriticalAction } from "./adminOverviewTypes";
+import type { AdminOverviewView, AdminWebJobRun, QueueCriticalAction } from "./adminOverviewTypes";
 
 export function useAdminJobsModel({
   adminMutable,
@@ -20,21 +21,60 @@ export function useAdminJobsModel({
   setView: (view: AdminOverviewView) => void;
 }) {
   const [jobRuns, setJobRuns] = useState<AdminWebJobRun[]>([]);
+  const [jobRunsNextCursor, setJobRunsNextCursor] = useState<string | null>(null);
+  const [jobRunsLoadingMore, setJobRunsLoadingMore] = useState(false);
+  const jobRunsRequestEpoch = useRef(0);
 
   const loadJobs = useCallback(async () => {
+    const requestEpoch = ++jobRunsRequestEpoch.current;
+    setJobRunsLoadingMore(false);
     setBusy(true);
     try {
-      const data = await listAdminJobRuns<ListResponse<AdminWebJobRun>>(request);
+      const data = await listAdminJobRuns(request);
+      if (requestEpoch !== jobRunsRequestEpoch.current) {
+        return;
+      }
       setJobRuns(data.items);
+      setJobRunsNextCursor(data.next_cursor);
       setView("jobs");
       setNotice(data.items.length ? "Job runs cargados." : "No hay job runs.");
     } catch (error) {
-      setJobRuns([]);
-      setNotice(error instanceof Error ? error.message : "No se pudo cargar jobs.");
+      if (requestEpoch === jobRunsRequestEpoch.current) {
+        setJobRuns([]);
+        setJobRunsNextCursor(null);
+        setNotice(error instanceof Error ? error.message : "No se pudo cargar jobs.");
+      }
     } finally {
-      setBusy(false);
+      if (requestEpoch === jobRunsRequestEpoch.current) {
+        setBusy(false);
+      }
     }
   }, [request, setBusy, setNotice, setView]);
+
+  const loadMoreJobs = useCallback(async () => {
+    const cursor = jobRunsNextCursor;
+    if (!cursor || jobRunsLoadingMore) {
+      return;
+    }
+    const requestEpoch = ++jobRunsRequestEpoch.current;
+    setJobRunsLoadingMore(true);
+    try {
+      const data = await listAdminJobRuns(request, cursor);
+      if (requestEpoch !== jobRunsRequestEpoch.current) {
+        return;
+      }
+      setJobRuns((current) => appendUniqueById(current, data.items));
+      setJobRunsNextCursor(data.next_cursor);
+    } catch (error) {
+      if (requestEpoch === jobRunsRequestEpoch.current) {
+        setNotice(error instanceof Error ? error.message : "No se pudieron cargar mas jobs.");
+      }
+    } finally {
+      if (requestEpoch === jobRunsRequestEpoch.current) {
+        setJobRunsLoadingMore(false);
+      }
+    }
+  }, [jobRunsLoadingMore, jobRunsNextCursor, request, setNotice]);
 
   const dryRunJobs = useCallback(() => {
     if (!adminMutable) {
@@ -51,6 +91,9 @@ export function useAdminJobsModel({
   return {
     dryRunJobs,
     jobRuns,
-    loadJobs
+    jobRunsLoadingMore,
+    jobRunsNextCursor,
+    loadJobs,
+    loadMoreJobs
   };
 }

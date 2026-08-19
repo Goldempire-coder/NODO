@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.modules.credits.models import CreditPurchaseRecord
 from app.modules.credits.row_mappers import purchase_from_row
+from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor
 
 
 def get_purchase_pg(connect, purchase_id: str) -> CreditPurchaseRecord | None:  # type: ignore[no-untyped-def]
@@ -32,11 +33,14 @@ def list_purchases_pg(connect, *, status: str | None, business_id: str | None, c
         sql += " and business_id = %s"
         params.append(business_id)
     if cursor:
-        sql += " and created_at < %s"
-        params.append(cursor)
-    sql += " order by created_at desc limit %s"
-    params.append(limit)
+        position = decode_keyset_cursor(cursor)
+        sql += " and (created_at, id) < (%s, %s::uuid)"
+        params.extend((position.timestamp, position.item_id))
+    sql += " order by created_at desc, id desc limit %s"
+    params.append(limit + 1)
     with connect() as conn:
         rows = conn.execute(sql, params).fetchall()
-    items = [purchase_from_row(row) for row in rows]
-    return items, items[-1].created_at.isoformat() if len(items) == limit else None
+    page = rows[:limit]
+    items = [purchase_from_row(row) for row in page]
+    next_cursor = encode_keyset_cursor(items[-1].created_at, items[-1].id) if len(rows) > limit else None
+    return items, next_cursor

@@ -116,12 +116,14 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
             <dt>Monto</dt><dd>{paymentReport.payment_amount || "-"}</dd>
             </dl>
           ) : <p className="admin-web-muted">Sin reporte de pago.</p>}
-          {(timeline || []).slice(0, 6).map((event, index) => (
-            <div className="admin-web-row" key={`${event.event_type}_${index}`}>
-              <span>{event.event_type || "event"}</span>
-              <small>{event.to_status || "-"} - {dateText(event.created_at)}</small>
-            </div>
-          ))}
+          <div className="admin-web-order-timeline-scroll" role="region" aria-label="Timeline completo de la orden" tabIndex={0}>
+            {(timeline || []).map((event, index) => (
+              <div className="admin-web-row" key={`${event.event_type}_${event.created_at}_${index}`}>
+                <span>{event.event_type || "event"}</span>
+                <small>{event.to_status || "-"} - {dateText(event.created_at)}</small>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
       {order ? <AdminOrderChatEvidencePanel model={model} /> : null}

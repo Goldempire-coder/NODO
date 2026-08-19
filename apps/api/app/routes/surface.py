@@ -6,9 +6,9 @@ from app.auth.dependencies import require_authenticated_user
 from app.core.errors import ApiError
 from app.modules.businesses.access_control import (
     BUSINESS_CAPABILITIES,
-    evaluate_business_access,
     public_business_for_surface,
     public_user_for_surface,
+    require_active_business_access,
 )
 from app.modules.users.models import UserRecord
 
@@ -40,11 +40,9 @@ def surface_session(
 ) -> dict:
     requested_surface = (surface or "").strip()
     if requested_surface == "business_mini_app":
-        business = request.app.state.business_repository.get_active_business_for_owner(user.id)
         try:
-            business, link = evaluate_business_access(
+            business, link = require_active_business_access(
                 user=user,
-                business=business,
                 business_repository=request.app.state.business_repository,
             )
         except ApiError as exc:

@@ -351,8 +351,9 @@ def test_admin_business_status_lifecycle_controls_business_surface_access() -> N
     blocked_to_active = client.post(
         f"/api/v1/admin/businesses/{business['id']}/reactivate",
         headers={**_headers(admin, "reactivate_blocked_business"), "Content-Type": "application/json"},
-        json={"reason": "blocked businesses cannot reactivate"},
+        json={"reason": "owner approved business unblock"},
     )
+    allowed_after_unblock = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_business_surface_unblocked"))
 
     assert allowed.status_code == 200, allowed.text
     assert support_attempt.status_code == 403
@@ -368,20 +369,22 @@ def test_admin_business_status_lifecycle_controls_business_surface_access() -> N
     assert blocked.json()["data"]["business"]["verification_status"] == "blocked"
     assert denied_blocked.status_code == 403
     assert denied_blocked.json()["error"]["code"] == "BUSINESS_BLOCKED"
-    assert blocked_to_active.status_code == 409
-    assert blocked_to_active.json()["error"]["code"] == "BUSINESS_STATUS_INVALID"
+    assert blocked_to_active.status_code == 200, blocked_to_active.text
+    assert blocked_to_active.json()["data"]["business"]["verification_status"] == "approved"
+    assert allowed_after_unblock.status_code == 200, allowed_after_unblock.text
     assert {"business_suspended", "business_reactivated", "business_blocked"}.issubset(set(_event_types(client)))
 
     suspended_notifications = _notifications_by_type(client, "business_suspended_owner")
     reactivated_notifications = _notifications_by_type(client, "business_reactivated_owner")
     blocked_notifications = _notifications_by_type(client, "business_blocked_owner")
     assert len(suspended_notifications) == 1
-    assert len(reactivated_notifications) == 1
+    assert len(reactivated_notifications) == 2
     assert len(blocked_notifications) == 1
 
     for notification, expected_text in [
         (suspended_notifications[0], "suspendido"),
         (reactivated_notifications[0], "reactivado"),
+        (reactivated_notifications[1], "reactivado"),
         (blocked_notifications[0], "bloqueado"),
     ]:
         assert notification.recipient_user_id == business_owner_id

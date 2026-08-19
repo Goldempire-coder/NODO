@@ -120,13 +120,12 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
     assert "reviewAdminBusiness" not in admin_api
     assert "reviewAdminBusiness" not in admin_businesses_model
     assert "reviewBusiness:" not in admin_model
-    assert "changeBusinessStatus:" not in admin_model
+    assert "changeBusinessStatus: businessIntake.changeBusinessStatus" in admin_model
     assert "changeBusinessAccessLink" in admin_businesses_screen
-    assert "changeBusinessStatus" not in admin_businesses_screen
+    assert "changeBusinessStatus" in admin_businesses_screen
+    assert "Estado operativo del negocio" in admin_businesses_screen
+    assert "Desbloquear negocio" in admin_businesses_screen
     assert "reviewBusiness(" not in admin_businesses_screen
-    assert "Suspender negocio" not in admin_businesses_screen
-    assert "Reactivar negocio" not in admin_businesses_screen
-    assert "Bloquear negocio" not in admin_businesses_screen
 
 
 def test_admin_business_intake_defaults_to_active_submissions_for_real_flow_review() -> None:
@@ -196,7 +195,7 @@ def test_admin_support_center_is_compact_chat_queue_with_live_refresh() -> None:
     assert "ADMIN_SUPPORT_REFRESH_MS = 5000" in admin_model
     assert "poll: support.refreshSupportWorkspace" in admin_model
     assert "notifications.loadUnreadCount(isCurrent)" in admin_model
-    assert 'notifications.loadNotifications("unread", isCurrent)' in admin_model
+    assert 'notifications.loadNotifications("unread", isCurrent, true)' in admin_model
     assert "badge: notifications.supportUnreadCount" in admin_model
     assert "adminSupportUnreadCount: notifications.supportUnreadCount" in admin_model
     assert "notifications.panelOpen" in admin_model
@@ -268,7 +267,7 @@ def test_admin_operational_notifications_surface_support_badge_and_new_notice() 
 
     assert "ADMIN_BACKGROUND_REFRESH_MS = 15000" in admin_model
     assert "notifications.loadUnreadCount(isCurrent)" in admin_model
-    assert 'notifications.loadNotifications("unread", isCurrent)' in admin_model
+    assert 'notifications.loadNotifications("unread", isCurrent, true)' in admin_model
     assert "supportUnreadCount" in notifications_model
     assert "support_unread_count" in notifications_model
     assert "Nueva notificacion operativa. Revisa la campana." in notifications_model

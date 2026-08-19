@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   acceptAdminBusinessIntake,
   deleteAdminBusinessIntake,
@@ -14,7 +14,6 @@ import type {
   AdminBusinessIntakeEditDraft,
   AdminBusinessIntakeSummary,
   BusinessIntakeView,
-  ListResponse,
   QueueCriticalAction
 } from "./adminBusinessIntakeTypes";
 
@@ -113,54 +112,80 @@ export function useAdminBusinessIntakesModel({
 }) {
   const [businessIntakes, setBusinessIntakes] = useState<AdminBusinessIntakeSummary[]>([]);
   const [businessIntakesNextCursor, setBusinessIntakesNextCursor] = useState<string | null>(null);
+  const [businessIntakesLoadingMore, setBusinessIntakesLoadingMore] = useState(false);
   const [selectedBusinessIntake, setSelectedBusinessIntake] = useState<AdminBusinessIntakeDetail | null>(null);
   const [intakeFilter, setIntakeFilter] = useState("submitted");
   const [intakeReadinessFilter, setIntakeReadinessFilter] = useState<IntakeReadinessFilter>("all");
   const [intakePublicBusinessName, setIntakePublicBusinessName] = useState("");
   const [intakeEditDraft, setIntakeEditDraft] = useState<AdminBusinessIntakeEditDraft>(() => editDraftFromIntake({ id: "", status: "", last_step: "", created_at: "", updated_at: "" }));
+  const businessIntakesRequestEpoch = useRef(0);
+  const businessIntakesQueryRef = useRef<{ status: string; readiness: IntakeReadinessFilter }>({
+    status: "submitted",
+    readiness: "all"
+  });
 
   const loadBusinessIntakes = useCallback(async (status = intakeFilter, readiness = intakeReadinessFilter) => {
+    const requestEpoch = ++businessIntakesRequestEpoch.current;
     const normalizedStatus = status.trim().toLowerCase() || "submitted";
     const normalizedReadiness = readiness || "all";
+    setBusinessIntakesLoadingMore(false);
     setBusy(true);
     try {
-      const data = await listAdminBusinessIntakes<ListResponse<AdminBusinessIntakeSummary>>(request, normalizedStatus, normalizedReadiness);
+      const data = await listAdminBusinessIntakes(request, normalizedStatus, normalizedReadiness);
+      if (requestEpoch !== businessIntakesRequestEpoch.current) {
+        return;
+      }
       setBusinessIntakes(data.items);
       setBusinessIntakesNextCursor(data.next_cursor);
       setIntakeFilter(normalizedStatus);
       setIntakeReadinessFilter(normalizedReadiness);
+      businessIntakesQueryRef.current = { status: normalizedStatus, readiness: normalizedReadiness };
       setView("intake");
       setNotice(data.items.length ? "Solicitudes de negocio cargadas." : "No hay solicitudes para ese filtro.");
     } catch (error) {
-      setBusinessIntakes([]);
-      setBusinessIntakesNextCursor(null);
-      setNotice(error instanceof Error ? error.message : "No se pudo cargar solicitudes de negocio.");
+      if (requestEpoch === businessIntakesRequestEpoch.current) {
+        setBusinessIntakes([]);
+        setBusinessIntakesNextCursor(null);
+        setNotice(error instanceof Error ? error.message : "No se pudo cargar solicitudes de negocio.");
+      }
     } finally {
-      setBusy(false);
+      if (requestEpoch === businessIntakesRequestEpoch.current) {
+        setBusy(false);
+      }
     }
   }, [intakeFilter, intakeReadinessFilter, request, setBusy, setNotice, setView]);
 
   const loadMoreBusinessIntakes = useCallback(async () => {
-    if (!businessIntakesNextCursor) {
+    if (!businessIntakesNextCursor || businessIntakesLoadingMore) {
       return;
     }
-    setBusy(true);
+    const requestEpoch = ++businessIntakesRequestEpoch.current;
+    const cursor = businessIntakesNextCursor;
+    const { status: requestedStatus, readiness: requestedReadiness } = businessIntakesQueryRef.current;
+    setBusinessIntakesLoadingMore(true);
     try {
-      const data = await listAdminBusinessIntakes<ListResponse<AdminBusinessIntakeSummary>>(
+      const data = await listAdminBusinessIntakes(
         request,
-        intakeFilter,
-        intakeReadinessFilter,
-        businessIntakesNextCursor
+        requestedStatus,
+        requestedReadiness,
+        cursor
       );
+      if (requestEpoch !== businessIntakesRequestEpoch.current) {
+        return;
+      }
       setBusinessIntakes((current) => mergeIntakes(current, data.items));
       setBusinessIntakesNextCursor(data.next_cursor);
       setNotice(data.items.length ? "Mas solicitudes cargadas." : "No hay mas solicitudes para este filtro.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No se pudieron cargar mas solicitudes.");
+      if (requestEpoch === businessIntakesRequestEpoch.current) {
+        setNotice(error instanceof Error ? error.message : "No se pudieron cargar mas solicitudes.");
+      }
     } finally {
-      setBusy(false);
+      if (requestEpoch === businessIntakesRequestEpoch.current) {
+        setBusinessIntakesLoadingMore(false);
+      }
     }
-  }, [businessIntakesNextCursor, intakeFilter, intakeReadinessFilter, request, setBusy, setNotice]);
+  }, [businessIntakesLoadingMore, businessIntakesNextCursor, request, setNotice]);
 
   const openBusinessIntake = useCallback(async (intakeId: string) => {
     setBusy(true);
@@ -348,6 +373,7 @@ export function useAdminBusinessIntakesModel({
   return {
     approveBusinessFromIntake,
     businessIntakes,
+    businessIntakesLoadingMore,
     businessIntakesNextCursor,
     createBusinessFromIntake,
     deleteBusinessIntake,

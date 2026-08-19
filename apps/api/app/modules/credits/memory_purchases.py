@@ -16,6 +16,7 @@ from app.modules.credits.models import (
     CreditPurchaseRecord,
 )
 from app.modules.credits.onchain import OnchainVerificationResult, normalize_credit_verification
+from app.shared.keyset_pagination import paginate_descending
 
 
 class InMemoryCreditPurchaseStore:
@@ -279,11 +280,13 @@ class InMemoryCreditPurchaseStore:
             items = [item for item in items if item.status == status]
         if business_id:
             items = [item for item in items if item.business_id == business_id]
-        if cursor:
-            items = [item for item in items if item.created_at.isoformat() < cursor]
-        items.sort(key=lambda item: item.created_at, reverse=True)
-        page = items[:limit]
-        return page, page[-1].created_at.isoformat() if len(page) == limit else None
+        return paginate_descending(
+            items,
+            timestamp_of=lambda item: item.created_at,
+            id_of=lambda item: item.id,
+            cursor=cursor,
+            limit=limit,
+        )
 
     def _duplicate_onchain_tx(self, purchase_id: str, verification: OnchainVerificationResult) -> bool:
         if verification.tx_log_index is None:

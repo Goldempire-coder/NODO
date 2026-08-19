@@ -60,6 +60,13 @@ export function Users({ model }: { model: AdminWebModel }) {
           })}
         </Table>
       </div>
+      {model.usersNextCursor ? (
+        <div className="admin-web-orders-list-actions">
+          <button disabled={model.usersLoadingMore} type="button" onClick={() => void model.loadMoreUsers()}>
+            {model.usersLoadingMore ? "Cargando..." : "Cargar mas"}
+          </button>
+        </div>
+      ) : null}
       {model.users.length === 0 ? <Empty text="Busca clientes por telefono, Telegram ID, username o estado." /> : null}
     </section>
   );

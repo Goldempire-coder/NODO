@@ -118,6 +118,20 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert "business_name" in api
     assert "businessSearchFilter" in business_model
     assert "businessSearchFilter" in web_model
+    assert "Activar acceso" in businesses
+    assert 'detail.business.verification_status !== "approved"' in businesses
+    assert "canEnterBusinessApp" in businesses
+    assert "Acceso no habilitado" in businesses
+    assert "el negocio esta bloqueado" in businesses
+    assert "el negocio esta suspendido" in businesses
+    assert "Estado operativo del negocio" in businesses
+    assert "Desbloquear negocio" in businesses
+    assert "changeBusinessStatus" in businesses
+    assert "updateAdminBusinessStatus" in api
+    assert "Negocio aprobado, pero el dueno aun no puede entrar" in businesses
+    assert "Sin accesos activos para este negocio" in businesses
+    assert ".admin-web-inline-warning" in css
+    assert ".admin-web-business-access-summary" in css
 
     assert "admin-web-users-list-scroll" in users
     assert 'aria-label="Lista de clientes admin"' in users

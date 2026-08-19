@@ -1069,6 +1069,7 @@ def test_admin_business_order_audit_lists_are_masked_and_credit_screens_stay_sli
     assert orders.status_code == 200, orders.text
     assert detail.status_code == 200, detail.text
     assert audit.status_code == 200, audit.text
+    assert all(item.get("id") for item in audit.json()["data"]["items"])
     combined = businesses.text + orders.text + detail.text + audit.text
     assert "storage_path" not in combined
     assert "account_value" not in combined

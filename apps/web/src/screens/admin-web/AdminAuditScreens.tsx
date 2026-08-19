@@ -11,8 +11,8 @@ export function AuditLogs({ model }: { model: AdminWebModel }) {
       </div>
       <div className="admin-web-audit-logs-list-scroll" role="region" aria-label="Lista de audit logs admin" tabIndex={0}>
         <Table headers={["Evento", "Actor", "Recurso", "Fecha"]}>
-          {model.auditLogs.map((item: AdminAuditLog, index) => (
-            <tr key={`${item.event_type}_${item.created_at}_${index}`}>
+          {model.auditLogs.map((item: AdminAuditLog) => (
+            <tr key={item.id}>
               <td>{item.event_type}</td>
               <td>{item.actor_role || "-"}</td>
               <td>{item.resource_type}</td>
@@ -21,6 +21,13 @@ export function AuditLogs({ model }: { model: AdminWebModel }) {
           ))}
         </Table>
       </div>
+      {model.auditLogsNextCursor ? (
+        <div className="admin-web-orders-list-actions">
+          <button disabled={model.auditLogsLoadingMore} type="button" onClick={() => void model.loadMoreAuditLogs()}>
+            {model.auditLogsLoadingMore ? "Cargando..." : "Cargar mas"}
+          </button>
+        </div>
+      ) : null}
       {model.auditLogs.length === 0 ? <Empty text="Sin eventos audit para el filtro actual." /> : null}
     </section>
   );

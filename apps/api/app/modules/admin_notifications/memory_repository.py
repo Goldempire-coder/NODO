@@ -4,6 +4,7 @@ from threading import RLock
 from typing import Any
 
 from app.modules.admin_notifications.models import AdminNotificationRecord, new_id, utc_now
+from app.shared.keyset_pagination import paginate_descending
 
 
 class InMemoryAdminNotificationRepository:
@@ -42,11 +43,13 @@ class InMemoryAdminNotificationRepository:
             items = [item for item in items if item.status == status]
         if priority:
             items = [item for item in items if item.priority == priority]
-        if cursor:
-            items = [item for item in items if item.last_seen_at.isoformat() < cursor]
-        items.sort(key=lambda item: item.last_seen_at, reverse=True)
-        page = items[:limit]
-        return page, page[-1].last_seen_at.isoformat() if len(page) == limit else None
+        return paginate_descending(
+            items,
+            timestamp_of=lambda item: item.last_seen_at,
+            id_of=lambda item: item.id,
+            cursor=cursor,
+            limit=limit,
+        )
 
     def unread_count(self) -> int:
         return sum(1 for item in self.notifications.values() if item.status == "unread")

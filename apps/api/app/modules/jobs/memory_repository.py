@@ -5,6 +5,7 @@ from threading import RLock
 from typing import Any
 
 from app.modules.jobs.models import JobRunRecord, NotificationJobRecord, mask_metadata, new_id, utc_now
+from app.shared.keyset_pagination import paginate_descending
 
 
 class InMemoryJobRepository:
@@ -33,11 +34,13 @@ class InMemoryJobRepository:
             items = [item for item in items if item.job_type == job_type]
         if status:
             items = [item for item in items if item.status == status]
-        if cursor:
-            items = [item for item in items if item.created_at.isoformat() < cursor]
-        items.sort(key=lambda item: item.created_at, reverse=True)
-        page = items[:limit]
-        return page, page[-1].created_at.isoformat() if len(page) == limit else None
+        return paginate_descending(
+            items,
+            timestamp_of=lambda item: item.created_at,
+            id_of=lambda item: item.id,
+            cursor=cursor,
+            limit=limit,
+        )
 
     def get_job_run(self, run_id: str) -> JobRunRecord | None:
         return self.job_runs.get(run_id)

@@ -243,7 +243,7 @@ class BusinessAdminReviewServiceMixin:
             business_id=business_id,
             action="reactivate",
             next_status="approved",
-            allowed_current={"suspended"},
+            allowed_current={"suspended", "blocked"},
             reason=reason,
             request_id=request_id,
             idempotency_key=idempotency_key,

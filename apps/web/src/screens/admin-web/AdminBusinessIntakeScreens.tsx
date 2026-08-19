@@ -104,7 +104,9 @@ export function BusinessIntake({ model }: { model: AdminWebModel }) {
       </div>
       {model.businessIntakesNextCursor ? (
         <div className="admin-web-orders-list-actions">
-          <button type="button" onClick={() => void model.loadMoreBusinessIntakes()}>Cargar mas</button>
+          <button disabled={model.businessIntakesLoadingMore} type="button" onClick={() => void model.loadMoreBusinessIntakes()}>
+            {model.businessIntakesLoadingMore ? "Cargando..." : "Cargar mas"}
+          </button>
         </div>
       ) : null}
       {model.businessIntakes.length === 0 ? <Empty text="No hay solicitudes activas en este filtro." /> : null}

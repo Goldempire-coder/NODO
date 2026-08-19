@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor
+
 
 def _like_contains(value: str) -> str:
     escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -34,13 +36,16 @@ class PostgresAdminBusinessesMixin:
             sql += " and business_name ilike %s escape E'\\\\'"
             params.append(_like_contains(business_name))
         if cursor:
-            sql += " and created_at < %s"
-            params.append(cursor)
-        sql += " order by created_at desc limit %s"
-        params.append(limit)
+            position = decode_keyset_cursor(cursor)
+            sql += " and (created_at, id) < (%s, %s::uuid)"
+            params.extend((position.timestamp, position.item_id))
+        sql += " order by created_at desc, id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:  # type: ignore[attr-defined]
             rows = conn.execute(sql, params).fetchall()
-        return [dict(row) | {"id": str(row["id"]), "created_at": row["created_at"].isoformat()} for row in rows], rows[-1]["created_at"].isoformat() if len(rows) == limit else None
+        page = rows[:limit]
+        next_cursor = encode_keyset_cursor(page[-1]["created_at"], str(page[-1]["id"])) if len(rows) > limit else None
+        return [dict(row) | {"id": str(row["id"]), "created_at": row["created_at"].isoformat()} for row in page], next_cursor
 
     def get_business(self, business_id: str) -> dict[str, Any] | None:
         with self._connect() as conn:  # type: ignore[attr-defined]

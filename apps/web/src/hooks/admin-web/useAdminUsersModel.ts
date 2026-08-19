@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getAdminUser, listAdminUsers, revealAdminUserPhone, updateAdminUserStatus } from "../../api/admin";
 import type { AuthenticatedRequest } from "../../api/client";
 import type { AdminUserDetail, AdminUserSummary } from "../../types/admin";
+import { appendUniqueById } from "../pagination";
 import { idempotencyKey } from "./helpers";
-import type { ListResponse, QueueCriticalAction } from "./adminBusinessIntakeTypes";
+import type { QueueCriticalAction } from "./adminBusinessIntakeTypes";
 import type { AdminWebView } from "./adminWebTypes";
 
 export type AdminUserFilters = {
@@ -50,10 +51,14 @@ export function useAdminUsersModel({
   view: AdminWebView;
 }) {
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
+  const [usersNextCursor, setUsersNextCursor] = useState<string | null>(null);
+  const [usersLoadingMore, setUsersLoadingMore] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUserDetail | null>(null);
   const [revealedUserPhone, setRevealedUserPhone] = useState<RevealedUserPhone | null>(null);
   const [userFilters, setUserFilters] = useState<AdminUserFilters>(EMPTY_FILTERS);
   const activeUserDetailRef = useRef<string | null>(null);
+  const usersRequestEpoch = useRef(0);
+  const usersQueryRef = useRef<AdminUserFilters>(EMPTY_FILTERS);
 
   useEffect(() => {
     if (view !== "user-detail") {
@@ -63,22 +68,60 @@ export function useAdminUsersModel({
   }, [view]);
 
   const loadUsers = useCallback(async (filters = userFilters) => {
+    const requestEpoch = ++usersRequestEpoch.current;
     activeUserDetailRef.current = null;
     setRevealedUserPhone(null);
+    setUsersLoadingMore(false);
     setBusy(true);
     try {
-      const data = await listAdminUsers<ListResponse<AdminUserSummary>>(request, filters);
+      const data = await listAdminUsers(request, filters);
+      if (requestEpoch !== usersRequestEpoch.current) {
+        return;
+      }
       setUsers(data.items);
+      setUsersNextCursor(data.next_cursor);
       setUserFilters(filters);
+      usersQueryRef.current = { ...filters };
       setView("users");
       setNotice(data.items.length ? "Usuarios cargados." : "No hay usuarios para ese filtro.");
     } catch (error) {
-      setUsers([]);
-      setNotice(error instanceof Error ? error.message : "No se pudo cargar usuarios.");
+      if (requestEpoch === usersRequestEpoch.current) {
+        setUsers([]);
+        setUsersNextCursor(null);
+        setNotice(error instanceof Error ? error.message : "No se pudo cargar usuarios.");
+      }
     } finally {
-      setBusy(false);
+      if (requestEpoch === usersRequestEpoch.current) {
+        setBusy(false);
+      }
     }
   }, [request, setBusy, setNotice, setView, userFilters]);
+
+  const loadMoreUsers = useCallback(async () => {
+    const cursor = usersNextCursor;
+    if (!cursor || usersLoadingMore) {
+      return;
+    }
+    const requestEpoch = ++usersRequestEpoch.current;
+    const requestedFilters = usersQueryRef.current;
+    setUsersLoadingMore(true);
+    try {
+      const data = await listAdminUsers(request, requestedFilters, cursor);
+      if (requestEpoch !== usersRequestEpoch.current) {
+        return;
+      }
+      setUsers((current) => appendUniqueById(current, data.items));
+      setUsersNextCursor(data.next_cursor);
+    } catch (error) {
+      if (requestEpoch === usersRequestEpoch.current) {
+        setNotice(error instanceof Error ? error.message : "No se pudieron cargar mas usuarios.");
+      }
+    } finally {
+      if (requestEpoch === usersRequestEpoch.current) {
+        setUsersLoadingMore(false);
+      }
+    }
+  }, [request, setNotice, usersLoadingMore, usersNextCursor]);
 
   const openUser = useCallback(async (userId: string) => {
     activeUserDetailRef.current = null;
@@ -138,6 +181,7 @@ export function useAdminUsersModel({
 
   return {
     changeUserStatus,
+    loadMoreUsers,
     loadUsers,
     openUser,
     revealedUserPhone,
@@ -145,6 +189,8 @@ export function useAdminUsersModel({
     selectedUser,
     setUserFilters,
     userFilters,
-    users
+    users,
+    usersLoadingMore,
+    usersNextCursor
   };
 }

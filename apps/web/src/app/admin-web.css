@@ -327,6 +327,7 @@
   width: min(420px, calc(100vw - 44px));
   max-height: min(560px, calc(100vh - 128px));
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
   overflow: hidden;
   border: 1px solid var(--admin-line-strong);
@@ -357,7 +358,11 @@
 .admin-web-notification-list {
   display: grid;
   gap: 8px;
-  overflow: auto;
+  min-height: 0;
+  max-height: min(440px, calc(100dvh - 220px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding-right: 2px;
 }
 
@@ -977,6 +982,18 @@
   margin-top: 10px;
 }
 
+.admin-web-order-timeline-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.admin-web-order-timeline-scroll:focus-visible {
+  outline: 2px solid var(--admin-blue);
+  outline-offset: 3px;
+}
+
 .admin-web-sensitive-action {
   display: flex;
   align-items: center;
@@ -1092,6 +1109,66 @@
   color: var(--admin-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
+}
+
+.admin-web-inline-warning {
+  border: 1px solid rgb(245 158 11 / 32%);
+  border-radius: 8px;
+  background: rgb(245 158 11 / 8%);
+  color: #ffe6b0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.85rem;
+}
+
+.admin-web-business-status-actions {
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.admin-web-business-status-actions h3 {
+  font-size: 0.96rem;
+  margin: 0;
+}
+
+.admin-web-business-status-actions p {
+  color: var(--admin-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.admin-web-business-access-summary {
+  align-items: start;
+  border: 1px solid rgb(245 158 11 / 32%);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  line-height: 1.45;
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.85rem;
+}
+
+.admin-web-business-access-summary strong {
+  font-size: 0.94rem;
+}
+
+.admin-web-business-access-summary span {
+  color: var(--admin-muted);
+  font-size: 0.86rem;
+}
+
+.admin-web-business-access-summary.is-ok {
+  border-color: rgb(16 185 129 / 32%);
+  background: rgb(16 185 129 / 8%);
+}
+
+.admin-web-business-access-summary.is-warning {
+  background: rgb(245 158 11 / 8%);
 }
 
 .admin-web-split {

@@ -81,7 +81,12 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
                     </button>
                   </div>
                   {model.adminNotifications.length ? (
-                    <div className="admin-web-notification-list">
+                    <div
+                      aria-label="Lista de notificaciones operativas"
+                      className="admin-web-notification-list"
+                      role="region"
+                      tabIndex={0}
+                    >
                       {model.adminNotifications.map((notification) => {
                         const busy = model.adminNotificationBusyId === notification.id;
                         return (
@@ -116,6 +121,17 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
                   ) : (
                     <p className="admin-web-notification-empty">Sin notificaciones pendientes.</p>
                   )}
+                  {model.adminNotificationsNextCursor ? (
+                    <div className="admin-web-orders-list-actions">
+                      <button
+                        disabled={model.adminNotificationsLoadingMore}
+                        type="button"
+                        onClick={() => void model.loadMoreAdminNotifications()}
+                      >
+                        {model.adminNotificationsLoadingMore ? "Cargando..." : "Cargar mas"}
+                      </button>
+                    </div>
+                  ) : null}
                 </section>
               ) : null}
             </div>

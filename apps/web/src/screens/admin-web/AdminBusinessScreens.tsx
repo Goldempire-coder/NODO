@@ -61,6 +61,13 @@ export function Businesses({ model }: { model: AdminWebModel }) {
           ))}
         </Table>
       </div>
+      {model.businessesNextCursor ? (
+        <div className="admin-web-orders-list-actions">
+          <button disabled={model.businessesLoadingMore} type="button" onClick={() => void model.loadMoreBusinesses()}>
+            {model.businessesLoadingMore ? "Cargando..." : "Cargar mas"}
+          </button>
+        </div>
+      ) : null}
       {model.businesses.length === 0 ? <Empty text="No hay negocios para el filtro actual." /> : null}
     </section>
   );
@@ -72,6 +79,9 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
   if (!detail) {
     return <Empty text="Selecciona un negocio." />;
   }
+  const businessStatus = detail.business.verification_status;
+  const activeAccessCount = model.businessAccessLinks.filter((link) => link.status === "active").length;
+  const canEnterBusinessApp = businessStatus === "approved" && activeAccessCount > 0;
   const copyBusinessId = async () => {
     await copyText(detail.business.id);
     setCopiedBusinessId(true);
@@ -105,6 +115,24 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
           <dt>Ordenes activas</dt><dd>{detail.business.active_order_limit || 1}</dd>
           <dt>Telefono</dt><dd>{detail.business.phone || "-"}</dd>
         </dl>
+        <div className="admin-web-business-status-actions" aria-label="Estado operativo del negocio">
+          <h3>Estado operativo del negocio</h3>
+          <p>Este control cambia si el negocio puede operar. El acceso del dueno se gestiona abajo.</p>
+          <div className="admin-web-actions inline">
+            {businessStatus === "approved" ? (
+              <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("suspend")}>Suspender negocio</button>
+            ) : null}
+            {businessStatus === "suspended" ? (
+              <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("reactivate")}>Reactivar negocio</button>
+            ) : null}
+            {businessStatus === "blocked" ? (
+              <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("reactivate")}>Desbloquear negocio</button>
+            ) : null}
+            {businessStatus !== "blocked" ? (
+              <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("block")}>Bloquear negocio</button>
+            ) : null}
+          </div>
+        </div>
       </div>
       <div className="admin-web-panel">
         <h3>Capacidad del negocio</h3>
@@ -231,8 +259,41 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
         ))}
       </div>
       <div className="admin-web-panel">
-        <Header title="Acceso Mini App Negocio" action={<button disabled={!model.adminMutable} type="button" onClick={() => model.createBusinessOwnerAccessLink()}>Crear link owner</button>} />
-        <p>El acceso se gobierna por backend. El bot solo abre la Mini App cuando el negocio ya esta aprobado y vinculado.</p>
+        <Header
+          title="Acceso Mini App Negocio"
+          action={(
+            <button
+              disabled={!model.adminMutable || detail.business.verification_status !== "approved"}
+              type="button"
+              onClick={() => model.createBusinessOwnerAccessLink()}
+            >
+              Activar acceso
+            </button>
+          )}
+        />
+        <p>El negocio solo puede entrar cuando esta aprobado y tiene un acceso activo para el Telegram del dueno.</p>
+        <div className={`admin-web-business-access-summary ${canEnterBusinessApp ? "is-ok" : "is-warning"}`} role="status">
+          <strong>{canEnterBusinessApp ? "Acceso operativo listo" : "Acceso no habilitado"}</strong>
+          <span>
+            {businessStatus === "blocked"
+              ? "El link del dueno esta activo, pero el negocio esta bloqueado. La Mini App Negocio no debe abrir mientras el negocio siga bloqueado."
+              : businessStatus === "suspended"
+                ? "El link del dueno esta activo, pero el negocio esta suspendido. Reactiva primero el negocio para permitir entrada."
+                : businessStatus !== "approved"
+                  ? "El negocio debe estar aprobado antes de activar la entrada del dueno."
+                  : "Falta un acceso activo para el Telegram del dueno."}
+          </span>
+        </div>
+        {detail.business.verification_status === "approved" && model.businessAccessLinks.length === 0 ? (
+          <div className="admin-web-inline-warning">
+            Negocio aprobado, pero el dueno aun no puede entrar. Pulsa Activar acceso para habilitar NODO Negocio.
+          </div>
+        ) : null}
+        {detail.business.verification_status !== "approved" ? (
+          <div className="admin-web-inline-warning">
+            Primero aprueba el negocio. Luego podras activar el acceso del dueno.
+          </div>
+        ) : null}
         <Table headers={["Usuario", "Telegram", "Rol", "Estado", "Actualizado", "Acciones"]}>
           {model.businessAccessLinks.map((link) => (
             <tr key={link.id}>
@@ -252,7 +313,7 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
             </tr>
           ))}
         </Table>
-        {model.businessAccessLinks.length === 0 ? <Empty text="No hay links de acceso para este negocio." /> : null}
+        {model.businessAccessLinks.length === 0 ? <Empty text="Sin accesos activos para este negocio." /> : null}
       </div>
     </section>
   );

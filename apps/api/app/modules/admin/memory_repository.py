@@ -74,11 +74,14 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
         if business_name:
             needle = business_name.lower()
             items = [item for item in items if item.business_name and needle in item.business_name.lower()]
-        if cursor:
-            items = [item for item in items if item.created_at.isoformat() < cursor]
-        items.sort(key=lambda item: item.created_at, reverse=True)
-        page = items[:limit]
-        return [self._business_summary(item) for item in page], page[-1].created_at.isoformat() if len(page) == limit else None
+        page, next_cursor = paginate_descending(
+            items,
+            timestamp_of=lambda item: item.created_at,
+            id_of=lambda item: item.id,
+            cursor=cursor,
+            limit=limit,
+        )
+        return [self._business_summary(item) for item in page], next_cursor
 
     def get_business(self, business_id: str) -> dict[str, Any] | None:
         business = getattr(self._businesses, "businesses", {}).get(business_id)
@@ -108,11 +111,14 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
             items = [item for item in items if item.role == role]
         if status:
             items = [item for item in items if item.status == status]
-        if cursor:
-            items = [item for item in items if item.created_at.isoformat() < cursor]
-        items.sort(key=lambda item: item.created_at, reverse=True)
-        page = items[:limit]
-        return [admin_user_payload(item.__dict__, full_sensitive=full_sensitive) for item in page], page[-1].created_at.isoformat() if len(page) == limit else None
+        page, next_cursor = paginate_descending(
+            items,
+            timestamp_of=lambda item: item.created_at,
+            id_of=lambda item: item.id,
+            cursor=cursor,
+            limit=limit,
+        )
+        return [admin_user_payload(item.__dict__, full_sensitive=full_sensitive) for item in page], next_cursor
 
     def get_user_admin(self, user_id: str, *, full_sensitive: bool) -> dict[str, Any] | None:
         user = getattr(self._users, "_users_by_id", {}).get(user_id)
@@ -223,11 +229,14 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
             items = [item for item in items if item.resource_type == resource_type]
         if resource_id:
             items = [item for item in items if item.resource_id == resource_id]
-        if cursor:
-            items = [item for item in items if item.created_at.isoformat() < cursor]
-        items.sort(key=lambda item: item.created_at, reverse=True)
-        page = items[:limit]
-        return [self._audit_summary(item) for item in page], page[-1].created_at.isoformat() if len(page) == limit else None
+        page, next_cursor = paginate_descending(
+            items,
+            timestamp_of=lambda item: item.created_at,
+            id_of=lambda item: item.id,
+            cursor=cursor,
+            limit=limit,
+        )
+        return [self._audit_summary(item) for item in page], next_cursor
 
     def _business_summary(self, business) -> dict[str, Any]:  # type: ignore[no-untyped-def]
         return {
@@ -287,6 +296,7 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
 
     def _audit_summary(self, event) -> dict[str, Any]:  # type: ignore[no-untyped-def]
         return {
+            "id": event.id,
             "event_type": event.event_type,
             "actor_user_id": event.actor_user_id,
             "actor_role": event.actor_role,
