@@ -449,6 +449,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     openDocument: businessIntake.openDocument,
     createBusinessOwnerAccessLink: businessIntake.createBusinessOwnerAccessLink,
     changeBusinessStatus: businessIntake.changeBusinessStatus,
+    changeBusinessOwnerUserStatus: businessIntake.changeBusinessOwnerUserStatus,
     changeBusinessAccessLink: businessIntake.changeBusinessAccessLink,
     loadUsers: users.loadUsers,
     loadMoreUsers: users.loadMoreUsers,

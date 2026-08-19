@@ -273,6 +273,10 @@ def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
         json={"reason": "confirmed account abuse"},
     )
     denied_blocked = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_surface_after_block"))
+    business_access_links = client.get(
+        f"/api/v1/admin/businesses/{business['id']}/access-links",
+        headers=_headers(admin, "business_access_links_after_user_block"),
+    )
     blocked_to_active = client.post(
         f"/api/v1/admin/users/{owner['user']['id']}/reactivate",
         headers={**_headers(admin, "reactivate_blocked"), "Content-Type": "application/json"},
@@ -295,6 +299,8 @@ def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
     assert blocked.json()["data"]["user"]["status"] == "blocked"
     assert denied_blocked.status_code == 403
     assert denied_blocked.json()["error"]["code"] == "USER_BLOCKED"
+    assert business_access_links.status_code == 200, business_access_links.text
+    assert business_access_links.json()["data"]["items"][0]["user"]["status"] == "blocked"
     assert blocked_to_active.status_code == 200, blocked_to_active.text
     assert blocked_to_active.json()["data"]["user"]["status"] == "active"
     assert unblock_replay.status_code == 200, unblock_replay.text

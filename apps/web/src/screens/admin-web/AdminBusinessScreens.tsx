@@ -80,8 +80,12 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
     return <Empty text="Selecciona un negocio." />;
   }
   const businessStatus = detail.business.verification_status;
+  const ownerAccessLink = model.businessAccessLinks.find((link) => link.role_in_business === "owner")
+    ?? model.businessAccessLinks[0]
+    ?? null;
+  const ownerUserStatus = ownerAccessLink?.user?.status ?? null;
   const activeAccessCount = model.businessAccessLinks.filter((link) => link.status === "active").length;
-  const canEnterBusinessApp = businessStatus === "approved" && activeAccessCount > 0;
+  const canEnterBusinessApp = businessStatus === "approved" && activeAccessCount > 0 && ownerUserStatus === "active";
   const copyBusinessId = async () => {
     await copyText(detail.business.id);
     setCopiedBusinessId(true);
@@ -286,7 +290,11 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
                 ? "El link del dueno esta activo, pero el negocio esta suspendido. Reactiva primero el negocio para permitir entrada."
                 : businessStatus !== "approved"
                   ? "El negocio debe estar aprobado antes de activar la entrada del dueno."
-                  : "Falta un acceso activo para el Telegram del dueno."}
+                  : ownerUserStatus === "blocked"
+                    ? "El dueno del negocio esta bloqueado. Aunque el negocio y el acceso esten activos, la Mini App Negocio no abre hasta desbloquear ese usuario."
+                    : ownerUserStatus && ownerUserStatus !== "active"
+                      ? "El dueno del negocio no esta activo. Reactiva ese usuario antes de probar la Mini App Negocio."
+                      : "Falta un acceso activo para el Telegram del dueno."}
           </span>
         </div>
         {detail.business.verification_status === "approved" && model.businessAccessLinks.length === 0 ? (
@@ -299,10 +307,11 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
             Primero aprueba el negocio. Luego podras activar el acceso del dueno.
           </div>
         ) : null}
-        <Table headers={["Usuario", "Telegram", "Rol", "Estado", "Actualizado", "Acciones"]}>
+        <Table headers={["Usuario", "Cuenta", "Telegram", "Rol", "Acceso", "Actualizado", "Acciones"]}>
           {model.businessAccessLinks.map((link) => (
             <tr key={link.id}>
               <td>{link.user?.username || link.user?.first_name || link.user_id}</td>
+              <td>{link.user?.status || "-"}</td>
               <td>{link.telegram_id ? String(link.telegram_id) : link.telegram_id_masked || link.user?.telegram_id_masked || "-"}</td>
               <td>{link.role_in_business}</td>
               <td>{link.status}</td>
@@ -313,6 +322,12 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
                   <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessAccessLink(link.id, "reactivate")}>Reactivar</button>
                   <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessAccessLink(link.id, "revoke")}>Revocar</button>
                   <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessAccessLink(link.id, "block")}>Bloquear</button>
+                  {link.user?.status === "blocked" ? (
+                    <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessOwnerUserStatus(link.user_id, "reactivate")}>Desbloquear dueno</button>
+                  ) : null}
+                  {link.user?.status && link.user.status !== "active" && link.user.status !== "blocked" ? (
+                    <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessOwnerUserStatus(link.user_id, "reactivate")}>Reactivar dueno</button>
+                  ) : null}
                 </div>
               </td>
             </tr>

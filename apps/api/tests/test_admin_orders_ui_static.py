@@ -121,7 +121,11 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert "Activar acceso" in businesses
     assert 'detail.business.verification_status !== "approved"' in businesses
     assert "canEnterBusinessApp" in businesses
+    assert "ownerUserStatus" in businesses
+    assert 'ownerUserStatus === "active"' in businesses
     assert "Acceso no habilitado" in businesses
+    assert "El dueno del negocio esta bloqueado" in businesses
+    assert "Desbloquear dueno" in businesses
     assert "el negocio esta bloqueado" in businesses
     assert "el negocio esta suspendido" in businesses
     assert "Estado operativo del negocio" in businesses
@@ -129,7 +133,9 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert "Razon obligatoria para cambiar estado del negocio" in businesses
     assert "Indica el motivo operativo antes de cambiar el estado" in businesses
     assert "changeBusinessStatus" in businesses
+    assert "changeBusinessOwnerUserStatus" in businesses
     assert "{ requiresReason: true }" in business_model
+    assert "updateAdminUserStatus" in business_model
     assert "updateAdminBusinessStatus" in api
     assert "Negocio aprobado, pero el dueno aun no puede entrar" in businesses
     assert "Sin accesos activos para este negocio" in businesses

@@ -6,6 +6,7 @@ import {
   getAdminBusinessDocumentViewUrl,
   listAdminBusinessAccessLinks,
   listAdminBusinesses,
+  updateAdminUserStatus,
   updateAdminBusinessCapacity,
   updateAdminBusinessOperationalCapacity,
   updateAdminBusinessAccessLink,
@@ -20,6 +21,14 @@ import type {
 import { idempotencyKey } from "./helpers";
 import { appendUniqueById } from "../pagination";
 import type { BusinessIntakeView, BusinessSummaryForAdmin, QueueCriticalAction } from "./adminBusinessIntakeTypes";
+
+type AdminBusinessOwnerUserStatusMutationResponse = {
+  user: {
+    id: string;
+    status?: string | null;
+    updated_at?: string | null;
+  };
+};
 
 export function useAdminBusinessesModel({
   adminMutable,
@@ -293,6 +302,43 @@ export function useAdminBusinessesModel({
     );
   }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
+  const changeBusinessOwnerUserStatus = useCallback((userId: string, action: "reactivate") => {
+    if (!selectedBusiness || !adminMutable) {
+      setNotice("Accion no permitida para este rol.");
+      return;
+    }
+    const link = businessAccessLinks.find((candidate) => candidate.user_id === userId);
+    const currentStatus = link?.user?.status;
+    const title = currentStatus === "blocked" ? "Desbloquear dueno" : "Reactivar dueno";
+    const successMessage = currentStatus === "blocked" ? "Dueno desbloqueado." : "Dueno reactivado.";
+    queueCriticalAction(
+      title,
+      "Cambia el estado del usuario dueno sin tocar historial, negocio, creditos ni pagos.",
+      async () => {
+        const data = await updateAdminUserStatus<AdminBusinessOwnerUserStatusMutationResponse>(
+          request,
+          userId,
+          action,
+          reason,
+          idempotencyKey(`business_owner_user_${action}_${userId}`)
+        );
+        setBusinessAccessLinks((current) => current.map((candidate) => (
+          candidate.user_id === data.user.id
+            ? {
+                ...candidate,
+                updated_at: data.user.updated_at ?? candidate.updated_at,
+                user: candidate.user ? { ...candidate.user, status: data.user.status } : candidate.user
+              }
+            : candidate
+        )));
+        setReason("");
+        await openBusiness(selectedBusiness.business.id);
+        setNotice(successMessage);
+      },
+      { requiresReason: true }
+    );
+  }, [adminMutable, businessAccessLinks, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
+
   const changeBusinessAccessLink = useCallback((linkId: string, action: "suspend" | "reactivate" | "revoke" | "block") => {
     if (!selectedBusiness || !adminMutable) {
       setNotice("Accion no permitida para este rol.");
@@ -329,6 +375,7 @@ export function useAdminBusinessesModel({
     businessesNextCursor,
     businessSearchFilter,
     changeBusinessAccessLink,
+    changeBusinessOwnerUserStatus,
     changeBusinessStatus,
     createBusinessOwnerAccessLink,
     loadBusinesses,
