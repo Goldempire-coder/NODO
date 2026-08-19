@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
-import { businessName, dateText, Empty, Header, Table } from "./AdminWebPrimitives";
+import { businessName, dateText, Empty, Header, ReasonBox, Table } from "./AdminWebPrimitives";
 
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
@@ -118,6 +118,11 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
         <div className="admin-web-business-status-actions" aria-label="Estado operativo del negocio">
           <h3>Estado operativo del negocio</h3>
           <p>Este control cambia si el negocio puede operar. El acceso del dueno se gestiona abajo.</p>
+          <ReasonBox
+            model={model}
+            label="Razon obligatoria para cambiar estado del negocio"
+            placeholder="Indica el motivo operativo antes de cambiar el estado"
+          />
           <div className="admin-web-actions inline">
             {businessStatus === "approved" ? (
               <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("suspend")}>Suspender negocio</button>

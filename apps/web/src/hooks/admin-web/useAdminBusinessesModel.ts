@@ -288,7 +288,8 @@ export function useAdminBusinessesModel({
         setReason("");
         await openBusiness(selectedBusiness.business.id);
         setNotice(successMessage);
-      }
+      },
+      { requiresReason: true }
     );
   }, [adminMutable, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 

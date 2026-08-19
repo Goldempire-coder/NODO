@@ -126,7 +126,10 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert "el negocio esta suspendido" in businesses
     assert "Estado operativo del negocio" in businesses
     assert "Desbloquear negocio" in businesses
+    assert "Razon obligatoria para cambiar estado del negocio" in businesses
+    assert "Indica el motivo operativo antes de cambiar el estado" in businesses
     assert "changeBusinessStatus" in businesses
+    assert "{ requiresReason: true }" in business_model
     assert "updateAdminBusinessStatus" in api
     assert "Negocio aprobado, pero el dueno aun no puede entrar" in businesses
     assert "Sin accesos activos para este negocio" in businesses
