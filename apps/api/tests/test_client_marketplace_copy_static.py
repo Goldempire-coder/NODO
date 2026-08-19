@@ -26,6 +26,7 @@ def test_client_marketplace_copy_describes_registration_without_endorsement() ->
         "Busca negocios verificados",
         "negocios verificados por NODO",
         "Negocio verificado",
+        "negocio verificado",
         "Cambio verificado",
         "Paga directo al negocio verificado",
         "comparar con mas confianza",
@@ -46,14 +47,20 @@ def test_client_marketplace_copy_describes_registration_without_endorsement() ->
         "dinero protegido",
         "fondos garantizados",
         "garantizamos transacciones",
+        "Elige un negocio registrado.",
+        "Negocios que publican en NODO",
+        "Ingresa un monto para ver negocios que publican en NODO.",
+        "NODO revisa datos del negocio antes de publicarlo.",
     ):
         assert forbidden not in runtime_copy
 
     for expected in (
-        "Directorio de negocios registrados",
+        "Directorio de ofertas",
         "¿Cuánto vas a enviar?",
-        "Ingresa un monto para ver negocios que publican en NODO.",
-        "NODO revisa datos del negocio antes de publicarlo.",
+        "Ofertas publicadas",
+        "Ingresa un monto para ver ofertas disponibles.",
+        "Compara tasa, limites y disponibilidad.",
+        "Los datos son publicados por cada negocio.",
         "Perfil registrado",
         "Paga solo a los datos mostrados en esta orden.",
         "NODO conecta usuarios con negocios registrados.",
@@ -64,10 +71,10 @@ def test_client_marketplace_copy_describes_registration_without_endorsement() ->
         "Escribe tu numero completo",
         "Puede ser de Venezuela, Estados Unidos u otro pais.",
         "Escribe el numero completo",
-        "Compara negocios registrados, revisa sus condiciones y crea tu orden en pocos pasos.",
+        "Compara ofertas publicadas, revisa sus condiciones y crea tu orden en pocos pasos.",
         "Indica el monto que vas a enviar.",
-        "Elige un negocio registrado.",
-        "Revisa los datos publicados.",
+        "Elige una oferta disponible.",
+        "Revisa los datos publicados por el negocio.",
         "Guarda la evidencia de tu orden.",
         "NODO registra tu orden",
         "y conserva evidencia.",
@@ -132,6 +139,7 @@ def test_telegram_welcome_and_client_phone_copy_are_country_neutral() -> None:
         "Seguro",
         "R\u00e1pido",
         "Confiable",
+        "Elige un negocio registrado.",
     ):
         assert forbidden not in combined
 
@@ -139,13 +147,28 @@ def test_telegram_welcome_and_client_phone_copy_are_country_neutral() -> None:
         "Escribe tu numero completo",
         "Puede ser de Venezuela, Estados Unidos u otro pais.",
         "Escribe el numero completo",
-        "Compara negocios registrados, revisa sus condiciones y crea tu orden en pocos pasos.",
+        "Compara ofertas publicadas, revisa sus condiciones y crea tu orden en pocos pasos.",
         "Indica el monto que vas a enviar.",
-        "Elige un negocio registrado.",
-        "Revisa los datos publicados.",
+        "Elige una oferta disponible.",
+        "Revisa los datos publicados por el negocio.",
         "Guarda la evidencia de tu orden.",
         "NODO registra tu orden",
         "y conserva evidencia.",
         "Abre NODO desde el menu de Telegram para comenzar.",
     ):
         assert expected in combined
+
+
+def test_client_marketplace_mobile_copy_cannot_force_horizontal_overflow() -> None:
+    marketplace = (ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientMarketplaceScreens.tsx").read_text(encoding="utf-8")
+    css = (ROOT / "apps" / "web" / "src" / "app" / "globals.css").read_text(encoding="utf-8")
+
+    assert "Ofertas publicadas" in marketplace
+    assert "Negocios que publican en NODO" not in marketplace
+    assert ".business-shell" in css
+    assert "overflow-x: clip;" in css
+    assert ".marketplace-home" in css
+    assert ".business-shell__title" in css
+    assert ".exchange-card__title" in css
+    assert "overflow-wrap: anywhere;" in css
+    assert "min-width: 0;" in css

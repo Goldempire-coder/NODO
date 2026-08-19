@@ -60,7 +60,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
       {view === "marketplace-search" ? (
         <div className="marketplace-home">
           <div className="exchange-card">
-            <Text className="exchange-card__eyebrow">Directorio de negocios registrados</Text>
+            <Text className="exchange-card__eyebrow">Directorio de ofertas</Text>
             <Title level="2" className="exchange-card__title">¿Cuánto vas a enviar?</Title>
             <div className={searchCurrency.amountSymbol ? "amount-input" : "amount-input amount-input--without-symbol"}>
               {searchCurrency.amountSymbol ? <span aria-hidden="true">{searchCurrency.amountSymbol}</span> : null}
@@ -108,24 +108,24 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               <Text>Entrega publicada en Venezuela por Pago Movil. Coordina los detalles directamente con el negocio.</Text>
             </div>
             <Button mode="filled" stretched disabled={searchingMarketplace} onClick={() => void searchAds()}>
-              {searchingMarketplace ? "Buscando..." : "Buscar negocios"}
+              {searchingMarketplace ? "Buscando..." : "Buscar ofertas"}
             </Button>
           </div>
           {notice ? <Text className="auth-entry__session-meta">{notice}</Text> : null}
 
           <div className="marketplace-toolbar">
-            <Title level="3" className="business-shell__title">Negocios que publican en NODO</Title>
+            <Title level="3" className="business-shell__title">Ofertas publicadas</Title>
             <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - ordenados por mejor tasa</Text>
           </div>
 
           <MarketplaceBusinessList
-            emptyMessage="Ingresa un monto para ver negocios que publican en NODO."
+            emptyMessage="Ingresa un monto para ver ofertas disponibles."
             model={model}
           />
 
           <div className="trust-banner">
             <span className="status-dot" aria-hidden="true" />
-            <Text>NODO revisa datos del negocio antes de publicarlo. Compara tasa, limites y disponibilidad antes de elegir.</Text>
+            <Text>Compara tasa, limites y disponibilidad. Los datos son publicados por cada negocio.</Text>
           </div>
         </div>
       ) : null}
@@ -135,13 +135,13 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
           <div className="marketplace-toolbar">
             <div>
               <Text className="exchange-card__eyebrow">Directorio</Text>
-              <Title level="3" className="business-shell__title">Negocios activos</Title>
+              <Title level="3" className="business-shell__title">Ofertas disponibles</Title>
             </div>
             <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - ordenados por mejor tasa</Text>
           </div>
 
           <MarketplaceBusinessList
-            emptyMessage={`No hay negocios ${searchCurrency.offerLabel} activos disponibles en este momento.`}
+            emptyMessage={`No hay ofertas ${searchCurrency.offerLabel} disponibles en este momento.`}
             model={model}
           />
 

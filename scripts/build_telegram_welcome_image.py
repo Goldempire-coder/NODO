@@ -141,7 +141,7 @@ def main() -> None:
 
     add_wrapped_text(
         draw,
-        "Compara negocios registrados, revisa sus condiciones y crea tu orden en pocos pasos.",
+        "Compara ofertas publicadas, revisa sus condiciones y crea tu orden en pocos pasos.",
         (175, 520, 905, 620),
         font(34),
         (218, 228, 242),
@@ -155,8 +155,8 @@ def main() -> None:
 
     steps = [
         ("1", "Indica el monto que vas a enviar."),
-        ("2", "Elige un negocio registrado."),
-        ("3", "Revisa los datos publicados."),
+        ("2", "Elige una oferta disponible."),
+        ("3", "Revisa los datos publicados por el negocio."),
         ("4", "Guarda la evidencia de tu orden."),
     ]
     y = 730

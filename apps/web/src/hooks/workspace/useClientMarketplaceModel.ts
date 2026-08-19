@@ -181,7 +181,7 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
       }
       setSearchResults(data.items);
       setSelectedAd(null);
-      setNotice(data.items.length ? "" : "No hay negocios activos disponibles en este momento.");
+      setNotice(data.items.length ? "" : "No hay ofertas disponibles en este momento.");
       recordActionCompleted("client_marketplace_list", "marketplace-list", startedAt);
     } catch (error) {
       if (marketplaceRequestIdRef.current !== requestId) {

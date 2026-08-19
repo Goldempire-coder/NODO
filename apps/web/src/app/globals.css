@@ -118,6 +118,19 @@ textarea {
   align-content: start;
   margin: 0 auto;
   gap: 18px;
+  overflow-x: clip;
+}
+
+.business-shell > *,
+.marketplace-home,
+.marketplace-home > *,
+.exchange-card,
+.marketplace-toolbar,
+.receiver-note,
+.trusted-empty,
+.trust-banner {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .app-shell:has(.business-shell--keyboard-active) {
@@ -166,9 +179,12 @@ textarea {
 }
 
 .business-shell__title {
+  max-width: 100%;
   margin: 0;
   font-size: 22px;
   line-height: 1.18;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .business-shell__tabs {
@@ -1893,6 +1909,7 @@ div.ad-row {
 .marketplace-home {
   display: grid;
   gap: 18px;
+  overflow-x: clip;
 }
 
 .welcome-screen,
@@ -1940,6 +1957,7 @@ div.ad-row {
 .exchange-card {
   display: grid;
   gap: 14px;
+  min-width: 0;
   padding: 18px;
   border: 1px solid rgb(148 163 184 / 24%);
   border-radius: 8px;
@@ -1957,8 +1975,11 @@ div.ad-row {
 }
 
 .exchange-card__title {
+  max-width: 100%;
   margin: 0;
   color: var(--nodo-text);
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .amount-input {
@@ -2059,9 +2080,11 @@ div.ad-row {
 .trust-banner [class*="tgui"],
 .trusted-empty [class*="tgui"] {
   min-width: 0;
+  max-width: 100%;
   width: 100%;
   color: var(--nodo-muted);
   line-height: 1.4;
+  overflow-wrap: anywhere;
   white-space: normal;
 }
 
