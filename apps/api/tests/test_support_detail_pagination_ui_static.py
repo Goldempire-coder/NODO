@@ -64,11 +64,19 @@ def test_admin_support_lists_and_thread_use_internal_scroll_regions() -> None:
     assert 'aria-label="Conversacion del ticket de soporte admin"' in admin_screen
     assert "supportTicketsNextCursor" in admin_screen
     assert "loadMoreSupportTickets" in admin_screen
+    assert "admin-web-support-list-footer" in admin_screen
     assert "messages_next_cursor" in admin_screen
     assert "loadMoreSupportMessages" in admin_screen
 
     assert ".admin-web-support-ticket-list-scroll" in admin_css
     assert ".admin-web-support-thread-scroll" in admin_css
     assert "overflow-y: auto" in admin_css
+    assert ".admin-web-support-list-footer" in admin_css
+    assert ".admin-web-support-thread .admin-publication-hold" in admin_css
+    assert ".admin-web-support-thread .admin-publication-hold__action textarea" in admin_css
+    assert ".admin-web-support-thread__headline h2" in admin_css
+    assert ".admin-web-support-composer textarea" in admin_css
+    assert "grid-template-rows: auto auto auto auto minmax(0, 1fr) auto" in admin_css
+    assert "scrollbar-gutter: stable" in admin_css
     assert ".admin-web-support-ticket-list-scroll:focus-visible" in admin_css
     assert ".admin-web-support-thread-scroll:focus-visible" in admin_css

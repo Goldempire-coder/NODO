@@ -117,14 +117,16 @@ export function SupportTickets({ model }: { model: AdminWebModel }) {
           </div>
         </div>
         {model.supportTicketsNextCursor ? (
-          <button
-            className="admin-web-button"
-            disabled={model.supportTicketsLoadingMore}
-            type="button"
-            onClick={() => void model.loadMoreSupportTickets()}
-          >
-            {model.supportTicketsLoadingMore ? "Cargando..." : "Cargar mas"}
-          </button>
+          <div className="admin-web-support-list-footer">
+            <button
+              className="admin-web-button"
+              disabled={model.supportTicketsLoadingMore}
+              type="button"
+              onClick={() => void model.loadMoreSupportTickets()}
+            >
+              {model.supportTicketsLoadingMore ? "Cargando..." : "Cargar mas"}
+            </button>
+          </div>
         ) : null}
       </div>
 
