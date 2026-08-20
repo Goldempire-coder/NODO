@@ -217,3 +217,29 @@ def test_admin_business_capacity_copy_and_refresh_failure_are_clear() -> None:
     local_update_index = business_model.index("business: { ...current.business, ...data.business }", capacity_response_index)
     refresh_index = business_model.index("await loadBusinessDetail(selectedBusiness.business.id)", local_update_index)
     assert capacity_response_index < local_update_index < refresh_index
+
+
+def test_admin_and_business_referral_surfaces_match_intake_approval_rule() -> None:
+    admin_businesses = _read("apps/web/src/screens/admin-web/AdminBusinessScreens.tsx")
+    business_credits = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    business_credits_model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+    credits_api = _read("apps/web/src/api/credits.ts")
+
+    assert "detail.referrals.referred_by" in admin_businesses
+    assert "detail.referrals.referred_businesses" in admin_businesses
+    assert "detail.referrals.earned_credits" in admin_businesses
+    assert "detail.referrals.remaining_bonus_credits" in admin_businesses
+    assert "Aplicar codigo" not in business_credits
+    assert "referralData.referral_code" in business_credits
+    assert "referralData.earned_credits" in business_credits
+    assert "referralData.remaining_bonus_credits" in business_credits
+    for legacy_reference in (
+        "applyBusinessReferral",
+        "applyReferral",
+        "referralCodeInput",
+        "setReferralCodeInput",
+        "primera compra aprobada",
+        "/business/referrals/apply",
+    ):
+        assert legacy_reference not in business_credits_model
+        assert legacy_reference not in credits_api

@@ -302,6 +302,29 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
         ))}
       </div>
       <div className="admin-web-panel">
+        <h3>Referidos</h3>
+        <dl className="admin-web-dl">
+          <dt>Codigo usado</dt><dd>{detail.referrals.code_used || "-"}</dd>
+          <dt>Referido por</dt><dd>{detail.referrals.referred_by?.business_name || "-"}</dd>
+          <dt>Creditos ganados</dt><dd>{detail.referrals.earned_credits}</dd>
+          <dt>Restantes hasta el limite</dt><dd>{detail.referrals.remaining_bonus_credits}</dd>
+        </dl>
+        {detail.referrals.referred_businesses.length ? (
+          <Table headers={["Negocio referido", "Estado", "Creditos"]}>
+            {detail.referrals.referred_businesses.map((item) => (
+              <tr key={item.business_id}>
+                <td>{item.business_name}</td>
+                <td>{item.status}</td>
+                <td>{item.credits_awarded}</td>
+              </tr>
+            ))}
+          </Table>
+        ) : <Empty text="Este negocio aun no ha referido otros negocios." />}
+        {detail.referrals.referred_businesses_truncated ? (
+          <p className="admin-web-muted">Se muestran los 50 eventos de referidos mas recientes.</p>
+        ) : null}
+      </div>
+      <div className="admin-web-panel">
         <Header
           title="Acceso Mini App Negocio"
           action={(

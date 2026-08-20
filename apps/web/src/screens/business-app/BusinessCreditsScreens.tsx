@@ -303,7 +303,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
 }
 
 export function ReferralProgramScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { applyReferral, busy, referralCodeInput, referralData, setReferralCodeInput } = model;
+  const { referralData } = model;
   return (
     <div className="business-card">
       <Text className="business-card__label">Referidos</Text>
@@ -315,10 +315,6 @@ export function ReferralProgramScreen({ model }: { model: BusinessMiniAppModel }
           <Text>Restantes: {referralData.remaining_bonus_credits}</Text>
         </div>
       ) : <Text>Carga o genera tu codigo.</Text>}
-      <div className="business-grid">
-        <label className="business-field"><span>Aplicar codigo</span><input value={referralCodeInput} onChange={(event) => setReferralCodeInput(event.target.value.toUpperCase())} /></label>
-        <Button mode="outline" disabled={busy || !referralCodeInput.trim()} onClick={() => void applyReferral()}>Aplicar</Button>
-      </div>
     </div>
   );
 }

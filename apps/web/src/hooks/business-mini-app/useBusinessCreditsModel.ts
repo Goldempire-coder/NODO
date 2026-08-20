@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import {
-  applyBusinessReferral,
   getBusinessCreditPurchase,
   getBusinessCreditWallet,
   getBusinessReferrals,
@@ -104,7 +103,6 @@ export function useBusinessCreditsModel({
   const [creditPackage, setCreditPackage] = useState<string | null>(null);
   const [baseUsdcTxHash, setBaseUsdcTxHash] = useState("");
   const [referralData, setReferralData] = useState<ReferralData | null>(null);
-  const [referralCodeInput, setReferralCodeInput] = useState("");
   const [generatingCreditPayment, setGeneratingCreditPayment] = useState(false);
   const [loadingPendingPurchase, setLoadingPendingPurchase] = useState(false);
   const [refreshingCreditPurchase, setRefreshingCreditPurchase] = useState(false);
@@ -318,23 +316,7 @@ export function useBusinessCreditsModel({
     }
   }, [request, setBusy, setNotice, setView]);
 
-  const applyReferral = useCallback(async () => {
-    setBusy(true);
-    const idempotencyScope = `apply_referral_${referralCodeInput.trim()}`;
-    try {
-      await applyBusinessReferral(request, referralCodeInput, getIdempotencyKey(idempotencyScope, { referralCodeInput: referralCodeInput.trim() }));
-      clearIdempotencyKey(idempotencyScope);
-      await loadReferrals();
-      setNotice("Codigo referido registrado. El bono se evalua con la primera compra aprobada.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos aplicar el codigo.");
-    } finally {
-      setBusy(false);
-    }
-  }, [clearIdempotencyKey, getIdempotencyKey, loadReferrals, referralCodeInput, request, setBusy, setNotice]);
-
   return {
-    applyReferral,
     baseUsdcTxHash,
     continuePendingBaseUsdcPayment,
     creditPackage,
@@ -345,7 +327,6 @@ export function useBusinessCreditsModel({
     loadCreditDashboard,
     loadReferrals,
     openBuyCredits,
-    referralCodeInput,
     referralData,
     refreshCreditWallet,
     refreshingCreditPurchase,
@@ -354,7 +335,6 @@ export function useBusinessCreditsModel({
     selectedCreditPurchase,
     setBaseUsdcTxHash,
     setCreditPackage,
-    setReferralCodeInput,
     startBaseUsdcPayment,
     submitBaseUsdcTxHash,
     verifyingCreditTx,

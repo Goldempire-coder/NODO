@@ -72,14 +72,3 @@ export function submitBusinessManualCreditPayment<T>(
 export function getBusinessReferrals<T>(request: AuthenticatedRequest) {
   return request<T>("/api/v1/business/referrals");
 }
-
-export function applyBusinessReferral<T>(request: AuthenticatedRequest, referralCode: string, idempotencyKey: string) {
-  return request<T>("/api/v1/business/referrals/apply", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey
-    },
-    body: JSON.stringify({ referral_code: referralCode })
-  });
-}

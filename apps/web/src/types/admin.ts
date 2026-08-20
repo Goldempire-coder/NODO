@@ -84,6 +84,25 @@ export type AdminBusinessDetail = {
     reviewed_at: string | null;
   } | null;
   documents: DocumentFile[];
+  referrals: {
+    referred_by: {
+      business_id: string;
+      business_name: string;
+    } | null;
+    code_used: string | null;
+    earned_credits: number;
+    remaining_bonus_credits: number;
+    cap: number;
+    referred_businesses_truncated: boolean;
+    referred_businesses: Array<{
+      business_id: string;
+      business_name: string | null;
+      status: string;
+      credits_awarded: number;
+      created_at: string;
+      rewarded_at: string | null;
+    }>;
+  };
 };
 
 export type AdminBusinessSummary = {
