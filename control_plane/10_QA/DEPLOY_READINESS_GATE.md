@@ -5,6 +5,7 @@ Gate obligatorio antes de cualquier deploy productivo.
 ## No negociable
 
 - Owner aprueba el corte.
+- `control_plane/11_OPERATIONS/STABILITY_GATE.md` ejecutado y sin hallazgos HIGH/CRITICAL abiertos.
 - Existe manifiesto pre-deploy aprobado en `control_plane/13_HANDOFF/`.
 - No hay archivos runtime importados que queden fuera del release candidate.
 - No hay secretos hardcodeados.
