@@ -288,15 +288,11 @@ Legacy/no valid:
 
 - `referrals` table for new migrations/contracts.
 
-Referral bonus is credited only through `credits_ledger.type = referral_bonus` after the referred business qualifies. Self-referral and double bonus are prohibited.
-
-For referral qualification, a first credit purchase qualifies when:
-
-- Stripe/manual legacy purchase has `credit_purchases.status = approved`.
-- Base USDC on-chain purchase has `credit_purchases.status = credited`.
-- The purchase has exactly one `credits_ledger.type = purchase` linked by `related_credit_purchase_id`.
-
-On-chain statuses before `credited` do not qualify referral bonuses.
+Referral bonus is credited only through `credits_ledger.type = referral_bonus`
+when Admin approves the referred business. The referrer receives up to 5 credits,
+the referred business receives none, and the total referral cap is 20. Credit
+purchases do not qualify or duplicate this bonus. Self-referral and double bonus
+are prohibited.
 
 ## Credit ledger types
 

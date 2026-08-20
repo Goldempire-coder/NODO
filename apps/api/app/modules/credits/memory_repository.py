@@ -26,7 +26,6 @@ class InMemoryCreditRepository:
             referral_codes=self.referral_codes,
             referral_events=self.referral_events,
             business_repository=self._businesses,
-            ledger_values=lambda: self._ads.ledger.values(),
         )
 
     def ensure_wallet(self, business_id: str) -> CreditWalletRecord:
@@ -103,7 +102,6 @@ class InMemoryCreditRepository:
             purchase=purchase,
             credit_wallet=self._wallet_store.credit_wallet,
             ledger_for_purchase=self._wallet_store.ledger_for_purchase,
-            grant_referral_bonus=self._grant_referral_bonus_if_eligible,
             actor_user_id=actor_user_id,
             event_id=event_id,
             payment_intent_id=payment_intent_id,
@@ -116,7 +114,6 @@ class InMemoryCreditRepository:
             verification=verification,
             credit_wallet=self._wallet_store.credit_wallet,
             ledger_for_purchase=self._wallet_store.ledger_for_purchase,
-            grant_referral_bonus=self._grant_referral_bonus_if_eligible,
             actor_user_id=actor_user_id,
             min_confirmations=min_confirmations,
         )
@@ -142,5 +139,13 @@ class InMemoryCreditRepository:
     def list_referral_events_for_business(self, business_id: str) -> list[ReferralEventRecord]:
         return self._referral_store.list_referral_events_for_business(business_id)
 
-    def _grant_referral_bonus_if_eligible(self, *, referred_business_id: str, purchase_id: str, created_by: str | None) -> None:
-        self._referral_store.grant_referral_bonus_if_eligible(referred_business_id=referred_business_id, purchase_id=purchase_id, created_by=created_by, credit_wallet=self._wallet_store.credit_wallet)
+    def award_referral_on_business_approval(self, *, referred_business_id: str, referral_code: str | None, actor_user_id: str | None):  # type: ignore[no-untyped-def]
+        return self._referral_store.award_referral_on_business_approval(
+            referred_business_id=referred_business_id,
+            referral_code=referral_code,
+            actor_user_id=actor_user_id,
+            credit_wallet=self._wallet_store.credit_wallet,
+        )
+
+    def admin_referral_summary(self, business_id: str) -> dict:
+        return self._referral_store.admin_referral_summary(business_id)

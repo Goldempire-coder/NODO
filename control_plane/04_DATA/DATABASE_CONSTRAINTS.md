@@ -287,9 +287,9 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - `referral_codes.code` unique.
 - `referral_events.referrer_business_id` y `referred_business_id` FK businesses(id).
 - `referral_events.referrer_business_id <> referral_events.referred_business_id`.
-- `referral_events.related_credit_purchase_id` unique parcial cuando no sea null.
+- `referral_events.related_credit_purchase_id` queda nullable solo por compatibilidad historica; el flujo por aprobacion no lo usa.
 - `referral_events.referred_business_id` unique parcial mientras status in (`pending`, `approved`, `rewarded`).
-- `referral_bonus` requiere `related_referral_id`, `related_credit_purchase_id`, `reference_type = referral_event` y `reference_id = referral_events.id`.
+- `referral_bonus` requiere `related_referral_id`, `reference_type = referral_event` y `reference_id = referral_events.id`; `related_credit_purchase_id` es null en el flujo vigente.
 - `refund` y `adjustment` en `credits_ledger.type` son legacy/no validos; usar `release` y `admin_adjustment`.
 
 ## Admin y auditoria

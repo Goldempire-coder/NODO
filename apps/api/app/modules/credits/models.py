@@ -124,3 +124,12 @@ class ReferralEventRecord:
     approved_at: datetime | None = None
     rewarded_at: datetime | None = None
     rejected_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class ReferralApprovalResult:
+    event: ReferralEventRecord | None
+    outcome: str
+    created: bool
+    business_approved: bool = False
+    event_changed: bool = False

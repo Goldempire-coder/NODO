@@ -3,7 +3,6 @@ from __future__ import annotations
 from app.core.errors import ApiError
 from app.modules.ads.models import CreditLedgerRecord
 from app.modules.credits.models import CreditPurchaseRecord
-from app.modules.credits.postgres_referral_bonus import grant_referral_bonus_if_eligible_pg
 from app.modules.credits.row_mappers import ledger_from_row, purchase_from_row
 
 
@@ -28,12 +27,6 @@ def approve_purchase_pg(connect, *, purchase: CreditPurchaseRecord, actor_user_i
             admin_note=admin_note,
         )
         ledger_row = _insert_purchase_ledger(conn, current_purchase, wallet, available_after, actor_user_id)
-        grant_referral_bonus_if_eligible_pg(
-            conn,
-            referred_business_id=current_purchase.business_id,
-            purchase_id=current_purchase.id,
-            actor_user_id=actor_user_id,
-        )
         conn.commit()
     return purchase_from_row(updated_purchase), ledger_from_row(ledger_row)
 

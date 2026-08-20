@@ -136,7 +136,6 @@ class InMemoryCreditPurchaseStore:
         purchase: CreditPurchaseRecord,
         credit_wallet,
         ledger_for_purchase,
-        grant_referral_bonus,
         actor_user_id: str | None,
         event_id: str | None = None,
         payment_intent_id: str | None = None,
@@ -168,7 +167,6 @@ class InMemoryCreditPurchaseStore:
                 related_credit_purchase_id=purchase.id,
                 lifetime_field="lifetime_purchased_credits",
             )
-            grant_referral_bonus(referred_business_id=purchase.business_id, purchase_id=purchase.id, created_by=actor_user_id)
             return purchase, ledger
 
     def apply_onchain_verification(
@@ -178,7 +176,6 @@ class InMemoryCreditPurchaseStore:
         verification: OnchainVerificationResult,
         credit_wallet,
         ledger_for_purchase,
-        grant_referral_bonus,
         actor_user_id: str | None,
         min_confirmations: int,
     ) -> tuple[CreditPurchaseRecord, CreditLedgerRecord | None]:
@@ -246,7 +243,6 @@ class InMemoryCreditPurchaseStore:
                 related_credit_purchase_id=existing_purchase.id,
                 lifetime_field="lifetime_purchased_credits",
             )
-            grant_referral_bonus(referred_business_id=existing_purchase.business_id, purchase_id=existing_purchase.id, created_by=actor_user_id)
             return existing_purchase, ledger
 
     def reject_purchase(self, *, purchase: CreditPurchaseRecord, admin_user_id: str, reason: str) -> CreditPurchaseRecord:

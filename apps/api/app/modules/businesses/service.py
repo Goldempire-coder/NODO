@@ -26,10 +26,11 @@ BUSINESS_PIN_LOCK_SECONDS = 600
 
 
 class BusinessService(BusinessAccessLinkServiceMixin, BusinessAdminReviewServiceMixin, BusinessCapacityServiceMixin):
-    def __init__(self, *, settings: Settings, repository, capacity_repository, user_repository, audit_writer, rate_limiter, idempotency_store, storage, marketplace_cache=None, business_status_notifications=None, business_access_notifications=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, settings: Settings, repository, capacity_repository, credit_repository, user_repository, audit_writer, rate_limiter, idempotency_store, storage, marketplace_cache=None, business_status_notifications=None, business_access_notifications=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
         self._capacity = capacity_repository
+        self._credits = credit_repository
         self._users = user_repository
         self._audit = audit_writer
         self._rate_limiter = rate_limiter

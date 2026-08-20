@@ -11,7 +11,7 @@ Todas las rutas activas usan `/api/v1`.
 - POST /api/v1/business/credits/stripe-checkout
 - POST /api/v1/business/credits/manual-payment
 - GET /api/v1/business/referrals
-- POST /api/v1/business/referrals/apply
+- POST /api/v1/business/referrals/apply (legacy; no usado por negocios aprobados)
 
 ## Webhook
 
@@ -42,3 +42,5 @@ Todas las rutas activas usan `/api/v1`.
 - Responses siguen `06_API_CONTRACTS/ERROR_CONTRACT.md`.
 - Payloads/responses detallados viven en `06_API_CONTRACTS/CREDITS_API.md`.
 - Frontend no decide permisos ni balances.
+- El codigo vigente entra por Telegram Business Intake y se normaliza en backend.
+- La aprobacion Admin acredita hasta 5 creditos al referente, cap total 20.

@@ -73,7 +73,9 @@ Orden canonico de `last_step`:
 5. `submitted`
 
 Validaciones:
-- `referral_code` se guarda como texto corto y no ejecutable.
+- `referral_code` se normaliza con `trim + uppercase` y se guarda como texto corto no ejecutable.
+- Al aprobar el negocio, backend resuelve el codigo activo y acredita al negocio
+  referente segun `REFERRALS_MASTER.md`; el solicitante no envia `business_id`.
 - `contact_phone` es el numero de WhatsApp escrito por el solicitante; no se valida como contacto compartido de Telegram en este flujo MVP.
 - Mensajes demasiado largos o fuera del paso actual responden como error recuperable: webhook `200 OK` mas mensaje correctivo en Telegram.
 

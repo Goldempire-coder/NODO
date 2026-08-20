@@ -946,6 +946,128 @@ def test_admin_accept_can_approve_existing_intake_created_business(monkeypatch: 
     assert sent_messages
 
 
+def test_admin_approval_awards_normalized_intake_referral_once(monkeypatch: Any) -> None:
+    client = _client()
+    monkeypatch.setattr(intake_business_creation, "telegram_send_message_sync", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(intake_business_creation, "telegram_set_chat_menu_button_sync", lambda *_args, **_kwargs: None)
+    referrer_login = _login(client, 7046, "intake_referrer")
+    client.app.state.user_repository.set_user_role(referrer_login["user"]["id"], "business_owner")
+    referrer = client.app.state.business_repository.create_business(
+        owner_user_id=referrer_login["user"]["id"],
+        business_name="Casa Referente NODO",
+        rif="J-87654321-0",
+        address=None,
+        phone=None,
+        country="VE",
+    )
+    referrer.verification_status = "approved"
+    referrer.approved_at = referrer.updated_at
+    referral = client.app.state.credit_repository.get_or_create_referral_code(referrer.id)
+
+    telegram_id = 7047
+    chat_id = 8047
+    started = _start(
+        client,
+        update_id=593,
+        telegram_id=telegram_id,
+        chat_id=chat_id,
+        referral_code=f"  {referral.code.lower()}  ",
+    )
+    intake = client.app.state.business_intake_repository.get(started["id"])
+    assert intake is not None
+    assert intake.referral_code == referral.code
+    _contact(client, started["id"], update_id=594, telegram_id=telegram_id, chat_id=chat_id)
+    _submit(client, started["id"], update_id=595, telegram_id=telegram_id, chat_id=chat_id)
+    admin = _login(client, 9046, "admin_referral_approval")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    payload = {
+        "reason": "documents reviewed and referral approved",
+        "create_business": True,
+        "approve_business": True,
+        "public_business_name": "Casa Referida NODO",
+    }
+    headers = {**_admin_headers(admin, "accept_referral_business"), "Content-Type": "application/json"}
+
+    approved = client.post(f"/api/v1/admin/business-intake/{started['id']}/accept", headers=headers, json=payload)
+    replay = client.post(f"/api/v1/admin/business-intake/{started['id']}/accept", headers=headers, json=payload)
+
+    assert approved.status_code == 200, approved.text
+    assert replay.status_code == 200, replay.text
+    referred_business_id = approved.json()["data"]["business"]["id"]
+    referrer_wallet = client.app.state.credit_repository.get_wallet(referrer.id)
+    referred_wallet = client.app.state.credit_repository.get_wallet(referred_business_id)
+    assert referrer_wallet is not None
+    assert referrer_wallet.available_credits == 5
+    assert referred_wallet is None or referred_wallet.available_credits == 0
+    assert referrer.referral_credits_earned == 5
+    referral_events = list(client.app.state.credit_repository.referral_events.values())
+    assert len(referral_events) == 1
+    assert referral_events[0].credits_awarded == 5
+    referral_ledgers = [
+        item
+        for item in client.app.state.ad_repository.ledger.values()
+        if item.business_id == referrer.id and item.type == "referral_bonus"
+    ]
+    assert len(referral_ledgers) == 1
+    assert referral_ledgers[0].amount == 5
+    audit_types = [item.event_type for item in client.app.state.audit_writer.events]
+    assert audit_types.count("business_approved") == 1
+    assert audit_types.count("referral_bonus_awarded") == 1
+
+    detail = client.get(
+        f"/api/v1/admin/businesses/{referrer.id}",
+        headers=_bearer(admin, "req_referrer_admin_detail"),
+    )
+    assert detail.status_code == 200, detail.text
+    referral_summary = detail.json()["data"]["referrals"]
+    assert referral_summary["earned_credits"] == 5
+    assert referral_summary["remaining_bonus_credits"] == 15
+    assert referral_summary["referred_businesses"][0]["business_id"] == referred_business_id
+
+
+def test_admin_approval_with_unknown_referral_code_is_audited_without_credit(monkeypatch: Any) -> None:
+    client = _client()
+    monkeypatch.setattr(intake_business_creation, "telegram_send_message_sync", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(intake_business_creation, "telegram_set_chat_menu_button_sync", lambda *_args, **_kwargs: None)
+    telegram_id = 7048
+    chat_id = 8048
+    started = _start(
+        client,
+        update_id=596,
+        telegram_id=telegram_id,
+        chat_id=chat_id,
+        referral_code="  unknown-code  ",
+    )
+    _contact(client, started["id"], update_id=597, telegram_id=telegram_id, chat_id=chat_id)
+    _submit(client, started["id"], update_id=598, telegram_id=telegram_id, chat_id=chat_id)
+    admin = _login(client, 9048, "admin_unknown_referral")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    approved = client.post(
+        f"/api/v1/admin/business-intake/{started['id']}/accept",
+        headers={**_admin_headers(admin, "accept_unknown_referral"), "Content-Type": "application/json"},
+        json={
+            "reason": "documents reviewed with unknown referral code",
+            "create_business": True,
+            "approve_business": True,
+            "public_business_name": "Casa Sin Referente NODO",
+        },
+    )
+
+    assert approved.status_code == 200, approved.text
+    referred_business_id = approved.json()["data"]["business"]["id"]
+    assert client.app.state.credit_repository.get_wallet(referred_business_id) is None
+    assert client.app.state.credit_repository.referral_events == {}
+    rejection = next(
+        event
+        for event in client.app.state.audit_writer.events
+        if event.event_type == "referral_rejected"
+    )
+    assert rejection.resource_id == referred_business_id
+    assert rejection.metadata_json["outcome"] == "invalid_code"
+    assert "referral_code" not in rejection.metadata_json
+
+
 def test_admin_reject_requires_idempotency_and_does_not_create_business() -> None:
     client = _client()
     started = _start(client, update_id=600, telegram_id=7051, chat_id=8051)

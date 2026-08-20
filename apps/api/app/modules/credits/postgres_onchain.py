@@ -14,7 +14,6 @@ from app.modules.credits.models import (
 )
 from app.modules.credits.onchain import OnchainVerificationResult, normalize_credit_verification
 from app.modules.credits.postgres_purchase_review import _credit_wallet_for_update, _existing_purchase_ledger
-from app.modules.credits.postgres_referral_bonus import grant_referral_bonus_if_eligible_pg
 from app.modules.credits.row_mappers import ledger_from_row, purchase_from_row
 
 
@@ -171,7 +170,6 @@ def apply_onchain_verification_pg(
                 actor_user_id,
             ),
         ).fetchone()
-        grant_referral_bonus_if_eligible_pg(conn, referred_business_id=current.business_id, purchase_id=current.id, actor_user_id=actor_user_id)
         conn.commit()
     return purchase_from_row(updated_purchase), ledger_from_row(ledger_row)
 

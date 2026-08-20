@@ -24,7 +24,7 @@ business_owner:
 - iniciar Stripe checkout propio
 - crear pago manual propio
 - ver referrals propios
-- aplicar referral code a negocio propio si estado lo permite
+- ver su codigo y resumen; el codigo recibido se captura en Business Intake
 
 admin/super_admin:
 

@@ -14,6 +14,7 @@ from app.modules.business_intake.conversation_validation import (
 )
 from app.modules.business_intake.policy import require_admin_mutation
 from app.modules.business_intake.schemas import AdminBusinessIntakeUpdateRequest
+from app.modules.credits.referral_codes import normalize_referral_code
 from app.modules.users.models import UserRecord
 
 
@@ -74,7 +75,8 @@ class BusinessIntakeAdminUpdateMixin:
         for request_field, (record_field, min_length, max_length) in scalar_fields.items():
             value = provided.get(request_field)
             if value is not None:
-                updates[record_field] = clean_text(value, min_length=min_length, max_length=max_length)
+                cleaned = clean_text(value, min_length=min_length, max_length=max_length)
+                updates[record_field] = normalize_referral_code(cleaned) if request_field == "referral_code" else cleaned
         if provided.get("operation") is not None:
             updates["operation"] = normalize_operation(str(provided["operation"]))
         if provided.get("methods") is not None:

@@ -29,6 +29,7 @@ def business_service(request: Request) -> BusinessService:
         settings=request.app.state.settings,
         repository=request.app.state.business_repository,
         capacity_repository=request.app.state.capacity_repository,
+        credit_repository=request.app.state.credit_repository,
         user_repository=request.app.state.user_repository,
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,

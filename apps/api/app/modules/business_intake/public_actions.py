@@ -12,6 +12,7 @@ from app.modules.business_intake.schemas import (
     BusinessIntakeStartRequest,
     BusinessIntakeSubmitRequest,
 )
+from app.modules.credits.referral_codes import normalize_referral_code
 
 
 class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
@@ -26,7 +27,7 @@ class BusinessIntakePublicActionsMixin(BusinessIntakePublicDocumentsMixin):
             telegram_user_id=payload.telegram_user_id,
             telegram_chat_id=payload.telegram_chat_id,
             update_id=payload.telegram_update_id,
-            referral_code=payload.referral_code,
+            referral_code=normalize_referral_code(payload.referral_code),
         )
         if existing is None:
             self._write_audit(event_type="business_intake_started", intake=intake, request_id=request_id)  # type: ignore[attr-defined]

@@ -129,6 +129,10 @@ Constraints/indexes:
 - referral_events(referrer_business_id, created_at desc)
 - referral_events(referred_business_id, created_at desc)
 
+El flujo vigente por aprobacion mantiene `related_credit_purchase_id = null` y
+usa `related_referral_id` en el ledger. El campo de compra queda solo para
+compatibilidad historica.
+
 ## founder fields
 
 Fuente canonica:

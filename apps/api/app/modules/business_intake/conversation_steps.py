@@ -12,6 +12,7 @@ from app.modules.business_intake.conversation_validation import (
 )
 from app.modules.business_intake.defaults import DEFAULT_SCHEDULE_TEXT, default_intake_limits
 from app.modules.business_intake.models import BusinessIntakeRequestRecord
+from app.modules.credits.referral_codes import normalize_referral_code
 
 
 def conversation_fields_for_step(
@@ -24,7 +25,7 @@ def conversation_fields_for_step(
     fields: dict[str, Any]
     next_step: str
     if current_step == "awaiting_referral_code":
-        fields = {"referral_code": cleaned}
+        fields = {"referral_code": normalize_referral_code(cleaned)}
         next_step = "awaiting_whatsapp_phone"
     elif current_step == "awaiting_whatsapp_phone":
         fields = {"contact_phone": clean_text(raw_text, min_length=6, max_length=32)}

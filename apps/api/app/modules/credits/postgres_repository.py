@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.modules.ads.models import CreditLedgerRecord, CreditWalletRecord
 from app.modules.businesses.models import FileAssetRecord
 from app.modules.credits.models import CreditPurchaseRecord, ReferralCodeRecord, ReferralEventRecord
+from app.modules.credits.postgres_referral_bonus import award_referral_on_business_approval_pg
 from app.modules.credits.postgres_admin_adjustment import adjust_wallet_pg
 from app.modules.credits.postgres_purchases import (
     apply_onchain_verification_pg,
@@ -17,7 +18,7 @@ from app.modules.credits.postgres_purchases import (
     reject_purchase_pg,
     stripe_event_processed_pg,
 )
-from app.modules.credits.postgres_referrals import apply_referral_code_pg, get_or_create_referral_code_pg, list_referral_events_for_business_pg
+from app.modules.credits.postgres_referrals import admin_referral_summary_pg, apply_referral_code_pg, get_or_create_referral_code_pg, list_referral_events_for_business_pg
 from app.modules.credits.row_mappers import ledger_from_row, wallet_from_row
 from app.shared.db.connection import pooled_connect
 
@@ -158,3 +159,14 @@ class PostgresCreditRepository:
 
     def list_referral_events_for_business(self, business_id: str) -> list[ReferralEventRecord]:
         return list_referral_events_for_business_pg(self._connect, business_id)
+
+    def award_referral_on_business_approval(self, *, referred_business_id: str, referral_code: str | None, actor_user_id: str | None):  # type: ignore[no-untyped-def]
+        return award_referral_on_business_approval_pg(
+            self._connect,
+            referred_business_id=referred_business_id,
+            referral_code=referral_code,
+            actor_user_id=actor_user_id,
+        )
+
+    def admin_referral_summary(self, business_id: str) -> dict:
+        return admin_referral_summary_pg(self._connect, business_id)

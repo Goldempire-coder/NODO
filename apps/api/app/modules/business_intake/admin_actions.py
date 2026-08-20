@@ -24,6 +24,7 @@ class BusinessIntakeAdminActions(
         settings,
         repository,
         business_repository,
+        credit_repository,
         user_repository,
         audit_writer,
         rate_limiter,
@@ -35,6 +36,7 @@ class BusinessIntakeAdminActions(
         self._settings = settings
         self._repository = repository
         self._businesses = business_repository
+        self._credits = credit_repository
         self._users = user_repository
         self._audit = audit_writer
         self._rate_limiter = rate_limiter

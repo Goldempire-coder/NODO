@@ -15,6 +15,7 @@ def service(request: Request) -> BusinessIntakeService:
         settings=request.app.state.settings,
         repository=request.app.state.business_intake_repository,
         business_repository=request.app.state.business_repository,
+        credit_repository=request.app.state.credit_repository,
         user_repository=request.app.state.user_repository,
         audit_writer=request.app.state.audit_writer,
         rate_limiter=request.app.state.rate_limiter,

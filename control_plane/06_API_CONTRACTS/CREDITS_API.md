@@ -220,22 +220,20 @@ Rutas legacy prohibidas/no validas:
 
 ### POST /api/v1/business/referrals/apply
 
-- Auth: business_owner.
-- Idempotency-Key: obligatorio.
-- Body:
-  - referral_code
-- Solo permitido para negocio propio antes de usar otro codigo o recibir bonus.
-- Prohibe self-referral.
-- Crea `referral_events.status = pending`.
-- Audit:
-  - referral_code_applied
+- Compatibilidad legacy; la App Negocio no usa esta ruta para negocios aprobados.
+- La entrada canonica es `referral_code` en Telegram Business Intake.
+- Un negocio aprobado recibe `409 REFERRAL_NOT_ALLOWED`.
 
 Referral qualification:
 
-- Stripe/manual legacy purchase qualifies when `credit_purchases.status = approved`.
-- Base USDC on-chain purchase qualifies when `credit_purchases.status = credited`.
-- Both require exactly one `credits_ledger.type = purchase` linked by `related_credit_purchase_id`.
-- On-chain statuses before `credited` do not qualify referral bonuses.
+- Admin approval of the referred business awards the referrer up to 5 credits.
+- The referred business receives 0 referral credits.
+- Total referral credits per referrer cannot exceed 20.
+- Credit purchases never qualify or duplicate referral bonuses.
+- Event, wallet, ledger and `referral_credits_earned` update exact-once in the
+  PostgreSQL approval transaction.
+- A legacy `pending` referral event is finalized by Admin approval when eligible;
+  terminal `rewarded` or `rejected` events are never reopened or credited again.
 
 ## Stripe webhook
 

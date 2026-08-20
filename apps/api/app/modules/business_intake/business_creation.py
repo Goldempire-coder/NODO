@@ -161,8 +161,14 @@ class BusinessIntakeBusinessCreationMixin:
             self._users.set_user_role(applicant.id, "business_owner")  # type: ignore[attr-defined]
             applicant.role = "business_owner"
 
-        if business.verification_status != "approved":
-            business = self._businesses.approve_business_from_intake(business=business)  # type: ignore[attr-defined]
+        referral_result = self._credits.award_referral_on_business_approval(  # type: ignore[attr-defined]
+            referred_business_id=business.id,
+            referral_code=reviewed.referral_code,
+            actor_user_id=user.id,
+        )
+        newly_approved = referral_result.business_approved
+        if newly_approved:
+            business = self._businesses.get_business(business.id) or business  # type: ignore[attr-defined]
             self._audit.write(  # type: ignore[attr-defined]
                 event_type="business_approved",
                 actor_user_id=user.id,
@@ -171,6 +177,40 @@ class BusinessIntakeBusinessCreationMixin:
                 resource_id=business.id,
                 request_id=request_id,
                 metadata_json={"source": "business_intake", "intake_id": reviewed.id},
+            )
+
+        if referral_result.event_changed and referral_result.event is not None:
+            self._audit.write(  # type: ignore[attr-defined]
+                event_type=(
+                    "referral_bonus_awarded"
+                    if referral_result.outcome == "rewarded"
+                    else "referral_rejected"
+                ),
+                actor_user_id=user.id,
+                actor_role=user.role,
+                resource_type="referral_event",
+                resource_id=referral_result.event.id,
+                request_id=request_id,
+                metadata_json={
+                    "source": "business_intake_approval",
+                    "intake_id": reviewed.id,
+                    "credits_awarded": referral_result.event.credits_awarded,
+                    "outcome": referral_result.outcome,
+                },
+            )
+        elif referral_result.outcome in {"invalid_code", "self_referral"}:
+            self._audit.write(  # type: ignore[attr-defined]
+                event_type="referral_rejected",
+                actor_user_id=user.id,
+                actor_role=user.role,
+                resource_type="business",
+                resource_id=business.id,
+                request_id=request_id,
+                metadata_json={
+                    "source": "business_intake_approval",
+                    "intake_id": reviewed.id,
+                    "outcome": referral_result.outcome,
+                },
             )
 
         existing_link = self._businesses.get_active_access_link_for_business_user(  # type: ignore[attr-defined]

@@ -12,6 +12,12 @@ Contrato admin MVP. Este archivo cubre:
 Los endpoints de creditos de `slice_08_credits_referrals` siguen definidos por
 `CREDITS_API.md`; slice 09 solo los compone o enlaza en la navegacion admin.
 
+`GET /api/v1/admin/businesses/{id}` incluye `referrals` con codigo usado,
+negocio referente, negocios referidos y creditos ganados/restantes. No incluye
+PII del owner ni datos de pago. La lista embebida se limita a los 50 eventos
+mas recientes e indica si fue truncada. La aprobacion desde Business Intake es la
+autoridad que crea el evento y acredita el bono exact-once.
+
 Todas las rutas usan prefijo:
 
 ```txt

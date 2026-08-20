@@ -50,6 +50,7 @@ class BusinessAdminReviewServiceMixin:
             ),
             "latest_submission": self._latest_submission_payload(latest=latest, user=user),
             "documents": [file_payload(file) for file in self._repository.list_files_for_business(business.id)],  # type: ignore[attr-defined]
+            "referrals": self._credits.admin_referral_summary(business.id),  # type: ignore[attr-defined]
         }
 
     def _latest_submission_payload(self, *, latest, user: UserRecord) -> dict[str, Any] | None:  # type: ignore[no-untyped-def]

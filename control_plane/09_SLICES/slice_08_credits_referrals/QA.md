@@ -25,6 +25,11 @@ Required QA:
 - referral duplicate blocked.
 - referral cap 20 enforced.
 - referral bonus writes ledger `referral_bonus`.
+- lowercase/uppercase/whitespace referral code normalizes in intake.
+- Admin approval awards referrer 5 and referred business 0.
+- approval replay/concurrency writes one referral event and one ledger.
+- partial award cannot exceed cap 20.
+- later credit purchase does not duplicate referral bonus.
 - no `refund` or `adjustment` ledger type used as active enum.
 - frontend build.
 - runners 00-08.

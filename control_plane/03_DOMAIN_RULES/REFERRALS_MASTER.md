@@ -17,30 +17,28 @@ contratos activos.
 - Cada negocio aprobado puede tener un codigo de referido unico.
 - El codigo se genera de forma idempotente al aprobar el negocio o al primer
   acceso a `GET /api/v1/business/referrals`.
-- Un negocio puede aplicar un codigo de referido una sola vez antes de recibir
-  bonus propio o antes de su primera compra calificable de creditos.
+- El solicitante escribe el codigo una sola vez durante Telegram Business Intake.
+- Backend normaliza el codigo con `trim + uppercase` y deriva el negocio referente.
 - Self-referral esta prohibido.
 - Un mismo referred_business_id no puede generar mas de un bonus activo.
-- Un mismo credit_purchase no puede generar mas de un referral bonus.
+- Las compras de creditos no generan ni duplican referral bonus.
 
 ## Bonus
 
-- Bonus por referido: 1 credito publicitario.
+- Bonus por referido: 5 creditos publicitarios para el negocio referente.
+- El negocio referido no recibe creditos por usar el codigo.
 - Cap por negocio referrer: 20 creditos por referrals en MVP.
-- El bonus se acredita cuando el negocio referido:
-  - esta `business.verification_status = approved`
-  - tiene su primera compra calificable de creditos
+- El bonus se acredita en la transaccion que deja al negocio referido con
+  `business.verification_status = approved` por decision Admin.
+- La acreditacion:
+  - usa `min(5, 20 - referral_credits_earned)`
   - no es self-referral
   - no excede el cap
 - La acreditacion escribe `credits_ledger.type = referral_bonus`.
-
-Compra calificable:
-
-- `credit_purchases.status = approved` para Stripe/manual legacy.
-- `credit_purchases.status = credited` para Base USDC on-chain.
-- En ambos casos debe existir `credits_ledger.type = purchase` exact-once con `related_credit_purchase_id = credit_purchases.id`.
-
-Una compra con status `verified`, `detected`, `pending_onchain_confirmation`, `under_review`, `expired`, `rejected` o `verification_failed` no califica referral.
+- Replay o concurrencia de aprobacion no crea otro evento, ledger ni credito.
+- Un evento legacy `pending` se finaliza en esa misma aprobacion si sigue siendo
+  elegible; no se descarta como procesado solo por existir.
+- Un evento legacy `rewarded` o `rejected` es terminal y nunca vuelve a acreditar.
 
 ## Ledger
 
@@ -49,8 +47,8 @@ Una compra con status `verified`, `detected`, `pending_onchain_confirmation`, `u
 - business_id = referrer_business_id
 - amount = bonus credits
 - related_referral_id = referral_events.id
-- related_credit_purchase_id = credit_purchases.id
-- reason = referral_bonus_first_qualifying_purchase
+- related_credit_purchase_id = null
+- reason = referral_bonus_business_approval
 - source = referral_events
 - reference_type = referral_event
 - reference_id = referral_events.id
@@ -73,13 +71,13 @@ Una compra con status `verified`, `detected`, `pending_onchain_confirmation`, `u
 ## API
 
 - `GET /api/v1/business/referrals`
-- `POST /api/v1/business/referrals/apply`
+- `POST /api/v1/business/referrals/apply` queda legacy para compatibilidad y no
+  es la entrada canonica del flujo nuevo.
 
 ## RBAC
 
 - `business_owner` ve su codigo, eventos y cap.
-- `business_owner` puede aplicar un codigo a su propio negocio cuando el
-  estado lo permite.
+- El negocio referido no aplica codigos desde la App Negocio despues de aprobado.
 - `admin/super_admin` puede ver eventos en pantallas admin futuras.
 - `support` es read-only si un contrato admin futuro lo expone.
 
@@ -103,6 +101,6 @@ Eventos:
 
 - Self-referral.
 - Doble bonus por el mismo referred_business_id.
-- Doble bonus por la misma compra calificable.
+- Doble bonus por replay o concurrencia de aprobacion.
 - Bonus que haga wallet inconsistente.
 - Prometer ganancias monetarias, fondos protegidos o garantia de remesas.

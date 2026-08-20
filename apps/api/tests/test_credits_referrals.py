@@ -576,7 +576,7 @@ def test_admin_adjustment_requires_admin_and_keeps_wallet_non_negative() -> None
     assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 3
 
 
-def test_referrals_prevent_self_referral_duplicate_and_award_bonus_once_after_purchase() -> None:
+def test_referral_approval_awards_once_and_later_purchase_does_not_duplicate_bonus() -> None:
     client = _client()
     referrer_login = _login(client, 940, "referrer")
     referred_login = _login(client, 941, "referred")
@@ -594,15 +594,20 @@ def test_referrals_prevent_self_referral_duplicate_and_award_bonus_once_after_pu
         headers={**_headers(referrer_login, "self_ref"), "Content-Type": "application/json"},
         json={"referral_code": referrer_data["referral_code"]},
     )
-    applied = client.post(
+    late_apply = client.post(
         "/api/v1/business/referrals/apply",
         headers={**_headers(referred_login, "apply_ref"), "Content-Type": "application/json"},
         json={"referral_code": referrer_data["referral_code"]},
     )
-    duplicate = client.post(
-        "/api/v1/business/referrals/apply",
-        headers={**_headers(referred_login, "apply_ref_2"), "Content-Type": "application/json"},
-        json={"referral_code": referrer_data["referral_code"]},
+    awarded = client.app.state.credit_repository.award_referral_on_business_approval(
+        referred_business_id=referred_business["id"],
+        referral_code=referrer_data["referral_code"],
+        actor_user_id=referrer_login["user"]["id"],
+    )
+    replay = client.app.state.credit_repository.award_referral_on_business_approval(
+        referred_business_id=referred_business["id"],
+        referral_code=referrer_data["referral_code"],
+        actor_user_id=referrer_login["user"]["id"],
     )
     checkout = _checkout(client, referred_login, key="referred_stripe")
     session_id = client.app.state.credit_repository.get_purchase(checkout["purchase"]["id"]).stripe_checkout_session_id
@@ -614,15 +619,181 @@ def test_referrals_prevent_self_referral_duplicate_and_award_bonus_once_after_pu
     assert no_key_apply.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
     assert self_referral.status_code == 409
     assert self_referral.json()["error"]["code"] == "REFERRAL_NOT_ALLOWED"
-    assert applied.status_code == 200, applied.text
-    assert duplicate.status_code == 409
-    assert duplicate.json()["error"]["code"] == "REFERRAL_ALREADY_USED"
+    assert late_apply.status_code == 409
+    assert late_apply.json()["error"]["code"] == "REFERRAL_NOT_ALLOWED"
+    assert awarded.created is True
+    assert awarded.event is not None and awarded.event.credits_awarded == 5
+    assert replay.created is False
     assert credited.status_code == 200, credited.text
     assert duplicate_event.status_code == 200
     assert client.app.state.ad_repository.get_wallet(referred_business["id"]).available_credits == 5
-    assert client.app.state.ad_repository.get_wallet(referrer_business["id"]).available_credits == 1
+    assert client.app.state.ad_repository.get_wallet(referrer_business["id"]).available_credits == 5
     referral_ledgers = [item for item in client.app.state.ad_repository.ledger.values() if item.business_id == referrer_business["id"] and item.type == "referral_bonus"]
     assert len(referral_ledgers) == 1
+
+
+def test_referral_approval_finalizes_legacy_pending_event_once() -> None:
+    client = _client()
+    referrer_login = _login(client, 946, "legacy_pending_referrer")
+    referred_login = _login(client, 947, "legacy_pending_referred")
+    referrer_business = _create_business(client, referrer_login, "legacy_pending_referrer")
+    referred_business = _create_business(client, referred_login, "legacy_pending_referred")
+    repository = client.app.state.credit_repository
+    code = repository.get_or_create_referral_code(referrer_business["id"])
+    pending = repository.apply_referral_code(
+        referred_business_id=referred_business["id"],
+        referral_code=code.code,
+    )
+    referred = client.app.state.business_repository.get_business(referred_business["id"])
+    referred.verification_status = "pending"
+    referred.approved_at = None
+
+    awarded = repository.award_referral_on_business_approval(
+        referred_business_id=referred_business["id"],
+        referral_code=code.code,
+        actor_user_id=referrer_login["user"]["id"],
+    )
+    replay = repository.award_referral_on_business_approval(
+        referred_business_id=referred_business["id"],
+        referral_code=code.code,
+        actor_user_id=referrer_login["user"]["id"],
+    )
+
+    assert awarded.event is pending
+    assert awarded.event.status == "rewarded"
+    assert awarded.event.credits_awarded == 5
+    assert awarded.created is False
+    assert awarded.event_changed is True
+    assert replay.outcome == "already_processed"
+    assert replay.event_changed is False
+    assert client.app.state.ad_repository.get_wallet(referrer_business["id"]).available_credits == 5
+    referral_ledgers = [
+        item
+        for item in client.app.state.ad_repository.ledger.values()
+        if item.business_id == referrer_business["id"] and item.type == "referral_bonus"
+    ]
+    assert len(referral_ledgers) == 1
+
+
+def test_legacy_pending_referral_respects_partial_cap_and_rejected_replay() -> None:
+    client = _client()
+    referrer_login = _login(client, 948, "legacy_cap_referrer")
+    partial_login = _login(client, 949, "legacy_cap_partial")
+    capped_login = _login(client, 950, "legacy_cap_rejected")
+    referrer_business = _create_business(client, referrer_login, "legacy_cap_referrer")
+    partial_business = _create_business(client, partial_login, "legacy_cap_partial")
+    capped_business = _create_business(client, capped_login, "legacy_cap_rejected")
+    repository = client.app.state.credit_repository
+    referrer = client.app.state.business_repository.get_business(referrer_business["id"])
+    referrer.referral_credits_earned = 18
+    code = repository.get_or_create_referral_code(referrer_business["id"])
+
+    partial_event = repository.apply_referral_code(
+        referred_business_id=partial_business["id"],
+        referral_code=code.code,
+    )
+    partial = client.app.state.business_repository.get_business(partial_business["id"])
+    partial.verification_status = "pending"
+    partial.approved_at = None
+    partial_result = repository.award_referral_on_business_approval(
+        referred_business_id=partial_business["id"],
+        referral_code=code.code,
+        actor_user_id=referrer_login["user"]["id"],
+    )
+
+    capped_event = repository.apply_referral_code(
+        referred_business_id=capped_business["id"],
+        referral_code=code.code,
+    )
+    capped = client.app.state.business_repository.get_business(capped_business["id"])
+    capped.verification_status = "pending"
+    capped.approved_at = None
+    capped_result = repository.award_referral_on_business_approval(
+        referred_business_id=capped_business["id"],
+        referral_code=code.code,
+        actor_user_id=referrer_login["user"]["id"],
+    )
+    capped_replay = repository.award_referral_on_business_approval(
+        referred_business_id=capped_business["id"],
+        referral_code=code.code,
+        actor_user_id=referrer_login["user"]["id"],
+    )
+
+    assert partial_result.event is partial_event
+    assert partial_event.status == "rewarded"
+    assert partial_event.credits_awarded == 2
+    assert capped_result.event is capped_event
+    assert capped_event.status == "rejected"
+    assert capped_event.reject_reason == "referral_cap_reached"
+    assert capped_replay.outcome == "already_processed"
+    assert capped_replay.event_changed is False
+    assert referrer.referral_credits_earned == 20
+    assert client.app.state.ad_repository.get_wallet(referrer_business["id"]).available_credits == 2
+    referral_ledgers = [
+        item
+        for item in client.app.state.ad_repository.ledger.values()
+        if item.business_id == referrer_business["id"] and item.type == "referral_bonus"
+    ]
+    assert len(referral_ledgers) == 1
+    assert referral_ledgers[0].amount == 2
+
+
+def test_referral_approval_respects_partial_and_total_cap() -> None:
+    client = _client()
+    referrer_login = _login(client, 942, "referrer_cap")
+    first_referred_login = _login(client, 943, "referred_cap_partial")
+    second_referred_login = _login(client, 944, "referred_cap_full")
+    referrer_business = _create_business(client, referrer_login, "referrer_cap")
+    first_referred = _create_business(client, first_referred_login, "referred_cap_partial")
+    second_referred = _create_business(client, second_referred_login, "referred_cap_full")
+    referrer = client.app.state.business_repository.get_business(referrer_business["id"])
+    referrer.referral_credits_earned = 18
+    referral = client.app.state.credit_repository.get_or_create_referral_code(referrer.id)
+
+    partial = client.app.state.credit_repository.award_referral_on_business_approval(
+        referred_business_id=first_referred["id"],
+        referral_code=f" {referral.code.lower()} ",
+        actor_user_id=referrer_login["user"]["id"],
+    )
+    capped = client.app.state.credit_repository.award_referral_on_business_approval(
+        referred_business_id=second_referred["id"],
+        referral_code=referral.code,
+        actor_user_id=referrer_login["user"]["id"],
+    )
+
+    assert partial.event is not None
+    assert partial.event.status == "rewarded"
+    assert partial.event.credits_awarded == 2
+    assert capped.event is not None
+    assert capped.event.status == "rejected"
+    assert capped.event.reject_reason == "referral_cap_reached"
+    assert referrer.referral_credits_earned == 20
+    assert client.app.state.credit_repository.get_wallet(referrer.id).available_credits == 2
+    referral_ledgers = [
+        item
+        for item in client.app.state.ad_repository.ledger.values()
+        if item.business_id == referrer.id and item.type == "referral_bonus"
+    ]
+    assert len(referral_ledgers) == 1
+    assert referral_ledgers[0].amount == 2
+
+
+def test_referral_approval_rejects_self_referral_without_credit() -> None:
+    client = _client()
+    owner = _login(client, 945, "referral_self_owner")
+    business = _create_business(client, owner, "referral_self_owner")
+    code = client.app.state.credit_repository.get_or_create_referral_code(business["id"])
+
+    result = client.app.state.credit_repository.award_referral_on_business_approval(
+        referred_business_id=business["id"],
+        referral_code=code.code.lower(),
+        actor_user_id=owner["user"]["id"],
+    )
+
+    assert result.outcome == "self_referral"
+    assert result.event is None
+    assert client.app.state.credit_repository.get_wallet(business["id"]) is None
+    assert client.app.state.credit_repository.referral_events == {}
 
 
 def test_base_usdc_payment_create_does_not_credit_and_valid_tx_credits_once() -> None:
@@ -1010,19 +1181,19 @@ def test_admin_detail_and_reject_onchain_under_review_requires_admin_reason() ->
     assert "onchain_credit_purchase_rejected" in _event_types(client)
 
 
-def test_base_usdc_duplicate_tx_log_watcher_and_referral_bonus_after_credited_purchase() -> None:
+def test_base_usdc_purchase_does_not_duplicate_referral_bonus_awarded_on_approval() -> None:
     client = _client()
     referrer_login = _login(client, 972, "base_referrer")
     referred_login = _login(client, 973, "base_referred")
     referrer_business = _create_business(client, referrer_login, "base_referrer")
     referred_business = _create_business(client, referred_login, "base_referred")
     referral_code = client.get("/api/v1/business/referrals", headers=_bearer(referrer_login, "req_base_referrer")).json()["data"]["referral_code"]
-    applied = client.post(
-        "/api/v1/business/referrals/apply",
-        headers={**_headers(referred_login, "apply_base_ref"), "Content-Type": "application/json"},
-        json={"referral_code": referral_code},
+    awarded = client.app.state.credit_repository.award_referral_on_business_approval(
+        referred_business_id=referred_business["id"],
+        referral_code=referral_code,
+        actor_user_id=referrer_login["user"]["id"],
     )
-    assert applied.status_code == 200, applied.text
+    assert awarded.created is True
 
     first = _base_payment(client, referred_login, key="base_ref_purchase")
     tx_hash = _tx_hash("base-ref-valid")
@@ -1041,7 +1212,7 @@ def test_base_usdc_duplicate_tx_log_watcher_and_referral_bonus_after_credited_pu
     assert duplicate.status_code == 409
     assert duplicate.json()["error"]["code"] == "ONCHAIN_TX_ALREADY_USED"
     assert client.app.state.ad_repository.get_wallet(referred_business["id"]).available_credits == 5
-    assert client.app.state.ad_repository.get_wallet(referrer_business["id"]).available_credits == 1
+    assert client.app.state.ad_repository.get_wallet(referrer_business["id"]).available_credits == 5
     referral_ledgers = [item for item in client.app.state.ad_repository.ledger.values() if item.business_id == referrer_business["id"] and item.type == "referral_bonus"]
     assert len(referral_ledgers) == 1
 
