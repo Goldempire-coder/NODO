@@ -2226,7 +2226,7 @@
   min-width: 0;
   height: 64px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(44px, 44px) minmax(132px, 132px);
+  grid-template-columns: minmax(0, 1fr) minmax(64px, 64px) minmax(148px, 148px);
   align-items: center;
   gap: 12px;
   padding: 9px 2px;
@@ -2265,7 +2265,7 @@
   min-width: 0;
   width: 100%;
   justify-self: stretch;
-  text-align: right;
+  text-align: center;
   font-variant-numeric: tabular-nums;
   font-size: 18px;
 }
