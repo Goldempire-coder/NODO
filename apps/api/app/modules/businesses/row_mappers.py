@@ -84,11 +84,11 @@ def business_from_row(row) -> BusinessRecord:  # type: ignore[no-untyped-def]
         referral_code=row["referral_code"],
         referral_credits_earned=row["referral_credits_earned"],
         founder_status=row["founder_status"],
-        founder_started_at=row["founder_started_at"],
-        founder_expires_at=row["founder_expires_at"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-        approved_at=row["approved_at"],
+        founder_started_at=_datetime_from_row_value(row["founder_started_at"]),
+        founder_expires_at=_datetime_from_row_value(row["founder_expires_at"]),
+        created_at=_datetime_from_row_value(row["created_at"]),
+        updated_at=_datetime_from_row_value(row["updated_at"]),
+        approved_at=_datetime_from_row_value(row["approved_at"]),
     )
 
 
@@ -123,10 +123,10 @@ def access_link_from_row(row) -> BusinessAccessLinkRecord:  # type: ignore[no-un
         role_in_business=row["role_in_business"],
         status=row["status"],
         linked_by_admin_id=str(row["linked_by_admin_id"]) if row["linked_by_admin_id"] else None,
-        linked_at=row["linked_at"],
-        suspended_at=row["suspended_at"],
-        blocked_at=row["blocked_at"],
-        revoked_at=row["revoked_at"],
+        linked_at=_datetime_from_row_value(row["linked_at"]),
+        suspended_at=_datetime_from_row_value(row["suspended_at"]),
+        blocked_at=_datetime_from_row_value(row["blocked_at"]),
+        revoked_at=_datetime_from_row_value(row["revoked_at"]),
         reason=row["reason"],
         business_pin_hash=_row_get(row, "business_pin_hash"),
         business_pin_set_at=_datetime_from_row_value(_row_get(row, "business_pin_set_at")),
@@ -134,8 +134,8 @@ def access_link_from_row(row) -> BusinessAccessLinkRecord:  # type: ignore[no-un
         business_pin_unlocked_until=_datetime_from_row_value(_row_get(row, "business_pin_unlocked_until")),
         business_pin_failed_attempts=int(_row_get(row, "business_pin_failed_attempts", 0) or 0),
         business_pin_locked_until=_datetime_from_row_value(_row_get(row, "business_pin_locked_until")),
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
+        created_at=_datetime_from_row_value(row["created_at"]),
+        updated_at=_datetime_from_row_value(row["updated_at"]),
     )
 
 

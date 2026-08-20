@@ -46,10 +46,10 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
-from app.modules.businesses.access_control import business_access_diagnostic  # noqa: E402
+from app.modules.businesses.access_control import business_access_diagnostic, public_business_for_surface  # noqa: E402
 from app.modules.businesses.models import BusinessAccessLinkRecord, BusinessRecord, new_id, utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
-from app.modules.businesses.row_mappers import access_link_from_row  # noqa: E402
+from app.modules.businesses.row_mappers import access_link_from_row, business_from_row  # noqa: E402
 from app.modules.users.models import UserRecord  # noqa: E402
 
 
@@ -150,6 +150,89 @@ def test_business_access_diagnostic_covers_each_gate_and_stable_owner_link_selec
     assert owner_preferred["owner_link_role"] == "owner"
     assert owner_preferred["owner_link_conflict"] is False
     assert owner_preferred["business_can_access_surface"] is True
+
+
+def test_surface_payload_handles_postgres_row_to_json_datetime_strings() -> None:
+    now = utc_now()
+    now_text = now.isoformat()
+    business_id = new_id()
+    owner_id = new_id()
+    link_id = new_id()
+    business = business_from_row(
+        {
+            "id": business_id,
+            "owner_user_id": owner_id,
+            "business_name": "Casa JSON",
+            "rif": None,
+            "address": None,
+            "phone": None,
+            "country": "VE",
+            "verification_status": "approved",
+            "trust_level": "new",
+            "risk_level": "normal",
+            "min_order_amount_usd": "20.00",
+            "max_order_amount_usd": "100.00",
+            "daily_limit_usd": "1000.00",
+            "active_order_limit": 1,
+            "is_accepting_orders": True,
+            "ad_publication_paused_until": None,
+            "rating_avg": None,
+            "ratings_count": 0,
+            "completed_orders_count": 0,
+            "business_failure_orders_count": 0,
+            "lost_disputes_count": 0,
+            "disputes_count": 0,
+            "success_rate": None,
+            "average_delivery_seconds": None,
+            "reputation_tier": "new",
+            "reputation_calculated_at": None,
+            "public_reputation_rating_avg": None,
+            "public_reputation_ratings_count": None,
+            "public_reputation_tier": None,
+            "public_reputation_published_at": None,
+            "public_reputation_source_calculated_at": None,
+            "evasion_reports_count": 0,
+            "referral_code": None,
+            "referral_credits_earned": 0,
+            "founder_status": None,
+            "founder_started_at": None,
+            "founder_expires_at": None,
+            "created_at": now_text,
+            "updated_at": now_text,
+            "approved_at": now_text,
+        }
+    )
+    link = access_link_from_row(
+        {
+            "id": link_id,
+            "business_id": business_id,
+            "user_id": owner_id,
+            "telegram_id_snapshot": 14199,
+            "role_in_business": "owner",
+            "status": "active",
+            "linked_by_admin_id": None,
+            "linked_at": now_text,
+            "suspended_at": None,
+            "blocked_at": None,
+            "revoked_at": None,
+            "reason": "test link",
+            "business_pin_hash": None,
+            "business_pin_set_at": None,
+            "business_pin_verified_at": None,
+            "business_pin_unlocked_until": None,
+            "business_pin_failed_attempts": 0,
+            "business_pin_locked_until": None,
+            "created_at": now_text,
+            "updated_at": now_text,
+        }
+    )
+
+    payload = public_business_for_surface(business, link)
+
+    assert payload["id"] == business_id
+    assert payload["approved_at"] == now.isoformat()
+    assert payload["access_link"]["id"] == link_id
+    assert payload["access_link"]["linked_at"] == now.isoformat()
 
 
 def _client(**env_overrides: str) -> TestClient:
