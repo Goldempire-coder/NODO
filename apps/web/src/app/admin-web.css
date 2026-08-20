@@ -2217,15 +2217,16 @@
 .admin-dashboard-queue-list {
   max-height: 320px;
   display: grid;
+  grid-auto-rows: 64px;
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
 
 .admin-dashboard-queue-row {
   min-width: 0;
-  min-height: 58px;
+  height: 64px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(44px, 44px) minmax(132px, 132px);
   align-items: center;
   gap: 12px;
   padding: 9px 2px;
@@ -2239,18 +2240,42 @@
 .admin-dashboard-queue-row > div {
   min-width: 0;
   display: grid;
+  align-content: center;
   gap: 3px;
 }
 
+.admin-dashboard-queue-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-dashboard-queue-row span {
+  min-width: 0;
   color: var(--admin-muted);
   font-size: 12px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-dashboard-queue-row b {
-  min-width: 28px;
-  text-align: center;
+  min-width: 0;
+  width: 100%;
+  justify-self: stretch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
   font-size: 18px;
+}
+
+.admin-dashboard-queue-row button {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-dashboard-action-grid {
@@ -2615,7 +2640,8 @@
   }
 
   .admin-dashboard-queue-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    height: 92px;
+    grid-template-columns: minmax(0, 1fr) minmax(44px, 44px);
   }
 
   .admin-dashboard-queue-row button {

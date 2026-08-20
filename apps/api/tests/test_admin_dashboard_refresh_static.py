@@ -58,6 +58,10 @@ def test_admin_dashboard_uses_isolated_compact_layout_and_bounded_queue_scroll()
     assert ".admin-dashboard-queue-list" in css
     assert "max-height: 320px" in css
     assert "overflow-y: auto" in css
+    assert "grid-auto-rows: 64px" in css
+    assert "grid-template-columns: minmax(0, 1fr) minmax(44px, 44px) minmax(132px, 132px)" in css
+    assert "font-variant-numeric: tabular-nums" in css
+    assert "text-overflow: ellipsis" in css
     assert "height: 100dvh" in css
 
 
