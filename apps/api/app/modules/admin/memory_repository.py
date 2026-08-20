@@ -4,7 +4,7 @@ from typing import Any
 
 from app.modules.admin.memory_investigation import InMemoryAdminInvestigationMixin
 from app.modules.admin.presenters import iso, mask_sensitive
-from app.modules.admin.user_presenters import admin_business_link_payload, admin_user_payload
+from app.modules.admin.user_presenters import admin_business_link_payload, admin_user_payload, canonical_admin_business_link_rows
 from app.shared.keyset_pagination import paginate_descending
 
 class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
@@ -177,7 +177,7 @@ class InMemoryAdminRepository(InMemoryAdminInvestigationMixin):
                     "risk_level": business.risk_level if business else None,
                 }
             )
-        return [admin_business_link_payload(row, full_sensitive=full_sensitive) for row in rows]
+        return [admin_business_link_payload(row, full_sensitive=full_sensitive) for row in canonical_admin_business_link_rows(rows)]
 
     def list_orders(self, *, status: str | None, business_id: str | None, remitter_user_id: str | None, public_order_code: str | None = None, cursor: str | None, limit: int) -> tuple[list[dict[str, Any]], str | None]:
         items = list(getattr(self._orders, "orders", {}).values())

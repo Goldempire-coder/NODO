@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.modules.admin.user_presenters import admin_business_link_payload, admin_user_payload
+from app.modules.admin.user_presenters import admin_business_link_payload, admin_user_payload, canonical_admin_business_link_rows
 from app.modules.users.row_mappers import user_from_row
 from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor
 
@@ -138,4 +138,4 @@ class PostgresAdminUsersMixin:
                 """,
                 params,
             ).fetchall()
-        return [admin_business_link_payload(dict(row), full_sensitive=full_sensitive) for row in rows]
+        return [admin_business_link_payload(row, full_sensitive=full_sensitive) for row in canonical_admin_business_link_rows([dict(row) for row in rows])]

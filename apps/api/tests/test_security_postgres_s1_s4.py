@@ -278,6 +278,78 @@ def _business_order_fixture(
     }
 
 
+def test_postgres_business_access_duplicate_owner_links_are_operationally_canonical(
+    postgres_security: SecurityPostgresContext,
+) -> None:
+    from app.core.errors import ApiError
+    from app.modules.businesses.access_control import require_active_business_access
+
+    telegram_base = 8_000_000_000 + int(uuid4().hex[:6], 16)
+    admin = _actor(postgres_security, telegram_id=telegram_base, username="access_admin", role="admin")
+    owner = _actor(postgres_security, telegram_id=telegram_base + 1, username="access_owner", role="business_owner")
+    repository = postgres_security.client.app.state.business_repository
+    business = repository.create_business(
+        owner_user_id=owner["user"]["id"],
+        business_name="Casa Access Canonical",
+        rif="J-20000000-9",
+        address="Av Local 2",
+        phone="0414 7654321",
+        country="VE",
+    )
+    with psycopg.connect(postgres_security.database_url) as conn:
+        conn.execute(
+            "update businesses set verification_status = 'approved', approved_at = now(), updated_at = now() where id = %s",
+            (business.id,),
+        )
+    owner_record = postgres_security.client.app.state.user_repository.get_user_by_id(owner["user"]["id"])
+    active_link = repository.create_access_link(
+        business_id=business.id,
+        user_id=owner_record.id,
+        telegram_id_snapshot=owner_record.telegram_id,
+        role_in_business="owner",
+        linked_by_admin_id=admin["user"]["id"],
+        reason="canonical owner access",
+    )
+    duplicate_blocked_id = str(uuid4())
+    with psycopg.connect(postgres_security.database_url) as conn:
+        conn.execute(
+            """
+            insert into business_access_links (
+                id, business_id, user_id, telegram_id_snapshot, role_in_business, status,
+                linked_by_admin_id, linked_at, blocked_at, reason, created_at, updated_at
+            )
+            values (%s, %s, %s, %s, 'owner', 'blocked', %s, now() - interval '10 minutes',
+                    now() - interval '5 minutes', 'legacy duplicate blocked',
+                    now() - interval '10 minutes', now() - interval '10 minutes')
+            """,
+            (duplicate_blocked_id, business.id, owner_record.id, owner_record.telegram_id, admin["user"]["id"]),
+        )
+
+    listed_before = postgres_security.client.get(
+        f"/api/v1/admin/businesses/{business.id}/access-links",
+        headers=_bearer(admin, postgres_security.key("canonical_list_before")),
+    )
+    suspended = postgres_security.client.post(
+        f"/api/v1/admin/businesses/{business.id}/access-links/{active_link.id}/suspend",
+        headers={**_headers(admin, postgres_security.key("canonical_suspend")), "Content-Type": "application/json"},
+        json={"reason": "pause owner access during review"},
+    )
+    listed_after = postgres_security.client.get(
+        f"/api/v1/admin/businesses/{business.id}/access-links",
+        headers=_bearer(admin, postgres_security.key("canonical_list_after")),
+    )
+
+    assert listed_before.status_code == 200, listed_before.text
+    assert [item["status"] for item in listed_before.json()["data"]["items"] if item["user_id"] == owner_record.id and item["role_in_business"] == "owner"] == ["active"]
+    assert suspended.status_code == 200, suspended.text
+    assert suspended.json()["data"]["access_link"]["status"] == "suspended"
+    with pytest.raises(ApiError) as denied:
+        require_active_business_access(user=owner_record, business_repository=repository)
+    assert denied.value.code == "BUSINESS_ACCESS_SUSPENDED"
+    assert listed_after.status_code == 200, listed_after.text
+    assert [item["status"] for item in listed_after.json()["data"]["items"] if item["user_id"] == owner_record.id and item["role_in_business"] == "owner"] == ["suspended"]
+
+
 def _payment_report_payload(method_type: str, *, seed: int) -> dict:
     payload = {"payment_type": method_type, "payment_amount": "50.00"}
     if method_type == "usdt_trc20":

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import ApiError
+from app.modules.businesses.access_link_selection import preferred_access_link
 from app.modules.businesses.models import BusinessAccessLinkRecord, BusinessRecord, utc_now
 from app.modules.users.models import UserRecord
 
@@ -114,8 +115,15 @@ def business_access_diagnostic(
     ]
     linked_user_links.sort(key=lambda link: (link.updated_at, link.id), reverse=True)
     owner_links = [link for link in linked_user_links if link.role_in_business == "owner"]
-    active_owner_links = [link for link in owner_links if link.status == "active"]
-    candidate = (active_owner_links or owner_links or linked_user_links or [None])[0]
+    candidate = preferred_access_link(owner_links) or preferred_access_link(linked_user_links)
+    legacy_other_active_owners = [
+        link
+        for link in links
+        if link.business_id == business.id
+        and link.role_in_business == "owner"
+        and link.status == "active"
+        and link.user_id != business.owner_user_id
+    ]
     telegram_matches = (
         candidate.telegram_id_snapshot == owner_user.telegram_id
         if candidate is not None and owner_user is not None
@@ -136,7 +144,7 @@ def business_access_diagnostic(
         "owner_link_id": candidate.id if candidate is not None else None,
         "owner_link_status": candidate.status if candidate is not None else "missing",
         "owner_link_role": candidate.role_in_business if candidate is not None else None,
-        "owner_link_conflict": len(owner_links) > 1,
+        "owner_link_conflict": bool(legacy_other_active_owners),
         "telegram_matches": telegram_matches,
         "blocking_reason": error_code,
         "recommended_admin_action": _recommended_admin_action(error_code, telegram_matches=telegram_matches),

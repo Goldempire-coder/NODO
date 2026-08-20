@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import time
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
@@ -43,6 +44,7 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
+from app.modules.businesses.models import BusinessAccessLinkRecord, new_id, utc_now  # noqa: E402
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -405,6 +407,49 @@ def test_admin_business_detail_rejects_active_operator_as_owner_access() -> None
     assert "init_data" not in detail.text
 
 
+def test_admin_business_access_collapses_duplicate_owner_links() -> None:
+    client = _client()
+    admin = _make_admin(client, 20225, "admin")
+    owner = _login(client, 20226, "owner_duplicate_link")
+    business = _approved_business(client, owner)
+    active_link = _link_business(client, admin, business, owner)
+    now = utc_now()
+    blocked_duplicate = BusinessAccessLinkRecord(
+        id=new_id(),
+        business_id=business["id"],
+        user_id=owner["user"]["id"],
+        telegram_id_snapshot=20226,
+        role_in_business="owner",
+        status="blocked",
+        linked_by_admin_id=admin["user"]["id"],
+        linked_at=now - timedelta(minutes=5),
+        blocked_at=now,
+        reason="legacy duplicate block",
+        created_at=now - timedelta(minutes=5),
+        updated_at=now + timedelta(seconds=5),
+    )
+    client.app.state.business_repository.access_links[blocked_duplicate.id] = blocked_duplicate
+
+    detail = client.get(
+        f"/api/v1/admin/businesses/{business['id']}",
+        headers=_bearer(admin, "req_business_duplicate_link_detail"),
+    )
+    business_links = client.get(
+        f"/api/v1/admin/businesses/{business['id']}/access-links",
+        headers=_bearer(admin, "req_business_duplicate_link_list"),
+    )
+
+    assert detail.status_code == 200, detail.text
+    diagnostic = detail.json()["data"]["access_diagnostic"]
+    assert diagnostic["owner_link_id"] == active_link["id"]
+    assert diagnostic["owner_link_status"] == "active"
+    assert diagnostic["owner_link_conflict"] is False
+    assert diagnostic["business_can_access_surface"] is True
+    assert business_links.status_code == 200, business_links.text
+    items = business_links.json()["data"]["items"]
+    assert [item["status"] for item in items if item["user_id"] == owner["user"]["id"] and item["role_in_business"] == "owner"] == ["active"]
+
+
 def test_admin_business_status_lifecycle_controls_business_surface_access() -> None:
     client = _client(BUSINESS_INTAKE_BOT_TOKEN="456:test-business-token")
     admin = _make_admin(client, 20231, "admin")
@@ -496,6 +541,20 @@ def test_admin_business_access_link_status_lifecycle_notifies_owner_and_controls
     owner = _login(client, 20242, "owner_access_link_status")
     business = _approved_business(client, owner)
     link = _link_business(client, admin, business, owner)
+    duplicate_active_link = BusinessAccessLinkRecord(
+        id=new_id(),
+        business_id=business["id"],
+        user_id=owner["user"]["id"],
+        telegram_id_snapshot=20242,
+        role_in_business="owner",
+        status="active",
+        linked_by_admin_id=admin["user"]["id"],
+        linked_at=utc_now() - timedelta(minutes=10),
+        reason="legacy duplicate active",
+        created_at=utc_now() - timedelta(minutes=10),
+        updated_at=utc_now() - timedelta(minutes=10),
+    )
+    client.app.state.business_repository.access_links[duplicate_active_link.id] = duplicate_active_link
 
     allowed = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_access_link_surface_allowed"))
     suspended = client.post(
@@ -516,6 +575,10 @@ def test_admin_business_access_link_status_lifecycle_notifies_owner_and_controls
         json={"reason": "confirmed access abuse"},
     )
     denied_blocked = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_access_link_surface_blocked"))
+    business_links_after_block = client.get(
+        f"/api/v1/admin/businesses/{business['id']}/access-links",
+        headers=_bearer(admin, "req_access_links_after_group_block"),
+    )
 
     assert allowed.status_code == 200, allowed.text
     assert suspended.status_code == 200, suspended.text
@@ -529,6 +592,8 @@ def test_admin_business_access_link_status_lifecycle_notifies_owner_and_controls
     assert blocked.json()["data"]["access_link"]["status"] == "blocked"
     assert denied_blocked.status_code == 403
     assert denied_blocked.json()["error"]["code"] == "BUSINESS_ACCESS_BLOCKED"
+    assert business_links_after_block.status_code == 200, business_links_after_block.text
+    assert [item["status"] for item in business_links_after_block.json()["data"]["items"] if item["user_id"] == owner["user"]["id"] and item["role_in_business"] == "owner"] == ["blocked"]
     assert {"business_access_suspended", "business_access_reactivated", "business_access_blocked"}.issubset(set(_event_types(client)))
 
     suspended_notifications = _notifications_by_type(client, "business_access_suspended_owner")

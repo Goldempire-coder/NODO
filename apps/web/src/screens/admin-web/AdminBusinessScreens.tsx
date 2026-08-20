@@ -315,7 +315,7 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
             <dt>Vinculo owner</dt><dd>{diagnostic.owner_link_status}{diagnostic.owner_link_role ? ` - ${diagnostic.owner_link_role}` : ""}</dd>
             <dt>Telegram</dt><dd>{diagnostic.telegram_matches === true ? "coincide" : diagnostic.telegram_matches === false ? "no coincide" : "sin vinculo verificable"}</dd>
           </dl>
-          {diagnostic.owner_link_conflict ? <span>Hay varios vinculos owner. Revisa la vinculacion antes de operar.</span> : null}
+          {diagnostic.owner_link_conflict ? <span>Hay otro owner activo. Revisa la vinculacion antes de operar.</span> : null}
           <span><strong>Accion recomendada:</strong> {ACCESS_ACTION_COPY[diagnostic.recommended_admin_action] || "Revisar vinculacion."}</span>
         </div>
         {detail.business.verification_status === "approved" && model.businessAccessLinks.length === 0 ? (

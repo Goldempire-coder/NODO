@@ -117,14 +117,29 @@ def test_business_access_diagnostic_covers_each_gate_and_stable_owner_link_selec
         links=[newer_revoked_link, active_link],
     )
     assert conflict["owner_link_id"] == active_link.id
-    assert conflict["owner_link_conflict"] is True
+    assert conflict["owner_link_conflict"] is False
     assert conflict["business_can_access_surface"] is True
+
+    legacy_other_owner = replace(
+        active_link,
+        id=new_id(),
+        user_id=new_id(),
+        updated_at=now + timedelta(seconds=2),
+    )
+    other_owner_conflict = business_access_diagnostic(
+        business=business,
+        owner_user=owner,
+        links=[legacy_other_owner, active_link],
+    )
+    assert other_owner_conflict["owner_link_id"] == active_link.id
+    assert other_owner_conflict["owner_link_conflict"] is True
+    assert other_owner_conflict["business_can_access_surface"] is True
 
     newer_operator_link = replace(
         active_link,
         id=new_id(),
         role_in_business="operator",
-        updated_at=now + timedelta(seconds=2),
+        updated_at=now + timedelta(seconds=3),
     )
     owner_preferred = business_access_diagnostic(
         business=business,

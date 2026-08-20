@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.core.errors import ApiError
+from app.modules.businesses.access_link_selection import preferred_access_link
 from app.modules.businesses.models import (
     BUSINESS_ACCESS_ROLES,
     BUSINESS_ACCESS_STATUSES,
@@ -35,7 +36,7 @@ class InMemoryBusinessAccessLinksMixin:
                 and link.status == "active"
             ]
             existing_links.sort(key=lambda link: (link.updated_at, link.id), reverse=True)
-            existing = existing_links[0] if existing_links else None
+            existing = preferred_access_link(existing_links)
             if existing is not None:
                 return existing
             if role_in_business == "owner":
@@ -51,6 +52,25 @@ class InMemoryBusinessAccessLinksMixin:
                 )
                 if existing_owner is not None:
                     raise ApiError("CONFLICT", status_code=409)
+            same_role_links = [
+                link
+                for link in self.access_links.values()  # type: ignore[attr-defined]
+                if link.business_id == business_id
+                and link.user_id == user_id
+                and link.role_in_business == role_in_business
+            ]
+            if same_role_links:
+                now = utc_now()
+                for link in same_role_links:
+                    link.status = "active"
+                    link.telegram_id_snapshot = telegram_id_snapshot
+                    link.linked_by_admin_id = linked_by_admin_id
+                    link.reason = reason
+                    link.suspended_at = None
+                    link.blocked_at = None
+                    link.revoked_at = None
+                    link.updated_at = now
+                return preferred_access_link(same_role_links)
             now = utc_now()
             link = BusinessAccessLinkRecord(
                 id=new_id(),
@@ -85,7 +105,7 @@ class InMemoryBusinessAccessLinksMixin:
         if not links:
             return None
         links.sort(
-            key=lambda item: (item.role_in_business == "owner", item.updated_at, item.id),
+            key=lambda item: (item.role_in_business == "owner", item.status == "active", item.updated_at, item.id),
             reverse=True,
         )
         return links[0]
@@ -125,20 +145,28 @@ class InMemoryBusinessAccessLinksMixin:
             raise ApiError("VALIDATION_ERROR", status_code=422)
         with self._lock:  # type: ignore[attr-defined]
             now = utc_now()
-            link.status = status
-            link.reason = reason
-            link.updated_at = now
-            if status == "active":
-                link.suspended_at = None
-                link.blocked_at = None
-                link.revoked_at = None
-            elif status == "suspended":
-                link.suspended_at = now
-            elif status == "blocked":
-                link.blocked_at = now
-            elif status == "revoked":
-                link.revoked_at = now
-            return link
+            linked_group = [
+                candidate
+                for candidate in self.access_links.values()  # type: ignore[attr-defined]
+                if candidate.business_id == link.business_id
+                and candidate.user_id == link.user_id
+                and candidate.role_in_business == link.role_in_business
+            ]
+            for candidate in linked_group:
+                candidate.status = status
+                candidate.reason = reason
+                candidate.updated_at = now
+                if status == "active":
+                    candidate.suspended_at = None
+                    candidate.blocked_at = None
+                    candidate.revoked_at = None
+                elif status == "suspended":
+                    candidate.suspended_at = now
+                elif status == "blocked":
+                    candidate.blocked_at = now
+                elif status == "revoked":
+                    candidate.revoked_at = now
+            return preferred_access_link(linked_group) or link
 
     def set_access_link_pin_hash(self, *, link_id: str, pin_hash: str) -> BusinessAccessLinkRecord:
         with self._lock:  # type: ignore[attr-defined]
