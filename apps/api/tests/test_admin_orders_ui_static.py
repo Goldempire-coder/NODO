@@ -200,3 +200,20 @@ def test_admin_business_access_panel_uses_backend_diagnostic_as_authority() -> N
     assert "BUSINESS_ACCESS_LINK_REQUIRED" in businesses
     assert "Crear vinculo owner." in businesses
     assert 'businessStatus === "approved" && activeAccessCount > 0' not in businesses
+
+
+def test_admin_business_capacity_copy_and_refresh_failure_are_clear() -> None:
+    businesses = _read("apps/web/src/screens/admin-web/AdminBusinessScreens.tsx")
+    business_model = _read("apps/web/src/hooks/admin-web/useAdminBusinessesModel.ts")
+
+    assert "Maximo por operacion (USD)" in businesses
+    assert "Capacidad maxima diaria (USD)" in businesses
+    assert "Disponible operativo ahora (USD)" in businesses
+    assert "Primero guarda la capacidad maxima diaria" in businesses
+    assert "const data = await updateAdminBusinessCapacity" in business_model
+    assert "Capacidad del negocio actualizada. No pudimos refrescar el detalle; usa Actualizar." in business_model
+    assert "business: { ...current.business, ...data.business }" in business_model
+    capacity_response_index = business_model.index("const data = await updateAdminBusinessCapacity")
+    local_update_index = business_model.index("business: { ...current.business, ...data.business }", capacity_response_index)
+    refresh_index = business_model.index("await loadBusinessDetail(selectedBusiness.business.id)", local_update_index)
+    assert capacity_response_index < local_update_index < refresh_index

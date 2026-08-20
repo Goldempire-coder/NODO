@@ -201,7 +201,7 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
             />
           </label>
           <label>
-            <span>Maximo USD</span>
+            <span>Maximo por operacion (USD)</span>
             <input
               disabled={!model.adminMutable}
               inputMode="decimal"
@@ -210,7 +210,7 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
             />
           </label>
           <label>
-            <span>Diario USD</span>
+            <span>Capacidad maxima diaria (USD)</span>
             <input
               disabled={!model.adminMutable}
               inputMode="decimal"
@@ -228,6 +228,9 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
             />
           </label>
         </div>
+        <p className="admin-web-muted">
+          Primero guarda la capacidad maxima diaria si quieres permitir un disponible operativo mayor al limite actual.
+        </p>
         <button disabled={!model.adminMutable} type="button" onClick={() => model.submitBusinessCapacity()}>Guardar capacidad</button>
       </div>
       <div className="admin-web-panel">
@@ -270,7 +273,7 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
         ) : null}
         <div className="admin-web-toolbar">
           <label>
-            <span>Disponible ahora (USD)</span>
+            <span>Disponible operativo ahora (USD)</span>
             <input
               disabled={!model.adminMutable}
               inputMode="decimal"

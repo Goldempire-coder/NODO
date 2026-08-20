@@ -273,19 +273,42 @@ export function useAdminBusinessesModel({
       "Actualizar capacidad",
       "Ajusta minimo, maximo, limite diario y ordenes activas. Backend valida rango, permisos, idempotencia y audit log.",
       async () => {
-        await updateAdminBusinessCapacity(
+        const data = await updateAdminBusinessCapacity<{ business: AdminBusinessDetail["business"] }>(
           request,
           selectedBusiness.business.id,
           { ...businessCapacityDraft, reason },
           idempotencyKey("business_capacity")
         );
+        setBusinesses((current) => current.map((item) => (
+          item.id === data.business.id
+            ? {
+                ...item,
+                business_name: data.business.business_name ?? item.business_name,
+                verification_status: data.business.verification_status ?? item.verification_status,
+                risk_level: data.business.risk_level ?? item.risk_level,
+                trust_level: data.business.trust_level ?? item.trust_level,
+              }
+            : item
+        )));
+        setSelectedBusiness((current) => current && current.business.id === data.business.id
+          ? { ...current, business: { ...current.business, ...data.business } }
+          : current);
+        setBusinessCapacityDraft({
+          trust_level: data.business.trust_level || "new",
+          min_order_amount_usd: data.business.min_order_amount_usd || "20.00",
+          max_order_amount_usd: data.business.max_order_amount_usd || "100.00",
+          daily_limit_usd: data.business.daily_limit_usd || "1000.00",
+          active_order_limit: data.business.active_order_limit || 1
+        });
         setReason("");
-        setNotice("Capacidad del negocio actualizada.");
-        await openBusiness(selectedBusiness.business.id);
+        const refreshError = await loadBusinessDetail(selectedBusiness.business.id);
+        setNotice(refreshError
+          ? "Capacidad del negocio actualizada. No pudimos refrescar el detalle; usa Actualizar."
+          : "Capacidad del negocio actualizada.");
       },
       { requiresReason: false }
     );
-  }, [adminMutable, businessCapacityDraft, openBusiness, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
+  }, [adminMutable, businessCapacityDraft, loadBusinessDetail, queueCriticalAction, reason, request, selectedBusiness, setNotice, setReason]);
 
   const submitBusinessOperationalCapacity = useCallback(() => {
     if (!selectedBusiness || !adminMutable) {
