@@ -6,6 +6,7 @@ Secrets must never live in frontend code or repo.
 
 - BOT_TOKEN
 - BUSINESS_INTAKE_BOT_TOKEN
+- NODO_ADMIN_TELEGRAM_BOT_TOKEN
 - JWT_SECRET
 - JWT_REFRESH_SECRET
 - DATABASE_URL
@@ -124,6 +125,7 @@ Railway must receive backend-only env vars:
 - API_THREAD_LIMIT
 - BOT_TOKEN
 - BUSINESS_INTAKE_BOT_TOKEN
+- NODO_ADMIN_TELEGRAM_BOT_TOKEN
 - JWT_SECRET
 - JWT_REFRESH_SECRET
 - TELEGRAM_WEB_APP_URL
@@ -201,6 +203,7 @@ Public env must only contain non-secret values:
 
 - BOT_TOKEN in frontend
 - BUSINESS_INTAKE_BOT_TOKEN in frontend
+- NODO_ADMIN_TELEGRAM_BOT_TOKEN in frontend
 - STRIPE_SECRET_KEY in frontend
 - SUPABASE_SERVICE_ROLE_KEY in frontend
 - DATABASE_URL in frontend

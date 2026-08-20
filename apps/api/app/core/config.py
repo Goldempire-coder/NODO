@@ -8,6 +8,7 @@ from typing import Mapping
 SECRET_ENV_KEYS = {
     "BOT_TOKEN",
     "BUSINESS_INTAKE_BOT_TOKEN",
+    "NODO_ADMIN_TELEGRAM_BOT_TOKEN",
     "JWT_SECRET",
     "JWT_REFRESH_SECRET",
     "DATABASE_URL",
@@ -44,6 +45,7 @@ class Settings:
     redis_url: str
     bot_token: str | None
     business_intake_bot_token: str | None
+    nodo_admin_telegram_bot_token: str | None
     jwt_secret: str | None
     jwt_refresh_secret: str | None
     stripe_secret_key: str | None
@@ -176,6 +178,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         redis_url=source["REDIS_URL"],
         bot_token=source.get("BOT_TOKEN") or None,
         business_intake_bot_token=source.get("BUSINESS_INTAKE_BOT_TOKEN") or None,
+        nodo_admin_telegram_bot_token=source.get("NODO_ADMIN_TELEGRAM_BOT_TOKEN") or None,
         jwt_secret=source.get("JWT_SECRET") or None,
         jwt_refresh_secret=source.get("JWT_REFRESH_SECRET") or None,
         stripe_secret_key=source.get("STRIPE_SECRET_KEY") or None,
@@ -280,6 +283,10 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         ),
         cors_origins=_split_csv(source.get("API_CORS_ORIGINS", "http://localhost:3000")),
     )
+
+
+def admin_telegram_alerts_configured(settings: Settings) -> bool:
+    return bool(settings.nodo_admin_telegram_bot_token)
 
 
 def redact_env_value(key: str, value: str | None) -> str | None:

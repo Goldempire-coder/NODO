@@ -794,7 +794,7 @@ def test_slice_36a_postgres_claim_filters_telegram_scope_before_update() -> None
     assert "recipient_user_id is not null" in claim_method
     assert "notification_type in" in claim_method
     assert "metadata_json->>'channel' = 'telegram'" in claim_method
-    assert "metadata_json->>'target_surface' in ('business_mini_app', 'client_mini_app')" in claim_method
+    assert "metadata_json->>'target_surface' in ('business_mini_app', 'client_mini_app', 'admin_alerts')" in claim_method
     assert "nullif(trim(metadata_json->>'message_text'), '') is not null" in claim_method
     assert "update notification_jobs" in claim_method
     assert sender_source.count("list_due_telegram_notifications") == 1
@@ -1433,5 +1433,31 @@ def test_slice_48b1_notification_type_migration_is_reversible_and_sender_scoped(
         assert existing_type in down
     assert "CHAT_NOTIFICATION_TYPES" in notification_types
     assert "| CHAT_NOTIFICATION_TYPES" in notification_types
+    assert "drop constraint if exists notification_jobs_type_check" in up
+    assert "drop constraint if exists notification_jobs_type_check" in down
+
+
+def test_admin_telegram_alert_notification_type_migration_is_reversible_and_sender_scoped() -> None:
+    root = Path(__file__).resolve().parents[3]
+    up = (root / "database" / "migrations" / "0054_admin_telegram_alert_notifications.up.sql").read_text(encoding="utf-8")
+    down = (root / "database" / "migrations" / "0054_admin_telegram_alert_notifications.down.sql").read_text(encoding="utf-8")
+    notification_types = (root / "apps" / "api" / "app" / "modules" / "notifications" / "notification_types.py").read_text(encoding="utf-8")
+
+    for notification_type in [
+        "admin_alert_business_intake_submitted",
+        "admin_alert_dispute_opened",
+    ]:
+        assert notification_type in up
+        assert notification_type not in down
+        assert notification_type in notification_types
+    for existing_type in [
+        "order_message_created_business",
+        "order_message_created_client",
+        "support_message_created_participant",
+    ]:
+        assert existing_type in up
+        assert existing_type in down
+    assert "ADMIN_ALERT_NOTIFICATION_TYPES" in notification_types
+    assert "| ADMIN_ALERT_NOTIFICATION_TYPES" in notification_types
     assert "drop constraint if exists notification_jobs_type_check" in up
     assert "drop constraint if exists notification_jobs_type_check" in down

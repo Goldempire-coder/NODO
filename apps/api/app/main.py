@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 
-from app.core.config import load_settings
+from app.core.config import admin_telegram_alerts_configured, load_settings
 from app.core.errors import ApiError, api_error_response
 from app.core.logging import configure_logging, get_logger
 from app.modules.admin_notifications import AdminNotificationService, InMemoryAdminNotificationRepository, PostgresAdminNotificationRepository
@@ -62,6 +62,7 @@ from app.modules.staff.repository import InMemoryStaffRepository, PostgresStaffR
 from app.modules.staff.routes import router as staff_router
 from app.modules.users.repository import InMemoryUserRepository, PostgresUserRepository
 from app.routes.auth import router as auth_router
+from app.routes.admin_telegram_bot import router as admin_telegram_bot_router
 from app.routes.health import router as health_router
 from app.routes.surface import router as surface_router
 from app.routes.telegram_bot import router as telegram_bot_router
@@ -256,7 +257,13 @@ def _configure_test_state(app: FastAPI) -> None:
         dispute_repository=app.state.dispute_repository,
     )
     app.state.admin_notification_repository = InMemoryAdminNotificationRepository()
-    app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)
+    app.state.admin_notification_service = AdminNotificationService(
+        repository=app.state.admin_notification_repository,
+        job_repository=app.state.job_repository,
+        user_repository=app.state.user_repository,
+        admin_telegram_alerts_enabled=admin_telegram_alerts_configured(app.state.settings),
+        admin_app_url=app.state.settings.telegram_web_app_url,
+    )
     app.state.staff_repository = InMemoryStaffRepository(users=app.state.user_repository, audit_writer=app.state.audit_writer)
     app.state.admin_repository = InMemoryAdminRepository(
         users=app.state.user_repository,
@@ -317,7 +324,13 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.dispute_repository = PostgresDisputeRepository(settings.database_url)
     app.state.rating_repository = PostgresOrderRatingRepository(settings.database_url)
     app.state.admin_notification_repository = PostgresAdminNotificationRepository(settings.database_url)
-    app.state.admin_notification_service = AdminNotificationService(repository=app.state.admin_notification_repository)
+    app.state.admin_notification_service = AdminNotificationService(
+        repository=app.state.admin_notification_repository,
+        job_repository=app.state.job_repository,
+        user_repository=app.state.user_repository,
+        admin_telegram_alerts_enabled=admin_telegram_alerts_configured(settings),
+        admin_app_url=settings.telegram_web_app_url,
+    )
     app.state.staff_repository = PostgresStaffRepository(settings.database_url)
     app.state.admin_repository = PostgresAdminRepository(settings.database_url)
     app.state.admin_case_file_repository = PostgresAdminInvestigationCaseFileRepository(settings.database_url)
@@ -430,6 +443,7 @@ def _include_routes(app: FastAPI) -> None:
     app.include_router(notification_attention_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(observability_router, prefix="/api/v1")
+    app.include_router(admin_telegram_bot_router, prefix="/api/v1")
     app.include_router(telegram_bot_router, prefix="/api/v1")
     app.include_router(health_router)
 

@@ -14,9 +14,15 @@ from app.modules.admin_notifications.models import (
 )
 from app.modules.admin_notifications.redaction import safe_text, sanitize_admin_notification_metadata
 from app.modules.admin_notifications.serializers import admin_notification_public
+from app.modules.jobs.models import mask_metadata
 from app.modules.users.models import UserRecord
 
 logger = get_logger(__name__)
+
+ADMIN_TELEGRAM_TARGET_SURFACE = "admin_alerts"
+ADMIN_TELEGRAM_ALERT_TYPES = {
+    "business_intake_submitted": "admin_alert_business_intake_submitted",
+}
 
 
 def _safe_uuid(value: str | None) -> str | None:
@@ -29,8 +35,20 @@ def _safe_uuid(value: str | None) -> str | None:
 
 
 class AdminNotificationService:
-    def __init__(self, *, repository) -> None:  # type: ignore[no-untyped-def]
+    def __init__(
+        self,
+        *,
+        repository,
+        job_repository=None,
+        user_repository=None,
+        admin_telegram_alerts_enabled: bool = False,
+        admin_app_url: str | None = None,
+    ) -> None:  # type: ignore[no-untyped-def]
         self._repository = repository
+        self._job_repository = job_repository
+        self._user_repository = user_repository
+        self._admin_telegram_alerts_enabled = admin_telegram_alerts_enabled
+        self._admin_app_url = (admin_app_url or "").rstrip("/")
 
     def enqueue(
         self,
@@ -84,6 +102,8 @@ class AdminNotificationService:
                 "request_id": request_id,
             },
         )
+        if created:
+            self._enqueue_admin_telegram_alerts(notification=notification, request_id=request_id)
         return notification, created
 
     def list_notifications(
@@ -333,3 +353,58 @@ class AdminNotificationService:
         if notification is None:
             raise ApiError("ADMIN_NOTIFICATION_NOT_FOUND", status_code=404)
         return notification
+
+    def _enqueue_admin_telegram_alerts(self, *, notification: AdminNotificationRecord, request_id: str) -> None:
+        if not self._admin_telegram_alerts_enabled:
+            return
+        if self._job_repository is None or self._user_repository is None:
+            return
+        alert_type = ADMIN_TELEGRAM_ALERT_TYPES.get(notification.notification_type)
+        if alert_type is None:
+            return
+        recipients = self._user_repository.list_active_admin_telegram_recipients()
+        if not recipients:
+            logger.info(
+                "admin_telegram_alert_skipped_no_recipients",
+                extra={
+                    "event": "admin_telegram_alert_skipped_no_recipients",
+                    "admin_notification_id": notification.id,
+                    "notification_type": notification.notification_type,
+                    "request_id": request_id,
+                },
+            )
+            return
+        for recipient in recipients:
+            self._job_repository.enqueue_notification(
+                notification_type=alert_type,
+                recipient_user_id=recipient.id,
+                business_id=notification.business_id,
+                scheduled_for=utc_now(),
+                dedupe_key=f"admin_telegram:{notification.id}:{recipient.id}:{alert_type}",
+                metadata_json=mask_metadata(
+                    {
+                        "channel": "telegram",
+                        "target_surface": ADMIN_TELEGRAM_TARGET_SURFACE,
+                        "message_text": self._admin_telegram_message(notification),
+                        "action_text": "Abrir Admin",
+                        "action_url": self._admin_action_url(),
+                        "admin_notification_id": notification.id,
+                        "admin_notification_type": notification.notification_type,
+                        "resource_type": notification.resource_type,
+                        "resource_id": notification.resource_id,
+                    }
+                ),
+            )
+
+    def _admin_action_url(self) -> str:
+        if not self._admin_app_url:
+            return ""
+        return f"{self._admin_app_url}/?surface=admin"
+
+    def _admin_telegram_message(self, notification: AdminNotificationRecord) -> str:
+        if notification.notification_type == "business_intake_submitted":
+            return (
+                f"NODO: llego una solicitud de negocio: {notification.summary} "
+                "Revisa los datos antes de aprobarla."
+            )
+        return f"NODO: {notification.title}. {notification.summary}"

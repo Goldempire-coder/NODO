@@ -7,6 +7,7 @@ from app.modules.disputes.schemas import AdminOrderDisputeOpenRequest, DisputeCr
 from app.modules.disputes.service import DisputeService
 from app.modules.notifications.order_notifications import OrderNotificationService
 from app.modules.users.models import UserRecord
+from app.core.config import admin_telegram_alerts_configured
 from app.shared.observability import get_correlation_id, get_operation_id, get_request_id
 
 router = APIRouter(tags=["disputes"])
@@ -25,6 +26,8 @@ def _service(request: Request) -> DisputeService:
         settings=request.app.state.settings,
         job_repository=request.app.state.job_repository,
         business_repository=request.app.state.business_repository,
+        user_repository=request.app.state.user_repository,
+        admin_telegram_alerts_enabled=admin_telegram_alerts_configured(request.app.state.settings),
         correlation_id=get_correlation_id(request),
         operation_id=get_operation_id(request),
     )

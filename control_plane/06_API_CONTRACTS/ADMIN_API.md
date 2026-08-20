@@ -32,6 +32,23 @@ Todas las rutas admin requieren:
 - reason obligatorio para acciones sensibles
 - audit log obligatorio
 
+## Admin Telegram alerts
+
+`POST /api/v1/admin-telegram/webhook`
+
+- Usa `X-Telegram-Bot-Api-Secret-Token` derivado de
+  `NODO_ADMIN_TELEGRAM_BOT_TOKEN`.
+- `/start` confirma si el Telegram pertenece a un usuario `admin` o
+  `super_admin` activo.
+- No crea ni modifica usuarios, roles, negocios, access links, ordenes,
+  creditos, disputas ni wallets.
+- Las alertas salientes se envian solo a `recipient_user_id` concretos de
+  Admin/Super Admin activos con Telegram vinculado.
+- El boton permitido abre Admin Web por URL. No ejecuta acciones mutantes desde
+  Telegram.
+- Payloads no incluyen tokens, initData, telefono completo, datos bancarios,
+  wallets privadas, documentos, signed URLs, `storage_path` ni razones privadas.
+
 ## Slice 14 admin composition
 
 - `GET /api/v1/admin/business-intake`

@@ -129,7 +129,7 @@ def _is_processable_telegram_notification(metadata: dict | None) -> bool:
         return False
     if metadata.get("channel") != "telegram":
         return False
-    if metadata.get("target_surface") not in {"business_mini_app", "client_mini_app"}:
+    if metadata.get("target_surface") not in {"business_mini_app", "client_mini_app", "admin_alerts"}:
         return False
     return bool(str(metadata.get("message_text") or "").strip())
 

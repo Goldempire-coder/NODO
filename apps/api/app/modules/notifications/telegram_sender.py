@@ -15,7 +15,8 @@ from app.modules.notifications.notification_types import TELEGRAM_NOTIFICATION_T
 logger = get_logger(__name__)
 
 RETRYABLE_ERROR_CODES = {"TELEGRAM_BOT_SEND_FAILED", "TELEGRAM_RATE_LIMITED", "TELEGRAM_BOT_NOT_CONFIGURED"}
-PERMANENT_ERROR_CODES = {"TELEGRAM_CHAT_UNAVAILABLE", "RECIPIENT_NOT_FOUND", "RECIPIENT_NOT_ACTIVE", "ROLE_RECIPIENT_NOT_SENDABLE"}
+PERMANENT_ERROR_CODES = {"TELEGRAM_CHAT_UNAVAILABLE", "RECIPIENT_NOT_FOUND", "RECIPIENT_NOT_ACTIVE", "RECIPIENT_NOT_AUTHORIZED", "ROLE_RECIPIENT_NOT_SENDABLE"}
+ADMIN_ALERT_TARGET_SURFACE = "admin_alerts"
 
 
 @dataclass
@@ -137,8 +138,12 @@ class NotificationSenderWorker:
             raise TelegramNotificationError("RECIPIENT_NOT_FOUND", retryable=False)
         if user.status != "active" and notification.notification_type not in USER_STATUS_NOTIFICATION_TYPES:
             raise TelegramNotificationError("RECIPIENT_NOT_ACTIVE", retryable=False)
-
         target_surface = str(metadata.get("target_surface") or "")
+        if target_surface == ADMIN_ALERT_TARGET_SURFACE and user.role not in {"admin", "super_admin"}:
+            raise TelegramNotificationError("RECIPIENT_NOT_AUTHORIZED", retryable=False)
+        if user.telegram_id is None:
+            raise TelegramNotificationError("TELEGRAM_CHAT_UNAVAILABLE", retryable=False)
+
         bot_token = self._bot_token_for_surface(target_surface)
         if not bot_token:
             raise TelegramNotificationError("TELEGRAM_BOT_NOT_CONFIGURED", retryable=True)
@@ -147,10 +152,17 @@ class NotificationSenderWorker:
         reply_markup = None
         if action_url:
             action_text = str(metadata.get("action_text") or "Abrir NODO")
-            reply_markup = {"inline_keyboard": [[{"text": action_text, "web_app": {"url": action_url}}]]}
+            button: dict[str, Any]
+            if target_surface == ADMIN_ALERT_TARGET_SURFACE:
+                button = {"text": action_text, "url": action_url}
+            else:
+                button = {"text": action_text, "web_app": {"url": action_url}}
+            reply_markup = {"inline_keyboard": [[button]]}
         return bot_token, int(user.telegram_id), text, reply_markup
 
     def _bot_token_for_surface(self, target_surface: str) -> str | None:
+        if target_surface == ADMIN_ALERT_TARGET_SURFACE:
+            return self._settings.nodo_admin_telegram_bot_token
         if target_surface == "business_mini_app":
             return self._settings.business_intake_bot_token
         return self._settings.bot_token

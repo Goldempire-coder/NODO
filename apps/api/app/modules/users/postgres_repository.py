@@ -57,6 +57,20 @@ class PostgresUserRepository(PostgresUserSessionsMixin):
             row = conn.execute("select * from users where telegram_id = %s", (telegram_id,)).fetchone()
         return user_from_row(row) if row else None
 
+    def list_active_admin_telegram_recipients(self) -> list[UserRecord]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                select *
+                from users
+                where status = 'active'
+                  and role in ('admin', 'super_admin')
+                  and telegram_id is not null
+                order by created_at asc, id asc
+                """
+            ).fetchall()
+        return [user_from_row(row) for row in rows]
+
     def create_admin_user_with_credentials(
         self,
         *,

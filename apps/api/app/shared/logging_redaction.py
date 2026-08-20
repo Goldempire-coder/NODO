@@ -37,7 +37,7 @@ SECRET_PATTERNS = [
     re.compile(r"(redis://)([^@\s]+)@", re.IGNORECASE),
     re.compile(r"(https://api\.telegram\.org/(?:file/)?bot)[^/\s\"]+", re.IGNORECASE),
     re.compile(r"(Bearer\s+)[A-Za-z0-9._\-]+", re.IGNORECASE),
-    re.compile(r"\b(?:access_token|refresh_token|BOT_TOKEN|BUSINESS_INTAKE_BOT_TOKEN|JWT_SECRET|JWT_REFRESH_SECRET|SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|REDIS_URL|storage_path|account_value|signed_url|signedUrl)=([^\s&]+)", re.IGNORECASE),
+    re.compile(r"\b(?:access_token|refresh_token|BOT_TOKEN|BUSINESS_INTAKE_BOT_TOKEN|NODO_ADMIN_TELEGRAM_BOT_TOKEN|JWT_SECRET|JWT_REFRESH_SECRET|SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|REDIS_URL|storage_path|account_value|signed_url|signedUrl)=([^\s&]+)", re.IGNORECASE),
     re.compile(r"\b(?:password|secret|api_key|apikey|token)=([^\s&]+)", re.IGNORECASE),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.IGNORECASE | re.DOTALL),
     re.compile(r"\b0x[a-fA-F0-9]{64}\b"),

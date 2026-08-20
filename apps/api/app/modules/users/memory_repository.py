@@ -63,6 +63,18 @@ class InMemoryUserRepository:
     def get_user_by_telegram_id(self, telegram_id: int) -> UserRecord | None:
         return self._users_by_telegram_id.get(telegram_id)
 
+    def list_active_admin_telegram_recipients(self) -> list[UserRecord]:
+        return sorted(
+            [
+                user
+                for user in self._users_by_id.values()
+                if user.status == "active"
+                and user.role in {"admin", "super_admin"}
+                and user.telegram_id is not None
+            ],
+            key=lambda user: (user.created_at, user.id),
+        )
+
     def create_admin_user_with_credentials(
         self,
         *,

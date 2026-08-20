@@ -174,7 +174,7 @@ class PostgresJobRepository:
                       and recipient_user_id is not null
                       and notification_type in ({type_placeholders})
                       and metadata_json->>'channel' = 'telegram'
-                      and metadata_json->>'target_surface' in ('business_mini_app', 'client_mini_app')
+                      and metadata_json->>'target_surface' in ('business_mini_app', 'client_mini_app', 'admin_alerts')
                       and nullif(trim(metadata_json->>'message_text'), '') is not null
                     order by scheduled_for asc
                     limit %s

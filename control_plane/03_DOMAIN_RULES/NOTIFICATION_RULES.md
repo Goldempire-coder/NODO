@@ -3,6 +3,9 @@
 ## Slice 14 - Intake and support notifications
 
 - Business intake submitted notifica a admin/support queue.
+- Si `NODO_ADMIN_TELEGRAM_BOT_TOKEN` esta configurado, `business_intake_submitted`
+  tambien puede crear alertas Telegram para usuarios concretos `admin` y
+  `super_admin` activos con Telegram vinculado.
 - Business intake accepted/rejected puede notificar al solicitante sin prometer aprobacion previa.
 - Support ticket created/message/assigned/escalated/resolved/closed puede notificar a participantes autorizados.
 - Support attachment uploaded/viewed no envia documento ni signed URL por notificacion; como maximo notifica metadata segura al participante autorizado.
@@ -167,6 +170,8 @@ Tipos canonicos:
 | ad_expired | negocio | anuncio vence por edad | Tu anuncio cumplio 7 dias, se archivo y el credito fue consumido. |
 | founder_access_expired | negocio | `founder_expires_at <= now` | Tu periodo fundador expiro; nuevas publicaciones requieren creditos disponibles. |
 | structured_operation_report_admin | admin/super_admin concreto | futuro 42F2 procesa un reporte estructurado | Nuevo reporte de operacion. Revisar Admin Web. |
+| admin_alert_business_intake_submitted | admin/super_admin concreto | se crea `business_intake_submitted` en Admin Web | Nueva solicitud de negocio. Revisa datos antes de aprobar. |
+| admin_alert_dispute_opened | admin/super_admin concreto | se abre una disputa de orden | Disputa abierta. Revisar Admin Web antes de tomar accion. |
 
 42E1 no crea jobs Telegram ni ejecuta `structured_operation_report_admin`.
 `structured_operation_report_admin` se habilita unicamente en 42F2. Cuando ese
@@ -189,6 +194,10 @@ Reglas:
 - `dedupe_key` debe ser unico por recurso, notification_type y ventana.
 - No incluir instrucciones completas, `account_value`, `storage_path`, signed
   URLs, evidencia privada, tokens, secretos ni datos bancarios completos.
+- Las alertas Telegram Admin usan `recipient_user_id`, nunca solo
+  `recipient_role`, y se envian con `NODO_ADMIN_TELEGRAM_BOT_TOKEN`. El boton
+  permitido en este slice es solo URL a Admin Web; no ejecuta acciones
+  destructivas ni mutaciones desde Telegram.
 - Las notificaciones de receiver details, delivery y completion nunca incluyen
   banco, telefono, documento, titular ni payload de Pago Movil.
 - No prometer escrow, fondos protegidos, garantia de entrega, recuperacion de

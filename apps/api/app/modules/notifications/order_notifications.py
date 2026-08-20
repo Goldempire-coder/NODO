@@ -14,6 +14,7 @@ from app.modules.notifications.order_notification_jobs import (
 from app.modules.orders.models import OrderRecord
 
 logger = get_logger(__name__)
+ADMIN_ALERT_TARGET_SURFACE = "admin_alerts"
 
 
 def _now() -> datetime:
@@ -41,12 +42,16 @@ class OrderNotificationService:
         settings: Settings,
         job_repository,
         business_repository,
+        user_repository=None,
+        admin_telegram_alerts_enabled: bool = False,
         correlation_id: str | None = None,
         operation_id: str | None = None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._jobs = job_repository
         self._businesses = business_repository
+        self._users = user_repository
+        self._admin_telegram_alerts_enabled = admin_telegram_alerts_enabled
         self._correlation_id = correlation_id
         self._operation_id = operation_id
 
@@ -284,6 +289,7 @@ class OrderNotificationService:
                 operation_id=operation_id,
                 dispute_id=dispute_id,
             )
+        self._enqueue_admin_dispute_alerts(order=order, dispute_id=dispute_id, request_id=request_id)
 
     def order_dispute_resolution_parties(
         self,
@@ -414,6 +420,45 @@ class OrderNotificationService:
                 "request_id": request_id,
             },
         )
+
+    def _enqueue_admin_dispute_alerts(self, *, order: OrderRecord, dispute_id: str, request_id: str) -> None:
+        if not self._admin_telegram_alerts_enabled or self._users is None:
+            return
+        recipients = self._users.list_active_admin_telegram_recipients()
+        if not recipients:
+            self._log_enqueue_skipped("admin_alert_dispute_opened", order, "NO_ADMIN_TELEGRAM_RECIPIENTS", request_id)
+            return
+        for recipient in recipients:
+            self._enqueue_fields(
+                fields={
+                    "notification_type": "admin_alert_dispute_opened",
+                    "recipient_user_id": recipient.id,
+                    "order_id": order.id,
+                    "business_id": order.business_id,
+                    "dispute_id": dispute_id,
+                    "scheduled_for": _now(),
+                    "dedupe_key": f"admin_telegram:dispute:{dispute_id}:{recipient.id}:opened",
+                    "metadata_json": mask_metadata(
+                        {
+                            "channel": "telegram",
+                            "delivery_state": "pending",
+                            "event": "admin_alert_dispute_opened",
+                            "target_surface": ADMIN_ALERT_TARGET_SURFACE,
+                            "public_order_code": order.public_order_code,
+                            "message_text": (
+                                f"NODO: se abrio una disputa en la orden {order.public_order_code}. "
+                                "Revisa el caso en Admin antes de tomar accion."
+                            ),
+                            "action_text": "Abrir Admin",
+                            "action_url": f"{self._settings.telegram_web_app_url}/?surface=admin",
+                            "order_id": order.id,
+                            "dispute_id": dispute_id,
+                        }
+                    ),
+                },
+                order=order,
+                request_id=request_id,
+            )
 
     def _business_order_created_text(self, order: OrderRecord) -> str:
         return f"Nueva negociacion {order.public_order_code}. Abre NODO para revisarla."
