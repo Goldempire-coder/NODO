@@ -15,7 +15,6 @@ from app.services.health_service import HealthService
 
 
 ADMIN_DISCLAIMER = "Consola admin: revisa negocios, ordenes y actividad con datos limitados y trazabilidad."
-DEFAULT_ADMIN_REASON = "Sin nota del admin."
 
 
 def _require_uuid(value: str, code: str = "NOT_FOUND") -> str:
@@ -522,7 +521,9 @@ class AdminService:
             raise ApiError("FORBIDDEN", status_code=403)
         if not idempotency_key:
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
-        reason = reason.strip() or DEFAULT_ADMIN_REASON
+        reason = reason.strip()
+        if not reason:
+            raise ApiError("ADMIN_REASON_REQUIRED", status_code=400)
         target_user_id = _require_uuid(target_user_id, "USER_NOT_FOUND")
 
         def compute() -> dict[str, Any]:

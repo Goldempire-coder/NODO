@@ -4,7 +4,7 @@ from typing import Any
 
 from app.core.errors import ApiError
 from app.modules.businesses.access_control import business_access_diagnostic
-from app.modules.businesses.access_link_rules import admin_reason_or_default
+from app.modules.businesses.access_link_rules import admin_reason_or_default, required_admin_reason
 from app.modules.businesses.models import TRUST_LEVELS
 from app.modules.businesses.policy import require_admin_mutation, require_admin_view
 from app.modules.businesses.presenters import business_payload, file_payload, mask_phone, mask_rif
@@ -365,7 +365,7 @@ class BusinessAdminReviewServiceMixin:
     ) -> dict[str, Any]:
         require_admin_mutation(user)
         self._rate_limit(f"business_{action}", user)  # type: ignore[attr-defined]
-        reason = self._admin_reason_or_error(reason)
+        reason = required_admin_reason(reason)
         business = self._business_or_404(business_id)  # type: ignore[attr-defined]
 
         def compute() -> dict[str, Any]:
@@ -431,7 +431,12 @@ class BusinessAdminReviewServiceMixin:
                 "id": updated.id,
                 "verification_status": updated.verification_status,
                 "approved_at": updated.approved_at.isoformat() if updated.approved_at else None,
-            }
+            },
+            "access_diagnostic": business_access_diagnostic(
+                business=updated,
+                owner_user=self._users.get_user_by_id(updated.owner_user_id),  # type: ignore[attr-defined]
+                links=self._repository.list_access_links_for_business(updated.id),  # type: ignore[attr-defined]
+            ),
         }
 
     def _admin_reason_or_error(self, reason: str) -> str:

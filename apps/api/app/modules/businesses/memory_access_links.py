@@ -61,16 +61,19 @@ class InMemoryBusinessAccessLinksMixin:
             ]
             if same_role_links:
                 now = utc_now()
+                selected = preferred_access_link(same_role_links)
+                if selected is None:
+                    raise ApiError("BUSINESS_ACCESS_LINK_REQUIRED", status_code=404)
                 for link in same_role_links:
-                    link.status = "active"
+                    link.status = "active" if link.id == selected.id else "revoked"
                     link.telegram_id_snapshot = telegram_id_snapshot
                     link.linked_by_admin_id = linked_by_admin_id
                     link.reason = reason
                     link.suspended_at = None
                     link.blocked_at = None
-                    link.revoked_at = None
+                    link.revoked_at = None if link.id == selected.id else now
                     link.updated_at = now
-                return preferred_access_link(same_role_links)
+                return selected
             now = utc_now()
             link = BusinessAccessLinkRecord(
                 id=new_id(),
@@ -153,20 +156,20 @@ class InMemoryBusinessAccessLinksMixin:
                 and candidate.role_in_business == link.role_in_business
             ]
             for candidate in linked_group:
-                candidate.status = status
+                candidate.status = status if status != "active" or candidate.id == link.id else "revoked"
                 candidate.reason = reason
                 candidate.updated_at = now
-                if status == "active":
+                if candidate.status == "active":
                     candidate.suspended_at = None
                     candidate.blocked_at = None
                     candidate.revoked_at = None
-                elif status == "suspended":
+                elif candidate.status == "suspended":
                     candidate.suspended_at = now
-                elif status == "blocked":
+                elif candidate.status == "blocked":
                     candidate.blocked_at = now
-                elif status == "revoked":
+                elif candidate.status == "revoked":
                     candidate.revoked_at = now
-            return preferred_access_link(linked_group) or link
+            return next((candidate for candidate in linked_group if candidate.id == link.id), link)
 
     def set_access_link_pin_hash(self, *, link_id: str, pin_hash: str) -> BusinessAccessLinkRecord:
         with self._lock:  # type: ignore[attr-defined]

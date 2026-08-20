@@ -54,27 +54,35 @@ class PostgresBusinessAccessLinksMixin:
                 (business_id, user_id, role_in_business),
             ).fetchall()
             if existing_same_role:
-                rows = conn.execute(
+                selected = preferred_access_link([access_link_from_row(row) for row in existing_same_role])
+                if selected is None:
+                    raise ApiError("BUSINESS_ACCESS_LINK_REQUIRED", status_code=404)
+                conn.execute(
                     """
                     update business_access_links
-                    set status = 'active',
+                    set status = 'revoked',
                         telegram_id_snapshot = %s,
                         linked_by_admin_id = %s,
                         reason = %s,
                         suspended_at = null,
                         blocked_at = null,
-                        revoked_at = null,
+                        revoked_at = now(),
                         updated_at = now()
                     where business_id = %s and user_id = %s and role_in_business = %s
-                    returning *
                     """,
                     (telegram_id_snapshot, linked_by_admin_id, reason, business_id, user_id, role_in_business),
-                ).fetchall()
+                )
+                row = conn.execute(
+                    """
+                    update business_access_links
+                    set status = 'active', revoked_at = null, updated_at = now()
+                    where id = %s
+                    returning *
+                    """,
+                    (selected.id,),
+                ).fetchone()
                 conn.commit()
-                selected = preferred_access_link([access_link_from_row(row) for row in rows])
-                if selected is None:
-                    raise ApiError("BUSINESS_ACCESS_LINK_REQUIRED", status_code=404)
-                return selected
+                return access_link_from_row(row)
             row = conn.execute(
                 """
                 insert into business_access_links (
@@ -221,14 +229,36 @@ class PostgresBusinessAccessLinksMixin:
             ).fetchone()
             if target is None:
                 raise ApiError("BUSINESS_ACCESS_LINK_REQUIRED", status_code=404)
-            rows = conn.execute(
-                f"""
-                update business_access_links
-                set status = %s, reason = %s, {updates}, updated_at = now()
-                where business_id = %s and user_id = %s and role_in_business = %s
-                returning *
-                """,
-                (status, reason, target["business_id"], target["user_id"], target["role_in_business"]),
-            ).fetchall()
+            if status == "active":
+                conn.execute(
+                    """
+                    update business_access_links
+                    set status = 'revoked', reason = %s, suspended_at = null,
+                        blocked_at = null, revoked_at = now(), updated_at = now()
+                    where business_id = %s and user_id = %s and role_in_business = %s
+                    """,
+                    (reason, target["business_id"], target["user_id"], target["role_in_business"]),
+                )
+                row = conn.execute(
+                    """
+                    update business_access_links
+                    set status = 'active', reason = %s, suspended_at = null,
+                        blocked_at = null, revoked_at = null, updated_at = now()
+                    where id = %s
+                    returning *
+                    """,
+                    (reason, target["id"]),
+                ).fetchone()
+                rows = [row]
+            else:
+                rows = conn.execute(
+                    f"""
+                    update business_access_links
+                    set status = %s, reason = %s, {updates}, updated_at = now()
+                    where business_id = %s and user_id = %s and role_in_business = %s
+                    returning *
+                    """,
+                    (status, reason, target["business_id"], target["user_id"], target["role_in_business"]),
+                ).fetchall()
             conn.commit()
         return preferred_access_link([access_link_from_row(row) for row in rows]) or link

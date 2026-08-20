@@ -143,11 +143,28 @@ def test_admin_businesses_and_users_have_targeted_filters_and_internal_scroll() 
     assert ".admin-web-business-access-summary" in css
     assert ".admin-web-business-access-gates" in css
     assert "finishAccessMutation" in business_model
-    assert "DIAGNOSTIC_REFRESH_REQUIRED" in business_model
-    assert "No pudimos refrescar el diagnostico; usa Actualizar." in business_model
-    pending_index = business_model.index("DIAGNOSTIC_REFRESH_REQUIRED")
-    refresh_index = business_model.index("await loadBusinessDetail(businessId)", pending_index)
-    assert pending_index < refresh_index
+    assert "businessAccessActionFeedback" in business_model
+    assert "businessAccessDiagnosticPending" in business_model
+    assert "Actualiza para confirmar." in business_model
+    assert "access_diagnostic: data.access_diagnostic" in business_model
+    assert "affected_access_links" in business_model
+    assert "mergeAffectedAccessLinks(current, data.affected_access_links, data.access_link)" in business_model
+    assert "DIAGNOSTIC_REFRESH_REQUIRED" not in business_model
+    assert 'target: `link:${linkId}`' in business_model
+    assert '{ requiresReason: true }' in business_model
+    assert "admin-web-access-action-feedback" in businesses
+    assert "Actualizar" in businesses
+    assert "Razon obligatoria para cambiar el acceso" in businesses
+    assert "Indica el motivo operativo antes de cambiar el acceso" in businesses
+    assert "No pudimos confirmar el diagnostico actualizado. Usa Actualizar." in businesses
+    assert "Failed to fetch" not in business_model
+    response_index = business_model.index("const data = await updateAdminBusinessAccessLink")
+    local_update_index = business_model.index("mergeAffectedAccessLinks(current, data.affected_access_links, data.access_link)", response_index)
+    refresh_index = business_model.index("await finishAccessMutation", local_update_index)
+    assert response_index < local_update_index < refresh_index
+    manual_refresh_index = business_model.index("const errorMessage = await loadBusinessDetail(businessId)")
+    clear_pending_index = business_model.index("setBusinessAccessDiagnosticPending(false)", manual_refresh_index)
+    assert business_model.index("if (!errorMessage)", manual_refresh_index) < clear_pending_index
     assert "admin-web-users-list-scroll" in users
     assert 'aria-label="Lista de clientes admin"' in users
     assert "revealUserPhone" in users

@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.errors import ApiError
+from app.modules.businesses.access_control import business_access_diagnostic
 from app.modules.businesses.access_link_rules import (
-    admin_reason_or_default,
     event_type_for_access_link_status,
     require_business_can_receive_access_link,
     require_idempotency_key,
+    required_admin_reason,
 )
 from app.modules.businesses.models import BusinessAccessLinkRecord, BusinessRecord
 from app.modules.businesses.policy import require_admin_mutation
@@ -43,7 +44,7 @@ class BusinessAccessLinkServiceMixin:
         require_admin_mutation(user)
         self._rate_limit("access_link_create", user)  # type: ignore[attr-defined]
         require_idempotency_key(idempotency_key)
-        return admin_reason_or_default(payload.reason)
+        return required_admin_reason(payload.reason)
 
     def _approved_business_for_access_link(self, business_id: str) -> BusinessRecord:
         business = self._business_or_404(business_id)  # type: ignore[attr-defined]
@@ -84,7 +85,7 @@ class BusinessAccessLinkServiceMixin:
             reason=reason,
         )
         self._audit_access_link_event(event_type="business_access_linked", user=user, link=link, business=business, target_user_id=target.id, reason=reason, request_id=request_id)
-        return {"access_link": access_link_payload(link)}
+        return self._access_link_mutation_payload(business=business, link=link)
 
     def change_access_link_status(
         self,
@@ -114,7 +115,7 @@ class BusinessAccessLinkServiceMixin:
         require_admin_mutation(user)
         self._rate_limit(f"access_link_{status}", user)  # type: ignore[attr-defined]
         require_idempotency_key(idempotency_key)
-        return admin_reason_or_default(reason)
+        return required_admin_reason(reason)
 
     def _access_link_for_business(self, *, link_id: str, business: BusinessRecord) -> BusinessAccessLinkRecord:
         link = self._repository.get_access_link(link_id)  # type: ignore[attr-defined]
@@ -144,7 +145,30 @@ class BusinessAccessLinkServiceMixin:
             previous_status=previous_status,
             request_id=request_id,
         )
-        return {"access_link": access_link_payload(updated)}
+        return self._access_link_mutation_payload(business=business, link=updated)
+
+    def _access_link_mutation_payload(
+        self,
+        *,
+        business: BusinessRecord,
+        link: BusinessAccessLinkRecord,
+    ) -> dict[str, Any]:
+        links = self._repository.list_access_links_for_business(business.id)  # type: ignore[attr-defined]
+        affected_links = [
+            candidate
+            for candidate in links
+            if candidate.user_id == link.user_id and candidate.role_in_business == link.role_in_business
+        ]
+        owner_user = self._users.get_user_by_id(business.owner_user_id)  # type: ignore[attr-defined]
+        return {
+            "access_link": access_link_payload(link),
+            "affected_access_links": [access_link_payload(candidate) for candidate in affected_links],
+            "access_diagnostic": business_access_diagnostic(
+                business=business,
+                owner_user=owner_user,
+                links=links,
+            ),
+        }
 
     def _audit_access_link_event(
         self,

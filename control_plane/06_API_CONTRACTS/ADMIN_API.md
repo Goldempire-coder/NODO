@@ -146,9 +146,11 @@ Payload:
 Rules:
 - Solo `admin`/`super_admin`.
 - Reason obligatorio.
-- Cambia link `suspended -> active`.
+- Cambia el grupo owner `suspended|blocked|revoked -> active`.
 - Requiere user `active` y business `approved`.
 - Audita `business_access_reactivated`.
+- Si existen duplicados legacy para el mismo `business_id + user_id + role_in_business`, deja exactamente un vinculo canonico `active` y conserva los duplicados como `revoked`.
+- La respuesta incluye `access_link` y `access_diagnostic` recalculado por backend; Admin Web no infiere el resultado final.
 
 #### POST /api/v1/admin/businesses/{id}/access-links/{link_id}/revoke
 
@@ -177,6 +179,11 @@ Rules:
 - Cambia link a `blocked`.
 - No borra el negocio ni el usuario.
 - Audita `business_access_blocked`.
+
+Regla comun de mutacion de access links:
+- `suspend`, `revoke` y `block` aplican el estado al grupo operativo `business_id + user_id + role_in_business`; `reactivate` normaliza el grupo a un solo vinculo `active` y deja los duplicados `revoked`.
+- Cada respuesta devuelve `access_link`, `affected_access_links` y `access_diagnostic` recalculado con el mismo gate de Mini App Negocio.
+- Un fallo posterior al refrescar Admin Web no revierte la mutacion confirmada ni autoriza un retry automatico.
 
 Listas admin usan cursor pagination. Prohibido offset en tablas calientes.
 
@@ -1019,6 +1026,11 @@ Response 200:
       "id": "uuid",
       "verification_status": "approved",
       "approved_at": "timestamp"
+    },
+    "access_diagnostic": {
+      "business_can_access_surface": false,
+      "blocking_reason": "BUSINESS_ACCESS_BLOCKED",
+      "recommended_admin_action": "reactivate_owner_link"
     }
   },
   "request_id": "req_..."
@@ -1030,6 +1042,7 @@ Rules:
 - Solo `admin` o `super_admin`.
 - Cambia `suspended|blocked -> approved`.
 - La accion sobre el negocio no reactiva automaticamente access links `suspended`, `revoked` o `blocked`.
+- La respuesta incluye el `access_diagnostic` recalculado por backend para que Admin muestre la puerta restante sin inferirla en frontend.
 - `reason` obligatorio y no vacio.
 - Invalida cache de marketplace.
 - Auditar `business_reactivated`.

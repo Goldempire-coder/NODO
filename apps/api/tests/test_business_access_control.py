@@ -824,6 +824,14 @@ def test_admin_access_link_lifecycle_requires_reason_idempotency_and_blocks_supp
     assert no_idem.status_code == 400
     assert no_idem.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
 
+    missing_reason = client.post(
+        f"/api/v1/admin/businesses/{business['id']}/access-links",
+        headers={**_headers(admin, "req_link_missing_reason"), "Content-Type": "application/json"},
+        json={"user_id": owner["user"]["id"], "role_in_business": "owner", "reason": "   "},
+    )
+    assert missing_reason.status_code == 400
+    assert missing_reason.json()["error"]["code"] == "ADMIN_REASON_REQUIRED"
+
     support_attempt = client.post(
         f"/api/v1/admin/businesses/{business['id']}/access-links",
         headers={**_headers(support, "support_link"), "Content-Type": "application/json"},

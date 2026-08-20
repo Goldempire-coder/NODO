@@ -258,6 +258,12 @@ def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
     allowed = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_surface_before_suspend"))
     assert allowed.status_code == 200, allowed.text
 
+    missing_reason = client.post(
+        f"/api/v1/admin/users/{owner['user']['id']}/suspend",
+        headers={**_headers(admin, "suspend_user_without_reason"), "Content-Type": "application/json"},
+        json={"reason": "   "},
+    )
+
     suspended = client.post(
         f"/api/v1/admin/users/{owner['user']['id']}/suspend",
         headers={**_headers(admin, "suspend_user"), "Content-Type": "application/json"},
@@ -291,6 +297,8 @@ def test_admin_user_status_lifecycle_and_surface_session_denial() -> None:
     )
     allowed_after_unblock = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_surface_after_unblock"))
 
+    assert missing_reason.status_code == 400
+    assert missing_reason.json()["error"]["code"] == "ADMIN_REASON_REQUIRED"
     assert suspended.status_code == 200, suspended.text
     assert suspended.json()["data"]["user"]["status"] == "restricted"
     assert denied.status_code == 403
@@ -460,6 +468,11 @@ def test_admin_business_status_lifecycle_controls_business_surface_access() -> N
     business_owner_id = client.app.state.business_repository.get_business(business["id"]).owner_user_id
 
     allowed = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_business_surface_allowed"))
+    missing_reason = client.post(
+        f"/api/v1/admin/businesses/{business['id']}/suspend",
+        headers={**_headers(admin, "suspend_business_without_reason"), "Content-Type": "application/json"},
+        json={"reason": "   "},
+    )
     support_attempt = client.post(
         f"/api/v1/admin/businesses/{business['id']}/suspend",
         headers={**_headers(support, "support_suspend_business"), "Content-Type": "application/json"},
@@ -491,6 +504,8 @@ def test_admin_business_status_lifecycle_controls_business_surface_access() -> N
     allowed_after_unblock = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_business_surface_unblocked"))
 
     assert allowed.status_code == 200, allowed.text
+    assert missing_reason.status_code == 400
+    assert missing_reason.json()["error"]["code"] == "ADMIN_REASON_REQUIRED"
     assert support_attempt.status_code == 403
     assert support_attempt.json()["error"]["code"] == "FORBIDDEN"
     assert suspended.status_code == 200, suspended.text
@@ -557,6 +572,11 @@ def test_admin_business_access_link_status_lifecycle_notifies_owner_and_controls
     client.app.state.business_repository.access_links[duplicate_active_link.id] = duplicate_active_link
 
     allowed = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_access_link_surface_allowed"))
+    missing_reason = client.post(
+        f"/api/v1/admin/businesses/{business['id']}/access-links/{link['id']}/block",
+        headers={**_headers(admin, "block_access_link_without_reason"), "Content-Type": "application/json"},
+        json={"reason": "   "},
+    )
     suspended = client.post(
         f"/api/v1/admin/businesses/{business['id']}/access-links/{link['id']}/suspend",
         headers={**_headers(admin, "suspend_access_link"), "Content-Type": "application/json"},
@@ -568,6 +588,13 @@ def test_admin_business_access_link_status_lifecycle_notifies_owner_and_controls
         headers={**_headers(admin, "reactivate_access_link"), "Content-Type": "application/json"},
         json={"reason": "access review completed"},
     )
+    statuses_after_reactivation = {
+        candidate.status
+        for candidate in client.app.state.business_repository.access_links.values()
+        if candidate.business_id == business["id"]
+        and candidate.user_id == owner["user"]["id"]
+        and candidate.role_in_business == "owner"
+    }
     allowed_again = client.get("/api/v1/surface/session", headers=_business_headers(owner, "req_access_link_surface_reactivated"))
     blocked = client.post(
         f"/api/v1/admin/businesses/{business['id']}/access-links/{link['id']}/block",
@@ -581,12 +608,18 @@ def test_admin_business_access_link_status_lifecycle_notifies_owner_and_controls
     )
 
     assert allowed.status_code == 200, allowed.text
+    assert missing_reason.status_code == 400
+    assert missing_reason.json()["error"]["code"] == "ADMIN_REASON_REQUIRED"
     assert suspended.status_code == 200, suspended.text
     assert suspended.json()["data"]["access_link"]["status"] == "suspended"
     assert denied_suspended.status_code == 403
     assert denied_suspended.json()["error"]["code"] == "BUSINESS_ACCESS_SUSPENDED"
     assert reactivated.status_code == 200, reactivated.text
     assert reactivated.json()["data"]["access_link"]["status"] == "active"
+    assert reactivated.json()["data"]["access_diagnostic"]["business_can_access_surface"] is True
+    assert reactivated.json()["data"]["access_diagnostic"]["owner_link_status"] == "active"
+    assert {item["status"] for item in reactivated.json()["data"]["affected_access_links"]} == {"active", "revoked"}
+    assert statuses_after_reactivation == {"active", "revoked"}
     assert allowed_again.status_code == 200, allowed_again.text
     assert blocked.status_code == 200, blocked.text
     assert blocked.json()["data"]["access_link"]["status"] == "blocked"

@@ -338,7 +338,6 @@ def test_postgres_business_access_duplicate_owner_links_are_operationally_canoni
         f"/api/v1/admin/businesses/{business.id}/access-links",
         headers=_bearer(admin, postgres_security.key("canonical_list_after")),
     )
-
     assert listed_before.status_code == 200, listed_before.text
     assert [item["status"] for item in listed_before.json()["data"]["items"] if item["user_id"] == owner_record.id and item["role_in_business"] == "owner"] == ["active"]
     assert suspended.status_code == 200, suspended.text
@@ -348,6 +347,25 @@ def test_postgres_business_access_duplicate_owner_links_are_operationally_canoni
     assert denied.value.code == "BUSINESS_ACCESS_SUSPENDED"
     assert listed_after.status_code == 200, listed_after.text
     assert [item["status"] for item in listed_after.json()["data"]["items"] if item["user_id"] == owner_record.id and item["role_in_business"] == "owner"] == ["suspended"]
+    reactivated = postgres_security.client.post(
+        f"/api/v1/admin/businesses/{business.id}/access-links/{duplicate_blocked_id}/reactivate",
+        headers={**_headers(admin, postgres_security.key("canonical_reactivate")), "Content-Type": "application/json"},
+        json={"reason": "owner access review completed"},
+    )
+    assert reactivated.status_code == 200, reactivated.text
+    assert reactivated.json()["data"]["access_link"]["status"] == "active"
+    assert reactivated.json()["data"]["access_diagnostic"]["business_can_access_surface"] is True
+    assert {item["status"] for item in reactivated.json()["data"]["affected_access_links"]} == {"active", "revoked"}
+    with psycopg.connect(postgres_security.database_url, row_factory=dict_row) as conn:
+        statuses = conn.execute(
+            """
+            select status from business_access_links
+            where business_id = %s and user_id = %s and role_in_business = 'owner'
+            """,
+            (business.id, owner_record.id),
+        ).fetchall()
+    assert {row["status"] for row in statuses} == {"active", "revoked"}
+    assert sum(row["status"] == "active" for row in statuses) == 1
 
 
 def _payment_report_payload(method_type: str, *, seed: int) -> dict:

@@ -1122,6 +1122,30 @@
   padding: 0.75rem 0.85rem;
 }
 
+.admin-web-access-action-feedback {
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  margin-top: 8px;
+  padding: 8px 10px;
+}
+
+.admin-web-access-action-feedback.is-error {
+  border-color: rgb(244 63 94 / 38%);
+  color: #fecdd3;
+}
+
+.admin-web-access-action-feedback.is-success {
+  border-color: rgb(16 185 129 / 34%);
+  color: #a7f3d0;
+}
+
+.admin-web-access-action-feedback.is-warning {
+  border-color: rgb(245 158 11 / 36%);
+  color: #fde68a;
+}
+
 .admin-web-business-status-actions {
   border-top: 1px solid var(--admin-border);
   display: grid;

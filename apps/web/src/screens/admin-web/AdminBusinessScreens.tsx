@@ -30,7 +30,6 @@ const ACCESS_ACTION_COPY: Record<string, string> = {
   create_owner_link: "Crear vinculo owner.",
   regenerate_owner_link: "Regenerar o revisar vinculo owner.",
   review_owner_binding: "Revisar vinculacion del dueno.",
-  refresh_diagnostic: "Actualizar el detalle para confirmar el acceso."
 };
 
 const ACCESS_REASON_COPY: Record<string, string> = {
@@ -45,7 +44,6 @@ const ACCESS_REASON_COPY: Record<string, string> = {
   BUSINESS_ACCESS_LINK_REQUIRED: "Falta un vinculo owner valido.",
   SURFACE_ACCESS_DENIED: "La vinculacion no coincide con el acceso autenticado.",
   OWNER_USER_NOT_FOUND: "No se encontro el usuario dueno.",
-  DIAGNOSTIC_REFRESH_REQUIRED: "La accion se aplico; falta refrescar el diagnostico."
 };
 
 export function Businesses({ model }: { model: AdminWebModel }) {
@@ -166,6 +164,14 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
               <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessStatus("block")}>Bloquear negocio</button>
             ) : null}
           </div>
+          {model.businessAccessActionFeedback?.target === "business" ? (
+            <div
+              className={`admin-web-access-action-feedback is-${model.businessAccessActionFeedback.tone}`}
+              role={model.businessAccessActionFeedback.tone === "error" ? "alert" : "status"}
+            >
+              {model.businessAccessActionFeedback.message}
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="admin-web-panel">
@@ -296,28 +302,51 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
         <Header
           title="Acceso Mini App Negocio"
           action={(
-            <button
-              disabled={!model.adminMutable || detail.business.verification_status !== "approved"}
-              type="button"
-              onClick={() => model.createBusinessOwnerAccessLink()}
-            >
-              Activar acceso
-            </button>
+            <div className="admin-web-actions inline">
+              <button type="button" onClick={() => void model.openBusiness(detail.business.id)}>Actualizar</button>
+              <button
+                disabled={!model.adminMutable || detail.business.verification_status !== "approved"}
+                type="button"
+                onClick={() => model.createBusinessOwnerAccessLink()}
+              >
+                Activar acceso
+              </button>
+            </div>
           )}
         />
         <p>El negocio solo puede entrar cuando esta aprobado y tiene un acceso activo para el Telegram del dueno.</p>
-        <div className={`admin-web-business-access-summary ${canEnterBusinessApp ? "is-ok" : "is-warning"}`} role="status">
-          <strong>{canEnterBusinessApp ? "Puede entrar" : "No puede entrar"}</strong>
-          <span>{diagnostic.blocking_reason ? ACCESS_REASON_COPY[diagnostic.blocking_reason] || "Acceso no habilitado." : "Todas las puertas de acceso estan habilitadas."}</span>
-          <dl className="admin-web-dl admin-web-business-access-gates">
-            <dt>Negocio</dt><dd>{diagnostic.business_status}</dd>
-            <dt>Dueno</dt><dd>{diagnostic.owner_user_status}{diagnostic.owner_role_valid ? "" : " - rol no valido"}</dd>
-            <dt>Vinculo owner</dt><dd>{diagnostic.owner_link_status}{diagnostic.owner_link_role ? ` - ${diagnostic.owner_link_role}` : ""}</dd>
-            <dt>Telegram</dt><dd>{diagnostic.telegram_matches === true ? "coincide" : diagnostic.telegram_matches === false ? "no coincide" : "sin vinculo verificable"}</dd>
-          </dl>
-          {diagnostic.owner_link_conflict ? <span>Hay otro owner activo. Revisa la vinculacion antes de operar.</span> : null}
-          <span><strong>Accion recomendada:</strong> {ACCESS_ACTION_COPY[diagnostic.recommended_admin_action] || "Revisar vinculacion."}</span>
-        </div>
+        <ReasonBox
+          model={model}
+          label="Razon obligatoria para cambiar el acceso"
+          placeholder="Indica el motivo operativo antes de cambiar el acceso"
+        />
+        {model.businessAccessDiagnosticPending ? (
+          <div className="admin-web-business-access-summary is-warning" role="status">
+            <strong>Acceso actualizado</strong>
+            <span>No pudimos confirmar el diagnostico actualizado. Usa Actualizar.</span>
+          </div>
+        ) : (
+          <div className={`admin-web-business-access-summary ${canEnterBusinessApp ? "is-ok" : "is-warning"}`} role="status">
+            <strong>{canEnterBusinessApp ? "Puede entrar" : "No puede entrar"}</strong>
+            <span>{diagnostic.blocking_reason ? ACCESS_REASON_COPY[diagnostic.blocking_reason] || "Acceso no habilitado." : "Todas las puertas de acceso estan habilitadas."}</span>
+            <dl className="admin-web-dl admin-web-business-access-gates">
+              <dt>Negocio</dt><dd>{diagnostic.business_status}</dd>
+              <dt>Dueno</dt><dd>{diagnostic.owner_user_status}{diagnostic.owner_role_valid ? "" : " - rol no valido"}</dd>
+              <dt>Vinculo owner</dt><dd>{diagnostic.owner_link_status}{diagnostic.owner_link_role ? ` - ${diagnostic.owner_link_role}` : ""}</dd>
+              <dt>Telegram</dt><dd>{diagnostic.telegram_matches === true ? "coincide" : diagnostic.telegram_matches === false ? "no coincide" : "sin vinculo verificable"}</dd>
+            </dl>
+            {diagnostic.owner_link_conflict ? <span>Hay otro owner activo. Revisa la vinculacion antes de operar.</span> : null}
+            <span><strong>Accion recomendada:</strong> {ACCESS_ACTION_COPY[diagnostic.recommended_admin_action] || "Revisar vinculacion."}</span>
+          </div>
+        )}
+        {model.businessAccessActionFeedback?.target === "access" ? (
+          <div
+            className={`admin-web-access-action-feedback is-${model.businessAccessActionFeedback.tone}`}
+            role={model.businessAccessActionFeedback.tone === "error" ? "alert" : "status"}
+          >
+            {model.businessAccessActionFeedback.message}
+          </div>
+        ) : null}
         {detail.business.verification_status === "approved" && model.businessAccessLinks.length === 0 ? (
           <div className="admin-web-inline-warning">
             Negocio aprobado, pero el dueno aun no puede entrar. Pulsa Activar acceso para habilitar NODO Negocio.
@@ -350,6 +379,15 @@ export function BusinessDetail({ model }: { model: AdminWebModel }) {
                     <button disabled={!model.adminMutable} type="button" onClick={() => model.changeBusinessOwnerUserStatus(link.user_id, "reactivate")}>Reactivar dueno</button>
                   ) : null}
                 </div>
+                {model.businessAccessActionFeedback?.target === `link:${link.id}`
+                || model.businessAccessActionFeedback?.target === `owner:${link.user_id}` ? (
+                  <div
+                    className={`admin-web-access-action-feedback is-${model.businessAccessActionFeedback.tone}`}
+                    role={model.businessAccessActionFeedback.tone === "error" ? "alert" : "status"}
+                  >
+                    {model.businessAccessActionFeedback.message}
+                  </div>
+                ) : null}
               </td>
             </tr>
           ))}

@@ -59,8 +59,7 @@ export type AdminBusinessAccessDiagnostic = {
     | "reactivate_owner_link"
     | "create_owner_link"
     | "regenerate_owner_link"
-    | "review_owner_binding"
-    | "refresh_diagnostic";
+    | "review_owner_binding";
 };
 
 export type AdminBusinessDetail = {
