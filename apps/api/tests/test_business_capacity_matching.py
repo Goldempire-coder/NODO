@@ -1016,6 +1016,9 @@ def test_migration_and_frontend_contracts_are_safe() -> None:
         ROOT
         / "apps/web/src/hooks/business-mini-app/useBusinessCapacityModel.ts"
     ).read_text()
+    business_access_model = (
+        ROOT / "apps/web/src/hooks/business-mini-app/useBusinessAccessModel.ts"
+    ).read_text()
     business_dashboard = (
         ROOT / "apps/web/src/screens/business-app/BusinessDashboardScreen.tsx"
     ).read_text()
@@ -1031,6 +1034,10 @@ def test_migration_and_frontend_contracts_are_safe() -> None:
     assert "BUSINESS_CAPACITY_INSUFFICIENT" in client_orders
     assert "getBusinessCapacity" in business_capacity_hook
     assert "savingBusinessCapacity" in business_capacity_hook
+    assert "syncBusinessAvailability(data.availability_status)" in business_capacity_hook
+    assert "businessCapacity?.availability_status" in business_capacity_hook
+    assert "setBusiness:" in business_capacity_hook
+    assert "setBusiness," in business_access_model
     assert "Reservado activo" in business_dashboard
     assert "Consumido hoy" in business_dashboard
     assert "Reinicio diario: 00:00 UTC" in business_dashboard

@@ -68,6 +68,7 @@ export function useBusinessAccessModel({
     handleBusinessPinError,
     request,
     requireBusinessPinFor,
+    setBusiness,
     setNotice
   });
 
