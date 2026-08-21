@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Header, Request
@@ -8,6 +9,7 @@ from fastapi import APIRouter, Header, Request
 from app.core.config import Settings
 from app.core.errors import ApiError
 from app.modules.notifications.telegram_sender import TelegramNotificationAdapter
+from app.modules.users.admin_telegram_links import hash_admin_alert_telegram_id, hash_admin_telegram_link_code, normalize_admin_telegram_link_code
 from app.routes.telegram_bot import telegram_webhook_secret
 
 router = APIRouter(tags=["admin-telegram-bot"])
@@ -36,6 +38,59 @@ def _send_admin_bot_message(request: Request, *, chat_id: int, text: str) -> Non
     )
 
 
+def _start_code_from_text(text: str) -> str | None:
+    parts = text.split(maxsplit=1)
+    if len(parts) < 2:
+        return None
+    code = normalize_admin_telegram_link_code(parts[1])
+    return code or None
+
+
+def _link_admin_alert_chat_by_code(*, request: Request, code: str, chat_id: int, telegram_id: int) -> str:
+    record, user, result = request.app.state.user_repository.consume_admin_telegram_link_code(
+        code_hash=hash_admin_telegram_link_code(code),
+        telegram_chat_id=chat_id,
+        telegram_hash=hash_admin_alert_telegram_id(telegram_id),
+        now=datetime.now(timezone.utc),
+    )
+    if result == "linked" and user is not None and record is not None:
+        request.app.state.audit_writer.write(
+            event_type="admin_telegram_alert_chat_linked",
+            actor_user_id=user.id,
+            actor_role=user.role,
+            resource_type="admin_telegram_alerts",
+            resource_id=user.id,
+            request_id=_request_id(request),
+            metadata_json={"link_code_id": record.id, "telegram_hash": hash_admin_alert_telegram_id(telegram_id)},
+        )
+        _send_admin_bot_message(
+            request,
+            chat_id=chat_id,
+            text="Listo. Este Telegram recibira alertas Admin importantes de NODO.",
+        )
+        return "admin_alerts_linked"
+    if result == "expired":
+        _send_admin_bot_message(
+            request,
+            chat_id=chat_id,
+            text="Ese codigo ya vencio. Genera uno nuevo desde el Dashboard Admin y vuelve a enviar /start CODIGO.",
+        )
+        return "admin_alerts_code_expired"
+    if result == "telegram_already_linked":
+        _send_admin_bot_message(
+            request,
+            chat_id=chat_id,
+            text="Este Telegram ya esta vinculado a otro Admin para alertas. Revisa la vinculacion antes de continuar.",
+        )
+        return "admin_alerts_chat_conflict"
+    _send_admin_bot_message(
+        request,
+        chat_id=chat_id,
+        text="No pude activar alertas Admin con ese codigo. Genera un codigo nuevo desde el Dashboard Admin.",
+    )
+    return "admin_alerts_code_invalid"
+
+
 async def _handle_admin_telegram_webhook(*, provided_secret: str | None, request: Request) -> dict[str, Any]:
     settings: Settings = request.app.state.settings
     if not settings.nodo_admin_telegram_bot_token:
@@ -59,15 +114,33 @@ async def _handle_admin_telegram_webhook(*, provided_secret: str | None, request
     telegram_id = sender.get("id")
     if chat_id is None or telegram_id is None:
         return {"data": {"ok": True, "handled": False}, "request_id": _request_id(request)}
+    chat_type = _safe_text(chat.get("type"))
+    if chat_type and chat_type != "private":
+        _send_admin_bot_message(
+            request,
+            chat_id=int(chat_id),
+            text="Por seguridad, vincula las alertas Admin desde un chat privado con este bot.",
+        )
+        return {"data": {"ok": True, "handled": True, "action": "admin_alerts_private_chat_required"}, "request_id": _request_id(request)}
 
     text = _safe_text(message.get("text")).strip()
     if not text.startswith("/start"):
         _send_admin_bot_message(
             request,
             chat_id=int(chat_id),
-            text="NODO Admin: este bot envia alertas operativas importantes. Escribe /start para verificar el acceso.",
+            text="NODO Admin: este bot envia alertas operativas importantes. Genera un codigo en el Dashboard Admin y envia /start CODIGO.",
         )
         return {"data": {"ok": True, "handled": True, "action": "admin_alerts_hint"}, "request_id": _request_id(request)}
+
+    start_code = _start_code_from_text(text)
+    if start_code:
+        action = _link_admin_alert_chat_by_code(
+            request=request,
+            code=start_code,
+            chat_id=int(chat_id),
+            telegram_id=int(telegram_id),
+        )
+        return {"data": {"ok": True, "handled": True, "action": action}, "request_id": _request_id(request)}
 
     user = request.app.state.user_repository.get_user_by_telegram_id(int(telegram_id))
     if user is not None and user.status == "active" and user.role in {"admin", "super_admin"}:
@@ -81,7 +154,7 @@ async def _handle_admin_telegram_webhook(*, provided_secret: str | None, request
     _send_admin_bot_message(
         request,
         chat_id=int(chat_id),
-        text="No pude activar alertas Admin en este Telegram. Vincula primero este Telegram a un Admin o Super Admin activo.",
+        text="No pude activar alertas Admin en este Telegram. Genera un codigo desde el Dashboard Admin y envia /start CODIGO.",
     )
     return {"data": {"ok": True, "handled": True, "action": "admin_alerts_not_linked"}, "request_id": _request_id(request)}
 

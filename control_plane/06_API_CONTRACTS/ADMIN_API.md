@@ -34,16 +34,32 @@ Todas las rutas admin requieren:
 
 ## Admin Telegram alerts
 
+`POST /api/v1/admin/telegram-alerts/link-code`
+
+- Requiere `admin` o `super_admin` activo.
+- Devuelve un codigo temporal de un solo uso y `expires_at`.
+- El codigo se muestra solo en Admin Web y se guarda en backend como hash.
+- No cambia `users.telegram_id`, roles, negocios ni access links.
+- Audit log: `admin_telegram_alert_link_code_created`, sin codigo en claro.
+- Rate limit por Admin para evitar spam de codigos.
+
 `POST /api/v1/admin-telegram/webhook`
 
 - Usa `X-Telegram-Bot-Api-Secret-Token` derivado de
   `NODO_ADMIN_TELEGRAM_BOT_TOKEN`.
-- `/start` confirma si el Telegram pertenece a un usuario `admin` o
-  `super_admin` activo.
-- No crea ni modifica usuarios, roles, negocios, access links, ordenes,
-  creditos, disputas ni wallets.
+- `/start CODIGO` vincula el chat de Telegram a un usuario `admin` o
+  `super_admin` activo, usando el codigo temporal generado en Admin Web.
+- `/start` sin codigo conserva compatibilidad para un Telegram que ya pertenezca
+  directamente a un usuario `admin` o `super_admin` activo.
+- El chat de alertas se guarda separado de `users.telegram_id`, por lo que un
+  mismo Telegram puede seguir siendo dueño de negocio y recibir alertas Admin.
+- No cambia roles, negocios, access links, ordenes, creditos, disputas ni
+  wallets.
 - Las alertas salientes se envian solo a `recipient_user_id` concretos de
-  Admin/Super Admin activos con Telegram vinculado.
+  Admin/Super Admin activos con `admin_alert_telegram_id` o Telegram primario
+  vinculado.
+- Audit log: `admin_telegram_alert_chat_linked`, con hash corto del Telegram,
+  nunca el identificador completo.
 - El boton permitido abre Admin Web por URL. No ejecuta acciones mutantes desde
   Telegram.
 - Payloads no incluyen tokens, initData, telefono completo, datos bancarios,

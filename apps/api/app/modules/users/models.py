@@ -16,6 +16,7 @@ class UserRecord:
     username: str | None
     first_name: str | None
     last_name: str | None
+    admin_alert_telegram_id: int | None = None
     phone: str | None = None
     role: str = "remitter"
     status: str = "active"
@@ -68,4 +69,21 @@ class AdminCredentialRecord:
 
 
 def new_admin_credential_id() -> str:
+    return str(uuid4())
+
+
+@dataclass
+class AdminTelegramLinkCodeRecord:
+    id: str
+    user_id: str
+    code_hash: str
+    status: str
+    expires_at: datetime
+    created_at: datetime = field(default_factory=utc_now)
+    updated_at: datetime = field(default_factory=utc_now)
+    used_at: datetime | None = None
+    telegram_hash: str | None = None
+
+
+def new_admin_telegram_link_code_id() -> str:
     return str(uuid4())

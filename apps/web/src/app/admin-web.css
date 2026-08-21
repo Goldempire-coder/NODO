@@ -2289,6 +2289,41 @@
   min-width: 0;
 }
 
+.admin-dashboard-telegram-alerts {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.admin-dashboard-telegram-alerts > div,
+.admin-dashboard-telegram-alerts p {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.admin-dashboard-telegram-alerts span,
+.admin-dashboard-telegram-alerts small {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.admin-dashboard-telegram-alerts p {
+  padding: 9px 10px;
+  border: 1px solid rgb(36 209 143 / 28%);
+  border-radius: 8px;
+  background: rgb(36 209 143 / 8%);
+}
+
+.admin-dashboard-telegram-alerts p > strong {
+  overflow-wrap: anywhere;
+  color: var(--admin-green);
+  font-variant-numeric: tabular-nums;
+}
+
 .admin-dashboard-emergency {
   border-color: rgb(255 176 46 / 28%);
 }

@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
+import json
 import os
+from datetime import timedelta
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -53,7 +58,13 @@ from app.modules.admin_notifications.service import AdminNotificationService  # 
 from app.modules.jobs.memory_repository import InMemoryJobRepository  # noqa: E402
 from app.modules.notifications.order_notifications import OrderNotificationService  # noqa: E402
 from app.modules.notifications.telegram_sender import NotificationSenderWorker  # noqa: E402
+from app.modules.users.admin_telegram_links import hash_admin_telegram_link_code  # noqa: E402
 from app.modules.users.memory_repository import InMemoryUserRepository  # noqa: E402
+
+
+def _client() -> TestClient:
+    _set_env()
+    return TestClient(create_app())
 
 
 class FakeTelegramAdapter:
@@ -89,6 +100,32 @@ def _admin_user(users: InMemoryUserRepository, *, telegram_id: int, role: str = 
     return users.get_user_by_id(user.id)
 
 
+def _signed_init_data(telegram_id: int, username: str) -> str:
+    payload = {
+        "auth_date": "1893456000",
+        "query_id": f"query_{telegram_id}",
+        "user": json.dumps({"id": telegram_id, "username": username, "first_name": username}, separators=(",", ":"), sort_keys=True),
+    }
+    data_check = "\n".join(f"{key}={value}" for key, value in sorted(payload.items()))
+    secret = hmac.new(b"WebAppData", BOT_TOKEN.encode("utf-8"), hashlib.sha256).digest()
+    payload["hash"] = hmac.new(secret, data_check.encode("utf-8"), hashlib.sha256).hexdigest()
+    return "&".join(f"{key}={quote(str(value), safe='')}" for key, value in payload.items())
+
+
+def _login(client: TestClient, telegram_id: int, username: str) -> dict:
+    response = client.post(
+        "/api/v1/auth/telegram",
+        headers={"X-Request-Id": f"req_login_{telegram_id}", "X-NODO-Surface": "admin_web"},
+        json={"init_data": _signed_init_data(telegram_id, username)},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["data"]
+
+
+def _bearer(login: dict, request_id: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": request_id}
+
+
 def test_admin_telegram_bot_token_is_secret_configuration() -> None:
     settings = load_settings(
         {
@@ -101,6 +138,33 @@ def test_admin_telegram_bot_token_is_secret_configuration() -> None:
 
     assert settings.nodo_admin_telegram_bot_token == ADMIN_BOT_TOKEN
     assert redact_env_value("NODO_ADMIN_TELEGRAM_BOT_TOKEN", ADMIN_BOT_TOKEN) == "[REDACTED]"
+
+
+def test_admin_telegram_linking_migration_is_reversible_and_separate_from_primary_telegram() -> None:
+    root = Path(__file__).resolve().parents[3]
+    up = (root / "database" / "migrations" / "0055_admin_telegram_alert_linking.up.sql").read_text(encoding="utf-8")
+    down = (root / "database" / "migrations" / "0055_admin_telegram_alert_linking.down.sql").read_text(encoding="utf-8")
+
+    assert "admin_alert_telegram_id bigint" in up
+    assert "admin_telegram_link_codes" in up
+    assert "code_hash text not null unique" in up
+    assert "users_admin_alert_telegram_id_unique" in up
+    assert "telegram_id" in up
+    assert "drop table if exists admin_telegram_link_codes" in down
+    assert "drop column if exists admin_alert_telegram_id" in down
+
+
+def test_admin_dashboard_exposes_temporary_telegram_alert_link_code_action() -> None:
+    root = Path(__file__).resolve().parents[3]
+    dashboard = (root / "apps" / "web" / "src" / "screens" / "admin-web" / "AdminDashboardScreen.tsx").read_text(encoding="utf-8")
+    model = (root / "apps" / "web" / "src" / "hooks" / "useAdminWebModel.ts").read_text(encoding="utf-8")
+    api = (root / "apps" / "web" / "src" / "api" / "admin.ts").read_text(encoding="utf-8")
+
+    assert "Alertas Telegram Admin" in dashboard
+    assert "requestAdminTelegramAlertLinkCode" in dashboard
+    assert "adminTelegramAlertLinkCode" in dashboard
+    assert "createAdminTelegramAlertLinkCode" in model
+    assert "/api/v1/admin/telegram-alerts/link-code" in api
 
 
 def test_business_intake_notification_enqueues_admin_telegram_alerts_only_for_active_admins() -> None:
@@ -190,8 +254,85 @@ def test_notification_sender_uses_admin_bot_and_url_button_for_admin_alerts() ->
     ]
 
 
+def test_admin_telegram_alerts_can_link_business_owner_telegram_with_admin_code() -> None:
+    client = _client()
+    admin_login = _login(client, 700777, "admin_alert_owner")
+    admin_id = admin_login["user"]["id"]
+    client.app.state.user_repository.set_user_role(admin_id, "super_admin")
+    business_owner, _ = client.app.state.user_repository.upsert_telegram_user(
+        telegram_id=6808095582,
+        username="business_owner_alerts",
+        first_name="Owner",
+        last_name=None,
+    )
+    client.app.state.user_repository.set_user_role(business_owner.id, "business_owner")
+    adapter = FakeTelegramAdapter()
+    client.app.state.admin_telegram_adapter = adapter
+    secret = hashlib.sha256(ADMIN_BOT_TOKEN.encode("utf-8")).hexdigest()[:40]
+
+    code_response = client.post(
+        "/api/v1/admin/telegram-alerts/link-code",
+        headers=_bearer(admin_login, "req_admin_telegram_link_code"),
+    )
+    assert code_response.status_code == 200, code_response.text
+    code = code_response.json()["data"]["code"]
+    assert code and code not in str(client.app.state.audit_writer.events)
+
+    linked = client.post(
+        "/api/v1/admin-telegram/webhook",
+        headers={"X-Telegram-Bot-Api-Secret-Token": secret},
+        json={"message": {"from": {"id": 6808095582}, "chat": {"id": 6808095582}, "text": f"/start {code.lower()}" }},
+    )
+
+    assert linked.status_code == 200, linked.text
+    assert linked.json()["data"]["action"] == "admin_alerts_linked"
+    admin = client.app.state.user_repository.get_user_by_id(admin_id)
+    owner = client.app.state.user_repository.get_user_by_id(business_owner.id)
+    assert admin.admin_alert_telegram_id == 6808095582
+    assert owner.role == "business_owner"
+    assert owner.telegram_id == 6808095582
+    assert adapter.calls[-1]["chat_id"] == 6808095582
+    assert "recibira alertas Admin" in adapter.calls[-1]["text"]
+
+
+def test_notification_sender_prefers_admin_alert_chat_without_changing_regular_telegram() -> None:
+    settings = load_settings(
+        {
+            "APP_ENV": "test",
+            "DATABASE_URL": "postgresql://user:password@127.0.0.1:1/nodo",
+            "REDIS_URL": "redis://127.0.0.1:1/0",
+            "BOT_TOKEN": BOT_TOKEN,
+            "BUSINESS_INTAKE_BOT_TOKEN": BUSINESS_INTAKE_BOT_TOKEN,
+            "NODO_ADMIN_TELEGRAM_BOT_TOKEN": ADMIN_BOT_TOKEN,
+        }
+    )
+    users = InMemoryUserRepository()
+    admin = _admin_user(users, telegram_id=111, role="admin")
+    admin.admin_alert_telegram_id = 222
+    jobs = InMemoryJobRepository()
+    jobs.enqueue_notification(
+        notification_type="admin_alert_business_intake_submitted",
+        recipient_user_id=admin.id,
+        scheduled_for=datetime.now(timezone.utc),
+        dedupe_key="admin-alert-prefers-linked-chat",
+        metadata_json={
+            "channel": "telegram",
+            "target_surface": "admin_alerts",
+            "message_text": "NODO: alerta Admin.",
+        },
+    )
+    adapter = FakeTelegramAdapter()
+    worker = NotificationSenderWorker(settings=settings, job_repository=jobs, user_repository=users, adapter=adapter)
+
+    result = worker.run(now=datetime.now(timezone.utc), request_id="req_admin_telegram_alert_chat")
+
+    assert result["counters"]["sent"] == 1
+    assert adapter.calls[0]["bot_token"] == ADMIN_BOT_TOKEN
+    assert adapter.calls[0]["chat_id"] == 222
+
+
 def test_admin_telegram_start_confirms_only_linked_admin() -> None:
-    client = TestClient(create_app())
+    client = _client()
     admin = _admin_user(client.app.state.user_repository, telegram_id=777, role="admin")
     assert admin is not None
     adapter = FakeTelegramAdapter()
@@ -209,6 +350,70 @@ def test_admin_telegram_start_confirms_only_linked_admin() -> None:
     assert adapter.calls[0]["bot_token"] == ADMIN_BOT_TOKEN
     assert adapter.calls[0]["chat_id"] == 777
     assert "puede recibir alertas Admin" in adapter.calls[0]["text"]
+
+
+def test_admin_telegram_start_rejects_expired_or_unknown_link_code() -> None:
+    client = _client()
+    admin = _admin_user(client.app.state.user_repository, telegram_id=778, role="admin")
+    assert admin is not None
+    code_hash = hash_admin_telegram_link_code("EXPIREDCODE1")
+    client.app.state.user_repository.create_admin_telegram_link_code(
+        user_id=admin.id,
+        code_hash=code_hash,
+        expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    )
+    adapter = FakeTelegramAdapter()
+    client.app.state.admin_telegram_adapter = adapter
+    secret = hashlib.sha256(ADMIN_BOT_TOKEN.encode("utf-8")).hexdigest()[:40]
+
+    expired = client.post(
+        "/api/v1/admin-telegram/webhook",
+        headers={"X-Telegram-Bot-Api-Secret-Token": secret},
+        json={"message": {"from": {"id": 778}, "chat": {"id": 778}, "text": "/start EXPIREDCODE1"}},
+    )
+    unknown = client.post(
+        "/api/v1/admin-telegram/webhook",
+        headers={"X-Telegram-Bot-Api-Secret-Token": secret},
+        json={"message": {"from": {"id": 778}, "chat": {"id": 778}, "text": "/start UNKNOWNCODE1"}},
+    )
+
+    assert expired.status_code == 200, expired.text
+    assert expired.json()["data"]["action"] == "admin_alerts_code_expired"
+    assert unknown.status_code == 200, unknown.text
+    assert unknown.json()["data"]["action"] == "admin_alerts_code_invalid"
+    assert client.app.state.user_repository.get_user_by_id(admin.id).admin_alert_telegram_id is None
+
+
+def test_admin_telegram_link_code_requires_private_chat() -> None:
+    client = _client()
+    admin = _admin_user(client.app.state.user_repository, telegram_id=779, role="admin")
+    assert admin is not None
+    code_hash = hash_admin_telegram_link_code("ABCDEFG23456")
+    client.app.state.user_repository.create_admin_telegram_link_code(
+        user_id=admin.id,
+        code_hash=code_hash,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+    )
+    adapter = FakeTelegramAdapter()
+    client.app.state.admin_telegram_adapter = adapter
+    secret = hashlib.sha256(ADMIN_BOT_TOKEN.encode("utf-8")).hexdigest()[:40]
+
+    response = client.post(
+        "/api/v1/admin-telegram/webhook",
+        headers={"X-Telegram-Bot-Api-Secret-Token": secret},
+        json={
+            "message": {
+                "from": {"id": 779},
+                "chat": {"id": -100779, "type": "supergroup"},
+                "text": "/start ABCDEFG23456",
+            }
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["action"] == "admin_alerts_private_chat_required"
+    assert client.app.state.user_repository.get_user_by_id(admin.id).admin_alert_telegram_id is None
+    assert "chat privado" in adapter.calls[-1]["text"]
 
 
 def test_dispute_opened_enqueues_admin_telegram_alerts_without_private_details() -> None:
@@ -262,7 +467,7 @@ def test_dispute_opened_enqueues_admin_telegram_alerts_without_private_details()
 
 
 def test_admin_telegram_webhook_rejects_wrong_secret() -> None:
-    client = TestClient(create_app())
+    client = _client()
     response = client.post(
         "/api/v1/admin-telegram/webhook",
         headers={"X-Telegram-Bot-Api-Secret-Token": "wrong"},

@@ -4,12 +4,14 @@ from app.modules.users.models import AdminCredentialRecord, SessionRecord, UserR
 
 
 def user_from_row(row) -> UserRecord:  # type: ignore[no-untyped-def]
+    admin_alert_telegram_id = row["admin_alert_telegram_id"] if "admin_alert_telegram_id" in row.keys() else None
     return UserRecord(
         id=str(row["id"]),
         telegram_id=int(row["telegram_id"]) if row["telegram_id"] is not None else None,
         username=row["username"],
         first_name=row["first_name"],
         last_name=row["last_name"],
+        admin_alert_telegram_id=int(admin_alert_telegram_id) if admin_alert_telegram_id is not None else None,
         phone=row["phone"],
         role=row["role"],
         status=row["status"],

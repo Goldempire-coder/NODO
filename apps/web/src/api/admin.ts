@@ -14,6 +14,7 @@ import type {
   AdminStaffActivityResponse,
   AdminStaffDetailResponse,
   AdminStaffListResponse,
+  AdminTelegramAlertLinkCodeResponse,
   AdminUserListResponse
 } from "../types/admin";
 import type { AuthenticatedRequest } from "./client";
@@ -31,6 +32,13 @@ function listParams(limit = 20, key?: string, value?: string, cursor?: string | 
 
 export function getAdminDashboard<T>(request: AuthenticatedRequest) {
   return request<T>("/api/v1/admin/dashboard");
+}
+
+export function createAdminTelegramAlertLinkCode(request: AuthenticatedRequest) {
+  return request<AdminTelegramAlertLinkCodeResponse>("/api/v1/admin/telegram-alerts/link-code", {
+    method: "POST",
+    cache: "no-store"
+  });
 }
 
 export function getAdminEmergencyMode<T>(request: AuthenticatedRequest) {

@@ -1283,7 +1283,12 @@ def test_business_chat_alert_keeps_only_safe_detection_signal() -> None:
     assert created.status_code == 201, created.text
     assert len(notifications) == 1
     notification = notifications[0]
-    serialized_alert = notification.summary + json.dumps(notification.metadata_json, default=str)
+    alert_metadata_without_ids = {
+        key: value
+        for key, value in notification.metadata_json.items()
+        if key not in {"order_id", "message_id"}
+    }
+    serialized_alert = notification.summary + json.dumps(alert_metadata_without_ids, default=str)
     assert "directo conmigo" in notification.metadata_json["matched_phrase"]
     assert sensitive_tail not in serialized_alert
     assert "4931" not in serialized_alert

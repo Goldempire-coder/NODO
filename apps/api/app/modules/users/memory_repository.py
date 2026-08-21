@@ -6,9 +6,11 @@ from threading import RLock
 from app.modules.users.admin_passwords import normalize_admin_username
 from app.modules.users.models import (
     AdminCredentialRecord,
+    AdminTelegramLinkCodeRecord,
     SessionRecord,
     UserRecord,
     new_admin_credential_id,
+    new_admin_telegram_link_code_id,
     new_session_id,
     new_user_id,
     utc_now,
@@ -22,6 +24,7 @@ class InMemoryUserRepository:
         self._users_by_telegram_id: dict[int, UserRecord] = {}
         self._admin_credentials_by_id: dict[str, AdminCredentialRecord] = {}
         self._admin_credentials_by_username: dict[str, AdminCredentialRecord] = {}
+        self._admin_telegram_link_codes_by_hash: dict[str, AdminTelegramLinkCodeRecord] = {}
         self._sessions_by_hash: dict[str, SessionRecord] = {}
         self._sessions_by_access_jti: dict[str, SessionRecord] = {}
         self._sessions_by_id: dict[str, SessionRecord] = {}
@@ -70,10 +73,57 @@ class InMemoryUserRepository:
                 for user in self._users_by_id.values()
                 if user.status == "active"
                 and user.role in {"admin", "super_admin"}
-                and user.telegram_id is not None
+                and (user.admin_alert_telegram_id is not None or user.telegram_id is not None)
             ],
             key=lambda user: (user.created_at, user.id),
         )
+
+    def create_admin_telegram_link_code(self, *, user_id: str, code_hash: str, expires_at: datetime) -> AdminTelegramLinkCodeRecord:
+        with self._lock:
+            now = utc_now()
+            record = AdminTelegramLinkCodeRecord(
+                id=new_admin_telegram_link_code_id(),
+                user_id=user_id,
+                code_hash=code_hash,
+                status="pending",
+                expires_at=expires_at,
+                created_at=now,
+                updated_at=now,
+            )
+            self._admin_telegram_link_codes_by_hash[code_hash] = record
+            return record
+
+    def consume_admin_telegram_link_code(
+        self,
+        *,
+        code_hash: str,
+        telegram_chat_id: int,
+        telegram_hash: str,
+        now: datetime,
+    ) -> tuple[AdminTelegramLinkCodeRecord | None, UserRecord | None, str]:
+        with self._lock:
+            record = self._admin_telegram_link_codes_by_hash.get(code_hash)
+            if record is None:
+                return None, None, "not_found"
+            user = self._users_by_id.get(record.user_id)
+            if record.status != "pending":
+                return record, user, record.status
+            if record.expires_at <= now:
+                record.status = "expired"
+                record.updated_at = now
+                return record, user, "expired"
+            if user is None or user.status != "active" or user.role not in {"admin", "super_admin"}:
+                return record, user, "user_not_allowed"
+            for other_user in self._users_by_id.values():
+                if other_user.id != user.id and other_user.admin_alert_telegram_id == telegram_chat_id:
+                    return record, user, "telegram_already_linked"
+            user.admin_alert_telegram_id = telegram_chat_id
+            user.updated_at = now
+            record.status = "used"
+            record.used_at = now
+            record.updated_at = now
+            record.telegram_hash = telegram_hash
+            return record, user, "linked"
 
     def create_admin_user_with_credentials(
         self,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createAdminTelegramAlertLinkCode } from "../api/admin";
 import { apiRequest } from "../api/client";
 import { canMutateAdmin, canReadAdmin } from "./admin-web/adminWebAccess";
 import type { AdminWebView, RequestFn } from "./admin-web/adminWebTypes";
@@ -37,6 +38,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
   const [adminBackStack, setAdminBackStack] = useState<AdminWebView[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("Admin Web separado. Backend RBAC valida cada accion.");
+  const [adminTelegramAlertLinkCode, setAdminTelegramAlertLinkCode] = useState<{ code: string; expires_at: string; instructions: string } | null>(null);
   const clearNoticeIf = useCallback((expected: string) => {
     setNotice((current) => current === expected ? "" : current);
   }, []);
@@ -55,6 +57,23 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       }),
     [token]
   );
+
+  const requestAdminTelegramAlertLinkCode = useCallback(async () => {
+    if (!adminMutable) {
+      setNotice("No tienes permiso para vincular alertas Admin.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const response = await createAdminTelegramAlertLinkCode(request);
+      setAdminTelegramAlertLinkCode(response);
+      setNotice("Codigo temporal creado para vincular Telegram Admin.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos crear el codigo de Telegram Admin.");
+    } finally {
+      setBusy(false);
+    }
+  }, [adminMutable, request]);
 
   const criticalAction = useAdminCriticalAction({ setBusy, setNotice });
   const pushAdminBackView = useCallback((returnView: AdminWebView) => {
@@ -282,6 +301,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     notice,
     adminReadable,
     adminMutable,
+    adminTelegramAlertLinkCode,
     dashboard: overview.dashboard,
     incidentConsole: overview.incidentConsole,
     uxFriction: overview.uxFriction,
@@ -424,6 +444,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setPendingAction: criticalAction.setPendingAction,
     navigation,
     loadDashboard: overview.loadDashboard,
+    requestAdminTelegramAlertLinkCode,
     loadIncidentConsole: overview.loadIncidentConsole,
     loadUXFriction: overview.loadUXFriction,
     activateEmergencyMode: overview.activateEmergencyMode,

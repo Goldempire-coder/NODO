@@ -282,11 +282,11 @@ def test_admin_operational_notifications_surface_support_badge_and_new_notice() 
     assert "admin_support_closed" in support_screen
     assert "admin-web-support-thread" in admin_css
     assert "admin-web-support-chat" in admin_css
-    assert "height: min(680px, calc(100dvh - 196px))" in admin_css
+    assert "height: min(760px, calc(100dvh - 170px))" in admin_css
     assert "grid-template-rows: auto auto auto auto minmax(0, 1fr) auto" in admin_css
     assert ".admin-web-support-message--pending" in admin_css
     assert ".admin-web-support-chat {\n  display: grid;\n  align-content: start;\n  min-height: 0;\n  max-height: none;" in admin_css
-    assert ".admin-web-support-composer {\n  display: grid;\n  gap: 10px;\n  min-height: 0;" in admin_css
+    assert ".admin-web-support-composer {\n  display: grid;\n  flex: 0 0 auto;\n  gap: 6px;\n  min-height: 0;" in admin_css
 
 
 def test_admin_operational_search_surface_is_read_only_and_no_store() -> None:

@@ -141,7 +141,8 @@ class NotificationSenderWorker:
         target_surface = str(metadata.get("target_surface") or "")
         if target_surface == ADMIN_ALERT_TARGET_SURFACE and user.role not in {"admin", "super_admin"}:
             raise TelegramNotificationError("RECIPIENT_NOT_AUTHORIZED", retryable=False)
-        if user.telegram_id is None:
+        chat_id = (user.admin_alert_telegram_id or user.telegram_id) if target_surface == ADMIN_ALERT_TARGET_SURFACE else user.telegram_id
+        if chat_id is None:
             raise TelegramNotificationError("TELEGRAM_CHAT_UNAVAILABLE", retryable=False)
 
         bot_token = self._bot_token_for_surface(target_surface)
@@ -158,7 +159,7 @@ class NotificationSenderWorker:
             else:
                 button = {"text": action_text, "web_app": {"url": action_url}}
             reply_markup = {"inline_keyboard": [[button]]}
-        return bot_token, int(user.telegram_id), text, reply_markup
+        return bot_token, int(chat_id), text, reply_markup
 
     def _bot_token_for_surface(self, target_surface: str) -> str | None:
         if target_surface == ADMIN_ALERT_TARGET_SURFACE:

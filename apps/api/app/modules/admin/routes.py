@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import Field
 
 from app.auth.dependencies import require_current_user
+from app.core.errors import ApiError
 from app.modules.admin.investigation_candidates import AdminInvestigationCandidatesService
 from app.modules.admin.investigation_case_file import AdminInvestigationCaseFileService
 from app.modules.admin.order_chat_evidence import AdminOrderChatEvidenceService
+from app.modules.admin.policy import require_admin_mutation
 from app.modules.admin.service import AdminService
+from app.modules.users.admin_telegram_links import generate_admin_telegram_link_code, hash_admin_telegram_link_code
 from app.modules.users.models import UserRecord
 from app.shared.validation import StrictRequestModel
 
@@ -75,6 +80,39 @@ def _investigation_candidates_service(request: Request) -> AdminInvestigationCan
 def dashboard(request: Request, response: Response, user: UserRecord = Depends(require_current_user)) -> dict:
     response.headers["Cache-Control"] = "private, no-store"
     return {"data": _service(request).dashboard(user=user, request_id=_request_id(request)), "request_id": _request_id(request)}
+
+
+@router.post("/telegram-alerts/link-code")
+def create_admin_telegram_alert_link_code(request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
+    require_admin_mutation(user)
+    rate_key = f"admin:telegram_alert_link_code:{user.id}"
+    if not request.app.state.rate_limiter.allow(rate_key, max_attempts=5, window_seconds=600):
+        raise ApiError("RATE_LIMITED", status_code=429)
+
+    code = generate_admin_telegram_link_code()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    record = request.app.state.user_repository.create_admin_telegram_link_code(
+        user_id=user.id,
+        code_hash=hash_admin_telegram_link_code(code),
+        expires_at=expires_at,
+    )
+    request.app.state.audit_writer.write(
+        event_type="admin_telegram_alert_link_code_created",
+        actor_user_id=user.id,
+        actor_role=user.role,
+        resource_type="admin_telegram_alerts",
+        resource_id=user.id,
+        request_id=_request_id(request),
+        metadata_json={"link_code_id": record.id, "expires_at": expires_at.isoformat()},
+    )
+    return {
+        "data": {
+            "code": code,
+            "expires_at": expires_at.isoformat(),
+            "instructions": "Envia /start CODIGO al bot Admin de NODO desde el Telegram que recibira las alertas.",
+        },
+        "request_id": _request_id(request),
+    }
 
 
 @router.get("/emergency-mode")

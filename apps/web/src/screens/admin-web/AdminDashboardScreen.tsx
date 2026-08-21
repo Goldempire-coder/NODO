@@ -95,6 +95,21 @@ function AdminDashboardQuickActions({ model }: { model: AdminWebModel }) {
         <button type="button" onClick={() => void model.loadIncidentConsole()}>Incidentes</button>
         <button type="button" onClick={() => void model.loadJobs()}>Jobs</button>
       </div>
+      <div className="admin-dashboard-telegram-alerts">
+        <div>
+          <strong>Alertas Telegram Admin</strong>
+          <span>Genera un codigo temporal y envialo al bot Admin con /start CODIGO.</span>
+        </div>
+        <button disabled={!model.adminMutable || model.busy} type="button" onClick={() => void model.requestAdminTelegramAlertLinkCode()}>
+          Generar codigo
+        </button>
+        {model.adminTelegramAlertLinkCode ? (
+          <p role="status">
+            Codigo: <strong>{model.adminTelegramAlertLinkCode.code}</strong>
+            <small>Vence: {dateText(model.adminTelegramAlertLinkCode.expires_at)}</small>
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }

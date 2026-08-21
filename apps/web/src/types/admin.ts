@@ -24,6 +24,12 @@ export type AdminSupportTicketListResponse = {
   next_cursor: string | null;
 };
 
+export type AdminTelegramAlertLinkCodeResponse = {
+  code: string;
+  expires_at: string;
+  instructions: string;
+};
+
 export type AdminPublicationHoldReleaseResponse = {
   hold: AdminBusinessPublicationHold;
 };
