@@ -48,6 +48,96 @@ export type CreditPurchase = {
   rejected_at: string | null;
 };
 
+export type AdminCreditPurchaseSummary = {
+  id: string;
+  business_id: string;
+  package_code: string;
+  credits_amount: number;
+  price_usd: string;
+  payment_method: string;
+  status: string;
+  verification_status: string | null;
+  has_reported_tx: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminCreditPurchaseRecord = {
+  id: string;
+  business_id: string;
+  package_code: string;
+  credits_amount: number;
+  price_usd: string;
+  payment_method: string;
+  status: string;
+  proof_file_id: string | null;
+  manual_payment_reference_masked: string | null;
+  manual_tx_hash_masked: string | null;
+  manual_network: string | null;
+  admin_note: string | null;
+  created_at: string;
+  updated_at: string;
+  paid_at: string | null;
+  approved_at: string | null;
+  rejected_at: string | null;
+  failed_at: string | null;
+  expired_at: string | null;
+};
+
+export type AdminCreditOnchainEvidence = {
+  chain_id: number | null;
+  network: string | null;
+  token_symbol: string | null;
+  token_contract_address_masked: string | null;
+  token_decimals: number | null;
+  expected_amount_units: string | null;
+  destination_wallet_masked: string | null;
+  tx_hash_masked: string | null;
+  tx_amount_units: string | null;
+  tx_from_address_masked: string | null;
+  tx_to_address_masked: string | null;
+  tx_block_number: number | null;
+  tx_log_index: number | null;
+  confirmations: number | null;
+  verification_source: string | null;
+  verification_status: string | null;
+  destination_matches: boolean | null;
+  amount_matches: boolean | null;
+  detected_at: string | null;
+  verified_at: string | null;
+  credited_at: string | null;
+  expires_at: string | null;
+};
+
+export type AdminCreditLedgerEntry = {
+  id: string;
+  business_id: string;
+  type: string;
+  amount: number;
+  balance_available_before: number;
+  balance_available_after: number;
+  balance_blocked_before: number;
+  balance_blocked_after: number;
+  balance_consumed_before: number;
+  balance_consumed_after: number;
+  reason: string;
+  source: string;
+  reference_type: string;
+  reference_id: string;
+  related_credit_purchase_id: string | null;
+  created_at: string;
+};
+
+export type AdminCreditPurchaseDetail = {
+  purchase: AdminCreditPurchaseRecord;
+  onchain_evidence: AdminCreditOnchainEvidence | null;
+  ledger: AdminCreditLedgerEntry | null;
+  reconciliation: {
+    state: "matched" | "pending" | "warning" | "failed";
+    warning_codes: string[];
+  };
+};
+
 export type ReferralEvent = {
   id: string;
   direction: "earned" | "used";

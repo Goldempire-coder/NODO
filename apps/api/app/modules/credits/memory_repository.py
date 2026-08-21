@@ -37,6 +37,9 @@ class InMemoryCreditRepository:
     def list_ledger(self, *, business_id: str, ledger_type: str | None, cursor: str | None, limit: int) -> tuple[list[CreditLedgerRecord], str | None]:
         return self._wallet_store.list_ledger(business_id=business_id, ledger_type=ledger_type, cursor=cursor, limit=limit)
 
+    def ledger_for_purchase(self, purchase_id: str) -> CreditLedgerRecord | None:
+        return self._wallet_store.ledger_for_purchase(purchase_id)
+
     def create_stripe_purchase(self, *, business_id: str, package_code: str, idempotency_key: str) -> CreditPurchaseRecord:
         return self._purchase_store.create_stripe_purchase(business_id=business_id, package_code=package_code, idempotency_key=idempotency_key)
 

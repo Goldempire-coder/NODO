@@ -21,6 +21,7 @@ from app.modules.credits.postgres_purchases import (
 from app.modules.credits.postgres_referrals import admin_referral_summary_pg, apply_referral_code_pg, get_or_create_referral_code_pg, list_referral_events_for_business_pg
 from app.modules.credits.row_mappers import ledger_from_row, wallet_from_row
 from app.shared.db.connection import pooled_connect
+from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor
 
 
 class PostgresCreditRepository:
@@ -56,14 +57,30 @@ class PostgresCreditRepository:
             sql += " and type = %s"
             params.append(ledger_type)
         if cursor:
-            sql += " and created_at < %s"
-            params.append(cursor)
-        sql += " order by created_at desc limit %s"
-        params.append(limit)
+            position = decode_keyset_cursor(cursor)
+            sql += " and (created_at, id) < (%s, %s::uuid)"
+            params.extend((position.timestamp, position.item_id))
+        sql += " order by created_at desc, id desc limit %s"
+        params.append(limit + 1)
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
-        items = [ledger_from_row(row) for row in rows]
-        return items, items[-1].created_at.isoformat() if len(items) == limit else None
+        page = rows[:limit]
+        items = [ledger_from_row(row) for row in page]
+        next_cursor = encode_keyset_cursor(items[-1].created_at, items[-1].id) if len(rows) > limit else None
+        return items, next_cursor
+
+    def ledger_for_purchase(self, purchase_id: str) -> CreditLedgerRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                select * from credits_ledger
+                where related_credit_purchase_id = %s and type = 'purchase'
+                order by created_at desc, id desc
+                limit 1
+                """,
+                (purchase_id,),
+            ).fetchone()
+        return ledger_from_row(row) if row else None
 
     def create_stripe_purchase(self, *, business_id: str, package_code: str, idempotency_key: str) -> CreditPurchaseRecord:
         return create_stripe_purchase_pg(self._connect, business_id=business_id, package_code=package_code, idempotency_key=idempotency_key)

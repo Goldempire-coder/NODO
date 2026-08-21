@@ -1,6 +1,21 @@
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
-import type { CreditPurchase } from "../../types/credits";
+import type { AdminCreditPurchaseSummary } from "../../types/credits";
 import { Empty, Header, ReasonBox, Table } from "./AdminWebPrimitives";
+
+const WARNING_LABELS: Record<string, string> = {
+  CREDITED_WITHOUT_LEDGER: "La compra figura acreditada, pero no tiene ledger relacionado.",
+  CREDIT_PURCHASE_EXPIRED: "La compra expiro sin completar la reconciliacion.",
+  LEDGER_STATUS_MISMATCH: "El ledger y el estado de la compra requieren revision.",
+  ONCHAIN_VERIFICATION_FAILED: "La verificacion on-chain fallo.",
+  PAYMENT_REQUIRES_REVIEW: "La evidencia requiere revision Admin."
+};
+
+function matchLabel(value: boolean | null) {
+  if (value === null) {
+    return "Sin evidencia";
+  }
+  return value ? "Coincide" : "No coincide";
+}
 
 export function CreditPurchases({ model }: { model: AdminWebModel }) {
   return (
@@ -11,14 +26,16 @@ export function CreditPurchases({ model }: { model: AdminWebModel }) {
         <button type="button" onClick={() => model.setView("credit-adjustments")}>Ajuste manual</button>
       </div>
       <div className="admin-web-credit-purchases-list-scroll" role="region" aria-label="Lista de compras de creditos admin" tabIndex={0}>
-        <Table headers={["Business", "Paquete", "Creditos", "Status", ""]}>
-          {model.creditPurchases.map((item: CreditPurchase) => (
+        <Table headers={["Business", "Paquete", "Creditos", "Monto", "Metodo", "Status", ""]}>
+          {model.creditPurchases.map((item: AdminCreditPurchaseSummary) => (
             <tr key={item.id}>
               <td>{item.business_id}</td>
               <td>{item.package_code}</td>
               <td>{item.credits_amount}</td>
+              <td>${item.price_usd}</td>
+              <td>{item.payment_method}</td>
               <td>{item.status}</td>
-              <td><button type="button" onClick={() => { model.setSelectedCreditPurchase(item); model.setView("credit-detail"); }}>Detalle</button></td>
+              <td><button type="button" onClick={() => void model.setSelectedCreditPurchase(item)}>Detalle</button></td>
             </tr>
           ))}
         </Table>
@@ -36,27 +53,103 @@ export function CreditPurchases({ model }: { model: AdminWebModel }) {
 }
 
 export function CreditDetail({ model }: { model: AdminWebModel }) {
-  const purchase = model.selectedCreditPurchase;
-  if (!purchase) {
+  const detail = model.selectedCreditPurchase;
+  if (!detail) {
     return <Empty text="Selecciona una compra." />;
   }
+  const { ledger, onchain_evidence: evidence, purchase, reconciliation } = detail;
+  const canApprove = purchase.status === "pending_manual_review";
+  const canReject = canApprove || (purchase.payment_method === "base_usdc_onchain" && purchase.status === "under_review");
   return (
-    <section className="admin-web-split">
-      <div className="admin-web-panel">
-        <h2>A-05 Compra manual</h2>
-        <dl className="admin-web-dl">
-          <dt>Paquete</dt><dd>{purchase.package_code}</dd>
-          <dt>Status</dt><dd>{purchase.status}</dd>
-          <dt>Creditos</dt><dd>{purchase.credits_amount}</dd>
-          <dt>Metodo</dt><dd>{purchase.payment_method}</dd>
-        </dl>
-      </div>
-      <div className="admin-web-panel">
-        <ReasonBox model={model} />
-        <div className="admin-web-actions">
-          <button disabled={!model.adminMutable} type="button" onClick={() => model.reviewCreditPurchase("approve")}>Aprobar</button>
-          <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.reviewCreditPurchase("reject")}>Rechazar</button>
+    <section className="admin-web-credit-detail-scroll" role="region" aria-label="Reconciliacion de compra de creditos" tabIndex={0}>
+      <div className="admin-web-credit-detail-header">
+        <div>
+          <p>Admin Creditos</p>
+          <h2>Detalle y reconciliacion</h2>
         </div>
+        <button type="button" onClick={() => { void model.setSelectedCreditPurchase(null); model.setView("credit-purchases"); }}>Volver</button>
+      </div>
+      <div className="admin-web-credit-detail-grid">
+        <section className="admin-web-credit-detail-section">
+          <h3>Compra</h3>
+          <dl className="admin-web-dl">
+            <dt>ID</dt><dd>{purchase.id}</dd>
+            <dt>Negocio</dt><dd>{purchase.business_id}</dd>
+            <dt>Paquete</dt><dd>{purchase.package_code}</dd>
+            <dt>Estado</dt><dd>{purchase.status}</dd>
+            <dt>Creditos</dt><dd>{purchase.credits_amount}</dd>
+            <dt>Monto esperado</dt><dd>${purchase.price_usd}</dd>
+            <dt>Metodo</dt><dd>{purchase.payment_method}</dd>
+          </dl>
+        </section>
+
+        <section className="admin-web-credit-detail-section">
+          <h3>Diagnostico</h3>
+          <p className={`admin-web-credit-reconciliation admin-web-credit-reconciliation--${reconciliation.state}`}>
+            Estado: {reconciliation.state}
+          </p>
+          {reconciliation.warning_codes.length ? (
+            <ul className="admin-web-credit-warning-list">
+              {reconciliation.warning_codes.map((code) => <li key={code}>{WARNING_LABELS[code] || code}</li>)}
+            </ul>
+          ) : <p>Compra y ledger relacionados sin warnings.</p>}
+        </section>
+
+        {evidence ? (
+          <section className="admin-web-credit-detail-section">
+            <h3>Evidencia on-chain enmascarada</h3>
+            <dl className="admin-web-dl">
+              <dt>Red</dt><dd>{evidence.network || "-"} ({evidence.chain_id ?? "-"})</dd>
+              <dt>Token</dt><dd>{evidence.token_symbol || "-"} / {evidence.token_contract_address_masked || "-"}</dd>
+              <dt>Wallet destino</dt><dd>{evidence.destination_wallet_masked || "-"}</dd>
+              <dt>Hash</dt><dd>{evidence.tx_hash_masked || "No reportado"}</dd>
+              <dt>Monto esperado</dt><dd>{evidence.expected_amount_units ?? "-"}</dd>
+              <dt>Monto detectado</dt><dd>{evidence.tx_amount_units ?? "-"}</dd>
+              <dt>Destino</dt><dd>{matchLabel(evidence.destination_matches)}</dd>
+              <dt>Monto</dt><dd>{matchLabel(evidence.amount_matches)}</dd>
+              <dt>Confirmaciones</dt><dd>{evidence.confirmations ?? "-"}</dd>
+              <dt>Verificacion</dt><dd>{evidence.verification_status || "pendiente"}</dd>
+            </dl>
+          </section>
+        ) : (
+          <section className="admin-web-credit-detail-section">
+            <h3>Evidencia manual</h3>
+            <dl className="admin-web-dl">
+              <dt>Referencia</dt><dd>{purchase.manual_payment_reference_masked || "-"}</dd>
+              <dt>Hash</dt><dd>{purchase.manual_tx_hash_masked || "-"}</dd>
+              <dt>Red</dt><dd>{purchase.manual_network || "-"}</dd>
+            </dl>
+          </section>
+        )}
+
+        <section className="admin-web-credit-detail-section">
+          <h3>Ledger relacionado</h3>
+          {ledger ? (
+            <dl className="admin-web-dl">
+              <dt>Ledger ID</dt><dd>{ledger.id}</dd>
+              <dt>Compra relacionada</dt><dd>{ledger.related_credit_purchase_id || "-"}</dd>
+              <dt>Movimiento</dt><dd>{ledger.type} / {ledger.amount}</dd>
+              <dt>Disponible</dt><dd>{ledger.balance_available_before} → {ledger.balance_available_after}</dd>
+              <dt>Bloqueado</dt><dd>{ledger.balance_blocked_before} → {ledger.balance_blocked_after}</dd>
+              <dt>Consumido</dt><dd>{ledger.balance_consumed_before} → {ledger.balance_consumed_after}</dd>
+            </dl>
+          ) : <p>Sin movimiento de ledger relacionado.</p>}
+        </section>
+
+        {canApprove || canReject ? (
+          <section className="admin-web-credit-detail-section admin-web-credit-review-actions">
+            <h3>Revision Admin</h3>
+            <ReasonBox
+              model={model}
+              label="Razon obligatoria para revisar compra de creditos"
+              placeholder="Indica el motivo operativo antes de aprobar o rechazar"
+            />
+            <div className="admin-web-actions">
+              {canApprove ? <button disabled={!model.adminMutable} type="button" onClick={() => model.reviewCreditPurchase("approve")}>Aprobar</button> : null}
+              {canReject ? <button className="danger" disabled={!model.adminMutable} type="button" onClick={() => model.reviewCreditPurchase("reject")}>Rechazar</button> : null}
+            </div>
+          </section>
+        ) : null}
       </div>
     </section>
   );

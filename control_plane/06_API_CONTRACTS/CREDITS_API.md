@@ -273,9 +273,23 @@ Referral qualification:
   - business_id
   - cursor
   - limit 1..50
-- Response:
-  - compras con datos sensibles masked
-  - proof metadata sin `storage_path`
+- Response de lista liviana:
+  - id
+  - business_id
+  - package_code
+  - credits_amount
+  - price_usd
+  - payment_method
+  - status
+  - verification_status opcional
+  - has_reported_tx
+  - created_at
+  - updated_at
+  - next_cursor
+- El listado no incluye ledger, proof metadata, direcciones, hashes completos ni
+  metadata on-chain amplia.
+- El listado devuelve una sola pagina; default 20 y maximo 50.
+- El detalle y la reconciliacion no se precargan.
 
 ### POST /api/v1/admin/credit-purchases/{id}/approve
 
@@ -298,33 +312,89 @@ Referral qualification:
 - Idempotency-Key: obligatorio.
 - Body:
   - reason requerido
-- Solo para `pending_manual_review`.
+- Aplica a:
+  - compra manual en `pending_manual_review`
+  - compra `base_usdc_onchain` en `under_review`
 - Escribe `credit_purchases.status = rejected`.
 - No acredita creditos.
 - Audit:
-  - manual_credit_payment_rejected
+  - `manual_credit_payment_rejected` para compra manual
+  - `onchain_credit_purchase_rejected` para compra on-chain
+- Prohibe support.
+- Es la unica ruta Admin oficial para rechazo/revision manual de compras de
+  creditos. No existe un endpoint separado de rechazo on-chain en este contrato.
 
 ### GET /api/v1/admin/credit-purchases/{id}
 
 - Auth: admin/super_admin; support read-only enmascarado si contrato admin lo permite.
+- Se carga solo cuando Admin abre `Detalle`; no se precarga desde el listado y no
+  agrega polling.
 - Response:
-  - detalle de compra con datos sensibles masked
-  - metadata on-chain segura si payment_method = `base_usdc_onchain`
-  - proof metadata sin `storage_path`
+  - `purchase`: detalle operativo de la compra
+  - `onchain_evidence`: metadata segura si payment_method = `base_usdc_onchain`
+  - `ledger`: movimiento relacionado por `related_credit_purchase_id`, o null
+  - `reconciliation`: estado y warnings calculados por backend
+- `onchain_evidence` puede incluir:
+  - chain_id
+  - network
+  - token_symbol
+  - expected_amount_units
+  - tx_amount_units
+  - destination_wallet_masked
+  - tx_hash_masked
+  - tx_from_address_masked
+  - tx_to_address_masked
+  - tx_block_number
+  - tx_log_index
+  - confirmations
+  - verification_status
+  - detected_at
+  - verified_at
+  - credited_at
+  - expires_at
+  - comparaciones booleanas calculadas por backend, sin exponer direcciones completas
+- `ledger` puede incluir:
+  - id
+  - type
+  - amount
+  - balance_available_before
+  - balance_available_after
+  - balance_blocked_before
+  - balance_blocked_after
+  - balance_consumed_before
+  - balance_consumed_after
+  - reason
+  - source
+  - reference_type
+  - reference_id
+  - related_credit_purchase_id
+  - created_at
+- `reconciliation.state` usa valores de lectura Admin:
+  - matched
+  - pending
+  - warning
+  - failed
+- `reconciliation.warning_codes` es una lista de codigos operativos neutrales.
+- Una compra acreditada sin ledger relacionado debe usar state `warning` y warning
+  `CREDITED_WITHOUT_LEDGER`. Esto no muta compra, wallet ni ledger.
+- `under_review`, `verification_failed` y `expired` deben producir un estado
+  operacional claro sin acreditar ni reintentar desde el endpoint de lectura.
 - No expone RPC keys, raw provider responses, private keys, seed phrases ni signed URLs persistidas.
+- No expone hashes, wallets ni direcciones completas. Una revelacion futura exige
+  otro contrato con razon obligatoria y auditoria.
 
-### POST /api/v1/admin/credit-purchases/{id}/onchain-reject
+## Admin credit reconciliation cost policy
 
-- Auth: admin/super_admin.
-- Idempotency-Key: obligatorio.
-- Body:
-  - reason requerido
-- Solo para `under_review`.
-- Escribe `credit_purchases.status = rejected`.
-- No acredita creditos.
-- Audit:
-  - onchain_payment_rejected
-- Prohibe support.
+- Entrar a Admin no carga compras de creditos.
+- Entrar a `Creditos` carga solo la primera pagina del filtro seleccionado.
+- `Cargar mas` usa `next_cursor`, conserva filtros y evita duplicados.
+- El detalle, la evidencia on-chain, el ledger relacionado y la reconciliacion se
+  cargan solo por accion explicita `Detalle`.
+- No se agrega polling para compras, evidencia, ledger ni reconciliacion.
+- El ledger general usa limite 1..50 y debe paginar con cursor estable
+  `(created_at, id)`.
+- La relacion compra-ledger usa `related_credit_purchase_id` y una consulta acotada;
+  no recorre el ledger completo.
 
 ### POST /api/v1/admin/credits/adjust
 

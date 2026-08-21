@@ -4,6 +4,7 @@ from threading import RLock
 
 from app.core.errors import ApiError
 from app.modules.ads.models import CreditLedgerRecord, CreditWalletRecord, new_id, utc_now
+from app.shared.keyset_pagination import paginate_descending
 
 
 class InMemoryCreditWalletStore:
@@ -21,11 +22,13 @@ class InMemoryCreditWalletStore:
         items = [item for item in self._ads.ledger.values() if item.business_id == business_id]
         if ledger_type:
             items = [item for item in items if item.type == ledger_type]
-        if cursor:
-            items = [item for item in items if item.created_at.isoformat() < cursor]
-        items.sort(key=lambda item: item.created_at, reverse=True)
-        page = items[:limit]
-        return page, page[-1].created_at.isoformat() if len(page) == limit else None
+        return paginate_descending(
+            items,
+            timestamp_of=lambda item: item.created_at,
+            id_of=lambda item: item.id,
+            cursor=cursor,
+            limit=limit,
+        )
 
     def adjust_wallet(self, *, business_id: str, amount: int, direction: str, reason: str, notes: str | None, created_by: str) -> CreditLedgerRecord:
         signed_amount = amount if direction == "add" else -amount

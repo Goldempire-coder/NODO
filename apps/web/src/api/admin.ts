@@ -2,7 +2,9 @@ import type {
   AdminAuditLogListResponse,
   AdminBusinessIntakeListResponse,
   AdminBusinessListResponse,
+  AdminCreditPurchaseDetailResponse,
   AdminCreditPurchaseListResponse,
+  AdminCreditPurchaseMutationResponse,
   AdminDisputeDetailResponse,
   AdminDisputeListResponse,
   AdminDisputeResolveResponse,
@@ -379,8 +381,12 @@ export function listAdminCreditPurchases(request: AuthenticatedRequest, status?:
   return request<AdminCreditPurchaseListResponse>(`/api/v1/admin/credit-purchases?${listParams(20, "status", status, cursor)}`);
 }
 
-export function reviewAdminCreditPurchase<T>(request: AuthenticatedRequest, purchaseId: string, action: "approve" | "reject", reason: string, idempotencyKey: string) {
-  return request<T>(`/api/v1/admin/credit-purchases/${purchaseId}/${action}`, {
+export function getAdminCreditPurchaseDetail(request: AuthenticatedRequest, purchaseId: string) {
+  return request<AdminCreditPurchaseDetailResponse>(`/api/v1/admin/credit-purchases/${purchaseId}`);
+}
+
+export function reviewAdminCreditPurchase(request: AuthenticatedRequest, purchaseId: string, action: "approve" | "reject", reason: string, idempotencyKey: string) {
+  return request<AdminCreditPurchaseMutationResponse>(`/api/v1/admin/credit-purchases/${purchaseId}/${action}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

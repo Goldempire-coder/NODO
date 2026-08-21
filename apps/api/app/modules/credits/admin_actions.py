@@ -6,7 +6,13 @@ from app.core.errors import ApiError
 from app.modules.credits.models import CreditPurchaseRecord
 from app.modules.credits.policy import require_admin_mutation, require_admin_view
 from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest
-from app.modules.credits.serializers import ledger_public, purchase_public
+from app.modules.credits.serializers import (
+    admin_onchain_evidence,
+    admin_purchase_detail,
+    admin_purchase_reconciliation,
+    admin_purchase_summary,
+    ledger_public,
+)
 from app.modules.users.models import UserRecord
 
 
@@ -32,12 +38,14 @@ class CreditAdminActions:
         require_admin_view(user)
         self._rate_limit("admin_list_purchases", user.id)
         items, next_cursor = self._repository.list_purchases(status=status, business_id=business_id, cursor=cursor, limit=limit)
-        return {"items": [purchase_public(item, admin=True) for item in items], "next_cursor": next_cursor}
+        return {"items": [admin_purchase_summary(item) for item in items], "next_cursor": next_cursor}
 
     def purchase_detail(self, *, user: UserRecord, purchase_id: str) -> dict[str, Any]:
         require_admin_view(user)
         self._rate_limit("admin_purchase_detail", user.id)
-        return {"purchase": purchase_public(self._purchase_or_404(purchase_id), admin=True)}
+        purchase = self._purchase_or_404(purchase_id)
+        ledger = self._repository.ledger_for_purchase(purchase.id)
+        return self._detail_payload(purchase, ledger)
 
     def approve_purchase(self, *, user: UserRecord, purchase_id: str, payload: AdminReviewCreditPurchaseRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         require_admin_mutation(user)
@@ -51,7 +59,7 @@ class CreditAdminActions:
             updated, ledger = self._repository.approve_purchase(purchase=purchase, actor_user_id=user.id, admin_note=payload.reason)
             self._audit.write(event_type="manual_credit_payment_approved", actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"reason": payload.reason})
             self._audit.write(event_type="credits_added", actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"ledger_id": ledger.id if ledger else None, "amount": updated.credits_amount})
-            return {"purchase": purchase_public(updated, admin=True), "ledger": ledger_public(ledger) if ledger else None}
+            return self._detail_payload(updated, ledger)
 
         return self._idempotency.replay_or_store(
             f"credits:admin_approve:{purchase_id}:{stable_key}",
@@ -69,7 +77,7 @@ class CreditAdminActions:
             updated = self._repository.reject_purchase(purchase=purchase, admin_user_id=user.id, reason=payload.reason)
             event_type = "onchain_credit_purchase_rejected" if purchase.payment_method == "base_usdc_onchain" else "manual_credit_payment_rejected"
             self._audit.write(event_type=event_type, actor_user_id=user.id, actor_role=user.role, resource_type="credit_purchase", resource_id=purchase.id, request_id=request_id, metadata_json={"reason": payload.reason})
-            return {"purchase": purchase_public(updated, admin=True)}
+            return self._detail_payload(updated, self._repository.ledger_for_purchase(updated.id))
 
         return self._idempotency.replay_or_store(
             f"credits:admin_reject:{purchase_id}:{stable_key}",
@@ -108,3 +116,12 @@ class CreditAdminActions:
         if purchase is None:
             raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
         return purchase
+
+    @staticmethod
+    def _detail_payload(purchase: CreditPurchaseRecord, ledger) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+        return {
+            "purchase": admin_purchase_detail(purchase),
+            "onchain_evidence": admin_onchain_evidence(purchase),
+            "ledger": ledger_public(ledger) if ledger else None,
+            "reconciliation": admin_purchase_reconciliation(purchase, ledger),
+        }

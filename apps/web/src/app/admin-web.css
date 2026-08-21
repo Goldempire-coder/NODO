@@ -948,6 +948,91 @@
   top: 0;
 }
 
+.admin-web-credit-detail-scroll {
+  min-height: 0;
+  max-height: calc(100dvh - 190px);
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel);
+  scrollbar-gutter: stable;
+}
+
+.admin-web-credit-detail-scroll:focus-visible {
+  outline: 2px solid var(--admin-blue);
+  outline-offset: 3px;
+}
+
+.admin-web-credit-detail-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-web-credit-detail-header h2,
+.admin-web-credit-detail-header p,
+.admin-web-credit-detail-section h3,
+.admin-web-credit-detail-section p {
+  margin: 0;
+}
+
+.admin-web-credit-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-web-credit-detail-section {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--admin-line);
+}
+
+.admin-web-credit-detail-section h3 {
+  margin-bottom: 10px;
+}
+
+.admin-web-credit-detail-section dd {
+  overflow-wrap: anywhere;
+}
+
+.admin-web-credit-reconciliation {
+  font-weight: 700;
+}
+
+.admin-web-credit-reconciliation--warning,
+.admin-web-credit-reconciliation--failed,
+.admin-web-credit-warning-list {
+  color: var(--admin-amber);
+}
+
+.admin-web-credit-warning-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.admin-web-credit-review-actions {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 720px) {
+  .admin-web-credit-detail-scroll {
+    max-height: calc(100dvh - 150px);
+    padding: 10px;
+  }
+
+  .admin-web-credit-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-web-credit-detail-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .admin-web-order-code-cell {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 13px;

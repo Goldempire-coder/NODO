@@ -6,7 +6,7 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlencode
@@ -1179,6 +1179,156 @@ def test_admin_detail_and_reject_onchain_under_review_requires_admin_reason() ->
     assert rejected.status_code == 200, rejected.text
     assert rejected.json()["data"]["purchase"]["status"] == "rejected"
     assert "onchain_credit_purchase_rejected" in _event_types(client)
+
+
+def test_admin_credit_purchase_list_is_lightweight_and_detail_reconciles_masked_onchain_credit() -> None:
+    client = _client()
+    owner = _login(client, 1991, "credit_reconciliation_owner")
+    business = _create_business(client, owner, "credit_reconciliation_owner")
+    admin = _login(client, 1992, "credit_reconciliation_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    payment = _base_payment(client, owner, key="credit_reconciliation_purchase")
+    purchase_id = payment["purchase"]["id"]
+    tx_hash = _tx_hash("credit-reconciliation-valid")
+    client.app.state.onchain_credit_verifier.set_result(tx_hash, _verification(tx_hash, log_index=52))
+    submitted = client.post(
+        f"/api/v1/business/credits/purchases/{purchase_id}/tx-hash",
+        headers={**_headers(owner, "credit_reconciliation_submit"), "Content-Type": "application/json"},
+        json={"tx_hash": tx_hash},
+    )
+    listed = client.get(
+        "/api/v1/admin/credit-purchases?status=credited&limit=20",
+        headers=_bearer(admin, "req_credit_reconciliation_list"),
+    )
+    detail = client.get(
+        f"/api/v1/admin/credit-purchases/{purchase_id}",
+        headers=_bearer(admin, "req_credit_reconciliation_detail"),
+    )
+
+    assert submitted.status_code == 200, submitted.text
+    assert listed.status_code == 200, listed.text
+    summary = next(item for item in listed.json()["data"]["items"] if item["id"] == purchase_id)
+    assert set(summary) == {
+        "id",
+        "business_id",
+        "package_code",
+        "credits_amount",
+        "price_usd",
+        "payment_method",
+        "status",
+        "verification_status",
+        "has_reported_tx",
+        "created_at",
+        "updated_at",
+    }
+
+    assert detail.status_code == 200, detail.text
+    data = detail.json()["data"]
+    assert data["purchase"]["id"] == purchase_id
+    assert data["purchase"]["business_id"] == business["id"]
+    assert data["ledger"]["reference_id"] == purchase_id
+    assert data["ledger"]["balance_available_before"] == 0
+    assert data["ledger"]["balance_available_after"] == 5
+    assert data["reconciliation"] == {"state": "matched", "warning_codes": []}
+    evidence = data["onchain_evidence"]
+    assert evidence["tx_hash_masked"].endswith(tx_hash[-8:])
+    assert "tx_hash" not in evidence
+    assert "destination_wallet_address" not in evidence
+    assert "tx_to_address" not in evidence
+    serialized_detail = json.dumps(data)
+    assert tx_hash not in serialized_detail
+    assert BASE_WALLET not in serialized_detail
+
+
+def test_admin_credit_purchase_detail_warns_when_credited_purchase_has_no_ledger() -> None:
+    client = _client()
+    owner = _login(client, 1993, "credit_missing_ledger_owner")
+    _create_business(client, owner, "credit_missing_ledger_owner")
+    admin = _login(client, 1994, "credit_missing_ledger_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    payment = _base_payment(client, owner, key="credit_missing_ledger_purchase")
+    purchase = client.app.state.credit_repository.get_purchase(payment["purchase"]["id"])
+    purchase.status = "credited"
+    purchase.credited_at = utc_now()
+
+    detail = client.get(
+        f"/api/v1/admin/credit-purchases/{purchase.id}",
+        headers=_bearer(admin, "req_credit_missing_ledger_detail"),
+    )
+
+    assert detail.status_code == 200, detail.text
+    data = detail.json()["data"]
+    assert data["ledger"] is None
+    assert data["reconciliation"] == {
+        "state": "warning",
+        "warning_codes": ["CREDITED_WITHOUT_LEDGER"],
+    }
+
+
+def test_admin_credit_purchase_detail_explains_non_terminal_onchain_states() -> None:
+    client = _client()
+    owner = _login(client, 1996, "credit_diagnostic_owner")
+    _create_business(client, owner, "credit_diagnostic_owner")
+    admin = _login(client, 1997, "credit_diagnostic_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+    expected = {
+        "under_review": ("pending", ["PAYMENT_REQUIRES_REVIEW"]),
+        "verification_failed": ("failed", ["ONCHAIN_VERIFICATION_FAILED"]),
+        "expired": ("failed", ["CREDIT_PURCHASE_EXPIRED"]),
+    }
+
+    for index, (status, (state, warning_codes)) in enumerate(expected.items()):
+        payment = _base_payment(client, owner, key=f"credit_diagnostic_{index}")
+        purchase = client.app.state.credit_repository.get_purchase(payment["purchase"]["id"])
+        purchase.status = status
+        detail = client.get(
+            f"/api/v1/admin/credit-purchases/{purchase.id}",
+            headers=_bearer(admin, f"req_credit_diagnostic_{index}"),
+        )
+        assert detail.status_code == 200, detail.text
+        assert detail.json()["data"]["reconciliation"] == {
+            "state": state,
+            "warning_codes": warning_codes,
+        }
+
+
+def test_memory_credit_ledger_cursor_does_not_lose_tied_timestamps() -> None:
+    client = _client()
+    owner = _login(client, 1995, "credit_ledger_cursor_owner")
+    business = _create_business(client, owner, "credit_ledger_cursor_owner")
+    repository = client.app.state.credit_repository
+    fixed_at = datetime(2026, 8, 21, 12, 0, tzinfo=timezone.utc)
+    entries = [
+        repository.adjust_wallet(
+            business_id=business["id"],
+            amount=1,
+            direction="add",
+            reason=f"cursor_tie_{index}",
+            notes=None,
+            created_by=owner["user"]["id"],
+        )
+        for index in range(3)
+    ]
+    for entry in entries:
+        entry.created_at = fixed_at
+
+    first, cursor = repository.list_ledger(
+        business_id=business["id"],
+        ledger_type=None,
+        cursor=None,
+        limit=2,
+    )
+    second, final_cursor = repository.list_ledger(
+        business_id=business["id"],
+        ledger_type=None,
+        cursor=cursor,
+        limit=2,
+    )
+
+    assert cursor is not None
+    assert final_cursor is None
+    assert len({item.id for item in [*first, *second]}) == 3
 
 
 def test_base_usdc_purchase_does_not_duplicate_referral_bonus_awarded_on_approval() -> None:
