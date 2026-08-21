@@ -405,7 +405,7 @@ class AdminNotificationService:
                         "channel": "telegram",
                         "target_surface": ADMIN_TELEGRAM_TARGET_SURFACE,
                         "message_text": self._admin_telegram_message(notification),
-                        "action_text": "Abrir Admin",
+                        "action_text": "Abrir panel Admin",
                         "action_url": self._admin_action_url(),
                         "admin_notification_id": notification.id,
                         "admin_notification_type": notification.notification_type,
@@ -423,9 +423,15 @@ class AdminNotificationService:
     def _admin_telegram_message(self, notification: AdminNotificationRecord) -> str:
         if notification.notification_type == "business_intake_submitted":
             return (
-                f"NODO: llego una solicitud de negocio: {notification.summary} "
-                "Revisa los datos antes de aprobarla."
+                "NODO alerta\n\n"
+                f"Nueva solicitud de negocio: {notification.summary}\n\n"
+                "Accion sugerida: abre Admin > Intake y revisa datos, documentos "
+                "y prioridad antes de aprobar o rechazar."
             )
         if notification.notification_type == "admin_telegram_alert_test":
-            return "NODO: prueba de alertas Admin. Si recibes esto, el canal esta activo. No tienes que hacer nada."
+            return (
+                "NODO alerta Admin\n\n"
+                "Prueba recibida. El canal esta activo.\n\n"
+                "No tienes que hacer nada."
+            )
         return f"NODO: {notification.title}. {notification.summary}"

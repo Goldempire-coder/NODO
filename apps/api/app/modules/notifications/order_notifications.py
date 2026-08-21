@@ -446,10 +446,12 @@ class OrderNotificationService:
                             "target_surface": ADMIN_ALERT_TARGET_SURFACE,
                             "public_order_code": order.public_order_code,
                             "message_text": (
-                                f"NODO: se abrio una disputa en la orden {order.public_order_code}. "
-                                "Revisa el caso en Admin antes de tomar accion."
+                                "NODO alerta\n\n"
+                                f"Se abrio una disputa en la orden {order.public_order_code}.\n\n"
+                                "Accion sugerida: abre Admin > Disputas para revisar el caso "
+                                "antes de resolverlo."
                             ),
-                            "action_text": "Abrir Admin",
+                            "action_text": "Abrir panel Admin",
                             "action_url": f"{self._settings.telegram_web_app_url}/?surface=admin",
                             "order_id": order.id,
                             "dispute_id": dispute_id,

@@ -69,7 +69,7 @@ class PostgresUserRepository(PostgresUserSessionsMixin):
                 from users
                 where status = 'active'
                   and role in ('admin', 'super_admin')
-                  and (admin_alert_telegram_id is not null or telegram_id is not null)
+                  and admin_alert_telegram_id is not null
                 order by created_at asc, id asc
                 """
             ).fetchall()

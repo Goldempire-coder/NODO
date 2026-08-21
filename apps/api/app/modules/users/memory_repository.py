@@ -73,7 +73,7 @@ class InMemoryUserRepository:
                 for user in self._users_by_id.values()
                 if user.status == "active"
                 and user.role in {"admin", "super_admin"}
-                and (user.admin_alert_telegram_id is not None or user.telegram_id is not None)
+                and user.admin_alert_telegram_id is not None
             ],
             key=lambda user: (user.created_at, user.id),
         )

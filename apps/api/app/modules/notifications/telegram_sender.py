@@ -141,7 +141,7 @@ class NotificationSenderWorker:
         target_surface = str(metadata.get("target_surface") or "")
         if target_surface == ADMIN_ALERT_TARGET_SURFACE and user.role not in {"admin", "super_admin"}:
             raise TelegramNotificationError("RECIPIENT_NOT_AUTHORIZED", retryable=False)
-        chat_id = (user.admin_alert_telegram_id or user.telegram_id) if target_surface == ADMIN_ALERT_TARGET_SURFACE else user.telegram_id
+        chat_id = user.admin_alert_telegram_id if target_surface == ADMIN_ALERT_TARGET_SURFACE else user.telegram_id
         if chat_id is None:
             raise TelegramNotificationError("TELEGRAM_CHAT_UNAVAILABLE", retryable=False)
 

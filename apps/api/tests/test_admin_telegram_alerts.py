@@ -216,12 +216,16 @@ def test_admin_telegram_alert_test_endpoint_sends_safe_message_to_linked_admin()
         {
             "bot_token": ADMIN_BOT_TOKEN,
             "chat_id": 700999,
-            "text": "NODO: prueba de alertas Admin. Si recibes esto, el canal esta activo. No tienes que hacer nada.",
+            "text": (
+                "NODO alerta Admin\n\n"
+                "Prueba recibida. El canal esta activo.\n\n"
+                "No tienes que hacer nada."
+            ),
             "reply_markup": {
                 "inline_keyboard": [
                     [
                         {
-                            "text": "Abrir Admin",
+                            "text": "Abrir panel Admin",
                             "url": "https://nodo-staging.pages.dev/?surface=admin",
                         }
                     ]
@@ -250,7 +254,9 @@ def test_admin_telegram_alert_test_endpoint_rejects_support() -> None:
 def test_business_intake_notification_enqueues_admin_telegram_alerts_only_for_active_admins() -> None:
     users = InMemoryUserRepository()
     admin = _admin_user(users, telegram_id=101, role="admin")
+    admin.admin_alert_telegram_id = 1001
     super_admin = _admin_user(users, telegram_id=202, role="super_admin")
+    super_admin.admin_alert_telegram_id = 2002
     _admin_user(users, telegram_id=303, role="support")
     _admin_user(users, telegram_id=404, role="admin", status="blocked")
     jobs = InMemoryJobRepository()
@@ -277,9 +283,39 @@ def test_business_intake_notification_enqueues_admin_telegram_alerts_only_for_ac
         assert metadata["target_surface"] == "admin_alerts"
         assert metadata["action_url"] == "https://nodo-staging.pages.dev/?surface=admin"
         assert "Envios Zulia" in metadata["message_text"]
+        assert "Admin > Intake" in metadata["message_text"]
+        assert "antes de aprobar o rechazar" in metadata["message_text"]
+        assert metadata["action_text"] == "Abrir panel Admin"
         assert "token" not in str(metadata).lower()
         assert "101" not in str(metadata)
         assert "202" not in str(metadata)
+
+
+def test_admin_telegram_alerts_do_not_enqueue_primary_telegram_fallbacks() -> None:
+    users = InMemoryUserRepository()
+    linked_admin = _admin_user(users, telegram_id=101, role="admin")
+    linked_admin.admin_alert_telegram_id = 1001
+    unlinked_admin = _admin_user(users, telegram_id=202, role="admin")
+    assert unlinked_admin.admin_alert_telegram_id is None
+    _admin_user(users, telegram_id=303, role="super_admin")
+    jobs = InMemoryJobRepository()
+    service = AdminNotificationService(
+        repository=InMemoryAdminNotificationRepository(),
+        job_repository=jobs,
+        user_repository=users,
+        admin_telegram_alerts_enabled=True,
+        admin_app_url="https://nodo-staging.pages.dev",
+    )
+
+    intake = SimpleNamespace(id=str(uuid4()), business_name="Envios Zulia", status="submitted", city="Maracaibo")
+    service.business_intake_submitted(intake=intake, request_id="req_admin_telegram_intake_linked_only")
+
+    alert_jobs = [
+        job
+        for job in jobs.notification_jobs.values()
+        if job.notification_type == "admin_alert_business_intake_submitted"
+    ]
+    assert {job.recipient_user_id for job in alert_jobs} == {linked_admin.id}
 
 
 def test_notification_sender_uses_admin_bot_and_url_button_for_admin_alerts() -> None:
@@ -295,6 +331,7 @@ def test_notification_sender_uses_admin_bot_and_url_button_for_admin_alerts() ->
     )
     users = InMemoryUserRepository()
     admin = _admin_user(users, telegram_id=909, role="super_admin")
+    admin.admin_alert_telegram_id = 1909
     jobs = InMemoryJobRepository()
     jobs.enqueue_notification(
         notification_type="admin_alert_business_intake_submitted",
@@ -304,8 +341,8 @@ def test_notification_sender_uses_admin_bot_and_url_button_for_admin_alerts() ->
         metadata_json={
             "channel": "telegram",
             "target_surface": "admin_alerts",
-            "message_text": "NODO: llego una solicitud de negocio.",
-            "action_text": "Abrir Admin",
+            "message_text": "NODO alerta\n\nNueva solicitud de negocio.\n\nAccion sugerida: abre Admin > Intake.",
+            "action_text": "Abrir panel Admin",
             "action_url": "https://nodo-staging.pages.dev/?surface=admin",
         },
     )
@@ -318,13 +355,13 @@ def test_notification_sender_uses_admin_bot_and_url_button_for_admin_alerts() ->
     assert adapter.calls == [
         {
             "bot_token": ADMIN_BOT_TOKEN,
-            "chat_id": 909,
-            "text": "NODO: llego una solicitud de negocio.",
+            "chat_id": 1909,
+            "text": "NODO alerta\n\nNueva solicitud de negocio.\n\nAccion sugerida: abre Admin > Intake.",
             "reply_markup": {
                 "inline_keyboard": [
                     [
                         {
-                            "text": "Abrir Admin",
+                            "text": "Abrir panel Admin",
                             "url": "https://nodo-staging.pages.dev/?surface=admin",
                         }
                     ]
@@ -409,6 +446,42 @@ def test_notification_sender_prefers_admin_alert_chat_without_changing_regular_t
     assert result["counters"]["sent"] == 1
     assert adapter.calls[0]["bot_token"] == ADMIN_BOT_TOKEN
     assert adapter.calls[0]["chat_id"] == 222
+
+
+def test_notification_sender_rejects_admin_alert_without_linked_admin_chat() -> None:
+    settings = load_settings(
+        {
+            "APP_ENV": "test",
+            "DATABASE_URL": "postgresql://user:password@127.0.0.1:1/nodo",
+            "REDIS_URL": "redis://127.0.0.1:1/0",
+            "BOT_TOKEN": BOT_TOKEN,
+            "BUSINESS_INTAKE_BOT_TOKEN": BUSINESS_INTAKE_BOT_TOKEN,
+            "NODO_ADMIN_TELEGRAM_BOT_TOKEN": ADMIN_BOT_TOKEN,
+        }
+    )
+    users = InMemoryUserRepository()
+    admin = _admin_user(users, telegram_id=111, role="admin")
+    assert admin.admin_alert_telegram_id is None
+    jobs = InMemoryJobRepository()
+    jobs.enqueue_notification(
+        notification_type="admin_alert_business_intake_submitted",
+        recipient_user_id=admin.id,
+        scheduled_for=datetime.now(timezone.utc),
+        dedupe_key="admin-alert-requires-linked-chat",
+        metadata_json={
+            "channel": "telegram",
+            "target_surface": "admin_alerts",
+            "message_text": "NODO: alerta Admin.",
+        },
+    )
+    adapter = FakeTelegramAdapter()
+    worker = NotificationSenderWorker(settings=settings, job_repository=jobs, user_repository=users, adapter=adapter)
+
+    result = worker.run(now=datetime.now(timezone.utc), request_id="req_admin_telegram_requires_linked_chat")
+
+    assert result["counters"]["sent"] == 0
+    assert result["counters"]["failed_permanent"] == 1
+    assert not adapter.calls
 
 
 def test_admin_telegram_start_confirms_only_linked_admin() -> None:
@@ -510,6 +583,7 @@ def test_dispute_opened_enqueues_admin_telegram_alerts_without_private_details()
     )
     users = InMemoryUserRepository()
     admin = _admin_user(users, telegram_id=818, role="admin")
+    admin.admin_alert_telegram_id = 1818
     _admin_user(users, telegram_id=819, role="support")
     jobs = InMemoryJobRepository()
     service = OrderNotificationService(
@@ -539,6 +613,9 @@ def test_dispute_opened_enqueues_admin_telegram_alerts_without_private_details()
     assert metadata["target_surface"] == "admin_alerts"
     assert metadata["action_url"] == "https://nodo-staging.pages.dev/?surface=admin"
     assert "NODO-ABC12345" in metadata["message_text"]
+    assert "Admin > Disputas" in metadata["message_text"]
+    assert "revisar el caso" in metadata["message_text"].lower()
+    assert metadata["action_text"] == "Abrir panel Admin"
     forbidden = str(metadata).lower()
     assert "reason" not in forbidden
     assert "storage_path" not in forbidden

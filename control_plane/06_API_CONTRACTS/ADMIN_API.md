@@ -51,7 +51,7 @@ Todas las rutas admin requieren:
 - Responde con la notificacion Admin y contadores de envio; no expone token, chat id ni Telegram completo.
 - Rate limit por Admin para evitar spam de pruebas.
 - No cambia roles, negocios, access links, ordenes, creditos, disputas, wallets ni configuracion.
-- El mensaje permitido es neutral: `NODO: prueba de alertas Admin. Si recibes esto, el canal esta activo. No tienes que hacer nada.`
+- El mensaje permitido es neutral: `NODO alerta Admin. Prueba recibida. El canal esta activo. No tienes que hacer nada.`
 
 `POST /api/v1/admin-telegram/webhook`
 
@@ -66,12 +66,12 @@ Todas las rutas admin requieren:
 - No cambia roles, negocios, access links, ordenes, creditos, disputas ni
   wallets.
 - Las alertas salientes se envian solo a `recipient_user_id` concretos de
-  Admin/Super Admin activos con `admin_alert_telegram_id` o Telegram primario
-  vinculado.
+  Admin/Super Admin activos con `admin_alert_telegram_id`; no usan el Telegram
+  primario como fallback.
 - Audit log: `admin_telegram_alert_chat_linked`, con hash corto del Telegram,
   nunca el identificador completo.
-- El boton permitido abre Admin Web por URL. No ejecuta acciones mutantes desde
-  Telegram.
+- El boton permitido abre Admin Web por URL con texto `Abrir panel Admin`. No
+  ejecuta acciones mutantes desde Telegram.
 - Payloads no incluyen tokens, initData, telefono completo, datos bancarios,
   wallets privadas, documentos, signed URLs, `storage_path` ni razones privadas.
 
