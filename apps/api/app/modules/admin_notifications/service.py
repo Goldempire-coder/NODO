@@ -21,6 +21,7 @@ logger = get_logger(__name__)
 
 ADMIN_TELEGRAM_TARGET_SURFACE = "admin_alerts"
 ADMIN_TELEGRAM_ALERT_TYPES = {
+    "admin_telegram_alert_test": "admin_alert_test",
     "business_intake_submitted": "admin_alert_business_intake_submitted",
 }
 
@@ -331,6 +332,24 @@ class AdminNotificationService:
             request_id=request_id,
         )
 
+    def admin_telegram_alert_test(self, *, user: UserRecord, request_id: str) -> dict[str, Any]:
+        require_admin_mutation(user)
+        notification, _created = self.enqueue(
+            notification_type="admin_telegram_alert_test",
+            priority="info",
+            source_surface="admin_web",
+            resource_type="admin_telegram_alerts",
+            resource_id=None,
+            actor_user_id=user.id,
+            title="Prueba de alerta Telegram",
+            summary="Canal Admin verificado con una alerta de prueba.",
+            action_route="admin://dashboard",
+            dedupe_key=f"admin_telegram_alert_test:{user.id}:{request_id}",
+            metadata={"test": True},
+            request_id=request_id,
+        )
+        return {"notification": admin_notification_public(notification)}
+
     def telegram_failed_permanent(self, *, notification, error_code: str, request_id: str) -> None:  # type: ignore[no-untyped-def]
         self.enqueue(
             notification_type="telegram_notification_failed_permanent",
@@ -407,4 +426,6 @@ class AdminNotificationService:
                 f"NODO: llego una solicitud de negocio: {notification.summary} "
                 "Revisa los datos antes de aprobarla."
             )
+        if notification.notification_type == "admin_telegram_alert_test":
+            return "NODO: prueba de alertas Admin. Si recibes esto, el canal esta activo. No tienes que hacer nada."
         return f"NODO: {notification.title}. {notification.summary}"

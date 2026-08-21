@@ -281,6 +281,7 @@ notification_jobs.notification_type:
 - order_auto_completed_after_24h
 - ad_expired
 - founder_access_expired
+- admin_alert_test
 - admin_alert_business_intake_submitted
 - admin_alert_dispute_opened
 

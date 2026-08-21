@@ -170,6 +170,7 @@ Tipos canonicos:
 | ad_expired | negocio | anuncio vence por edad | Tu anuncio cumplio 7 dias, se archivo y el credito fue consumido. |
 | founder_access_expired | negocio | `founder_expires_at <= now` | Tu periodo fundador expiro; nuevas publicaciones requieren creditos disponibles. |
 | structured_operation_report_admin | admin/super_admin concreto | futuro 42F2 procesa un reporte estructurado | Nuevo reporte de operacion. Revisar Admin Web. |
+| admin_alert_test | admin/super_admin concreto | Admin Web solicita prueba manual del canal | NODO: prueba de alertas Admin. Si recibes esto, el canal esta activo. No tienes que hacer nada. |
 | admin_alert_business_intake_submitted | admin/super_admin concreto | se crea `business_intake_submitted` en Admin Web | Nueva solicitud de negocio. Revisa datos antes de aprobar. |
 | admin_alert_dispute_opened | admin/super_admin concreto | se abre una disputa de orden | Disputa abierta. Revisar Admin Web antes de tomar accion. |
 

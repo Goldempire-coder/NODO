@@ -43,6 +43,16 @@ Todas las rutas admin requieren:
 - Audit log: `admin_telegram_alert_link_code_created`, sin codigo en claro.
 - Rate limit por Admin para evitar spam de codigos.
 
+`POST /api/v1/admin/telegram-alerts/test`
+
+- Requiere `admin` o `super_admin` activo.
+- Encola y procesa una alerta Telegram de prueba para destinatarios Admin/Super Admin vinculados.
+- Usa `notification_type = admin_telegram_alert_test` en Admin Web y `notification_jobs.notification_type = admin_alert_test` para Telegram.
+- Responde con la notificacion Admin y contadores de envio; no expone token, chat id ni Telegram completo.
+- Rate limit por Admin para evitar spam de pruebas.
+- No cambia roles, negocios, access links, ordenes, creditos, disputas, wallets ni configuracion.
+- El mensaje permitido es neutral: `NODO: prueba de alertas Admin. Si recibes esto, el canal esta activo. No tienes que hacer nada.`
+
 `POST /api/v1/admin-telegram/webhook`
 
 - Usa `X-Telegram-Bot-Api-Secret-Token` derivado de

@@ -154,6 +154,20 @@ def test_admin_telegram_linking_migration_is_reversible_and_separate_from_primar
     assert "drop column if exists admin_alert_telegram_id" in down
 
 
+def test_admin_telegram_test_alert_migration_is_reversible_and_sender_scoped() -> None:
+    root = Path(__file__).resolve().parents[3]
+    up = (root / "database" / "migrations" / "0056_admin_telegram_test_alert.up.sql").read_text(encoding="utf-8")
+    down = (root / "database" / "migrations" / "0056_admin_telegram_test_alert.down.sql").read_text(encoding="utf-8")
+    notification_types = (root / "apps" / "api" / "app" / "modules" / "notifications" / "notification_types.py").read_text(encoding="utf-8")
+
+    assert "admin_alert_test" in up
+    assert "admin_alert_test" not in down
+    assert "admin_alert_test" in notification_types
+    assert "ADMIN_ALERT_NOTIFICATION_TYPES" in notification_types
+    assert "drop constraint if exists notification_jobs_type_check" in up
+    assert "drop constraint if exists notification_jobs_type_check" in down
+
+
 def test_admin_dashboard_exposes_temporary_telegram_alert_link_code_action() -> None:
     root = Path(__file__).resolve().parents[3]
     dashboard = (root / "apps" / "web" / "src" / "screens" / "admin-web" / "AdminDashboardScreen.tsx").read_text(encoding="utf-8")
@@ -165,6 +179,72 @@ def test_admin_dashboard_exposes_temporary_telegram_alert_link_code_action() -> 
     assert "adminTelegramAlertLinkCode" in dashboard
     assert "createAdminTelegramAlertLinkCode" in model
     assert "/api/v1/admin/telegram-alerts/link-code" in api
+    assert "Enviar prueba" not in dashboard
+    assert "requestAdminTelegramAlertTest" not in dashboard
+    assert "requestAdminTelegramAlertTest" not in model
+    assert "sendAdminTelegramAlertTest" not in api
+
+
+def test_admin_telegram_alert_test_endpoint_sends_safe_message_to_linked_admin() -> None:
+    client = _client()
+    admin_login = _login(client, 700888, "admin_alert_test")
+    admin_id = admin_login["user"]["id"]
+    client.app.state.user_repository.set_user_role(admin_id, "super_admin")
+    admin = client.app.state.user_repository.get_user_by_id(admin_id)
+    assert admin is not None
+    admin.admin_alert_telegram_id = 700999
+    adapter = FakeTelegramAdapter()
+    client.app.state.notification_sender_worker = NotificationSenderWorker(
+        settings=client.app.state.settings,
+        job_repository=client.app.state.job_repository,
+        user_repository=client.app.state.user_repository,
+        adapter=adapter,
+        admin_notifications=client.app.state.admin_notification_service,
+    )
+
+    response = client.post(
+        "/api/v1/admin/telegram-alerts/test",
+        headers=_bearer(admin_login, "req_admin_telegram_alert_test"),
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()["data"]
+    assert payload["notification"]["notification_type"] == "admin_telegram_alert_test"
+    assert payload["sender_result"]["counters"]["sent"] == 1
+    assert payload["sender_result"]["counters"]["processed"] == 1
+    assert adapter.calls == [
+        {
+            "bot_token": ADMIN_BOT_TOKEN,
+            "chat_id": 700999,
+            "text": "NODO: prueba de alertas Admin. Si recibes esto, el canal esta activo. No tienes que hacer nada.",
+            "reply_markup": {
+                "inline_keyboard": [
+                    [
+                        {
+                            "text": "Abrir Admin",
+                            "url": "https://nodo-staging.pages.dev/?surface=admin",
+                        }
+                    ]
+                ]
+            },
+        }
+    ]
+    serialized = json.dumps(payload).lower()
+    assert ADMIN_BOT_TOKEN.lower() not in serialized
+    assert "700999" not in serialized
+
+
+def test_admin_telegram_alert_test_endpoint_rejects_support() -> None:
+    client = _client()
+    support_login = _login(client, 700889, "support_alert_test")
+    client.app.state.user_repository.set_user_role(support_login["user"]["id"], "support")
+
+    response = client.post(
+        "/api/v1/admin/telegram-alerts/test",
+        headers=_bearer(support_login, "req_support_admin_telegram_alert_test"),
+    )
+
+    assert response.status_code == 403
 
 
 def test_business_intake_notification_enqueues_admin_telegram_alerts_only_for_active_admins() -> None:

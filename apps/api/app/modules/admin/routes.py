@@ -115,6 +115,30 @@ def create_admin_telegram_alert_link_code(request: Request, user: UserRecord = D
     }
 
 
+@router.post("/telegram-alerts/test")
+def send_admin_telegram_alert_test(request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
+    require_admin_mutation(user)
+    rate_key = f"admin:telegram_alert_test:{user.id}"
+    if not request.app.state.rate_limiter.allow(rate_key, max_attempts=5, window_seconds=600):
+        raise ApiError("RATE_LIMITED", status_code=429)
+
+    data = request.app.state.admin_notification_service.admin_telegram_alert_test(
+        user=user,
+        request_id=_request_id(request),
+    )
+    sender_result = request.app.state.notification_sender_worker.run(
+        batch_size=10,
+        request_id=f"{_request_id(request)}:admin_telegram_alert_test",
+    )
+    return {
+        "data": {
+            **data,
+            "sender_result": sender_result,
+        },
+        "request_id": _request_id(request),
+    }
+
+
 @router.get("/emergency-mode")
 def emergency_mode(request: Request, user: UserRecord = Depends(require_current_user)) -> dict:
     return {"data": _service(request).emergency_mode(user=user, request_id=_request_id(request)), "request_id": _request_id(request)}
