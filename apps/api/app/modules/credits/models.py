@@ -27,7 +27,7 @@ BASE_USDC_CONTRACT_ADDRESS = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 BASE_USDC_DECIMALS = 6
 ONCHAIN_CREDIT_LEDGER_REASON = "base_usdc_onchain_verified"
 
-PURCHASE_METHODS = {"stripe_checkout", "zelle_manual_admin_approved", "usdt_manual_admin_approved", "base_usdc_onchain"}
+PURCHASE_METHODS = {"stripe_checkout", "zelle_manual_admin_approved", "usdt_manual_admin_approved", "base_usdc_onchain", "base_usdc_contract"}
 PURCHASE_STATUSES = {
     "created",
     "pending_payment",
@@ -73,6 +73,16 @@ class CreditPurchaseRecord:
     token_decimals: int | None = None
     expected_amount_units: int | None = None
     destination_wallet_address: str | None = None
+    onchain_purchase_ref: str | None = None
+    onchain_payer_address: str | None = None
+    payment_contract_address: str | None = None
+    payment_contract_version: int | None = None
+    payment_authorization_expires_at: datetime | None = None
+    payment_authorization_digest: str | None = None
+    payment_authorization_signature: str | None = None
+    payment_authorization_signer_address: str | None = None
+    payment_authorization_signer_version: str | None = None
+    payment_authorization_signed_at: datetime | None = None
     tx_hash: str | None = None
     tx_amount_units: int | None = None
     tx_from_address: str | None = None

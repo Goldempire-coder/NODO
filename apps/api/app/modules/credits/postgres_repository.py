@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from app.modules.ads.models import CreditLedgerRecord, CreditWalletRecord
 from app.modules.businesses.models import FileAssetRecord
-from app.modules.credits.models import CreditPurchaseRecord, ReferralCodeRecord, ReferralEventRecord
-from app.modules.credits.postgres_referral_bonus import award_referral_on_business_approval_pg
+from app.modules.credits.models import (
+    CreditPurchaseRecord,
+    ReferralCodeRecord,
+    ReferralEventRecord,
+)
 from app.modules.credits.postgres_admin_adjustment import adjust_wallet_pg
+from app.modules.credits.postgres_contract_purchase import create_contract_purchase_pg
 from app.modules.credits.postgres_purchases import (
     apply_onchain_verification_pg,
     approve_purchase_pg,
@@ -13,12 +17,20 @@ from app.modules.credits.postgres_purchases import (
     create_stripe_purchase_pg,
     find_purchase_by_checkout_session_pg,
     get_purchase_pg,
-    list_purchases_pg,
     list_onchain_pending_purchases_pg,
+    list_purchases_pg,
     reject_purchase_pg,
     stripe_event_processed_pg,
 )
-from app.modules.credits.postgres_referrals import admin_referral_summary_pg, apply_referral_code_pg, get_or_create_referral_code_pg, list_referral_events_for_business_pg
+from app.modules.credits.postgres_referral_bonus import (
+    award_referral_on_business_approval_pg,
+)
+from app.modules.credits.postgres_referrals import (
+    admin_referral_summary_pg,
+    apply_referral_code_pg,
+    get_or_create_referral_code_pg,
+    list_referral_events_for_business_pg,
+)
 from app.modules.credits.row_mappers import ledger_from_row, wallet_from_row
 from app.shared.db.connection import pooled_connect
 from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor
@@ -134,6 +146,9 @@ class PostgresCreditRepository:
             destination_wallet_address=destination_wallet_address,
             expires_at=expires_at,
         )
+
+    def create_contract_purchase(self, **kwargs) -> tuple[CreditPurchaseRecord, bool]:  # type: ignore[no-untyped-def]
+        return create_contract_purchase_pg(self._connect, **kwargs)
 
     def get_purchase(self, purchase_id: str) -> CreditPurchaseRecord | None:
         return get_purchase_pg(self._connect, purchase_id)

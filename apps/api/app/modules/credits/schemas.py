@@ -13,9 +13,17 @@ class StripeCheckoutRequest(StrictRequestModel):
     cancel_url: str | None = Field(default=None, max_length=500)
 
 
-class BaseUsdcPaymentRequest(StrictRequestModel):
+class LegacyBaseUsdcPaymentRequest(StrictRequestModel):
     package_code: str = Field(pattern="^(starter|pro|business|enterprise)$")
     token_symbol: str = Field(default="USDC", pattern="^USDC$")
+
+
+class ContractBaseUsdcPaymentRequest(StrictRequestModel):
+    package_code: str = Field(pattern="^(starter|pro|business|enterprise)$")
+    payer_wallet_address: str = Field(pattern="^0x[a-fA-F0-9]{40}$")
+
+
+BaseUsdcPaymentRequest = ContractBaseUsdcPaymentRequest | LegacyBaseUsdcPaymentRequest
 
 
 class BaseUsdcTxHashRequest(StrictRequestModel):

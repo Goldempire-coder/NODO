@@ -7,7 +7,11 @@ from app.modules.businesses.models import FileAssetRecord
 from app.modules.credits.memory_purchases import InMemoryCreditPurchaseStore
 from app.modules.credits.memory_referrals import InMemoryReferralStore
 from app.modules.credits.memory_wallet import InMemoryCreditWalletStore
-from app.modules.credits.models import CreditPurchaseRecord, ReferralCodeRecord, ReferralEventRecord
+from app.modules.credits.models import (
+    CreditPurchaseRecord,
+    ReferralCodeRecord,
+    ReferralEventRecord,
+)
 
 
 class InMemoryCreditRepository:
@@ -90,6 +94,9 @@ class InMemoryCreditRepository:
             destination_wallet_address=destination_wallet_address,
             expires_at=expires_at,
         )
+
+    def create_contract_purchase(self, **kwargs) -> tuple[CreditPurchaseRecord, bool]:  # type: ignore[no-untyped-def]
+        return self._purchase_store.create_contract_purchase(**kwargs)
 
     def get_purchase(self, purchase_id: str) -> CreditPurchaseRecord | None:
         return self._purchase_store.get_purchase(purchase_id)

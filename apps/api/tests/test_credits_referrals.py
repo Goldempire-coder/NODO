@@ -11,11 +11,15 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlencode
 
+import pytest
+from eth_account import Account
+from eth_account.messages import encode_typed_data
 from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.core.errors import ApiError
 from app.modules.credits.onchain import JsonRpcBaseUsdcVerifier, OnchainVerificationResult
+from app.modules.credits.payment_authorizations import authorization_is_expired
 
 
 BOT_TOKEN = "123456:test-bot-token"
@@ -24,7 +28,16 @@ JWT_REFRESH_SECRET = "test-refresh-secret"
 STRIPE_WEBHOOK_SECRET = "whsec_test_secret"
 BASE_WALLET = "0x1111111111111111111111111111111111111111"
 BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+PAYMENT_CONTRACT = "0x3333333333333333333333333333333333333333"
+PAYER_WALLET = "0x2222222222222222222222222222222222222222"
 VALID_PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
+CONTRACT_ENV_KEYS = (
+    "NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS",
+    "NODO_CREDIT_PAYMENT_CONTRACT_VERSION",
+    "NODO_CREDIT_AUTH_SIGNER_KEY",
+    "NODO_CREDIT_AUTH_SIGNER_ADDRESS",
+    "NODO_CREDIT_AUTH_SIGNER_VERSION",
+)
 
 
 def _image_bytes(image_format: str) -> bytes:
@@ -69,6 +82,7 @@ _set_env()
 from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.credits import business_purchases as business_purchases_module  # noqa: E402
 
 
 class FakeBaseUsdcVerifier:
@@ -93,11 +107,32 @@ class FakeBaseUsdcVerifier:
 
 
 def _client(**env_overrides: str) -> TestClient:
+    for key in CONTRACT_ENV_KEYS:
+        if key not in env_overrides:
+            os.environ.pop(key, None)
     _set_env(**env_overrides)
     client = TestClient(create_app())
     client.app.state.onchain_credit_verifier = FakeBaseUsdcVerifier()
     client.app.state.verify_base_usdc_credit_purchases_worker._verifier = client.app.state.onchain_credit_verifier
     return client
+
+
+def _contract_client(**env_overrides: str | None) -> tuple[TestClient, str]:
+    signer = Account.create()
+    contract_env = {
+        "NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS": PAYMENT_CONTRACT,
+        "NODO_CREDIT_PAYMENT_CONTRACT_VERSION": "2",
+        "NODO_CREDIT_AUTH_SIGNER_KEY": signer.key.hex(),
+        "NODO_CREDIT_AUTH_SIGNER_ADDRESS": signer.address,
+        "NODO_CREDIT_AUTH_SIGNER_VERSION": "test-signer-v1",
+        "ONCHAIN_CREDIT_AUTHORIZATION_TTL_MINUTES": "15",
+    }
+    contract_env.update({key: value for key, value in env_overrides.items() if value is not None})
+    for key, value in env_overrides.items():
+        if value is None:
+            contract_env.pop(key, None)
+            os.environ.pop(key, None)
+    return _client(**contract_env), signer.address
 
 
 def _signed_init_data(telegram_id: int, username: str) -> str:
@@ -399,11 +434,19 @@ def test_legacy_credit_payment_methods_can_be_disabled() -> None:
         data={"package_code": "starter", "payment_method": "zelle_manual_admin_approved", "manual_payment_reference": "ZELLE-LEGACY"},
         files={"file": ("proof.pdf", VALID_PDF, "application/pdf")},
     )
+    base = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "legacy_disabled_base"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "token_symbol": "USDC"},
+    )
 
     assert stripe.status_code == 410
     assert stripe.json()["error"]["code"] == "CREDIT_PAYMENT_METHOD_DISABLED"
     assert manual.status_code == 410
     assert manual.json()["error"]["code"] == "CREDIT_PAYMENT_METHOD_DISABLED"
+    assert base.status_code == 410
+    assert base.json()["error"]["code"] == "CREDIT_PAYMENT_METHOD_DISABLED"
+    assert client.app.state.credit_repository.purchases == {}
 
 
 def test_manual_payment_submit_pending_admin_approve_once_and_reject_never_credits() -> None:
@@ -915,6 +958,267 @@ def test_base_usdc_payment_rejects_client_supplied_destination_wallet() -> None:
     )
 
     assert response.status_code == 422
+    assert client.app.state.credit_repository.purchases == {}
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("business_id", "00000000-0000-0000-0000-000000000001"),
+        ("amount", "10.00"),
+        ("price", "10.00"),
+        ("credits_amount", 5),
+        ("token", "USDC"),
+        ("token_symbol", "USDC"),
+        ("token_contract_address", BASE_USDC),
+        ("chain_id", 8453),
+        ("network", "base_mainnet"),
+        ("treasury", BASE_WALLET),
+        ("destination_wallet_address", BASE_WALLET),
+        ("contract_address", PAYMENT_CONTRACT),
+        ("contract_version", 2),
+        ("valid_until", 1_800_000_000),
+        ("expires_at", "2027-01-01T00:00:00Z"),
+        ("purchase_ref", "0x" + "a" * 64),
+        ("authorization", {"amount": 10_000_000}),
+        ("signature", "0x" + "b" * 130),
+    ],
+)
+def test_contract_payment_rejects_client_authority_fields_without_side_effects(field: str, value: object) -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1100, f"contract_forbidden_{field}")
+    _create_business(client, owner, f"contract_forbidden_{field}")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, f"contract_forbidden_{field}"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET, field: value},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert client.app.state.credit_repository.purchases == {}
+
+
+def test_contract_mode_rejects_legacy_body_even_when_legacy_flag_is_enabled() -> None:
+    client, _ = _contract_client(LEGACY_CREDIT_PAYMENT_METHODS_ENABLED="1")
+    owner = _login(client, 1105, "contract_rejects_legacy")
+    _create_business(client, owner, "contract_rejects_legacy")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_rejects_legacy"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "token_symbol": "USDC"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert client.app.state.credit_repository.purchases == {}
+
+
+def test_contract_mode_rejects_legacy_body_when_legacy_flag_is_disabled_without_side_effects() -> None:
+    client, _ = _contract_client(LEGACY_CREDIT_PAYMENT_METHODS_ENABLED="0")
+    owner = _login(client, 1107, "contract_rejects_disabled_legacy")
+    business = _create_business(client, owner, "contract_rejects_disabled_legacy")
+    wallet_before = client.app.state.credit_repository.get_wallet(business["id"])
+    credits_before = wallet_before.available_credits if wallet_before is not None else 0
+    ledger_count_before = len(client.app.state.ad_repository.ledger)
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_rejects_disabled_legacy"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "token_symbol": "USDC"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert "authorization_signature" not in response.text
+    assert client.app.state.credit_repository.purchases == {}
+    assert len(client.app.state.ad_repository.ledger) == ledger_count_before
+    wallet_after = client.app.state.credit_repository.get_wallet(business["id"])
+    credits_after = wallet_after.available_credits if wallet_after is not None else 0
+    assert credits_after == credits_before
+
+
+def test_legacy_base_payment_remains_available_without_contract_configuration() -> None:
+    client = _client(LEGACY_CREDIT_PAYMENT_METHODS_ENABLED="1")
+    owner = _login(client, 1106, "legacy_base_compatibility")
+    _create_business(client, owner, "legacy_base_compatibility")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "legacy_base_compatibility"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "token_symbol": "USDC"},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["data"]["purchase"]["payment_method"] == "base_usdc_onchain"
+
+
+def test_contract_payment_signs_backend_snapshot_and_does_not_credit() -> None:
+    client, signer_address = _contract_client()
+    owner = _login(client, 1110, "contract_valid")
+    business = _create_business(client, owner, "contract_valid")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_valid"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET.upper().replace("0X", "0x")},
+    )
+
+    assert response.status_code == 201, response.text
+    data = response.json()["data"]
+    purchase = data["purchase"]
+    payment = data["payment"]
+    assert purchase["business_id"] == business["id"]
+    assert purchase["payment_method"] == "base_usdc_contract"
+    assert purchase["status"] == "pending_payment"
+    assert payment["payer_wallet_address"] == PAYER_WALLET
+    assert payment["contract_address"] == PAYMENT_CONTRACT
+    assert payment["contract_version"] == 2
+    assert payment["purchase_ref"].startswith("0x") and len(payment["purchase_ref"]) == 66
+    assert payment["authorization_signature"].startswith("0x") and len(payment["authorization_signature"]) == 132
+    recovered = Account.recover_message(
+        encode_typed_data(full_message=payment["authorization_typed_data"]),
+        signature=payment["authorization_signature"],
+    )
+    assert recovered.lower() == signer_address.lower()
+    stored = client.app.state.credit_repository.get_purchase(purchase["id"])
+    assert stored is not None
+    assert stored.payment_authorization_signer_address == signer_address.lower()
+    assert client.app.state.credit_repository.ledger_for_purchase(purchase["id"]) is None
+    wallet = client.app.state.credit_repository.get_wallet(business["id"])
+    assert wallet is None or wallet.available_credits == 0
+
+
+def test_contract_payment_idempotency_replays_same_signature_and_rejects_payload_change() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1120, "contract_replay")
+    _create_business(client, owner, "contract_replay")
+    headers = {**_headers(owner, "contract_replay"), "Content-Type": "application/json"}
+    payload = {"package_code": "starter", "payer_wallet_address": PAYER_WALLET}
+
+    first = client.post("/api/v1/business/credits/base-payment", headers=headers, json=payload)
+    replay = client.post("/api/v1/business/credits/base-payment", headers=headers, json=payload)
+    mismatch = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers=headers,
+        json={"package_code": "starter", "payer_wallet_address": "0x4444444444444444444444444444444444444444"},
+    )
+
+    assert first.status_code == 201, first.text
+    assert replay.status_code == 201, replay.text
+    assert replay.json()["data"] == first.json()["data"]
+    assert mismatch.status_code == 409
+    assert mismatch.json()["error"]["code"] == "IDEMPOTENCY_PAYLOAD_MISMATCH"
+    assert len(client.app.state.credit_repository.purchases) == 1
+
+
+def test_contract_payment_replay_rejects_an_expired_cached_authorization(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1121, "contract_expired_replay")
+    _create_business(client, owner, "contract_expired_replay")
+    headers = {**_headers(owner, "contract_expired_replay"), "Content-Type": "application/json"}
+    payload = {"package_code": "starter", "payer_wallet_address": PAYER_WALLET}
+
+    first = client.post("/api/v1/business/credits/base-payment", headers=headers, json=payload)
+    valid_until = first.json()["data"]["payment"]["authorization_valid_until"]
+    monkeypatch.setattr(
+        business_purchases_module,
+        "utc_now",
+        lambda: datetime.fromtimestamp(valid_until, tz=timezone.utc),
+    )
+    replay = client.post("/api/v1/business/credits/base-payment", headers=headers, json=payload)
+
+    assert first.status_code == 201, first.text
+    assert replay.status_code == 409
+    assert replay.json()["error"]["code"] == "CRYPTO_PAYMENT_AUTHORIZATION_EXPIRED"
+    assert len(client.app.state.credit_repository.purchases) == 1
+
+
+def test_contract_payment_fails_closed_when_signer_configuration_is_missing() -> None:
+    client, _ = _contract_client(NODO_CREDIT_AUTH_SIGNER_KEY="")
+    owner = _login(client, 1130, "contract_no_signer")
+    _create_business(client, owner, "contract_no_signer")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_no_signer"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "CRYPTO_PAYMENT_SIGNER_UNAVAILABLE"
+    assert client.app.state.credit_repository.purchases == {}
+
+
+def test_contract_payment_fails_closed_when_contract_version_is_missing() -> None:
+    client, _ = _contract_client(NODO_CREDIT_PAYMENT_CONTRACT_VERSION=None)
+    owner = _login(client, 1133, "contract_no_version")
+    _create_business(client, owner, "contract_no_version")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_no_version"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "CRYPTO_CONTRACT_PAYMENT_NOT_CONFIGURED"
+    assert client.app.state.credit_repository.purchases == {}
+
+
+def test_contract_payment_rejects_zero_payer_and_invalid_contract_configuration() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1131, "contract_zero_payer")
+    _create_business(client, owner, "contract_zero_payer")
+    zero_payer = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_zero_payer"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": "0x" + "0" * 40},
+    )
+    assert zero_payer.status_code == 422
+    assert client.app.state.credit_repository.purchases == {}
+
+    invalid_client, _ = _contract_client(NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS="0x" + "0" * 40)
+    invalid_owner = _login(invalid_client, 1132, "contract_zero_contract")
+    _create_business(invalid_client, invalid_owner, "contract_zero_contract")
+    invalid_contract = invalid_client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(invalid_owner, "contract_zero_contract"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert invalid_contract.status_code == 503
+    assert invalid_contract.json()["error"]["code"] == "CRYPTO_CONTRACT_PAYMENT_NOT_CONFIGURED"
+    assert invalid_client.app.state.credit_repository.purchases == {}
+
+
+def test_contract_authorization_expiration_uses_strict_boundary() -> None:
+    boundary = datetime(2026, 8, 22, 12, 0, tzinfo=timezone.utc)
+
+    assert authorization_is_expired(valid_until=int(boundary.timestamp()), now=boundary) is True
+    assert authorization_is_expired(valid_until=int(boundary.timestamp()), now=boundary - timedelta(seconds=1)) is False
+
+
+@pytest.mark.parametrize("gate", ["not_approved", "business_blocked", "owner_link_missing"])
+def test_contract_payment_requires_full_business_owner_access(gate: str) -> None:
+    client, _ = _contract_client()
+    owner = _login(client, {"not_approved": 1140, "business_blocked": 1141, "owner_link_missing": 1142}[gate], f"contract_{gate}")
+    business = _create_business(client, owner, f"contract_{gate}", approved=gate != "not_approved")
+    stored = client.app.state.business_repository.get_business(business["id"])
+    if gate == "business_blocked":
+        stored.verification_status = "blocked"
+    if gate == "owner_link_missing":
+        for link in client.app.state.business_repository.list_access_links_for_business(business["id"]):
+            link.status = "revoked"
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, f"contract_{gate}"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+
+    assert response.status_code in {403, 409}
     assert client.app.state.credit_repository.purchases == {}
 
 
@@ -1454,7 +1758,6 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "USDT TRC20 manual" not in source
     assert "Comprobante privado" not in source
 
-
 def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_choice() -> None:
     source = open("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx", encoding="utf-8").read()
     hook_source = open("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts", encoding="utf-8").read()
@@ -1470,7 +1773,6 @@ def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_cho
     assert "Continuar pago pendiente" in source
     assert "Elige un paquete para generar el pago." in source
     assert "disabled={generatingCreditPayment || !creditPackage}" in source
-
 
 def test_postgres_onchain_duplicate_tx_log_path_is_atomic() -> None:
     source = open("apps/api/app/modules/credits/postgres_onchain.py", encoding="utf-8").read()

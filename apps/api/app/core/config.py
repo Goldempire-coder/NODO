@@ -22,6 +22,7 @@ SECRET_ENV_KEYS = {
     "ADMIN_BOOTSTRAP_SECRET",
     "BASE_RPC_URL",
     "BASE_RPC_API_KEY",
+    "NODO_CREDIT_AUTH_SIGNER_KEY",
 }
 
 REQUIRED_ENV_KEYS = ("APP_ENV", "DATABASE_URL", "REDIS_URL")
@@ -53,6 +54,13 @@ class Settings:
     base_rpc_url: str | None
     base_rpc_api_key: str | None
     nodo_credit_receiving_wallet_base: str | None
+    nodo_credit_payment_contract_address: str | None
+    nodo_credit_payment_contract_version: int | None
+    nodo_credit_auth_signer_key: str | None
+    nodo_credit_auth_signer_address: str | None
+    nodo_credit_auth_signer_version: str | None
+    onchain_credit_authorization_ttl_minutes: int
+    nodo_credit_payment_contract_paused: bool
     onchain_credit_min_confirmations: int
     onchain_credit_purchase_ttl_minutes: int
     onchain_credit_watcher_enabled: bool
@@ -130,6 +138,13 @@ def _read_int(source: Mapping[str, str], key: str, default: int) -> int:
     return value
 
 
+def _read_optional_int(source: Mapping[str, str], key: str) -> int | None:
+    raw_value = source.get(key)
+    if not raw_value:
+        return None
+    return _read_int(source, key, 1)
+
+
 def _read_bool(source: Mapping[str, str], key: str, default: bool) -> bool:
     raw_value = source.get(key)
     if raw_value is None or raw_value == "":
@@ -186,6 +201,13 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         base_rpc_url=source.get("BASE_RPC_URL") or None,
         base_rpc_api_key=source.get("BASE_RPC_API_KEY") or None,
         nodo_credit_receiving_wallet_base=source.get("NODO_CREDIT_RECEIVING_WALLET_BASE") or None,
+        nodo_credit_payment_contract_address=source.get("NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS") or None,
+        nodo_credit_payment_contract_version=_read_optional_int(source, "NODO_CREDIT_PAYMENT_CONTRACT_VERSION"),
+        nodo_credit_auth_signer_key=source.get("NODO_CREDIT_AUTH_SIGNER_KEY") or None,
+        nodo_credit_auth_signer_address=source.get("NODO_CREDIT_AUTH_SIGNER_ADDRESS") or None,
+        nodo_credit_auth_signer_version=source.get("NODO_CREDIT_AUTH_SIGNER_VERSION") or None,
+        onchain_credit_authorization_ttl_minutes=_read_int(source, "ONCHAIN_CREDIT_AUTHORIZATION_TTL_MINUTES", 15),
+        nodo_credit_payment_contract_paused=_read_bool(source, "NODO_CREDIT_PAYMENT_CONTRACT_PAUSED", False),
         onchain_credit_min_confirmations=_read_int(source, "ONCHAIN_CREDIT_MIN_CONFIRMATIONS", 6),
         onchain_credit_purchase_ttl_minutes=_read_int(source, "ONCHAIN_CREDIT_PURCHASE_TTL_MINUTES", 30),
         onchain_credit_watcher_enabled=_read_bool(

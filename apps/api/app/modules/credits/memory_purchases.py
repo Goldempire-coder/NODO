@@ -15,7 +15,10 @@ from app.modules.credits.models import (
     ONCHAIN_CREDIT_LEDGER_REASON,
     CreditPurchaseRecord,
 )
-from app.modules.credits.onchain import OnchainVerificationResult, normalize_credit_verification
+from app.modules.credits.onchain import (
+    OnchainVerificationResult,
+    normalize_credit_verification,
+)
 from app.shared.keyset_pagination import paginate_descending
 
 
@@ -120,6 +123,75 @@ class InMemoryCreditPurchaseStore:
             )
             self.purchases[purchase.id] = purchase
             return purchase
+
+    def create_contract_purchase(
+        self,
+        *,
+        business_id: str,
+        package_code: str,
+        idempotency_key: str,
+        expected_amount_units: int,
+        destination_wallet_address: str,
+        purchase_ref: str,
+        payer_address: str,
+        contract_address: str,
+        contract_version: int,
+        authorization_expires_at,
+        authorization_digest: str,
+        authorization_signature: str,
+        signer_address: str,
+        signer_version: str,
+        signed_at,
+    ) -> tuple[CreditPurchaseRecord, bool]:  # type: ignore[no-untyped-def]
+        package = CREDIT_PACKAGES[package_code]
+        with self._lock:
+            existing = next(
+                (
+                    item
+                    for item in self.purchases.values()
+                    if item.business_id == business_id and item.idempotency_key == idempotency_key
+                ),
+                None,
+            )
+            if existing is not None:
+                if (
+                    existing.payment_method != "base_usdc_contract"
+                    or existing.package_code != package_code
+                    or existing.onchain_payer_address != payer_address
+                ):
+                    raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
+                return existing, False
+            purchase = CreditPurchaseRecord(
+                id=new_id(),
+                business_id=business_id,
+                package_code=package_code,
+                credits_amount=package["credits"],
+                price_usd=package["price_usd"],
+                payment_method="base_usdc_contract",
+                status="pending_payment",
+                idempotency_key=idempotency_key,
+                chain_id=BASE_MAINNET_CHAIN_ID,
+                network=BASE_MAINNET_NETWORK,
+                token_symbol=BASE_USDC_TOKEN_SYMBOL,
+                token_contract_address=BASE_USDC_CONTRACT_ADDRESS,
+                token_decimals=BASE_USDC_DECIMALS,
+                expected_amount_units=expected_amount_units,
+                destination_wallet_address=destination_wallet_address,
+                onchain_purchase_ref=purchase_ref,
+                onchain_payer_address=payer_address,
+                payment_contract_address=contract_address,
+                payment_contract_version=contract_version,
+                payment_authorization_expires_at=authorization_expires_at,
+                payment_authorization_digest=authorization_digest,
+                payment_authorization_signature=authorization_signature,
+                payment_authorization_signer_address=signer_address,
+                payment_authorization_signer_version=signer_version,
+                payment_authorization_signed_at=signed_at,
+                verification_status="pending_payment",
+                expires_at=authorization_expires_at,
+            )
+            self.purchases[purchase.id] = purchase
+            return purchase, True
 
     def get_purchase(self, purchase_id: str) -> CreditPurchaseRecord | None:
         return self.purchases.get(purchase_id)

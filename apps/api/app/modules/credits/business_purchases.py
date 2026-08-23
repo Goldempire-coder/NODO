@@ -1,14 +1,45 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import timedelta
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from app.core.errors import ApiError
 from app.modules.businesses.models import BusinessRecord
-from app.modules.credits.models import ALLOWED_PROOF_MIME_TYPES, BASE_USDC_TOKEN_SYMBOL, CREDIT_PACKAGES, MAX_PROOF_SIZE_BYTES, CreditPurchaseRecord, utc_now
-from app.modules.credits.onchain import normalize_credit_verification, price_to_usdc_units, validate_evm_address, validate_tx_hash
-from app.modules.credits.schemas import BaseUsdcPaymentRequest, BaseUsdcTxHashRequest, StripeCheckoutRequest
+from app.modules.credits.models import (
+    ALLOWED_PROOF_MIME_TYPES,
+    BASE_MAINNET_CHAIN_ID,
+    BASE_MAINNET_NETWORK,
+    BASE_USDC_CONTRACT_ADDRESS,
+    BASE_USDC_DECIMALS,
+    BASE_USDC_TOKEN_SYMBOL,
+    CREDIT_PACKAGES,
+    MAX_PROOF_SIZE_BYTES,
+    CreditPurchaseRecord,
+    utc_now,
+)
+from app.modules.credits.onchain import (
+    normalize_credit_verification,
+    price_to_usdc_units,
+    validate_evm_address,
+    validate_tx_hash,
+)
+from app.modules.credits.payment_authorizations import (
+    PaymentAuthorizationSnapshot,
+    authorization_is_expired,
+    build_payment_authorization_typed_data,
+    new_purchase_ref,
+    normalize_payment_address,
+    sign_payment_authorization,
+)
+from app.modules.credits.schemas import (
+    BaseUsdcPaymentRequest,
+    BaseUsdcTxHashRequest,
+    ContractBaseUsdcPaymentRequest,
+    LegacyBaseUsdcPaymentRequest,
+    StripeCheckoutRequest,
+)
 from app.modules.credits.serializers import file_public, purchase_public
 from app.modules.users.models import UserRecord
 from app.shared.document_uploads import validate_document_upload
@@ -67,6 +98,47 @@ class CreditBusinessPurchases:
         )
 
     def create_base_usdc_payment(self, *, user: UserRecord, business: BusinessRecord, payload: BaseUsdcPaymentRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
+        if isinstance(payload, ContractBaseUsdcPaymentRequest):
+            return self._create_contract_payment(
+                user=user,
+                business=business,
+                payload=payload,
+                request_id=request_id,
+                idempotency_key=idempotency_key,
+            )
+        if self._contract_payment_mode_configured():
+            raise ApiError("VALIDATION_ERROR", status_code=422)
+        if not self._settings.legacy_credit_payment_methods_enabled:
+            raise ApiError("CREDIT_PAYMENT_METHOD_DISABLED", status_code=410)
+        return self._create_legacy_base_usdc_payment(
+            user=user,
+            business=business,
+            payload=payload,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def _contract_payment_mode_configured(self) -> bool:
+        return any(
+            (
+                self._settings.nodo_credit_payment_contract_address,
+                self._settings.nodo_credit_payment_contract_version,
+                self._settings.nodo_credit_auth_signer_key,
+                self._settings.nodo_credit_auth_signer_address,
+                self._settings.nodo_credit_auth_signer_version,
+                self._settings.nodo_credit_payment_contract_paused,
+            )
+        )
+
+    def _create_legacy_base_usdc_payment(
+        self,
+        *,
+        user: UserRecord,
+        business: BusinessRecord,
+        payload: LegacyBaseUsdcPaymentRequest,
+        request_id: str,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
         self._rate_limit("base_usdc_payment", business.id)
         stable_key = self._require_idempotency_key(idempotency_key)
 
@@ -122,6 +194,246 @@ class CreditBusinessPurchases:
             f"credits:base_usdc_payment:{business.id}:{stable_key}",
             payload=payload.model_dump(),
             compute=compute,
+        )
+
+    def _create_contract_payment(
+        self,
+        *,
+        user: UserRecord,
+        business: BusinessRecord,
+        payload: ContractBaseUsdcPaymentRequest,
+        request_id: str,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
+        self._rate_limit("base_usdc_contract_payment", business.id)
+        stable_key = self._require_idempotency_key(idempotency_key)
+        payer_address = normalize_payment_address(payload.payer_wallet_address)
+
+        def compute() -> dict[str, Any]:
+            package = CREDIT_PACKAGES.get(payload.package_code)
+            if package is None:
+                raise ApiError("INVALID_PACKAGE", status_code=400)
+            contract_address, treasury_address = self._contract_configuration()
+            signed_at = utc_now()
+            valid_until = int(signed_at.timestamp()) + self._settings.onchain_credit_authorization_ttl_minutes * 60
+            authorization_expires_at = datetime.fromtimestamp(valid_until, tz=timezone.utc)
+            snapshot = PaymentAuthorizationSnapshot(
+                purchase_ref=new_purchase_ref(),
+                payer=payer_address,
+                amount=price_to_usdc_units(package["price_usd"]),
+                valid_until=valid_until,
+                chain_id=8453,
+                verifying_contract=contract_address,
+                contract_version=self._settings.nodo_credit_payment_contract_version,
+            )
+            signed = sign_payment_authorization(
+                snapshot,
+                signer_key=self._settings.nodo_credit_auth_signer_key or "",
+                configured_signer_address=self._settings.nodo_credit_auth_signer_address or "",
+            )
+            purchase, created = self._repository.create_contract_purchase(
+                business_id=business.id,
+                package_code=payload.package_code,
+                idempotency_key=stable_key,
+                expected_amount_units=snapshot.amount,
+                destination_wallet_address=treasury_address,
+                purchase_ref=snapshot.purchase_ref,
+                payer_address=payer_address,
+                contract_address=contract_address,
+                contract_version=snapshot.contract_version,
+                authorization_expires_at=authorization_expires_at,
+                authorization_digest=signed.digest,
+                authorization_signature=signed.signature,
+                signer_address=signed.signer_address,
+                signer_version=self._settings.nodo_credit_auth_signer_version or "",
+                signed_at=signed_at,
+            )
+            if created:
+                self._audit.write(
+                    event_type="crypto_contract_credit_purchase_authorized",
+                    actor_user_id=user.id,
+                    actor_role=user.role,
+                    resource_type="credit_purchase",
+                    resource_id=purchase.id,
+                    request_id=request_id,
+                    metadata_json={
+                        "payment_method": "base_usdc_contract",
+                        "signer_version": purchase.payment_authorization_signer_version,
+                    },
+                )
+            return self._contract_payment_response(purchase)
+
+        response = self._idempotency.replay_or_store(
+            f"credits:base_usdc_payment:{business.id}:{stable_key}",
+            payload={"package_code": payload.package_code, "payer_wallet_address": payer_address},
+            compute=compute,
+        )
+        payment = response.get("payment")
+        valid_until = payment.get("authorization_valid_until") if isinstance(payment, dict) else None
+        if not isinstance(valid_until, int):
+            raise ApiError("CRYPTO_PAYMENT_AUTHORIZATION_REISSUE_REQUIRED", status_code=409)
+        if authorization_is_expired(valid_until=valid_until, now=utc_now()):
+            raise ApiError("CRYPTO_PAYMENT_AUTHORIZATION_EXPIRED", status_code=409)
+        return response
+
+    def _contract_configuration(self) -> tuple[str, str]:
+        if self._settings.nodo_credit_payment_contract_paused:
+            raise ApiError(
+                "CRYPTO_PAYMENT_CONTRACT_PAUSED",
+                message="Este metodo de pago no esta disponible temporalmente.",
+                status_code=503,
+            )
+        try:
+            contract_address = normalize_payment_address(self._settings.nodo_credit_payment_contract_address or "")
+            treasury_address = normalize_payment_address(self._settings.nodo_credit_receiving_wallet_base or "")
+        except ApiError as exc:
+            raise ApiError(
+                "CRYPTO_CONTRACT_PAYMENT_NOT_CONFIGURED",
+                message="Este metodo de pago no esta disponible temporalmente.",
+                status_code=503,
+            ) from exc
+        if self._settings.nodo_credit_payment_contract_version is None:
+            raise ApiError(
+                "CRYPTO_CONTRACT_PAYMENT_NOT_CONFIGURED",
+                message="Este metodo de pago no esta disponible temporalmente.",
+                status_code=503,
+            )
+        if not self._settings.nodo_credit_auth_signer_key or not self._settings.nodo_credit_auth_signer_address or not self._settings.nodo_credit_auth_signer_version:
+            raise ApiError(
+                "CRYPTO_PAYMENT_SIGNER_UNAVAILABLE",
+                message="No pudimos preparar el pago en este momento.",
+                status_code=503,
+            )
+        return contract_address, treasury_address
+
+    def _contract_payment_response(self, purchase: CreditPurchaseRecord) -> dict[str, Any]:
+        response = self.contract_purchase_detail(purchase)
+        authorization_status = response["payment"]["authorization_status"]
+        if authorization_status == "expired":
+            raise ApiError("CRYPTO_PAYMENT_AUTHORIZATION_EXPIRED", status_code=409)
+        if authorization_status != "valid":
+            raise ApiError("CRYPTO_PAYMENT_AUTHORIZATION_REISSUE_REQUIRED", status_code=409)
+        return response
+
+    def contract_purchase_detail(self, purchase: CreditPurchaseRecord) -> dict[str, Any]:
+        valid_until = (
+            int(purchase.payment_authorization_expires_at.timestamp())
+            if purchase.payment_authorization_expires_at is not None
+            else None
+        )
+        authorization_status = self._contract_authorization_status(
+            purchase,
+            valid_until=valid_until,
+        )
+        payment: dict[str, Any] = {
+            "network": purchase.network,
+            "chain_id": purchase.chain_id,
+            "token_symbol": purchase.token_symbol,
+            "token_contract_address": purchase.token_contract_address,
+            "token_decimals": purchase.token_decimals,
+            "expected_amount_units": (
+                str(purchase.expected_amount_units)
+                if purchase.expected_amount_units is not None
+                else None
+            ),
+            "expected_amount_display": str(purchase.price_usd),
+            "contract_address": purchase.payment_contract_address,
+            "contract_version": purchase.payment_contract_version,
+            "purchase_ref": purchase.onchain_purchase_ref,
+            "payer_wallet_address": purchase.onchain_payer_address,
+            "authorization_valid_until": valid_until,
+            "authorization_status": authorization_status,
+            "capabilities": {"can_pay": authorization_status == "valid"},
+            "min_confirmations": self._settings.onchain_credit_min_confirmations,
+        }
+        if authorization_status == "valid":
+            snapshot = PaymentAuthorizationSnapshot(
+                purchase_ref=purchase.onchain_purchase_ref,
+                payer=purchase.onchain_payer_address,
+                amount=purchase.expected_amount_units,
+                valid_until=valid_until,
+                chain_id=purchase.chain_id,
+                verifying_contract=purchase.payment_contract_address,
+                contract_version=purchase.payment_contract_version,
+            )
+            payment["authorization_typed_data"] = build_payment_authorization_typed_data(snapshot)
+            payment["authorization_signature"] = purchase.payment_authorization_signature
+        return {
+            "purchase": purchase_public(purchase),
+            "payment": payment,
+            "disclaimer": "La autorizacion inicia una compra de creditos; firmarla no acredita creditos.",
+        }
+
+    def _contract_authorization_status(
+        self,
+        purchase: CreditPurchaseRecord,
+        *,
+        valid_until: int | None,
+    ) -> str:
+        if not self._contract_snapshot_is_complete(purchase, valid_until=valid_until):
+            return "reissue_required"
+        if not self._contract_snapshot_matches_configuration(purchase):
+            return "reissue_required"
+        if authorization_is_expired(valid_until=valid_until, now=utc_now()):
+            return "expired"
+        return "valid"
+
+    @staticmethod
+    def _contract_snapshot_is_complete(
+        purchase: CreditPurchaseRecord,
+        *,
+        valid_until: int | None,
+    ) -> bool:
+        return bool(
+            purchase.expected_amount_units is not None
+            and valid_until is not None
+            and purchase.payment_contract_version is not None
+            and purchase.onchain_purchase_ref
+            and purchase.onchain_payer_address
+            and purchase.payment_contract_address
+            and purchase.payment_authorization_digest
+            and purchase.payment_authorization_signature
+            and purchase.payment_authorization_signer_address
+            and purchase.payment_authorization_signer_version
+            and purchase.payment_authorization_signed_at
+        )
+
+    def _contract_snapshot_matches_configuration(self, purchase: CreditPurchaseRecord) -> bool:
+        try:
+            contract_address = normalize_payment_address(
+                self._settings.nodo_credit_payment_contract_address or ""
+            )
+            treasury_address = normalize_payment_address(
+                self._settings.nodo_credit_receiving_wallet_base or ""
+            )
+            signer_address = normalize_payment_address(
+                self._settings.nodo_credit_auth_signer_address or ""
+            )
+            payer_address = normalize_payment_address(purchase.onchain_payer_address or "")
+            stored_contract = normalize_payment_address(purchase.payment_contract_address or "")
+            stored_treasury = normalize_payment_address(
+                purchase.destination_wallet_address or ""
+            )
+            stored_signer = normalize_payment_address(
+                purchase.payment_authorization_signer_address or ""
+            )
+        except ApiError:
+            return False
+        return bool(
+            not self._settings.nodo_credit_payment_contract_paused
+            and payer_address == purchase.onchain_payer_address
+            and stored_contract == contract_address
+            and stored_treasury == treasury_address
+            and stored_signer == signer_address
+            and purchase.payment_contract_version
+            == self._settings.nodo_credit_payment_contract_version
+            and purchase.payment_authorization_signer_version
+            == self._settings.nodo_credit_auth_signer_version
+            and purchase.chain_id == BASE_MAINNET_CHAIN_ID
+            and purchase.network == BASE_MAINNET_NETWORK
+            and purchase.token_symbol == BASE_USDC_TOKEN_SYMBOL
+            and purchase.token_contract_address == BASE_USDC_CONTRACT_ADDRESS
+            and purchase.token_decimals == BASE_USDC_DECIMALS
         )
 
     def submit_base_usdc_tx_hash(
