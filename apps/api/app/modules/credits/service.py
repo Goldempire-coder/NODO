@@ -7,8 +7,18 @@ from app.modules.businesses.access_control import require_active_business_access
 from app.modules.businesses.models import BusinessRecord
 from app.modules.credits.admin_actions import CreditAdminActions
 from app.modules.credits.business_purchases import CreditBusinessPurchases
-from app.modules.credits.business_referrals import CREDITS_DISCLAIMER, CreditBusinessReferrals
-from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest, BaseUsdcPaymentRequest, BaseUsdcTxHashRequest, ReferralApplyRequest, StripeCheckoutRequest
+from app.modules.credits.business_referrals import (
+    CREDITS_DISCLAIMER,
+    CreditBusinessReferrals,
+)
+from app.modules.credits.schemas import (
+    AdminCreditAdjustmentRequest,
+    AdminReviewCreditPurchaseRequest,
+    BaseUsdcPaymentRequest,
+    BaseUsdcTxHashRequest,
+    ReferralApplyRequest,
+    StripeCheckoutRequest,
+)
 from app.modules.credits.serializers import ledger_public, purchase_public
 from app.modules.credits.stripe_webhook import parse_stripe_webhook_event
 from app.modules.users.models import UserRecord
@@ -127,6 +137,8 @@ class CreditService:
         purchase = self._repository.get_purchase(purchase_id)
         if purchase is None or purchase.business_id != business.id:
             raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
+        if purchase.payment_method == "base_usdc_contract":
+            return self._business_purchases.contract_purchase_detail(purchase)
         return {"purchase": purchase_public(purchase), "disclaimer": CREDITS_DISCLAIMER}
 
     def submit_base_usdc_tx_hash(self, *, user: UserRecord, purchase_id: str, payload: BaseUsdcTxHashRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:

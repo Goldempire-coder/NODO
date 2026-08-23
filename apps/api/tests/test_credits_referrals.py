@@ -1193,6 +1193,137 @@ def test_contract_payment_rejects_zero_payer_and_invalid_contract_configuration(
     assert invalid_client.app.state.credit_repository.purchases == {}
 
 
+def test_contract_purchase_detail_resumes_valid_authorization_without_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1134, "contract_resume_valid")
+    business = _create_business(client, owner, "contract_resume_valid")
+    created = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_resume_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert created.status_code == 201, created.text
+    created_data = created.json()["data"]
+    purchase_id = created_data["purchase"]["id"]
+    verifier_calls_before = list(client.app.state.onchain_credit_verifier.calls)
+    ledger_count_before = len(client.app.state.ad_repository.ledger)
+    wallet_before = client.app.state.credit_repository.get_wallet(business["id"])
+    credits_before = wallet_before.available_credits if wallet_before is not None else 0
+    monkeypatch.setattr(
+        business_purchases_module,
+        "sign_payment_authorization",
+        lambda *args, **kwargs: pytest.fail("purchase detail must not re-sign"),
+    )
+
+    detail = client.get(
+        f"/api/v1/business/credits/purchases/{purchase_id}",
+        headers=_bearer(owner, "contract_resume_detail"),
+    )
+
+    assert detail.status_code == 200, detail.text
+    data = detail.json()["data"]
+    assert data["purchase"]["id"] == purchase_id
+    assert data["payment"]["authorization_status"] == "valid"
+    assert data["payment"]["capabilities"] == {"can_pay": True}
+    assert data["payment"]["payer_wallet_address"] == PAYER_WALLET
+    assert data["payment"]["purchase_ref"] == created_data["payment"]["purchase_ref"]
+    assert data["payment"]["authorization_typed_data"] == created_data["payment"]["authorization_typed_data"]
+    assert data["payment"]["authorization_signature"] == created_data["payment"]["authorization_signature"]
+    assert client.app.state.onchain_credit_verifier.calls == verifier_calls_before
+    assert len(client.app.state.ad_repository.ledger) == ledger_count_before
+    wallet_after = client.app.state.credit_repository.get_wallet(business["id"])
+    credits_after = wallet_after.available_credits if wallet_after is not None else 0
+    assert credits_after == credits_before == 0
+
+
+def test_contract_purchase_detail_returns_expired_without_payable_signature() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1135, "contract_resume_expired")
+    _create_business(client, owner, "contract_resume_expired")
+    created = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_resume_expired_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    purchase_id = created.json()["data"]["purchase"]["id"]
+    stored = client.app.state.credit_repository.get_purchase(purchase_id)
+    stored.payment_authorization_expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+    detail = client.get(
+        f"/api/v1/business/credits/purchases/{purchase_id}",
+        headers=_bearer(owner, "contract_resume_expired_detail"),
+    )
+
+    assert detail.status_code == 200, detail.text
+    payment = detail.json()["data"]["payment"]
+    assert payment["authorization_status"] == "expired"
+    assert payment["capabilities"] == {"can_pay": False}
+    assert "authorization_signature" not in payment
+    assert "authorization_typed_data" not in payment
+
+
+@pytest.mark.parametrize("invalid_field", ["payment_contract_address", "payment_authorization_signer_version"])
+def test_contract_purchase_detail_requires_reissue_for_incomplete_or_incompatible_snapshot(invalid_field: str) -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1136, f"contract_resume_{invalid_field}")
+    _create_business(client, owner, f"contract_resume_{invalid_field}")
+    created = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, f"contract_resume_{invalid_field}_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    purchase_id = created.json()["data"]["purchase"]["id"]
+    stored = client.app.state.credit_repository.get_purchase(purchase_id)
+    setattr(stored, invalid_field, None if invalid_field == "payment_contract_address" else "obsolete-signer")
+
+    detail = client.get(
+        f"/api/v1/business/credits/purchases/{purchase_id}",
+        headers=_bearer(owner, f"contract_resume_{invalid_field}_detail"),
+    )
+
+    assert detail.status_code == 200, detail.text
+    payment = detail.json()["data"]["payment"]
+    assert payment["authorization_status"] == "reissue_required"
+    assert payment["capabilities"] == {"can_pay": False}
+    assert "authorization_signature" not in payment
+    assert "authorization_typed_data" not in payment
+
+
+def test_contract_purchase_detail_preserves_ownership_and_legacy_shape() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1137, "contract_resume_owner")
+    _create_business(client, owner, "contract_resume_owner")
+    created = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_resume_owner_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    purchase_id = created.json()["data"]["purchase"]["id"]
+    other_owner = _login(client, 1138, "contract_resume_other")
+    _create_business(client, other_owner, "contract_resume_other")
+
+    forbidden = client.get(
+        f"/api/v1/business/credits/purchases/{purchase_id}",
+        headers=_bearer(other_owner, "contract_resume_other_detail"),
+    )
+    assert forbidden.status_code == 404
+    assert forbidden.json()["error"]["code"] == "PURCHASE_NOT_FOUND"
+
+    legacy_client = _client()
+    legacy_owner = _login(legacy_client, 1139, "legacy_resume")
+    _create_business(legacy_client, legacy_owner, "legacy_resume")
+    legacy = _base_payment(legacy_client, legacy_owner, key="legacy_resume_create")
+    legacy_detail = legacy_client.get(
+        f"/api/v1/business/credits/purchases/{legacy['purchase']['id']}",
+        headers=_bearer(legacy_owner, "legacy_resume_detail"),
+    )
+    assert legacy_detail.status_code == 200, legacy_detail.text
+    assert legacy_detail.json()["data"]["purchase"]["payment_method"] == "base_usdc_onchain"
+    assert "payment" not in legacy_detail.json()["data"]
+
+
 def test_contract_authorization_expiration_uses_strict_boundary() -> None:
     boundary = datetime(2026, 8, 22, 12, 0, tzinfo=timezone.utc)
 
