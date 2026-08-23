@@ -329,6 +329,16 @@ Slice 06 consume ledger:
 - token_decimals
 - expected_amount_units
 - destination_wallet_address
+- onchain_purchase_ref
+- onchain_payer_address
+- payment_contract_address
+- payment_contract_version
+- payment_authorization_expires_at
+- payment_authorization_digest
+- payment_authorization_signature
+- payment_authorization_signer_address
+- payment_authorization_signer_version
+- payment_authorization_signed_at
 - verification_status
 - verification_source
 - proof_file_id
@@ -350,12 +360,25 @@ Slice 06 consume ledger:
 Slice 19 on-chain notes:
 
 - `base_usdc_onchain` uses Base mainnet `chain_id = 8453`.
+- `base_usdc_onchain` es legacy local/staging o fallback manual/Admin. Una
+  transferencia directa no auto-acredita con trafico real controlado.
 - USDC Base contract is `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
 - USDT Base is not active in MVP.
 - `expected_amount_units` uses `numeric(78,0)` and stores USDC minor units with 6 decimals. Do not use float.
 - `destination_wallet_address` comes from `NODO_CREDIT_RECEIVING_WALLET_BASE`.
 - EVM values (`token_contract_address`, `destination_wallet_address`, `tx_hash`, `tx_from_address`, `tx_to_address`) must be stored and compared normalized lowercase, or with an equivalent canonical normalization policy.
 - No private key or seed phrase is stored.
+
+Slice 52C contractual notes:
+
+- `base_usdc_contract` conserva el snapshot comercial y la autorizacion EIP-712.
+- `base_usdc_contract` es el flujo normal futuro de la App Negocio.
+- `onchain_purchase_ref` es bytes32 canonico, aleatorio y unique.
+- payer, contrato, treasury y signer address se guardan normalizados lowercase.
+- la firma y el digest son publicos; la private key del signer nunca se persiste.
+- crear o firmar la compra no crea ledger ni acredita creditos.
+- un `tx_hash` enviado por usuario no se asocia a una compra contractual; el
+  watcher deriva la compra desde el evento oficial y `purchase_ref`.
 
 ## credit_purchase_onchain_payments
 
@@ -376,6 +399,10 @@ Slice 19 on-chain notes:
 - confirmations
 - verification_source
 - verification_status
+- payment_contract_address
+- purchase_ref
+- payer_address
+- payment_contract_version
 - failure_code
 - detected_at
 - verified_at

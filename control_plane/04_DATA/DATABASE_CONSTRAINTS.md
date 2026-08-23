@@ -271,7 +271,13 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - `credit_purchases.idempotency_key` participa en unique parcial por `business_id` cuando no sea null.
 - `credit_purchases.stripe_event_id`, `stripe_checkout_session_id` y `stripe_payment_intent_id` deben ser unique parciales cuando no sean null.
 - `credit_purchases.admin_note` es obligatorio para approve/reject manual.
-- Compra on-chain Base usa `payment_method = base_usdc_onchain`.
+- Compra on-chain directa Base usa `payment_method = base_usdc_onchain`; es
+  legacy local/staging o fallback manual/Admin y no auto-acredita con trafico
+  real controlado.
+- Compra contractual Base usa `payment_method = base_usdc_contract` y es el
+  flujo normal futuro.
+- Compra contractual requiere `onchain_purchase_ref` bytes32 canonico y unique, payer, contrato/version, signer address/version, digest, firma y expiracion.
+- Firma contractual usa EIP-712 y no crea wallet, ledger ni credito.
 - Compra on-chain Base requiere `chain_id = 8453`, `network = base_mainnet`, `token_symbol = USDC`, `token_contract_address = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, `token_decimals = 6`.
 - Compra on-chain Base requiere `destination_wallet_address`, `expected_amount_units` y `expires_at`.
 - `expected_amount_units` y `tx_amount_units` deben usar `numeric(78,0)`.
@@ -280,6 +286,9 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - `credit_purchase_onchain_payments.tx_amount_units > 0`.
 - No puede existir doble ledger `purchase` para el mismo `related_credit_purchase_id`.
 - `credited` requiere ledger `purchase` y `credited_at`.
+- Presentar `tx_hash` para una compra `base_usdc_contract` no crea registro
+  on-chain, no cambia status y no acredita; el evento contractual lo ingiere el
+  watcher por `purchase_ref`.
 - `base_usdt_onchain` no es metodo activo MVP.
 - Founder access usa campos canonicos en `businesses`: `founder_status`, `founder_started_at`, `founder_expires_at`; tabla `founder_access` no es activa en MVP.
 - Founder access requiere fecha de inicio, fecha de expiracion y limite de riesgo.

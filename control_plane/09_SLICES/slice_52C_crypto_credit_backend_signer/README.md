@@ -1,0 +1,150 @@
+# slice_52C_crypto_credit_backend_signer
+
+Estado: `CONTRACT_RECONCILED_READY_FOR_IMPLEMENTATION`
+
+## Objetivo
+
+Definir la frontera segura para que NODO emita autorizaciones firmadas de
+compras crypto de creditos publicitarios sin convertir el signer en una maquina
+de firmar payloads controlados por frontend.
+
+52C no despliega contrato, no configura wallets reales, no mueve fondos y no
+activa dinero real. Reconcila el contrato para una implementacion futura.
+
+## Regla Maestra
+
+```txt
+Frontend = expresa intencion
+Backend = decide verdad comercial
+Signer = certifica esa verdad
+Contrato = verifica certificacion
+Backend = acredita despues de verificar blockchain
+```
+
+## Decision Owner
+
+NODO puede usar un `authorizedSigner` operacional para firmar autorizaciones
+EIP-712 de compras crypto, con estas restricciones:
+
+- la private key de treasury no vive en backend;
+- la private key de owner/multisig no vive en backend;
+- la private key del signer no vive en frontend, repo, logs, auditoria,
+  screenshots ni respuestas API;
+- produccion no debe usar una private key plana en Railway/env como custodia
+  final;
+- staging/testnet puede usar signer temporal con fondos pequenos, rotacion y
+  evidencia, siempre marcado como no produccion;
+- el signer solo firma snapshots creados por backend desde catalogo oficial;
+- no existe endpoint publico o admin para firmar typed data arbitraria.
+
+## Alcance 52C1
+
+- Crear compra contractual segura desde backend.
+- Recibir solo `package_code` y `payer_wallet_address`.
+- Rechazar campos comerciales enviados por frontend: amount, token, chain,
+  treasury, contract address, contract version, expiry y purchase ref.
+- Derivar negocio desde sesion.
+- Resolver paquete, creditos, precio, token, chain, contrato, version y
+  expiracion desde configuracion backend.
+- Generar `purchase_ref` bytes32 aleatorio, no enumerable.
+- Guardar snapshot durable.
+- Emitir autorizacion firmada solo si la configuracion y el negocio son validos.
+- No acreditar creditos.
+
+## Dependencia De Firma
+
+52C1 usa `eth-account==0.13.7` y fija tambien `eth-abi==5.2.0` en
+`apps/api/requirements.txt`.
+
+Motivo:
+
+- implementa encoding EIP-712 compatible con Ethereum;
+- produce firma secp256k1 recuperable por OpenZeppelin `ECDSA.recover`;
+- evita criptografia propia;
+- publica wheel Python y usa licencia MIT.
+
+`eth-abi` se fija de forma directa porque el rango transitivo de `eth-account`
+tambien admite prereleases. El pin evita que una instalacion limpia seleccione
+automaticamente `eth-abi 6.0.0b1` para una ruta critica de firma.
+
+`eth-account` no instala comandos de consola propios. Su grafo incluye `ckzg`,
+que distribuye una extension nativa para funciones KZG aunque 52C1 no la invoca.
+Se acepta como dependencia transitiva del paquete oficial elegido, pero debe
+permanecer en el inventario/SBOM y en el escaneo de dependencias antes de un
+candidato de produccion.
+
+## Limite Operativo 52C1
+
+52C1 reutiliza el rate limit backend existente por accion y negocio. El repo no
+tiene todavia un patron canonico para contar compras contractuales pendientes
+sin ampliar consultas y estados. El maximo durable de pendientes queda como
+gate obligatorio antes de habilitar pagos contractuales fuera de pruebas; no se
+inventa en este slice.
+
+Decision 52C-S0 para el siguiente slice:
+
+- 5 creaciones/reemisiones por usuario y por negocio cada 10 minutos;
+- 20 por IP hasheada cada 10 minutos;
+- maximo 3 compras contractuales no terminales por negocio;
+- Redis/limitador compartido obligatorio en staging/produccion y fallo cerrado
+  si no esta disponible.
+
+52C1 local no se considera habilitable hasta que runtime implemente esos gates.
+
+La dependencia no cambia la regla de custodia: la clave plana solo se admite
+para signer temporal local/testnet. Produccion requiere signer externo/KMS/HSM
+o una decision Owner separada.
+
+## Compatibilidad Legacy Del Endpoint
+
+`POST /api/v1/business/credits/base-payment` conserva temporalmente el body
+legacy solo cuando no existe ninguna configuracion contractual 52C y el flag
+legacy esta habilitado. En cuanto existe contrato, version o signer 52C, el
+modo contractual es la unica autoridad y un body legacy devuelve
+`422 VALIDATION_ERROR`. Los dos modos no pueden operar a la vez.
+
+El cliente legacy debe migrarse en un slice frontend separado antes de habilitar
+52C en ese ambiente.
+
+El resultado de la migracion es:
+
+- `base_usdc_contract` como unico flujo normal de la App Negocio;
+- sin wallet directa ni campo para pegar `tx_hash` en la UI normal;
+- `base_usdc_onchain` solo local/staging o fallback manual/Admin;
+- una transferencia directa nunca auto-acredita con trafico real controlado;
+- el endpoint de `tx-hash` rechaza compras contractuales y solo conserva
+  compatibilidad legacy gobernada.
+
+## Rollback De 0057
+
+El `down` de 0057 es seguro antes de crear compras `base_usdc_contract`. Si ya
+existen compras contractuales, falla antes de modificar constraints o columnas
+con un mensaje explicito. No borra ni convierte registros financieros. Un
+rollback posterior a activacion requiere una migracion de transicion aprobada.
+
+## Alcance 52C2
+
+- Frontend de compra contractual.
+- Reanudacion bajo demanda desde detalle propio, sin polling ni reemision por
+  efecto lateral.
+- Watcher/verificador por evento del contrato.
+- Verificacion de receipt, evento NODO, Transfer ERC20, token, treasury, payer,
+  amount, purchase_ref, chain, contrato, version y confirmaciones.
+- Acreditacion exact-once mediante transaccion PostgreSQL existente.
+- Limites por usuario, negocio, IP y maximo durable de compras pendientes.
+
+## Fuera De Alcance
+
+- Cambiar contrato Solidity 52A.
+- Deploy testnet/mainnet.
+- Wallet oficial o fondos reales.
+- Migracion aplicada en staging/produccion.
+- Referrals, ordenes, anuncios, soporte, disputas o pagos P2P.
+- Binance Pay, BSC, USDT BSC o tokens sin fuente oficial.
+
+## Riesgo Principal
+
+Si el backend firma datos que vienen del frontend sin recalcularlos desde
+catalogo/configuracion oficial, el contrato funcionara correctamente pero NODO
+habra autorizado una compra falsa. Por eso 52C trata al signer como frontera de
+seguridad critica.

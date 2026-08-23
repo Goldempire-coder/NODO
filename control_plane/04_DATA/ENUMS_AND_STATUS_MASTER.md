@@ -221,7 +221,9 @@ credit_purchase.payment_method:
 - stripe_checkout
 - zelle_manual_admin_approved
 - usdt_manual_admin_approved
-- base_usdc_onchain
+- base_usdc_onchain (legacy: solo local/staging o fallback manual/Admin; no
+  auto-credito con trafico real controlado)
+- base_usdc_contract (flujo normal futuro)
 
 credit_purchase.payment_method post_mvp_or_disabled:
 - base_usdt_onchain (no activo MVP)

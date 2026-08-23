@@ -152,7 +152,7 @@ Este archivo registra decisiones aprobadas por el owner. Si otro documento contr
 | 2026-07-10 | Slice 19 crea compra/acreditacion de creditos publicitarios con pagos on-chain en Base mainnet, `chain_id = 8453`. | aprobado |
 | 2026-07-10 | MVP de slice 19 acepta solo USDC nativo en Base con contrato `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` y decimals `6`. | aprobado |
 | 2026-07-10 | USDT Base queda fuera del MVP hasta verificacion oficial contractual; prohibido aceptar tokens por simbolo/nombre solamente. | aprobado |
-| 2026-07-10 | `NODO_CREDIT_RECEIVING_WALLET_BASE` es direccion publica destino; private keys, seed phrases, mnemonics y signing keys quedan prohibidos en backend, frontend, Railway, GitHub, Cursor, logs y evidencia. | aprobado |
+| 2026-07-10 | `NODO_CREDIT_RECEIVING_WALLET_BASE` es direccion publica destino; private keys, seed phrases, mnemonics y signing keys quedan prohibidos en backend, frontend, Railway, GitHub, Cursor, logs y evidencia. Sustituido parcialmente por 52C solo para el `authorizedSigner` EIP-712 operacional; treasury/owner keys siguen prohibidas. | sustituido parcialmente |
 | 2026-07-10 | Stripe/Zelle/USDT TRC20 manual quedan como fallback/legacy si backend los habilita; USDT TRC20 manual no se mezcla con Base. | aprobado |
 | 2026-07-10 | Acreditacion on-chain requiere verifier backend, unique por `chain_id + tx_hash + tx_log_index`, ledger `purchase` y wallet update en transaccion exact-once. | aprobado |
 | 2026-07-10 | Bot/admin privado solo notifica pagos on-chain; no decide, no acredita y no reemplaza verifier/ledger/backend. | aprobado |
@@ -200,3 +200,11 @@ READY_FOR_OWNER_APPROVAL_TO_BUILD_24
 | Fecha | Decision | Estado |
 |---|---|---|
 | 2026-08-19 | Admin/Super Admin puede revertir explicitamente `users.status = blocked` a `active` y `businesses.verification_status = blocked` a `approved` mediante los endpoints `reactivate`, con reason, idempotencia, audit y notificacion existentes. El desbloqueo de una entidad no reactiva automaticamente la otra ni modifica `business_access_links`. | aprobado |
+
+## 2026-08-21 - Slice 52C crypto credit backend signer
+
+| Fecha | Decision | Estado |
+|---|---|---|
+| 2026-08-21 | NODO puede usar un `authorizedSigner` operacional separado para firmar autorizaciones EIP-712 de compras crypto de creditos publicitarios. El signer no es treasury, no es owner, no mueve fondos y no puede firmar payloads arbitrarios enviados por frontend/admin. | aprobado |
+| 2026-08-21 | Produccion no debe custodiar la private key del signer como variable plana en Railway/env como diseno final. Staging/testnet puede usar signer temporal con wallet no oficial, fondos pequenos, rotacion antes de produccion, auditoria y alerta. | aprobado |
+| 2026-08-21 | Para fondos reales, el flujo recomendado es `base_usdc_contract` con `purchase_ref` y autorizacion firmada. `base_usdc_onchain` directo a wallet queda legacy/fallback manual o staging hasta retiro gobernado y no debe auto-acreditar fondos reales sin prueba contractual de intencion. | aprobado |

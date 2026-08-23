@@ -115,11 +115,33 @@ Rutas legacy prohibidas/no validas:
 - Auth: business_owner.
 - Scope: negocio propio aprobado con acceso activo.
 - Idempotency-Key: obligatorio.
-- Body:
+- Flujo normal futuro: `base_usdc_contract`.
+- Body contractual unico para la App Negocio normal:
   - package_code: starter | pro | business | enterprise
-  - token: `USDC`
+  - payer_wallet_address: direccion EVM conectada por el negocio
+- Cualquier otro campo se rechaza con `422 VALIDATION_ERROR`, incluyendo:
+  `amount`, `price`, `credits_amount`, `token`, `token_symbol`, `chain_id`,
+  `network`, `treasury`, `destination_wallet_address`, `contract_address`,
+  `contract_version`, `valid_until`, `expires_at`, `purchase_ref`,
+  `authorization` y `signature`.
 - Crea `credit_purchases.status = pending_payment`.
-- Crea compra on-chain con:
+- El body contractual crea compra con `payment_method = base_usdc_contract`.
+- Backend deriva desde sesion/configuracion/catalogo: negocio, paquete, precio,
+  creditos, token, chain, contrato, treasury, version, expiracion y
+  `purchase_ref`.
+- Crear o firmar la compra no acredita creditos, no crea ledger y no mueve
+  fondos.
+
+Compatibilidad legacy durante la migracion:
+
+- El body `{package_code, token_symbol: "USDC"}` no pertenece al frontend
+  normal futuro.
+- Solo puede aceptarse cuando no existe configuracion 52C, el entorno es
+  local/staging o un flujo manual gobernado, y
+  `LEGACY_CREDIT_PAYMENT_METHODS_ENABLED = true`.
+- En cuanto exista cualquier configuracion 52C, el body legacy devuelve
+  `422 VALIDATION_ERROR`, aunque el flag legacy este activo.
+- La compra legacy usa:
   - payment_method = `base_usdc_onchain`
   - network = `base_mainnet`
   - chain_id = `8453`
@@ -135,7 +157,7 @@ Rutas legacy prohibidas/no validas:
   - tx_hash
   - tx_from_address
   - tx_to_address
-- Response:
+- Response contractual inicial:
   - purchase id
   - package_code
   - credits_amount
@@ -149,15 +171,49 @@ Rutas legacy prohibidas/no validas:
   - token_decimals
   - expected_amount_units
   - expected_amount_display
-  - destination_wallet_address
-  - expires_at
+  - contract_address y contract_version
+  - purchase_ref
+  - payer_wallet_address
+  - authorization_valid_until
+  - authorization_typed_data
+  - authorization_signature
   - min_confirmations
   - disclaimer
-- Audit:
-  - onchain_credit_purchase_created
+- Audit contractual:
+  - onchain_contract_purchase_created
+  - onchain_contract_authorization_signed
 - No acredita creditos.
 - USDT Base no es aceptado en MVP.
 - USDT TRC20 manual no se mezcla con este endpoint.
+- Antes de habilitar 52C, la App Negocio debe migrarse al body contractual y
+  dejar de mostrar wallet directa o pedir `tx_hash`.
+
+Modo contractual 52C:
+
+- payment_method = `base_usdc_contract`;
+- backend deriva negocio desde sesion;
+- backend resuelve paquete, monto, token, chain, contrato, treasury, version y
+  expiracion;
+- backend genera `purchase_ref` bytes32 aleatorio;
+- backend guarda snapshot durable;
+- backend firma autorizacion EIP-712 solo sobre ese snapshot;
+- crear/firmar compra no acredita creditos.
+
+Limites obligatorios antes de habilitar 52C fuera de pruebas:
+
+- crear o reemitir: maximo 5 requests por usuario y 5 por negocio cada 10
+  minutos;
+- respaldo por IP hasheada: maximo 20 requests cada 10 minutos;
+- maximo 3 compras contractuales no terminales por negocio, contando
+  `pending_payment`, `pending_onchain_confirmation`, `detected` y
+  `under_review`;
+- un replay con la misma `Idempotency-Key` no crea otra compra y no consume otro
+  cupo pendiente;
+- al superar limites: `429 RATE_LIMITED` o
+  `409 CRYPTO_PAYMENT_PENDING_LIMIT_REACHED` segun corresponda;
+- en staging/produccion los contadores de mutacion son compartidos. Si el
+  limitador compartido no esta disponible, crear/reemitir falla cerrado con
+  `503 CRYPTO_PAYMENT_RATE_LIMIT_UNAVAILABLE`.
 
 ### GET /api/v1/business/credits/purchases/{id}
 
@@ -171,6 +227,21 @@ Rutas legacy prohibidas/no validas:
   - tx_hash masked cuando exista
   - capabilities
 - No expone RPC keys, raw provider response, `storage_path`, `account_value`, tokens ni secretos.
+- Para una compra propia `base_usdc_contract`, este GET es tambien la respuesta
+  de reanudacion tras recarga. No firma, no reemite y no consulta blockchain.
+- Si la autorizacion durable sigue vigente y la configuracion/signer coinciden,
+  incluye `payment` con:
+  - `authorization_status = valid`
+  - network, chain_id, token y monto esperado
+  - contract_address y contract_version
+  - purchase_ref y payer_wallet_address
+  - authorization_valid_until
+  - authorization_typed_data y authorization_signature originales
+- Si vencio o la configuracion/signer ya no coincide, devuelve la compra con
+  `authorization_status = expired | reissue_required`, omite una firma pagable
+  y expone `capabilities.can_pay = false`.
+- La respuesta es `Cache-Control: private, no-store`. No debe usarse polling;
+  se carga al abrir/continuar la compra o por accion manual `Actualizar`.
 
 ### POST /api/v1/business/credits/purchases/{id}/tx-hash
 
@@ -179,7 +250,18 @@ Rutas legacy prohibidas/no validas:
 - Idempotency-Key: obligatorio.
 - Body:
   - tx_hash
-- Backend verifica on-chain antes de acreditar.
+- Esta ruta es solo compatibilidad de `base_usdc_onchain` y no forma parte del
+  flujo normal `base_usdc_contract`.
+- Para `base_usdc_contract` devuelve
+  `409 CRYPTO_PAYMENT_TX_HASH_NOT_ACCEPTED`, sin guardar evidencia, cambiar
+  estado, acreditar o crear ledger. El watcher contractual descubre el evento
+  oficial por `purchase_ref`.
+- Para transferencias directas legacy en local/staging o fallback manual, el
+  hash solo puede abrir/actualizar revision `under_review`; nunca auto-acredita
+  con trafico real controlado.
+- El hash publico no demuestra propiedad ni intencion comercial.
+- El frontend normal no muestra un campo para pegar `tx_hash`.
+- El backend legacy valida on-chain antes de registrar evidencia para revision.
 - La wallet destino se toma del snapshot backend de la compra; el cliente no
   puede enviarla ni reemplazarla.
 - Validaciones:
@@ -200,9 +282,9 @@ Rutas legacy prohibidas/no validas:
   - verification_status
   - confirmations
   - mensaje seguro
-- Audit:
+- Audit legacy/manual:
   - onchain_tx_hash_submitted
-  - onchain_payment_verified o evento de fallo/review segun resultado
+  - evento de fallo/review segun resultado
 - No acredita por texto libre ni screenshot.
 
 ### GET /api/v1/business/referrals
@@ -460,7 +542,10 @@ Referral qualification:
 
 - No secrets Stripe en frontend, repo, logs ni respuestas.
 - No RPC keys en frontend, repo, logs ni respuestas.
-- No private keys ni seed phrases para topups on-chain.
+- No private keys ni seed phrases de treasury/owner para topups on-chain.
+- El signer 52C es secreto operacional separado: no frontend, no repo, no logs,
+  no audit metadata y no respuestas API. Produccion no debe usar una private key
+  plana en Railway/env como custodia final.
 - No `storage_path` en API/frontend/logs/audit.
 - Comprobantes manuales solo en storage privado y signed URL corta para admin.
 - Admin actions requieren reason.

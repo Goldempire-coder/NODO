@@ -21,6 +21,7 @@ STRIPE_SECRET_KEY
 STRIPE_WEBHOOK_SECRET
 BASE_RPC_URL
 BASE_RPC_API_KEY
+NODO_CREDIT_AUTH_SIGNER_KEY
 STORAGE_ACCESS_KEY
 STORAGE_SECRET_KEY
 ADMIN_BOOTSTRAP_SECRET
@@ -62,7 +63,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 - `BUSINESS_INTAKE_BOT_TOKEN` esta prohibido en frontend, bundles, respuestas API, audit metadata, logs y reportes publicos.
 - `BASE_RPC_URL` y `BASE_RPC_API_KEY` estan prohibidos en frontend, bundles, respuestas API, audit metadata, logs y reportes publicos.
 - `NODO_CREDIT_RECEIVING_WALLET_BASE` es direccion publica de recepcion, no secreto, pero no reemplaza controles de verifier ni debe aparecer en logs innecesarios.
-- Private keys, seed phrases, mnemonics y signing keys para topups on-chain estan prohibidos en backend, frontend, Railway, GitHub, Cursor, logs y evidencia.
+- Private keys, seed phrases y mnemonics de treasury/owner para topups on-chain
+  estan prohibidos en backend, frontend, Railway, GitHub, Cursor, logs y
+  evidencia.
+- `NODO_CREDIT_AUTH_SIGNER_KEY` es una excepcion operacional solo para signer de
+  autorizaciones EIP-712. En produccion no debe ser una private key plana en
+  Railway/env como custodia final. En staging/testnet puede existir temporalmente
+  con fondos pequenos, rotacion y evidencia. Nunca puede vivir en frontend, repo,
+  logs, audit metadata, screenshots o respuestas API.
 
 ## Bloqueo
 

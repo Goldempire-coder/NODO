@@ -134,6 +134,13 @@ Railway must receive backend-only env vars:
 - ORDER_NOTIFICATION_SENDER_BATCH_SIZE
 - BASE_RPC_URL
 - NODO_CREDIT_RECEIVING_WALLET_BASE
+- NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS
+- NODO_CREDIT_PAYMENT_CONTRACT_VERSION
+- NODO_CREDIT_PAYMENT_CONTRACT_PAUSED
+- NODO_CREDIT_AUTH_SIGNER_KEY
+- NODO_CREDIT_AUTH_SIGNER_ADDRESS
+- NODO_CREDIT_AUTH_SIGNER_VERSION
+- ONCHAIN_CREDIT_AUTHORIZATION_TTL_MINUTES
 - ONCHAIN_CREDIT_MIN_CONFIRMATIONS
 - ONCHAIN_CREDIT_PURCHASE_TTL_MINUTES
 - ONCHAIN_CREDIT_WATCHER_ENABLED
@@ -162,6 +169,47 @@ Antes de cambiarla en cualquier entorno registrar sin secretos:
 - rollback a la configuracion anterior.
 
 NODO no almacena private key, seed phrase, mnemonic ni signing key de esa wallet.
+
+### Signer de autorizaciones de compra crypto
+
+52C introduce un signer operacional separado para autorizar pagos por contrato:
+
+- `NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS`
+- `NODO_CREDIT_PAYMENT_CONTRACT_VERSION`
+- `NODO_CREDIT_PAYMENT_CONTRACT_PAUSED`
+- `NODO_CREDIT_AUTH_SIGNER_KEY`
+- `NODO_CREDIT_AUTH_SIGNER_ADDRESS`
+- `NODO_CREDIT_AUTH_SIGNER_VERSION`
+- `ONCHAIN_CREDIT_AUTHORIZATION_TTL_MINUTES`
+
+Clasificacion:
+
+- direccion/version/paused, signer address/version y TTL son configuracion
+  backend; no son secretos, pero no pueden venir del cliente ni actuar como
+  `NEXT_PUBLIC_*`;
+- `NODO_CREDIT_RECEIVING_WALLET_BASE` es la treasury publica esperada por el
+  contrato y sigue el control de cambio de wallet de esta seccion;
+- `NODO_CREDIT_AUTH_SIGNER_KEY` es secreto y solo se permite para signer
+  temporal local/testnet;
+- `LEGACY_CREDIT_PAYMENT_METHODS_ENABLED` debe quedar `false` para el flujo
+  normal y para cualquier trafico real controlado.
+
+Restricciones:
+
+- no es treasury;
+- no es owner/multisig;
+- no mueve fondos;
+- solo firma `PaymentAuthorization` construida por backend;
+- no existe endpoint para firmar payload arbitrario;
+- nunca se expone en frontend, logs, audit, screenshots o respuestas API;
+- produccion no debe usar private key plana en Railway/env como custodia final;
+- staging/testnet puede usarla temporalmente con wallet no oficial, monto pequeno
+  y rotacion antes de produccion.
+
+Produccion queda bloqueada hasta contratar e implementar un signer externo,
+KMS o HSM. Los nombres/configuracion de ese adaptador se definen en un slice de
+infra separado; no se reutiliza `NODO_CREDIT_AUTH_SIGNER_KEY` como solucion
+production-ready.
 
 When `NODO_RELEASE_COMMIT_SHA` is a valid commit SHA, it is authoritative for
 CLI/manual deploys. Otherwise, when `RAILWAY_GIT_COMMIT_SHA` is a valid commit

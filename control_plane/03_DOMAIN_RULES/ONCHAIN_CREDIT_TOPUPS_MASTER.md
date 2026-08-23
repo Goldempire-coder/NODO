@@ -24,7 +24,13 @@ Referencias de token:
 
 ## Relacion con flujos previos
 
-Flujo principal nuevo para compra de creditos: `base_usdc_onchain`.
+Flujo principal nuevo para compra de creditos ya implementado por wallet directa:
+`base_usdc_onchain`.
+
+Flujo recomendado para fondos reales despues de 52A/52C:
+`base_usdc_contract`, con contrato NODO, `purchase_ref` y autorizacion EIP-712
+firmada. Este flujo reemplaza la confianza en un `tx_hash` publico como prueba
+de intencion comercial.
 
 Flujos legacy/fallback:
 
@@ -46,7 +52,7 @@ Prohibido:
 - prometer anonimato o evasion
 - decir que NODO recibe, retiene, transfiere o garantiza fondos de remesas
 
-## Flujo Base USDC
+## Flujo Base USDC Directo A Wallet
 
 1. Negocio aprobado entra a Mini App Negocio.
 2. Selecciona paquete de creditos.
@@ -64,6 +70,23 @@ Prohibido:
 7. Backend verifica on-chain.
 8. Cuando cumple reglas, backend acredita creditos exactamente una vez.
 9. Bot/admin privado solo notifica eventos; no decide ni acredita.
+
+## Flujo Base USDC Por Contrato
+
+1. Negocio aprobado entra a Mini App Negocio.
+2. Selecciona paquete de creditos y conecta wallet.
+3. Frontend envia solo `package_code` y `payer_wallet_address`.
+4. Backend deriva negocio desde sesion.
+5. Backend resuelve paquete, precio, token, chain, contrato, treasury,
+   version, expiracion y `purchase_ref`.
+6. Backend guarda snapshot durable.
+7. Backend solicita firma del snapshot autorizado.
+8. Contrato acepta `pay(authorization, signature)` solo si firma, payer, monto,
+   chain, contrato, version, expiracion y ref coinciden.
+9. Contrato mueve USDC del payer a treasury y emite evento NODO.
+10. Backend verifica receipt, evento del contrato, Transfer ERC20,
+    confirmaciones y snapshot.
+11. Backend acredita creditos exactamente una vez.
 
 ## Verificacion on-chain obligatoria
 
@@ -243,5 +266,12 @@ enmascarado anterior/nuevo, timestamp, motivo, evidencia de smoke y plan de
 rollback. La direccion es publica, pero el cambio de destino es una operacion
 sensible y nunca silenciosa.
 
-Private keys, seed phrases, mnemonics y signing keys no pertenecen a NODO. El
-backend verifica transferencias publicas; no firma transacciones ni mueve fondos.
+Private keys, seed phrases y mnemonics de treasury/owner no pertenecen a NODO.
+El backend no firma transacciones ni mueve fondos.
+
+52C autoriza un secreto operacional separado: `authorizedSigner` para firmar
+solo autorizaciones EIP-712 de compra de creditos. Ese signer no es treasury, no
+es owner, no mueve fondos y no debe vivir en frontend, repo, logs, auditoria ni
+respuestas API. Produccion no debe usar una private key plana en Railway/env
+como custodia final; staging/testnet puede usar signer temporal con fondos
+pequenos y rotacion antes de produccion.
