@@ -90,8 +90,12 @@ Estado: CONTRACTS_DRAFT_READY_FOR_OWNER_REVIEW
   se valida como direccion EVM antes de crear una compra.
 - El frontend recibe la direccion publica solo como instruccion de pago de una
   compra propia. No puede enviarla como autoridad ni cambiarla.
-- NODO no guarda private keys, seed phrases, mnemonics o signing keys y no firma
-  ni mueve fondos.
+- NODO no guarda private keys, seed phrases o mnemonics de treasury/owner y no
+  firma transacciones ni mueve fondos.
+- 52C agrega un `authorizedSigner` operacional para autorizaciones EIP-712. Ese
+  signer no es treasury, no es owner, no mueve fondos y no debe vivir en
+  frontend, repo, logs, audit o respuestas API. Produccion no debe usar una
+  private key plana en Railway/env como custodia final.
 - El resultado del verificador se revalida contra el snapshot durable de la
   compra antes de acreditar: tx hash, chain, token, destino, monto,
   confirmaciones y log index.

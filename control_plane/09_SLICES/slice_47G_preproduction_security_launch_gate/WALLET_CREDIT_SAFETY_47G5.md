@@ -9,7 +9,11 @@ Estado: IMPLEMENTED_LOCAL_READY_FOR_VALIDATOR_REVIEW
 - Token acreditable: USDC nativo contratado, 6 decimales.
 - El cliente elige paquete y envia tx hash. No envia wallet, chain, token, monto
   esperado, confirmaciones ni credits como autoridad.
-- NODO no firma transacciones, no mueve fondos y no almacena material de firma.
+- NODO no firma transacciones, no mueve fondos y no almacena material de firma
+  de treasury/owner.
+- 52C agrega un signer operacional separado para autorizar compras por contrato.
+  Ese signer solo firma snapshots creados por backend, no mueve fondos y no debe
+  estar en frontend, repo, logs, audit o respuestas API.
 
 La direccion receptora es publica porque el negocio debe verla para pagar. Eso
 no convierte su cambio en una operacion ordinaria: el destino se controla fuera
@@ -42,7 +46,7 @@ Eventos relevantes:
 
 Audit registra solo codigo allowlist, estado, source, ledger id, monto de
 creditos y tx hash enmascarado. No registra wallet privada, raw RPC response,
-RPC URL/key, private key, seed phrase, mnemonic o signing key.
+RPC URL/key, private key, seed phrase, mnemonic ni signer key.
 
 ## Smoke futuro de staging
 
