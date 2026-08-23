@@ -1866,28 +1866,42 @@ def test_base_usdc_duplicate_tx_log_race_only_one_purchase_credits() -> None:
 def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     source = open("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx", encoding="utf-8").read()
     hook_source = open("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts", encoding="utf-8").read()
+    api_source = open("apps/web/src/api/credits.ts", encoding="utf-8").read()
+    settings_source = open("apps/web/src/screens/business-app/BusinessSettingsScreen.tsx", encoding="utf-8").read()
     model_source = open("apps/web/src/hooks/useBusinessMiniAppModel.ts", encoding="utf-8").read()
     assert "Generando..." in source
-    assert "Copiar wallet" in source
-    assert "Copiar monto" in source
-    assert "mini-action-button--copied" in source
-    assert "setCopiedTarget(\"wallet\")" in source
-    assert "setCopiedTarget(\"amount\")" in source
-    assert "NODO acredita automaticamente cuando la tx confirma en Base." in source
-    assert "Compra de creditos no disponible todavia. Falta configurar la wallet Base de NODO." in hook_source
+    assert "Wallet pagadora" in source
+    assert "Esta wallet sera la que firma y paga." in source
+    assert "NODO calcula el monto y prepara la autorizacion." in source
+    assert "No pegues hashes en este flujo." in source
+    assert "authorization_status" in source
+    assert "capabilities.can_pay" in source
+    assert "Actualizar estado" in source
+    assert "payer_wallet_address: payerWalletAddress" in api_source
+    assert "token_symbol" not in api_source
+    assert "submitBusinessBaseUsdcTxHash" not in api_source
+    assert "/tx-hash" not in api_source
+    assert "submitBusinessBaseUsdcTxHash" not in hook_source
+    assert "credit_tx_submit" not in hook_source
+    assert "baseUsdcTxHash" not in hook_source
+    assert "Pegar tx hash" not in source
+    assert "Verificar tx" not in source
+    assert "Identificador de transaccion" not in source
+    assert 'placeholder="0x..."' not in source
+    assert "Pegar un hash" not in settings_source
     assert 'const action = "comprar creditos"' in hook_source
     assert "requireBusinessPinFor(action)" in hook_source
     assert "handleBusinessPinError(error, action)" in hook_source
     assert "BUSINESS_PIN_REQUIRED" in hook_source
     assert "useBusinessCreditsModel({ business: access.business" in model_source
     assert "startBusinessBaseUsdcPayment" in hook_source
-    assert "submitBusinessBaseUsdcTxHash" in hook_source
     assert "localStorage.setItem(storageKey, purchase.id)" in hook_source
     assert "Fallback tarjeta" not in source
     assert "Metodo manual" not in source
     assert "Zelle manual" not in source
     assert "USDT TRC20 manual" not in source
     assert "Comprobante privado" not in source
+
 
 def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_choice() -> None:
     source = open("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx", encoding="utf-8").read()
@@ -1903,7 +1917,8 @@ def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_cho
     assert "Tienes un pago pendiente" in source
     assert "Continuar pago pendiente" in source
     assert "Elige un paquete para generar el pago." in source
-    assert "disabled={generatingCreditPayment || !creditPackage}" in source
+    assert "disabled={generatingCreditPayment || !creditPackage || !payerWalletAddress.trim()}" in source
+
 
 def test_postgres_onchain_duplicate_tx_log_path_is_atomic() -> None:
     source = open("apps/api/app/modules/credits/postgres_onchain.py", encoding="utf-8").read()

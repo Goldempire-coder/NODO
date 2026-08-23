@@ -1,20 +1,19 @@
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
-import { useEffect, useState } from "react";
 import { humanizePurchaseStatus } from "../../hooks/business-mini-app/helpers";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 
 const CREDIT_PACKAGES = [
-  { code: "starter", name: "Starter", credits: 5, price: "10.00", hint: "Para probar anuncios." },
-  { code: "pro", name: "Pro", credits: 15, price: "25.00", hint: "Para operar varios anuncios." },
-  { code: "business", name: "Business", credits: 50, price: "75.00", hint: "Mejor costo por credito." },
-  { code: "enterprise", name: "Enterprise", credits: 200, price: "250.00", hint: "Alto volumen." }
+  { code: "starter", name: "Starter", credits: 5, hint: "Para probar anuncios." },
+  { code: "pro", name: "Pro", credits: 15, hint: "Para operar varios anuncios." },
+  { code: "business", name: "Business", credits: 50, hint: "Mejor costo por credito." },
+  { code: "enterprise", name: "Enterprise", credits: 200, hint: "Alto volumen." }
 ];
 
 function packageLabel(packageCode: string | null | undefined) {
   return CREDIT_PACKAGES.find((item) => item.code === packageCode) || null;
 }
 
-function shortWallet(value: string | null | undefined) {
+function shortAddress(value: string | null | undefined) {
   if (!value) {
     return "No disponible";
   }
@@ -24,21 +23,23 @@ function shortWallet(value: string | null | undefined) {
   return `${value.slice(0, 8)}...${value.slice(-6)}`;
 }
 
-async function copyText(value: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
+function authorizationStatusCopy(status: string | undefined, canPay: boolean) {
+  if (status === "valid" && canPay) {
+    return {
+      title: "Autorizacion lista",
+      body: "El siguiente paso sera pagar con tu wallet cuando activemos el contrato."
+    };
   }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = value;
-  textarea.setAttribute("readonly", "true");
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand("copy");
-  document.body.removeChild(textarea);
+  if (status === "expired") {
+    return {
+      title: "Autorizacion vencida",
+      body: "La autorizacion vencio. Genera una nueva compra."
+    };
+  }
+  return {
+    title: "Nueva autorizacion necesaria",
+    body: "Esta compra necesita una nueva autorizacion."
+  };
 }
 
 export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel }) {
@@ -97,8 +98,10 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
     creditPackage,
     generatingCreditPayment,
     loadingPendingPurchase,
+    payerWalletAddress,
     pendingCreditPurchase,
     setCreditPackage,
+    setPayerWalletAddress,
     startBaseUsdcPayment
   } = model;
   const selected = packageLabel(creditPackage);
@@ -115,7 +118,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
               <Text>
                 {packageLabel(pendingCreditPurchase.package_code)?.name || pendingCreditPurchase.package_code}: {pendingCreditPurchase.price_usd} USDC
               </Text>
-              <small>Continualo solo si ya enviaste o vas a enviar ese pago.</small>
+              <small>Continualo para revisar la autorizacion preparada.</small>
             </div>
           </div>
           <button className="mini-action-button" type="button" disabled={loadingPendingPurchase} onClick={() => void continuePendingBaseUsdcPayment()}>
@@ -137,7 +140,6 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           >
             <strong>{item.name}</strong>
             <span>{item.credits} creditos</span>
-            <b>{item.price} USDC</b>
             <small>{item.hint}</small>
           </button>
         ))}
@@ -148,150 +150,115 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           <div>
             {selected ? (
               <>
-                <strong>{selected.name}: {selected.price} USDC</strong>
-                <Text>{selected.credits} creditos</Text>
-                <small>Pago en USDC sobre red Base.</small>
+                <strong>{selected.name}: {selected.credits} creditos</strong>
+                <small>NODO calcula el monto y prepara la autorizacion.</small>
               </>
             ) : (
               <>
                 <strong>Selecciona un paquete</strong>
                 <Text>Elige un paquete para generar el pago.</Text>
-                <small>NODO acreditara automaticamente cuando la tx confirme en Base.</small>
+                <small>NODO calcula el monto cuando preparas la compra.</small>
               </>
             )}
           </div>
         </div>
       </div>
+      <label className="business-field">
+        <span>Wallet pagadora</span>
+        <input
+          value={payerWalletAddress}
+          onChange={(event) => setPayerWalletAddress(event.target.value.trim())}
+          placeholder="0x... wallet en Base"
+          autoCapitalize="none"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <small>Esta wallet sera la que firma y paga.</small>
+      </label>
+      <div className="business-status-panel" role="note">
+        <Text>NODO calcula el monto y prepara la autorizacion.</Text>
+        <Text>Pago en USDC sobre red Base.</Text>
+        <small>No pegues hashes en este flujo.</small>
+      </div>
       <button
         className="mini-action-button mini-action-button--filled mini-action-button--full"
         type="button"
-        disabled={generatingCreditPayment || !creditPackage}
+        disabled={generatingCreditPayment || !creditPackage || !payerWalletAddress.trim()}
         onClick={() => void startBaseUsdcPayment()}
       >
-        {generatingCreditPayment ? "Generando..." : creditPackage ? "Generar datos de pago" : "Elige un paquete"}
+        {generatingCreditPayment ? "Generando..." : creditPackage ? "Preparar autorizacion" : "Elige un paquete"}
       </button>
     </div>
   );
 }
 
 export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { baseUsdcTxHash, refreshingCreditPurchase, refreshSelectedCreditPurchase, selectedCreditPurchase, setBaseUsdcTxHash, setNotice, submitBaseUsdcTxHash, verifyingCreditTx } = model;
-  const [copiedTarget, setCopiedTarget] = useState<"wallet" | "amount" | null>(null);
+  const {
+    openBuyCredits,
+    refreshingCreditPurchase,
+    refreshSelectedCreditPurchase,
+    selectedCreditPayment,
+    selectedCreditPurchase
+  } = model;
   const selected = selectedCreditPurchase ? packageLabel(selectedCreditPurchase.package_code) : null;
-  const walletAddress = selectedCreditPurchase?.destination_wallet_address || "";
-  const amount = selectedCreditPurchase?.price_usd || "";
-  const walletButtonLabel = copiedTarget === "wallet" ? "Copiado" : "Copiar wallet";
-  const amountButtonLabel = copiedTarget === "amount" ? "Copiado" : "Copiar monto";
-
-  useEffect(() => {
-    if (!copiedTarget) {
-      return undefined;
-    }
-    const timeoutId = window.setTimeout(() => setCopiedTarget(null), 1800);
-    return () => window.clearTimeout(timeoutId);
-  }, [copiedTarget]);
-
-  const copyWalletAddress = async () => {
-    if (!walletAddress) {
-      setNotice("Wallet destino no disponible.");
-      return;
-    }
-    try {
-      await copyText(walletAddress);
-      setCopiedTarget("wallet");
-      setNotice("Wallet copiada.");
-    } catch {
-      setNotice("No pudimos copiar la wallet. Manten presionada la direccion para copiarla.");
-    }
-  };
-  const copyAmount = async () => {
-    if (!amount) {
-      setNotice("Monto no disponible.");
-      return;
-    }
-    try {
-      await copyText(amount);
-      setCopiedTarget("amount");
-      setNotice("Monto copiado.");
-    } catch {
-      setNotice("No pudimos copiar el monto. Manten presionado el monto para copiarlo.");
-    }
-  };
+  const canPay = selectedCreditPayment?.capabilities.can_pay === true;
+  const authorizationCopy = authorizationStatusCopy(
+    selectedCreditPayment?.authorization_status,
+    canPay
+  );
+  const validUntil = selectedCreditPayment?.authorization_valid_until;
   return (
     <div className="business-card">
-      <Text className="business-card__label">Pago Base USDC</Text>
+      <Text className="business-card__label">Compra contractual USDC</Text>
       {selectedCreditPurchase ? (
         <>
           <Title level="3" className="business-shell__title">
-            Envia {selectedCreditPurchase.price_usd} USDC
+            Autorizacion de pago
           </Title>
-          <div className="business-status-panel">
+          <div className="business-status-panel" role="status">
             <div>
               <span className="status-dot" aria-hidden="true" />
               <div>
-                <strong>{selected?.name || selectedCreditPurchase.package_code}: {selectedCreditPurchase.credits_amount} creditos</strong>
-                <Text>Monto exacto: {selectedCreditPurchase.price_usd} USDC</Text>
-                <small>NODO acredita automaticamente cuando la tx confirma en Base.</small>
+                <strong>{authorizationCopy.title}</strong>
+                <Text>{authorizationCopy.body}</Text>
               </div>
             </div>
           </div>
-          <div className="payment-step-grid" aria-label="Pasos para pagar">
-            <div>
-              <strong>1</strong>
-              <span>Red Base</span>
-            </div>
-            <div>
-              <strong>2</strong>
-              <span>Monto exacto</span>
-            </div>
-            <div>
-              <strong>3</strong>
-              <span>Pegar tx hash</span>
-            </div>
-          </div>
-          <div className={copiedTarget === "wallet" ? "payment-copy-box is-copied" : "payment-copy-box"}>
+          <div className="payment-copy-box">
             <div className="payment-copy-box__header">
-              <span>Wallet destino</span>
-              <strong>{shortWallet(selectedCreditPurchase.destination_wallet_address)}</strong>
+              <span>Paquete</span>
+              <strong>{selected?.name || selectedCreditPurchase.package_code}</strong>
             </div>
-            <code className="payment-copy-box__value">{selectedCreditPurchase.destination_wallet_address || "Wallet no disponible"}</code>
-            <button
-              className={copiedTarget === "wallet" ? "mini-action-button mini-action-button--filled mini-action-button--full mini-action-button--copied" : "mini-action-button mini-action-button--filled mini-action-button--full"}
-              type="button"
-              disabled={!walletAddress}
-              onClick={() => void copyWalletAddress()}
-            >
-              {walletButtonLabel}
-            </button>
-            {copiedTarget === "wallet" ? <span className="payment-copy-box__feedback" role="status">Wallet copiada.</span> : null}
+            <Text>{selectedCreditPurchase.credits_amount} creditos</Text>
+            <Text>
+              Monto esperado: {selectedCreditPayment?.expected_amount_display || selectedCreditPurchase.price_usd} {selectedCreditPayment?.token_symbol || "USDC"}
+            </Text>
           </div>
-          <div className={copiedTarget === "amount" ? "payment-copy-box payment-copy-box--compact is-copied" : "payment-copy-box payment-copy-box--compact"}>
+          <div className="payment-copy-box payment-copy-box--compact">
             <div className="payment-copy-box__header">
-              <span>Monto exacto</span>
-              <strong>{selectedCreditPurchase.price_usd} USDC</strong>
+              <span>Wallet pagadora</span>
+              <strong>{shortAddress(selectedCreditPayment?.payer_wallet_address)}</strong>
             </div>
-            <button className={copiedTarget === "amount" ? "mini-action-button mini-action-button--copied" : "mini-action-button"} type="button" disabled={!amount} onClick={() => void copyAmount()}>
-              {amountButtonLabel}
-            </button>
+            <code className="payment-copy-box__value">
+              {selectedCreditPayment?.payer_wallet_address || "No disponible"}
+            </code>
           </div>
           <div className="business-grid">
             <Text>Estado: {humanizePurchaseStatus(selectedCreditPurchase.status)}</Text>
-            <Text>Confirmaciones: {selectedCreditPurchase.confirmations ?? 0}</Text>
-            {selectedCreditPurchase.expires_at ? <Text>Vence: {new Date(selectedCreditPurchase.expires_at).toLocaleString("es-VE")}</Text> : null}
+            <Text>Red: {selectedCreditPayment?.network === "base_mainnet" ? "Base" : selectedCreditPayment?.network || "No disponible"}</Text>
+            <Text>Token: {selectedCreditPayment?.token_symbol || "No disponible"}</Text>
+            <Text>Contrato: {shortAddress(selectedCreditPayment?.contract_address)}</Text>
+            <Text>Version: {selectedCreditPayment?.contract_version ?? "No disponible"}</Text>
+            <Text>Autorizacion: {selectedCreditPayment?.authorization_status || "reissue_required"}</Text>
+            <Text>Puede pagar: {selectedCreditPayment?.capabilities.can_pay ? "Si" : "No"}</Text>
+            {validUntil ? <Text>Vence: {new Date(validUntil * 1000).toLocaleString("es-VE")}</Text> : null}
           </div>
-          <label className="business-field">
-            <span>Identificador de transaccion despues de pagar</span>
-            <input value={baseUsdcTxHash} onChange={(event) => setBaseUsdcTxHash(event.target.value.trim())} placeholder="0x..." />
-          </label>
           <div className="business-shell__tabs">
-            <button
-              className="mini-action-button mini-action-button--filled"
-              type="button"
-              disabled={verifyingCreditTx || !baseUsdcTxHash.trim()}
-              onClick={() => void submitBaseUsdcTxHash()}
-            >
-              {verifyingCreditTx ? "Verificando..." : "Verificar tx"}
-            </button>
+            {!canPay ? (
+              <button className="mini-action-button mini-action-button--filled" type="button" onClick={() => void openBuyCredits()}>
+                Preparar nueva compra
+              </button>
+            ) : null}
             <button className="mini-action-button" type="button" disabled={refreshingCreditPurchase} onClick={() => void refreshSelectedCreditPurchase()}>
               {refreshingCreditPurchase ? "Actualizando..." : "Actualizar estado"}
             </button>

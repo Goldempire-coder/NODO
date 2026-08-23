@@ -409,16 +409,18 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "Comprar" in credits_screen
     assert "Referidos" in credits_screen
     assert 'onClick={() => void loadReferrals()}>Referidos</Button>' not in credits_screen
-    assert "Copiar wallet" in credits_screen
-    assert "Wallet copiada." in credits_screen
-    assert "payment-step-grid" in credits_screen
-    assert "Red Base" in credits_screen
+    assert "Wallet pagadora" in credits_screen
+    assert "Esta wallet sera la que firma y paga." in credits_screen
+    assert "No pegues hashes en este flujo." in credits_screen
+    assert "red Base" in credits_screen
     assert "red BASE" not in credits_screen
     assert "red BASE" not in credits_model
     assert 'recordBusinessActionStarted("credit_payment_create"' in credits_model
-    assert 'recordBusinessActionStarted("credit_tx_submit"' in credits_model
+    assert 'recordBusinessActionStarted("credit_tx_submit"' not in credits_model
+    assert "submitBusinessBaseUsdcTxHash" not in credits_model
+    assert "token_symbol" not in credits_api
+    assert "payer_wallet_address: payerWalletAddress" in credits_api
     assert "refreshingCreditPurchase" in credits_model
-    assert "verifyingCreditTx" in credits_model
     assert "businessOrderAction" in orders_model
     assert "useSurfaceAttentionModel" in business_model
     assert 'request<SurfaceAttentionSummary>("/api/v1/notifications/attention-summary"' in _read(
@@ -449,9 +451,9 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "business_availability_" in availability_model
     assert "pendingAvailabilityTarget" in availability_model
     assert "Idempotency-Key" in _read("apps/web/src/api/businesses.ts")
-    assert "disabled={busy || !baseUsdcTxHash.trim()}" not in credits_screen
-    assert "disabled={verifyingCreditTx || !baseUsdcTxHash.trim()}" in credits_screen
-    assert "Verificando..." in credits_screen
+    assert "baseUsdcTxHash" not in credits_screen
+    assert "verifyingCreditTx" not in credits_screen
+    assert "Verificando..." not in credits_screen
     assert "Actualizando..." in credits_screen
     assert "shouldHandleInChat" in orders_screen
     assert "Abrir chat" in orders_screen
@@ -821,7 +823,7 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert 'disabled={busy || !canReactivate}' not in ad_view_sources
     assert 'disabled={busy || status !== "active"}' not in ad_view_sources
     assert "generatingCreditPayment" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
-    assert "verifyingCreditTx" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    assert "payerWalletAddress" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     assert "refreshingCreditPurchase" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     assert "savingPaymentMethodId" in ads_screen
     assert "deletingPaymentMethodId" in ads_screen

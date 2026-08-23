@@ -97,7 +97,7 @@ def test_sensitive_action_state_is_scoped_away_from_one_global_busy_flag() -> No
         "sendingChatMessage",
         "uploadingChatAttachment",
         "generatingCreditPayment",
-        "verifyingCreditTx",
+        "refreshingCreditPurchase",
         "businessOrderAction",
         "deletingPaymentMethodId",
         "savingPaymentMethodId",

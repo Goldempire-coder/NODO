@@ -48,6 +48,36 @@ export type CreditPurchase = {
   rejected_at: string | null;
 };
 
+export type ContractCreditAuthorizationStatus = "valid" | "expired" | "reissue_required";
+
+export type ContractCreditPayment = {
+  network: string | null;
+  chain_id: number | null;
+  token_symbol: string | null;
+  token_contract_address: string | null;
+  token_decimals: number | null;
+  expected_amount_units: string | null;
+  expected_amount_display: string;
+  contract_address: string | null;
+  contract_version: number | null;
+  purchase_ref: string | null;
+  payer_wallet_address: string | null;
+  authorization_valid_until: number | null;
+  authorization_typed_data?: Record<string, unknown>;
+  authorization_signature?: string;
+  authorization_status: ContractCreditAuthorizationStatus;
+  capabilities: {
+    can_pay: boolean;
+  };
+  min_confirmations?: number;
+};
+
+export type BusinessCreditPurchaseDetail = {
+  purchase: CreditPurchase;
+  payment?: ContractCreditPayment;
+  disclaimer?: string;
+};
+
 export type AdminCreditPurchaseSummary = {
   id: string;
   business_id: string;

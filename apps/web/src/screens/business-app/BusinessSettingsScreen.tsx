@@ -143,7 +143,7 @@ const BUSINESS_RULES = [
   },
   {
     title: "USDC Base",
-    body: "Pegar un hash no acredita por si solo. El backend valida red, token, destino, monto, exito y que el hash no se haya usado."
+    body: "NODO prepara la autorizacion con el monto, token, red y contrato oficiales. La compra no acredita creditos hasta que el pago sea verificado."
   },
   {
     title: "Notificaciones",
