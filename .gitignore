@@ -11,6 +11,8 @@ node_modules/
 out/
 dist/
 coverage/
+apps/contracts/artifacts/
+apps/contracts/cache/
 
 # Python / backend
 __pycache__/

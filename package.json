@@ -7,6 +7,7 @@
     "build:web:staging": "python scripts/deploy_cloudflare_pages_staging.py",
     "deploy:web:staging": "python scripts/deploy_cloudflare_pages_staging.py --deploy --confirm-staging-deploy",
     "test": "python scripts/run_slice_00_tests.py",
+    "test:contracts": "pnpm --filter @nodo/contracts test",
     "test:slice00": "python scripts/run_slice_00_tests.py"
   },
   "packageManager": "pnpm@9.15.4",
