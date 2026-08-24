@@ -98,6 +98,20 @@ class InMemoryCreditRepository:
     def create_contract_purchase(self, **kwargs) -> tuple[CreditPurchaseRecord, bool]:  # type: ignore[no-untyped-def]
         return self._purchase_store.create_contract_purchase(**kwargs)
 
+    def get_contract_purchase_by_idempotency(
+        self,
+        *,
+        business_id: str,
+        idempotency_key: str,
+    ) -> CreditPurchaseRecord | None:
+        return self._purchase_store.get_contract_purchase_by_idempotency(
+            business_id=business_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def count_pending_contract_purchases(self, business_id: str) -> int:
+        return self._purchase_store.count_pending_contract_purchases(business_id)
+
     def get_purchase(self, purchase_id: str) -> CreditPurchaseRecord | None:
         return self._purchase_store.get_purchase(purchase_id)
 

@@ -153,6 +153,47 @@ def test_postgres_contract_purchase_replay_is_exact_once_without_credit(
     assert mismatch.value.code == "IDEMPOTENCY_PAYLOAD_MISMATCH"
 
 
+def test_postgres_contract_pending_limit_is_atomic_under_concurrency(
+    credit_postgres_url: str,
+) -> None:
+    business_id = _seed_business(credit_postgres_url)
+    repository = PostgresCreditRepository(credit_postgres_url)
+    barrier = Barrier(4)
+
+    def create_once(index: int):  # type: ignore[no-untyped-def]
+        barrier.wait(timeout=10)
+        try:
+            return _candidate(
+                repository,
+                business_id=business_id,
+                idempotency_key=f"pending-limit-{index}-{uuid4()}",
+            )
+        except ApiError as exc:
+            return exc
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = list(executor.map(create_once, range(4)))
+
+    purchases = [result[0] for result in results if isinstance(result, tuple)]
+    errors = [result for result in results if isinstance(result, ApiError)]
+    assert len(purchases) == 3
+    assert [error.code for error in errors] == ["CRYPTO_PAYMENT_PENDING_LIMIT_REACHED"]
+    assert repository.count_pending_contract_purchases(business_id) == 3
+
+    with psycopg.connect(credit_postgres_url) as conn:
+        purchase_ids = [purchase.id for purchase in purchases]
+        ledger_count = conn.execute(
+            "select count(*) from credits_ledger where related_credit_purchase_id = any(%s::uuid[])",
+            (purchase_ids,),
+        ).fetchone()[0]
+        wallet_count = conn.execute(
+            "select count(*) from credit_wallets where business_id = %s",
+            (business_id,),
+        ).fetchone()[0]
+    assert ledger_count == 0
+    assert wallet_count == 0
+
+
 def test_contract_purchase_migration_constraints_are_canonical() -> None:
     up = MIGRATION_UP.read_text(encoding="utf-8")
     down = MIGRATION_DOWN.read_text(encoding="utf-8")

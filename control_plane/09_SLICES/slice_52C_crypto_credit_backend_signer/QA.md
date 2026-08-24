@@ -20,16 +20,20 @@
 - contrato pausado/configuracion divergente falla cerrado;
 - firma no acredita wallet ni ledger;
 - expiracion estricta: `now >= validUntil` no es pagable;
-- rate limit backend existente por accion y negocio.
+- rate limit dedicado: 5 por usuario, 5 por negocio y 20 por IP hasheada cada
+  10 minutos;
+- la cuarta compra no terminal devuelve
+  `409 CRYPTO_PAYMENT_PENDING_LIMIT_REACHED` antes de firmar;
+- compras terminales no cuentan y el replay idempotente no agrega cupo;
+- staging/produccion devuelve
+  `503 CRYPTO_PAYMENT_RATE_LIMIT_UNAVAILABLE` si el limitador compartido falla,
+  sin compra, firma, ledger o cambio de saldo;
+- Memory y PostgreSQL mantienen paridad; PostgreSQL serializa la creacion por
+  negocio para impedir que concurrencia exceda tres compras pendientes.
 
 ## Gates Diferidos Antes De Habilitar El Metodo
 
 - reemision controlada mantiene snapshot y ref;
-- 5 creaciones/reemisiones por usuario y por negocio cada 10 minutos;
-- 20 creaciones/reemisiones por IP hasheada cada 10 minutos;
-- maximo 3 compras contractuales no terminales por negocio;
-- fallo cerrado si el limitador compartido no esta disponible en
-  staging/produccion;
 - detalle propio reanuda una autorizacion vigente sin firmar de nuevo;
 - autorizacion vencida o signer/config divergente no devuelve firma pagable;
 - `tx-hash` sobre `base_usdc_contract` devuelve

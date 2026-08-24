@@ -60,6 +60,7 @@ class CreditBusinessPurchases:
         storage,
         onchain_verifier,
         rate_limit: Callable[[str, str], None],
+        contract_rate_limit: Callable[[str, str], None] | None = None,
         require_idempotency_key: Callable[[str | None], str],
         admin_notifications=None,
     ) -> None:  # type: ignore[no-untyped-def]
@@ -70,6 +71,9 @@ class CreditBusinessPurchases:
         self._storage = storage
         self._onchain_verifier = onchain_verifier
         self._rate_limit = rate_limit
+        self._contract_rate_limit = contract_rate_limit or (
+            lambda _user_id, business_id: rate_limit("base_usdc_contract_payment", business_id)
+        )
         self._require_idempotency_key = require_idempotency_key
         self._admin_notifications = admin_notifications
 
@@ -205,7 +209,7 @@ class CreditBusinessPurchases:
         request_id: str,
         idempotency_key: str | None,
     ) -> dict[str, Any]:
-        self._rate_limit("base_usdc_contract_payment", business.id)
+        self._contract_rate_limit(user.id, business.id)
         stable_key = self._require_idempotency_key(idempotency_key)
         payer_address = normalize_payment_address(payload.payer_wallet_address)
 
@@ -213,6 +217,23 @@ class CreditBusinessPurchases:
             package = CREDIT_PACKAGES.get(payload.package_code)
             if package is None:
                 raise ApiError("INVALID_PACKAGE", status_code=400)
+            existing = self._repository.get_contract_purchase_by_idempotency(
+                business_id=business.id,
+                idempotency_key=stable_key,
+            )
+            if existing is not None:
+                if (
+                    existing.payment_method != "base_usdc_contract"
+                    or existing.package_code != payload.package_code
+                    or existing.onchain_payer_address != payer_address
+                ):
+                    raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
+                return self._contract_payment_response(existing)
+            if (
+                self._repository.count_pending_contract_purchases(business.id)
+                >= self._settings.credit_contract_pending_purchase_limit
+            ):
+                raise ApiError("CRYPTO_PAYMENT_PENDING_LIMIT_REACHED", status_code=409)
             contract_address, treasury_address = self._contract_configuration()
             signed_at = utc_now()
             valid_until = int(signed_at.timestamp()) + self._settings.onchain_credit_authorization_ttl_minutes * 60
@@ -247,6 +268,7 @@ class CreditBusinessPurchases:
                 signer_address=signed.signer_address,
                 signer_version=self._settings.nodo_credit_auth_signer_version or "",
                 signed_at=signed_at,
+                max_pending=self._settings.credit_contract_pending_purchase_limit,
             )
             if created:
                 self._audit.write(

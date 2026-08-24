@@ -181,6 +181,17 @@ NODO no almacena private key, seed phrase, mnemonic ni signing key de esa wallet
 - `NODO_CREDIT_AUTH_SIGNER_ADDRESS`
 - `NODO_CREDIT_AUTH_SIGNER_VERSION`
 - `ONCHAIN_CREDIT_AUTHORIZATION_TTL_MINUTES`
+- `CREDIT_CONTRACT_RATE_LIMIT_USER_MAX_ATTEMPTS` (default `5`)
+- `CREDIT_CONTRACT_RATE_LIMIT_BUSINESS_MAX_ATTEMPTS` (default `5`)
+- `CREDIT_CONTRACT_RATE_LIMIT_IP_MAX_ATTEMPTS` (default `20`)
+- `CREDIT_CONTRACT_RATE_LIMIT_WINDOW_SECONDS` (default `600`)
+- `CREDIT_CONTRACT_PENDING_PURCHASE_LIMIT` (default `3`)
+
+Los limites contractuales se aplican en backend. Staging/produccion requieren el
+limitador Redis compartido y fallan cerrado si no esta disponible. La IP se usa
+solo como clave hasheada; no se agrega en claro a logs o audit. Estas variables
+solo pueden endurecer la politica: runtime limita intentos a `5/5/20`, exige una
+ventana minima de `600` segundos y nunca permite mas de `3` compras pendientes.
 
 Clasificacion:
 

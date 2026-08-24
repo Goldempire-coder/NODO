@@ -44,6 +44,12 @@ PURCHASE_STATUSES = {
     "expired",
     "verification_failed",
 }
+CONTRACT_NON_TERMINAL_PURCHASE_STATUSES = {
+    "pending_payment",
+    "pending_onchain_confirmation",
+    "detected",
+    "under_review",
+}
 REFERRAL_CODE_STATUSES = {"active", "disabled"}
 REFERRAL_EVENT_STATUSES = {"pending", "approved", "rewarded", "rejected"}
 ALLOWED_PROOF_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}

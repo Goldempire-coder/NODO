@@ -75,6 +75,11 @@ class Settings:
     auth_rate_limit_window_seconds: int
     business_rate_limit_max_attempts: int
     business_rate_limit_window_seconds: int
+    credit_contract_rate_limit_user_max_attempts: int
+    credit_contract_rate_limit_business_max_attempts: int
+    credit_contract_rate_limit_ip_max_attempts: int
+    credit_contract_rate_limit_window_seconds: int
+    credit_contract_pending_purchase_limit: int
     chat_message_rate_limit_max_attempts: int
     chat_message_rate_limit_window_seconds: int
     chat_duplicate_message_rate_limit_max_attempts: int
@@ -230,6 +235,26 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         auth_rate_limit_window_seconds=_read_int(source, "AUTH_RATE_LIMIT_WINDOW_SECONDS", 60),
         business_rate_limit_max_attempts=_read_int(source, "BUSINESS_RATE_LIMIT_MAX_ATTEMPTS", 30),
         business_rate_limit_window_seconds=_read_int(source, "BUSINESS_RATE_LIMIT_WINDOW_SECONDS", 60),
+        credit_contract_rate_limit_user_max_attempts=min(
+            5,
+            max(1, _read_int(source, "CREDIT_CONTRACT_RATE_LIMIT_USER_MAX_ATTEMPTS", 5)),
+        ),
+        credit_contract_rate_limit_business_max_attempts=min(
+            5,
+            max(1, _read_int(source, "CREDIT_CONTRACT_RATE_LIMIT_BUSINESS_MAX_ATTEMPTS", 5)),
+        ),
+        credit_contract_rate_limit_ip_max_attempts=min(
+            20,
+            max(1, _read_int(source, "CREDIT_CONTRACT_RATE_LIMIT_IP_MAX_ATTEMPTS", 20)),
+        ),
+        credit_contract_rate_limit_window_seconds=max(
+            600,
+            _read_int(source, "CREDIT_CONTRACT_RATE_LIMIT_WINDOW_SECONDS", 600),
+        ),
+        credit_contract_pending_purchase_limit=min(
+            3,
+            max(1, _read_int(source, "CREDIT_CONTRACT_PENDING_PURCHASE_LIMIT", 3)),
+        ),
         chat_message_rate_limit_max_attempts=_read_int(source, "CHAT_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS", 10),
         chat_message_rate_limit_window_seconds=_read_int(source, "CHAT_MESSAGE_RATE_LIMIT_WINDOW_SECONDS", 60),
         chat_duplicate_message_rate_limit_max_attempts=_read_int(source, "CHAT_DUPLICATE_MESSAGE_RATE_LIMIT_MAX_ATTEMPTS", 2),

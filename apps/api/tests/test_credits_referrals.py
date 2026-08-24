@@ -6,6 +6,7 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
@@ -37,6 +38,11 @@ CONTRACT_ENV_KEYS = (
     "NODO_CREDIT_AUTH_SIGNER_KEY",
     "NODO_CREDIT_AUTH_SIGNER_ADDRESS",
     "NODO_CREDIT_AUTH_SIGNER_VERSION",
+    "CREDIT_CONTRACT_RATE_LIMIT_USER_MAX_ATTEMPTS",
+    "CREDIT_CONTRACT_RATE_LIMIT_BUSINESS_MAX_ATTEMPTS",
+    "CREDIT_CONTRACT_RATE_LIMIT_IP_MAX_ATTEMPTS",
+    "CREDIT_CONTRACT_RATE_LIMIT_WINDOW_SECONDS",
+    "CREDIT_CONTRACT_PENDING_PURCHASE_LIMIT",
 )
 
 
@@ -83,6 +89,7 @@ from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.credits import business_purchases as business_purchases_module  # noqa: E402
+from app.shared.rate_limit.redis import RateLimitUnavailableError  # noqa: E402
 
 
 class FakeBaseUsdcVerifier:
@@ -104,6 +111,27 @@ class FakeBaseUsdcVerifier:
     ) -> OnchainVerificationResult:
         self.calls.append(tx_hash.lower())
         return self.results[tx_hash.lower()]
+
+
+class SelectiveCreditContractRateLimiter:
+    def __init__(self, blocked_key_fragment: str) -> None:
+        self.blocked_key_fragment = blocked_key_fragment
+        self.keys: list[str] = []
+
+    def allow(self, key: str, *, max_attempts: int, window_seconds: int) -> bool:
+        del max_attempts, window_seconds
+        self.keys.append(key)
+        return self.blocked_key_fragment not in key
+
+
+class UnavailableSharedRateLimiter:
+    def allow(self, key: str, *, max_attempts: int, window_seconds: int) -> bool:
+        del key, max_attempts, window_seconds
+        return True
+
+    def allow_shared(self, key: str, *, max_attempts: int, window_seconds: int) -> bool:
+        del key, max_attempts, window_seconds
+        raise RateLimitUnavailableError("test shared limiter unavailable")
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -1112,6 +1140,202 @@ def test_contract_payment_idempotency_replays_same_signature_and_rejects_payload
     assert mismatch.status_code == 409
     assert mismatch.json()["error"]["code"] == "IDEMPOTENCY_PAYLOAD_MISMATCH"
     assert len(client.app.state.credit_repository.purchases) == 1
+
+
+def test_contract_payment_allows_three_pending_and_rejects_fourth_before_signing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1122, "contract_pending_limit")
+    business = _create_business(client, owner, "contract_pending_limit")
+    payload = {"package_code": "starter", "payer_wallet_address": PAYER_WALLET}
+    signed_calls = 0
+    original_sign = business_purchases_module.sign_payment_authorization
+
+    def track_signing(*args, **kwargs):  # type: ignore[no-untyped-def]
+        nonlocal signed_calls
+        signed_calls += 1
+        return original_sign(*args, **kwargs)
+
+    monkeypatch.setattr(business_purchases_module, "sign_payment_authorization", track_signing)
+    created = [
+        client.post(
+            "/api/v1/business/credits/base-payment",
+            headers={**_headers(owner, f"contract_pending_{index}"), "Content-Type": "application/json"},
+            json=payload,
+        )
+        for index in range(1, 4)
+    ]
+    wallet_before = client.app.state.credit_repository.get_wallet(business["id"])
+    credits_before = wallet_before.available_credits if wallet_before is not None else 0
+
+    blocked = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_pending_4"), "Content-Type": "application/json"},
+        json=payload,
+    )
+
+    assert [response.status_code for response in created] == [201, 201, 201]
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "CRYPTO_PAYMENT_PENDING_LIMIT_REACHED"
+    assert signed_calls == 3
+    assert len(client.app.state.credit_repository.purchases) == 3
+    assert all(
+        client.app.state.credit_repository.ledger_for_purchase(purchase.id) is None
+        for purchase in client.app.state.credit_repository.purchases.values()
+    )
+    wallet_after = client.app.state.credit_repository.get_wallet(business["id"])
+    credits_after = wallet_after.available_credits if wallet_after is not None else 0
+    assert credits_after == credits_before
+
+
+def test_contract_payment_terminal_purchases_do_not_count_and_replay_does_not_add_pending() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1123, "contract_pending_terminal")
+    _create_business(client, owner, "contract_pending_terminal")
+    payload = {"package_code": "starter", "payer_wallet_address": PAYER_WALLET}
+    first_headers = {**_headers(owner, "contract_terminal_1"), "Content-Type": "application/json"}
+    first = client.post("/api/v1/business/credits/base-payment", headers=first_headers, json=payload)
+    replay = client.post("/api/v1/business/credits/base-payment", headers=first_headers, json=payload)
+    second = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_terminal_2"), "Content-Type": "application/json"},
+        json=payload,
+    )
+    third = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_terminal_3"), "Content-Type": "application/json"},
+        json=payload,
+    )
+    purchases = list(client.app.state.credit_repository.purchases.values())
+    purchases[0].status = "credited"
+    purchases[1].status = "expired"
+    purchases[2].status = "rejected"
+
+    fourth = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_terminal_4"), "Content-Type": "application/json"},
+        json=payload,
+    )
+
+    assert first.status_code == replay.status_code == second.status_code == third.status_code == 201
+    assert replay.json()["data"] == first.json()["data"]
+    assert fourth.status_code == 201, fourth.text
+    assert len(client.app.state.credit_repository.purchases) == 4
+
+
+@pytest.mark.parametrize(
+    "blocked_key_fragment",
+    [
+        "credits:base_usdc_contract_payment:user:",
+        "credits:base_usdc_contract_payment:business:",
+        "credits:base_usdc_contract_payment:ip:",
+    ],
+)
+def test_contract_payment_enforces_user_business_and_ip_rate_limit_keys(
+    blocked_key_fragment: str,
+) -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1124, f"contract_rate_{blocked_key_fragment[-4:]}")
+    _create_business(client, owner, f"contract_rate_{blocked_key_fragment[-4:]}")
+    limiter = SelectiveCreditContractRateLimiter(blocked_key_fragment)
+    client.app.state.rate_limiter = limiter
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, f"contract_rate_{blocked_key_fragment[-4:]}"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
+    assert any(blocked_key_fragment in key for key in limiter.keys)
+    assert client.app.state.credit_repository.purchases == {}
+
+
+@pytest.mark.parametrize(
+    "limited_setting",
+    [
+        "credit_contract_rate_limit_user_max_attempts",
+        "credit_contract_rate_limit_business_max_attempts",
+        "credit_contract_rate_limit_ip_max_attempts",
+    ],
+)
+def test_contract_payment_rate_limits_each_actor_dimension(limited_setting: str) -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1126, f"contract_actual_rate_{limited_setting}")
+    _create_business(client, owner, f"contract_actual_rate_{limited_setting}")
+    limits = {
+        "credit_contract_rate_limit_user_max_attempts": 10,
+        "credit_contract_rate_limit_business_max_attempts": 10,
+        "credit_contract_rate_limit_ip_max_attempts": 10,
+    }
+    limits[limited_setting] = 1
+    client.app.state.settings = replace(client.app.state.settings, **limits)
+    payload = {"package_code": "starter", "payer_wallet_address": PAYER_WALLET}
+
+    first = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, f"contract_actual_rate_{limited_setting}_1"), "Content-Type": "application/json"},
+        json=payload,
+    )
+    blocked = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, f"contract_actual_rate_{limited_setting}_2"), "Content-Type": "application/json"},
+        json=payload,
+    )
+
+    assert first.status_code == 201, first.text
+    assert blocked.status_code == 429
+    assert blocked.json()["error"]["code"] == "RATE_LIMITED"
+    assert len(client.app.state.credit_repository.purchases) == 1
+
+
+def test_contract_payment_env_cannot_relax_antiabuse_policy() -> None:
+    client, _ = _contract_client(
+        CREDIT_CONTRACT_RATE_LIMIT_USER_MAX_ATTEMPTS="500",
+        CREDIT_CONTRACT_RATE_LIMIT_BUSINESS_MAX_ATTEMPTS="500",
+        CREDIT_CONTRACT_RATE_LIMIT_IP_MAX_ATTEMPTS="500",
+        CREDIT_CONTRACT_RATE_LIMIT_WINDOW_SECONDS="1",
+        CREDIT_CONTRACT_PENDING_PURCHASE_LIMIT="500",
+    )
+
+    assert client.app.state.settings.credit_contract_rate_limit_user_max_attempts == 5
+    assert client.app.state.settings.credit_contract_rate_limit_business_max_attempts == 5
+    assert client.app.state.settings.credit_contract_rate_limit_ip_max_attempts == 20
+    assert client.app.state.settings.credit_contract_rate_limit_window_seconds == 600
+    assert client.app.state.settings.credit_contract_pending_purchase_limit == 3
+
+
+def test_contract_payment_fails_closed_when_shared_rate_limiter_is_unavailable() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1125, "contract_shared_limiter_unavailable")
+    business = _create_business(client, owner, "contract_shared_limiter_unavailable")
+    client.app.state.settings = replace(client.app.state.settings, app_env="staging")
+    client.app.state.rate_limiter = UnavailableSharedRateLimiter()
+    wallet_before = client.app.state.credit_repository.get_wallet(business["id"])
+    credits_before = wallet_before.available_credits if wallet_before is not None else 0
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_shared_limiter_unavailable"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "CRYPTO_PAYMENT_RATE_LIMIT_UNAVAILABLE"
+    assert client.app.state.credit_repository.purchases == {}
+    ledger, next_cursor = client.app.state.credit_repository.list_ledger(
+        business_id=business["id"],
+        ledger_type=None,
+        cursor=None,
+        limit=50,
+    )
+    assert ledger == []
+    assert next_cursor is None
+    wallet_after = client.app.state.credit_repository.get_wallet(business["id"])
+    credits_after = wallet_after.available_credits if wallet_after is not None else 0
+    assert credits_after == credits_before
 
 
 def test_contract_payment_replay_rejects_an_expired_cached_authorization(monkeypatch: pytest.MonkeyPatch) -> None:

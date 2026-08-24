@@ -11,6 +11,7 @@ from app.modules.credits.models import (
     BASE_USDC_CONTRACT_ADDRESS,
     BASE_USDC_DECIMALS,
     BASE_USDC_TOKEN_SYMBOL,
+    CONTRACT_NON_TERMINAL_PURCHASE_STATUSES,
     CREDIT_PACKAGES,
     ONCHAIN_CREDIT_LEDGER_REASON,
     CreditPurchaseRecord,
@@ -142,6 +143,7 @@ class InMemoryCreditPurchaseStore:
         signer_address: str,
         signer_version: str,
         signed_at,
+        max_pending: int = 3,
     ) -> tuple[CreditPurchaseRecord, bool]:  # type: ignore[no-untyped-def]
         package = CREDIT_PACKAGES[package_code]
         with self._lock:
@@ -161,6 +163,15 @@ class InMemoryCreditPurchaseStore:
                 ):
                     raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
                 return existing, False
+            pending_count = sum(
+                1
+                for item in self.purchases.values()
+                if item.business_id == business_id
+                and item.payment_method == "base_usdc_contract"
+                and item.status in CONTRACT_NON_TERMINAL_PURCHASE_STATUSES
+            )
+            if pending_count >= max_pending:
+                raise ApiError("CRYPTO_PAYMENT_PENDING_LIMIT_REACHED", status_code=409)
             purchase = CreditPurchaseRecord(
                 id=new_id(),
                 business_id=business_id,
@@ -192,6 +203,32 @@ class InMemoryCreditPurchaseStore:
             )
             self.purchases[purchase.id] = purchase
             return purchase, True
+
+    def get_contract_purchase_by_idempotency(
+        self,
+        *,
+        business_id: str,
+        idempotency_key: str,
+    ) -> CreditPurchaseRecord | None:
+        with self._lock:
+            return next(
+                (
+                    item
+                    for item in self.purchases.values()
+                    if item.business_id == business_id and item.idempotency_key == idempotency_key
+                ),
+                None,
+            )
+
+    def count_pending_contract_purchases(self, business_id: str) -> int:
+        with self._lock:
+            return sum(
+                1
+                for item in self.purchases.values()
+                if item.business_id == business_id
+                and item.payment_method == "base_usdc_contract"
+                and item.status in CONTRACT_NON_TERMINAL_PURCHASE_STATUSES
+            )
 
     def get_purchase(self, purchase_id: str) -> CreditPurchaseRecord | None:
         return self.purchases.get(purchase_id)

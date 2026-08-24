@@ -125,6 +125,8 @@ ERROR_MESSAGES = {
     "PURCHASE_STATUS_INVALID": "El estado de la compra no permite esta accion.",
     "INVALID_PACKAGE": "El paquete de creditos no es valido.",
     "CREDIT_PAYMENT_METHOD_DISABLED": "Este metodo de compra de creditos ya no esta disponible. Usa Base USDC.",
+    "CRYPTO_PAYMENT_PENDING_LIMIT_REACHED": "Ya tienes varias compras pendientes. Completa o cierra una antes de crear otra.",
+    "CRYPTO_PAYMENT_RATE_LIMIT_UNAVAILABLE": "No pudimos validar el limite de esta operacion. Intenta nuevamente.",
     "STRIPE_SIGNATURE_INVALID": "No pudimos validar la firma de Stripe.",
     "STRIPE_WEBHOOK_DUPLICATE": "El evento de Stripe ya fue procesado.",
     "STRIPE_SESSION_INVALID": "No pudimos validar la sesion de Stripe.",

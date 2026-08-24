@@ -13,6 +13,10 @@ from app.shared.rate_limit.in_memory import InMemoryRateLimiter
 logger = get_logger("nodo.rate_limit")
 
 
+class RateLimitUnavailableError(RuntimeError):
+    pass
+
+
 class RedisRateLimiter:
     _REDIS_ERROR_BACKOFF_SECONDS = 30.0
     _ALLOW_SCRIPT = """
@@ -39,29 +43,40 @@ class RedisRateLimiter:
             return False
         return self._fallback.allow(key, max_attempts=max_attempts, window_seconds=window_seconds)
 
-    def allow(self, key: str, *, max_attempts: int, window_seconds: int) -> bool:
-        if time.time() < self._redis_unavailable_until:
-            return self._redis_unavailable_result(key, max_attempts=max_attempts, window_seconds=window_seconds)
-
+    def _allow_redis(self, key: str, *, max_attempts: int, window_seconds: int) -> bool:
         redis_key = f"rate_limit:{key}"
         try:
-            try:
-                if self._allow_script_sha is None:
-                    self._allow_script_sha = self._client.script_load(self._ALLOW_SCRIPT)
-                allowed = self._client.evalsha(self._allow_script_sha, 1, redis_key, max_attempts, window_seconds)
-            except NoScriptError:
+            if self._allow_script_sha is None:
                 self._allow_script_sha = self._client.script_load(self._ALLOW_SCRIPT)
-                allowed = self._client.evalsha(self._allow_script_sha, 1, redis_key, max_attempts, window_seconds)
-        except RedisError as exc:
-            self._redis_unavailable_until = time.time() + self._REDIS_ERROR_BACKOFF_SECONDS
-            logger.warning(
-                "rate_limiter_redis_unavailable",
-                extra=redact_mapping(
-                    {
-                        "event": "rate_limiter_redis_unavailable",
-                        "exception_class": exc.__class__.__name__,
-                    }
-                ),
-            )
-            return self._redis_unavailable_result(key, max_attempts=max_attempts, window_seconds=window_seconds)
+            allowed = self._client.evalsha(self._allow_script_sha, 1, redis_key, max_attempts, window_seconds)
+        except NoScriptError:
+            self._allow_script_sha = self._client.script_load(self._ALLOW_SCRIPT)
+            allowed = self._client.evalsha(self._allow_script_sha, 1, redis_key, max_attempts, window_seconds)
         return bool(int(allowed))
+
+    def _mark_redis_unavailable(self, exc: RedisError) -> None:
+        self._redis_unavailable_until = time.time() + self._REDIS_ERROR_BACKOFF_SECONDS
+        logger.warning(
+            "rate_limiter_redis_unavailable",
+            extra=redact_mapping(
+                {
+                    "event": "rate_limiter_redis_unavailable",
+                    "exception_class": exc.__class__.__name__,
+                }
+            ),
+        )
+
+    def allow_shared(self, key: str, *, max_attempts: int, window_seconds: int) -> bool:
+        if time.time() < self._redis_unavailable_until:
+            raise RateLimitUnavailableError("shared rate limiter unavailable")
+        try:
+            return self._allow_redis(key, max_attempts=max_attempts, window_seconds=window_seconds)
+        except RedisError as exc:
+            self._mark_redis_unavailable(exc)
+            raise RateLimitUnavailableError("shared rate limiter unavailable") from exc
+
+    def allow(self, key: str, *, max_attempts: int, window_seconds: int) -> bool:
+        try:
+            return self.allow_shared(key, max_attempts=max_attempts, window_seconds=window_seconds)
+        except RateLimitUnavailableError:
+            return self._redis_unavailable_result(key, max_attempts=max_attempts, window_seconds=window_seconds)

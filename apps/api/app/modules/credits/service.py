@@ -22,6 +22,8 @@ from app.modules.credits.schemas import (
 from app.modules.credits.serializers import ledger_public, purchase_public
 from app.modules.credits.stripe_webhook import parse_stripe_webhook_event
 from app.modules.users.models import UserRecord
+from app.shared.rate_limit.redis import RateLimitUnavailableError
+from app.shared.rate_limit.request_identity import current_request_ip_hash
 
 
 class CreditService:
@@ -55,6 +57,7 @@ class CreditService:
             storage=self._storage,
             onchain_verifier=self._onchain_verifier,
             rate_limit=self._rate_limit,
+            contract_rate_limit=self._contract_rate_limit,
             require_idempotency_key=self._require_idempotency_key,
             admin_notifications=self._admin_notifications,
         )
@@ -86,6 +89,44 @@ class CreditService:
         if not idempotency_key or not idempotency_key.strip():
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
         return idempotency_key.strip()
+
+    def _contract_rate_limit(self, user_id: str, business_id: str) -> None:
+        keys_and_limits = (
+            (
+                f"credits:base_usdc_contract_payment:user:{user_id}",
+                self._settings.credit_contract_rate_limit_user_max_attempts,
+            ),
+            (
+                f"credits:base_usdc_contract_payment:business:{business_id}",
+                self._settings.credit_contract_rate_limit_business_max_attempts,
+            ),
+            (
+                f"credits:base_usdc_contract_payment:ip:{current_request_ip_hash()}",
+                self._settings.credit_contract_rate_limit_ip_max_attempts,
+            ),
+        )
+        require_shared = self._settings.app_env in {"staging", "production"}
+        allow_shared = getattr(self._rate_limiter, "allow_shared", None)
+        if require_shared and allow_shared is None:
+            raise ApiError("CRYPTO_PAYMENT_RATE_LIMIT_UNAVAILABLE", status_code=503)
+        for key, max_attempts in keys_and_limits:
+            try:
+                if require_shared:
+                    allowed = allow_shared(
+                        key,
+                        max_attempts=max_attempts,
+                        window_seconds=self._settings.credit_contract_rate_limit_window_seconds,
+                    )
+                else:
+                    allowed = self._rate_limiter.allow(
+                        key,
+                        max_attempts=max_attempts,
+                        window_seconds=self._settings.credit_contract_rate_limit_window_seconds,
+                    )
+            except RateLimitUnavailableError as exc:
+                raise ApiError("CRYPTO_PAYMENT_RATE_LIMIT_UNAVAILABLE", status_code=503) from exc
+            if not allowed:
+                raise ApiError("RATE_LIMITED", status_code=429)
 
     def _owner_business(self, user: UserRecord) -> BusinessRecord:
         business, _ = require_active_business_access(user=user, business_repository=self._businesses)

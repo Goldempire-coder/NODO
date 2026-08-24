@@ -75,13 +75,7 @@ candidato de produccion.
 
 ## Limite Operativo 52C1
 
-52C1 reutiliza el rate limit backend existente por accion y negocio. El repo no
-tiene todavia un patron canonico para contar compras contractuales pendientes
-sin ampliar consultas y estados. El maximo durable de pendientes queda como
-gate obligatorio antes de habilitar pagos contractuales fuera de pruebas; no se
-inventa en este slice.
-
-Decision 52C-S0 para el siguiente slice:
+El runtime aplica los gates antiabuso 52C antes de firmar:
 
 - 5 creaciones/reemisiones por usuario y por negocio cada 10 minutos;
 - 20 por IP hasheada cada 10 minutos;
@@ -89,7 +83,11 @@ Decision 52C-S0 para el siguiente slice:
 - Redis/limitador compartido obligatorio en staging/produccion y fallo cerrado
   si no esta disponible.
 
-52C1 local no se considera habilitable hasta que runtime implemente esos gates.
+El conteo durable PostgreSQL serializa por negocio y usa los estados
+`pending_payment`, `pending_onchain_confirmation`, `detected` y `under_review`.
+Memory conserva la misma semantica bajo lock. Un replay idempotente se resuelve
+antes del conteo y no consume otro cupo pendiente. Alcanzar el cupo o perder el
+limitador compartido no crea compra, no firma, no crea ledger y no cambia saldo.
 
 La dependencia no cambia la regla de custodia: la clave plana solo se admite
 para signer temporal local/testnet. Produccion requiere signer externo/KMS/HSM

@@ -8,7 +8,11 @@ from app.modules.credits.models import (
     ReferralEventRecord,
 )
 from app.modules.credits.postgres_admin_adjustment import adjust_wallet_pg
-from app.modules.credits.postgres_contract_purchase import create_contract_purchase_pg
+from app.modules.credits.postgres_contract_purchase import (
+    count_pending_contract_purchases_pg,
+    create_contract_purchase_pg,
+    get_contract_purchase_by_idempotency_pg,
+)
 from app.modules.credits.postgres_purchases import (
     apply_onchain_verification_pg,
     approve_purchase_pg,
@@ -149,6 +153,21 @@ class PostgresCreditRepository:
 
     def create_contract_purchase(self, **kwargs) -> tuple[CreditPurchaseRecord, bool]:  # type: ignore[no-untyped-def]
         return create_contract_purchase_pg(self._connect, **kwargs)
+
+    def get_contract_purchase_by_idempotency(
+        self,
+        *,
+        business_id: str,
+        idempotency_key: str,
+    ) -> CreditPurchaseRecord | None:
+        return get_contract_purchase_by_idempotency_pg(
+            self._connect,
+            business_id=business_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def count_pending_contract_purchases(self, business_id: str) -> int:
+        return count_pending_contract_purchases_pg(self._connect, business_id)
 
     def get_purchase(self, purchase_id: str) -> CreditPurchaseRecord | None:
         return get_purchase_pg(self._connect, purchase_id)

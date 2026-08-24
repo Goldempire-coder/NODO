@@ -32,9 +32,46 @@ def create_contract_purchase_pg(
     signer_address: str,
     signer_version: str,
     signed_at,
+    max_pending: int = 3,
 ) -> tuple[CreditPurchaseRecord, bool]:  # type: ignore[no-untyped-def]
     package = CREDIT_PACKAGES[package_code]
     with connect() as conn:
+        conn.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (business_id,))
+        existing_row = conn.execute(
+            """
+            select * from credit_purchases
+            where business_id = %s and idempotency_key = %s
+            for update
+            """,
+            (business_id, idempotency_key),
+        ).fetchone()
+        if existing_row is not None:
+            existing = purchase_from_row(existing_row)
+            if (
+                existing.payment_method != "base_usdc_contract"
+                or existing.package_code != package_code
+                or existing.onchain_payer_address != payer_address
+            ):
+                raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
+            conn.commit()
+            return existing, False
+        pending_count = conn.execute(
+            """
+            select count(*) as pending_count
+            from credit_purchases
+            where business_id = %s
+              and payment_method = 'base_usdc_contract'
+              and status in (
+                  'pending_payment',
+                  'pending_onchain_confirmation',
+                  'detected',
+                  'under_review'
+              )
+            """,
+            (business_id,),
+        ).fetchone()["pending_count"]
+        if pending_count >= max_pending:
+            raise ApiError("CRYPTO_PAYMENT_PENDING_LIMIT_REACHED", status_code=409)
         row = conn.execute(
             """
             insert into credit_purchases (
@@ -88,15 +125,6 @@ def create_contract_purchase_pg(
         ).fetchone()
         created = row is not None
         if row is None:
-            row = conn.execute(
-                """
-                select * from credit_purchases
-                where business_id = %s and idempotency_key = %s
-                for update
-                """,
-                (business_id, idempotency_key),
-            ).fetchone()
-        if row is None:
             raise ApiError("IDEMPOTENCY_CONFLICT", status_code=409)
         purchase = purchase_from_row(row)
         if (
@@ -107,3 +135,40 @@ def create_contract_purchase_pg(
             raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
         conn.commit()
     return purchase, created
+
+
+def get_contract_purchase_by_idempotency_pg(
+    connect,
+    *,
+    business_id: str,
+    idempotency_key: str,
+) -> CreditPurchaseRecord | None:  # type: ignore[no-untyped-def]
+    with connect() as conn:
+        row = conn.execute(
+            """
+            select * from credit_purchases
+            where business_id = %s and idempotency_key = %s
+            """,
+            (business_id, idempotency_key),
+        ).fetchone()
+    return purchase_from_row(row) if row is not None else None
+
+
+def count_pending_contract_purchases_pg(connect, business_id: str) -> int:  # type: ignore[no-untyped-def]
+    with connect() as conn:
+        row = conn.execute(
+            """
+            select count(*) as pending_count
+            from credit_purchases
+            where business_id = %s
+              and payment_method = 'base_usdc_contract'
+              and status in (
+                  'pending_payment',
+                  'pending_onchain_confirmation',
+                  'detected',
+                  'under_review'
+              )
+            """,
+            (business_id,),
+        ).fetchone()
+    return int(row["pending_count"])

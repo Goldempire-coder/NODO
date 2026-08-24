@@ -74,6 +74,7 @@ from app.shared.idempotency.store import InMemoryIdempotencyStore, RedisIdempote
 from app.shared.observability import ObservabilityMiddleware, get_correlation_id, get_operation_id, get_request_id
 from app.shared.rate_limit.in_memory import InMemoryRateLimiter
 from app.shared.rate_limit.redis import RedisRateLimiter
+from app.shared.rate_limit.request_identity import RateLimitRequestIdentityMiddleware
 from app.shared.security.headers import RuntimeTimingMiddleware, SecurityHeadersMiddleware
 from app.core.config import Settings
 from app.shared.storage.private import (
@@ -391,6 +392,7 @@ def _configure_workers(app: FastAPI) -> None:
 
 
 def _configure_middlewares(app: FastAPI, *, settings: Settings) -> None:
+    app.add_middleware(RateLimitRequestIdentityMiddleware)
     app.add_middleware(ObservabilityMiddleware)
     app.add_middleware(RuntimeTimingMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
