@@ -16,6 +16,7 @@ Con mock ERC20:
 - `pay` rechaza version incorrecta;
 - `pay` rechaza autorizacion expirada;
 - `pay` rechaza autorizacion cuando `block.timestamp == validUntil`;
+- `pay` acepta autorizacion en `validUntil - 1` y la rechaza despues del limite;
 - `pay` transfiere token del pagador a treasury;
 - `pay` emite `NodoCreditPaymentReceived` con datos exactos;
 - receipt contiene Transfer del token desde payer hacia treasury por el monto;
@@ -26,6 +27,10 @@ Con mock ERC20:
 - unpause restaura `pay`;
 - receive/fallback rechazan ETH/BNB nativo;
 - sweep envia balance atrapado a treasury;
+- sweep requiere owner, rechaza balance cero y no emite
+  `NodoCreditPaymentReceived`;
+- allowance o balance insuficiente revierten sin consumir `purchaseRef` ni
+  transferir fondos a treasury;
 - owner no puede cambiar treasury/token porque no existen setters.
 - transferencia de ownership requiere aceptacion en dos pasos;
 - un pago parcial consume el ref y no permite sumar otro pago al mismo ref;

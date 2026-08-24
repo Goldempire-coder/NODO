@@ -17,6 +17,12 @@ const AUTHORIZATION_TYPES = {
   ],
 } as const;
 
+const PAYMENT_RECEIVED_EVENT_TOPIC = keccak256(
+  stringToHex(
+    "NodoCreditPaymentReceived(bytes32,address,address,address,uint256,uint256,uint256,uint256)",
+  ),
+);
+
 type Address = `0x${string}`;
 
 type PaymentAuthorization = {
@@ -242,14 +248,37 @@ describe("NODOCreditPaymentVaultSigned", function () {
     );
   });
 
-  it("treats validUntil as an exclusive expiry boundary", async function () {
-    const { authorization, payer, signAuthorization, vault } =
-      await deployVault("exclusive-expiry");
+  it("accepts before validUntil and rejects at or after the exclusive boundary", async function () {
+    const before = await deployVault("before-expiry");
+    await networkHelpers.time.setNextBlockTimestamp(Number(before.authorization.validUntil - 1n));
+    await before.vault.write.pay(
+      [before.authorization, await before.signAuthorization()],
+      { account: before.payer.account },
+    );
+    assert.equal(
+      await before.vault.read.usedPurchaseRefs([before.authorization.purchaseRef]),
+      true,
+    );
 
-    await networkHelpers.time.setNextBlockTimestamp(Number(authorization.validUntil));
-
+    const atBoundary = await deployVault("at-expiry");
+    await networkHelpers.time.setNextBlockTimestamp(Number(atBoundary.authorization.validUntil));
     await expectRevert(
-      vault.write.pay([authorization, await signAuthorization()], { account: payer.account }),
+      atBoundary.vault.write.pay(
+        [atBoundary.authorization, await atBoundary.signAuthorization()],
+        { account: atBoundary.payer.account },
+      ),
+      "AuthorizationExpired",
+    );
+
+    const afterBoundary = await deployVault("after-expiry");
+    await networkHelpers.time.setNextBlockTimestamp(
+      Number(afterBoundary.authorization.validUntil + 1n),
+    );
+    await expectRevert(
+      afterBoundary.vault.write.pay(
+        [afterBoundary.authorization, await afterBoundary.signAuthorization()],
+        { account: afterBoundary.payer.account },
+      ),
       "AuthorizationExpired",
     );
   });
@@ -339,20 +368,79 @@ describe("NODOCreditPaymentVaultSigned", function () {
   });
 
   it("sweeps trapped ERC20 tokens only to treasury and never consumes a purchase ref", async function () {
-    const { amount, authorization, owner, token, treasury, vault } =
+    const { amount, authorization, owner, publicClient, token, treasury, vault } =
       await deployVault("sweep");
 
     await token.write.mint([vault.address, amount]);
+    const sweepTransaction = vault.write.sweepToTreasury([token.address], {
+      account: owner.account,
+    });
     await viem.assertions.emitWithArgs(
-      vault.write.sweepToTreasury([token.address], { account: owner.account }),
+      sweepTransaction,
       vault,
       "NodoVaultSweep",
       [token.address, treasury.account.address, amount],
     );
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: await sweepTransaction,
+    });
 
     assert.equal(await token.read.balanceOf([vault.address]), 0n);
     assert.equal(await token.read.balanceOf([treasury.account.address]), amount);
     assert.equal(await vault.read.usedPurchaseRefs([authorization.purchaseRef]), false);
+    assert.equal(
+      receipt.logs.some((log) => log.topics[0] === PAYMENT_RECEIVED_EVENT_TOPIC),
+      false,
+    );
+  });
+
+  it("restricts sweep to owner and rejects an empty token balance", async function () {
+    const { other, owner, token, vault } = await deployVault("sweep-guards");
+
+    await expectRevert(
+      vault.write.sweepToTreasury([token.address], { account: other.account }),
+      "OwnableUnauthorizedAccount",
+    );
+    await expectRevert(
+      vault.write.sweepToTreasury([token.address], { account: owner.account }),
+      "ZeroAmount",
+    );
+  });
+
+  it("does not consume purchaseRef when allowance is insufficient", async function () {
+    const { amount, authorization, payer, signAuthorization, token, treasury, vault } =
+      await deployVault("insufficient-allowance");
+
+    await token.write.approve([vault.address, amount - 1n], { account: payer.account });
+    await expectRevert(
+      vault.write.pay([authorization, await signAuthorization()], { account: payer.account }),
+      "ERC20InsufficientAllowance",
+    );
+
+    assert.equal(await vault.read.usedPurchaseRefs([authorization.purchaseRef]), false);
+    assert.equal(await token.read.balanceOf([treasury.account.address]), 0n);
+  });
+
+  it("does not consume purchaseRef when payer balance is insufficient", async function () {
+    const { amount, authorization, payer, signAuthorization, token, treasury, vault } =
+      await deployVault("insufficient-balance");
+    const amountAboveBalance = amount * 11n;
+    const oversizedAuthorization = {
+      ...authorization,
+      amount: amountAboveBalance,
+    };
+
+    await token.write.approve([vault.address, amountAboveBalance], { account: payer.account });
+    await expectRevert(
+      vault.write.pay(
+        [oversizedAuthorization, await signAuthorization({ amount: amountAboveBalance })],
+        { account: payer.account },
+      ),
+      "ERC20InsufficientBalance",
+    );
+
+    assert.equal(await vault.read.usedPurchaseRefs([authorization.purchaseRef]), false);
+    assert.equal(await token.read.balanceOf([treasury.account.address]), 0n);
   });
 
   it("reverts failed transfers without consuming the purchase ref", async function () {
