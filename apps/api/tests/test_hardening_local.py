@@ -6,8 +6,11 @@ import sys
 from pathlib import Path
 
 from app.shared.db import connection as db_connection
-from app.shared.storage.private import LocalFilePrivateStorage, UnavailablePrivateStorage
-
+from app.shared.rate_limit.request_identity import client_ip_for_rate_limit
+from app.shared.storage.private import (
+    LocalFilePrivateStorage,
+    UnavailablePrivateStorage,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -36,6 +39,22 @@ def test_local_compose_defines_postgres_and_redis_only() -> None:
     assert "56379:6379" in compose
     for forbidden in ["supabase", "stripe", "telegram", "ngrok"]:
         assert forbidden not in compose.lower()
+
+
+def test_rate_limit_identity_uses_proxy_appended_client_ip_not_spoofed_leftmost() -> None:
+    scope = {
+        "type": "http",
+        "client": ("10.0.0.10", 54321),
+        "headers": [(b"x-forwarded-for", b"1.2.3.4, 198.51.100.44")],
+    }
+
+    assert client_ip_for_rate_limit(scope) == "198.51.100.44"
+
+
+def test_rate_limit_identity_falls_back_to_scope_client_without_forwarded_header() -> None:
+    scope = {"type": "http", "client": ("203.0.113.20", 54321), "headers": []}
+
+    assert client_ip_for_rate_limit(scope) == "203.0.113.20"
 
 
 def test_local_private_storage_writes_under_configured_root_without_exposing_path_in_url() -> None:

@@ -192,6 +192,9 @@ limitador Redis compartido y fallan cerrado si no esta disponible. La IP se usa
 solo como clave hasheada; no se agrega en claro a logs o audit. Estas variables
 solo pueden endurecer la politica: runtime limita intentos a `5/5/20`, exige una
 ventana minima de `600` segundos y nunca permite mas de `3` compras pendientes.
+Para compras contractuales, el limitador usa la IP agregada por el proxy final en
+`X-Forwarded-For` y cae al cliente ASGI si no existe ese header. El valor se
+hashea antes de usarse como clave y no se registra en claro.
 
 Clasificacion:
 
