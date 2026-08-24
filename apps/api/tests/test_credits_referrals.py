@@ -2130,14 +2130,18 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     model_source = open("apps/web/src/hooks/useBusinessMiniAppModel.ts", encoding="utf-8").read()
     assert "Generando..." in source
     assert "Wallet pagadora" in source
-    assert "Esta wallet sera la que firma y paga." in source
+    assert "Conectar wallet" in source
+    assert "Conecta la wallet desde donde pagarás." in source
+    assert "Esta wallet será la que firma y paga." in source
+    assert "NODO no ve ni guarda tu clave privada." in source
+    assert "Necesitas USDC y un poco de ETH en Base para gas." in source
     assert "priceUsdc" in source
     assert "{item.priceUsdc} USDC" in source
     assert 'priceUsdc: "10"' in source
     assert 'priceUsdc: "25"' in source
     assert 'priceUsdc: "75"' in source
     assert 'priceUsdc: "250"' in source
-    assert "Pagas ${selected.priceUsdc} USDC por este paquete." in source
+    assert "Pagarás ${selected.priceUsdc} USDC en red Base." in source
     assert "La autorizacion final confirma el monto antes de pagar." in source
     assert "NODO calcula el monto y prepara la autorizacion." not in source
     assert "No pegues hashes en este flujo." in source
@@ -2160,6 +2164,10 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "requireBusinessPinFor(action)" in hook_source
     assert "handleBusinessPinError(error, action)" in hook_source
     assert "BUSINESS_PIN_REQUIRED" in hook_source
+    assert "useInjectedWallet" in hook_source
+    assert "connectedWalletAddress" in hook_source
+    assert "walletIsBase" in hook_source
+    assert "setPayerWalletAddress" not in hook_source
     assert "useBusinessCreditsModel({ business: access.business" in model_source
     assert "startBusinessBaseUsdcPayment" in hook_source
     assert "localStorage.setItem(storageKey, purchase.id)" in hook_source
@@ -2184,7 +2192,7 @@ def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_cho
     assert "Tienes un pago pendiente" in source
     assert "Continuar pago pendiente" in source
     assert "Elige un paquete para generar el pago." in source
-    assert "disabled={generatingCreditPayment || !creditPackage || !payerWalletAddress.trim()}" in source
+    assert "disabled={generatingCreditPayment || !creditPackage || !connectedWalletAddress || !walletIsBase}" in source
 
 
 def test_postgres_onchain_duplicate_tx_log_path_is_atomic() -> None:

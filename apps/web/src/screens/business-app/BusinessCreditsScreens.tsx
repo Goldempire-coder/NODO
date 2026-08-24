@@ -95,15 +95,21 @@ export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel 
 
 export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
+    connectWallet,
+    connectingWallet,
+    connectedWalletAddress,
+    connectedWalletAddressMasked,
     continuePendingBaseUsdcPayment,
     creditPackage,
     generatingCreditPayment,
     loadingPendingPurchase,
-    payerWalletAddress,
     pendingCreditPurchase,
     setCreditPackage,
-    setPayerWalletAddress,
-    startBaseUsdcPayment
+    startBaseUsdcPayment,
+    walletChainId,
+    walletError,
+    walletIsBase,
+    walletProviderStatus
   } = model;
   const selected = packageLabel(creditPackage);
   return (
@@ -165,27 +171,51 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           </div>
         </div>
       </div>
-      <label className="business-field">
-        <span>Wallet pagadora</span>
-        <input
-          value={payerWalletAddress}
-          onChange={(event) => setPayerWalletAddress(event.target.value.trim())}
-          placeholder="0x... wallet en Base"
-          autoCapitalize="none"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <small>Esta wallet sera la que firma y paga.</small>
-      </label>
+      <div className="business-status-panel" role="region" aria-label="Wallet pagadora">
+        <div>
+          <span className="status-dot" aria-hidden="true" />
+          <div>
+            <strong>Conecta la wallet desde donde pagarás.</strong>
+            <Text>NODO no ve ni guarda tu clave privada.</Text>
+            <small>Esta wallet será la que firma y paga.</small>
+          </div>
+        </div>
+        <button
+          className="mini-action-button"
+          type="button"
+          disabled={connectingWallet || walletProviderStatus !== "available"}
+          onClick={() => void connectWallet()}
+        >
+          {connectingWallet ? "Conectando..." : connectedWalletAddress ? "Cambiar wallet" : "Conectar wallet"}
+        </button>
+      </div>
+      {walletProviderStatus === "unavailable" ? (
+        <Text role="alert">
+          No detectamos una wallet compatible en este navegador. Abre NODO desde el navegador de tu wallet o usa una wallet compatible con Base.
+        </Text>
+      ) : null}
+      {connectedWalletAddress ? (
+        <div className="business-status-panel" role="status">
+          <div>
+            <span className="status-dot" aria-hidden="true" />
+            <div>
+              <strong>{connectedWalletAddressMasked}</strong>
+              <Text>{walletIsBase ? "Red Base conectada." : `Red actual: ${walletChainId ?? "desconocida"}.`}</Text>
+              {!walletIsBase ? <small>Cambia tu wallet a Base para preparar el pago.</small> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {walletError ? <Text role="alert">{walletError}</Text> : null}
       <div className="business-status-panel" role="note">
-        <Text>{selected ? `Pagas ${selected.priceUsdc} USDC por este paquete.` : "Elige un paquete para ver el monto."}</Text>
-        <Text>Pago en USDC sobre red Base.</Text>
+        <Text>{selected ? `Pagarás ${selected.priceUsdc} USDC en red Base.` : "Elige un paquete para ver el monto."}</Text>
+        <Text>Necesitas USDC y un poco de ETH en Base para gas.</Text>
         <small>No pegues hashes en este flujo.</small>
       </div>
       <button
         className="mini-action-button mini-action-button--filled mini-action-button--full"
         type="button"
-        disabled={generatingCreditPayment || !creditPackage || !payerWalletAddress.trim()}
+        disabled={generatingCreditPayment || !creditPackage || !connectedWalletAddress || !walletIsBase}
         onClick={() => void startBaseUsdcPayment()}
       >
         {generatingCreditPayment ? "Generando..." : creditPackage ? "Preparar autorizacion" : "Elige un paquete"}
@@ -241,9 +271,6 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
               <span>Wallet pagadora</span>
               <strong>{shortAddress(selectedCreditPayment?.payer_wallet_address)}</strong>
             </div>
-            <code className="payment-copy-box__value">
-              {selectedCreditPayment?.payer_wallet_address || "No disponible"}
-            </code>
           </div>
           <div className="business-grid">
             <Text>Estado: {humanizePurchaseStatus(selectedCreditPurchase.status)}</Text>

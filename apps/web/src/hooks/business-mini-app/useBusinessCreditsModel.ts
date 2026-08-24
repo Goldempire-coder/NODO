@@ -11,6 +11,7 @@ import type { BusinessSummary } from "../../types/business";
 import type { ContractCreditPayment, CreditPurchase, CreditWallet, ReferralData } from "../../types/credits";
 import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
+import { useInjectedWallet } from "./useInjectedWallet";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 
 const BASE_USDC_CREDIT_NOTICE = "NODO prepara compras de creditos en USDC sobre red Base.";
@@ -113,13 +114,36 @@ export function useBusinessCreditsModel({
   const [selectedCreditPayment, setSelectedCreditPayment] = useState<ContractCreditPayment | null>(null);
   const [pendingCreditPurchase, setPendingCreditPurchase] = useState<CreditPurchase | null>(null);
   const [creditPackage, setCreditPackage] = useState<string | null>(null);
-  const [payerWalletAddress, setPayerWalletAddress] = useState("");
   const [referralData, setReferralData] = useState<ReferralData | null>(null);
   const [generatingCreditPayment, setGeneratingCreditPayment] = useState(false);
   const [loadingPendingPurchase, setLoadingPendingPurchase] = useState(false);
   const [refreshingCreditPurchase, setRefreshingCreditPurchase] = useState(false);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
   const pendingPurchaseStorageKey = pendingBaseUsdcPurchaseStorageKey(business?.id);
+
+  const invalidatePreparedCreditPayment = useCallback(() => {
+    const hadPreparedPayment = Boolean(selectedCreditPurchase || selectedCreditPayment || pendingCreditPurchase);
+    setSelectedCreditPurchase(null);
+    setSelectedCreditPayment(null);
+    setPendingCreditPurchase(null);
+    clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey);
+    if (hadPreparedPayment) {
+      setView("buy-credits");
+      setNotice("La cuenta o red cambió. Prepara la autorización de nuevo.");
+    }
+  }, [pendingCreditPurchase, pendingPurchaseStorageKey, selectedCreditPayment, selectedCreditPurchase, setNotice, setView]);
+
+  const {
+    connectWallet,
+    connectingWallet,
+    connectedWalletAddress,
+    connectedWalletAddressMasked,
+    getConnectedWalletSnapshot,
+    walletChainId,
+    walletError,
+    walletIsBase,
+    walletProviderStatus,
+  } = useInjectedWallet(invalidatePreparedCreditPayment);
 
   const requireBusinessPinFor = useCallback((action: string) => {
     return requireUnlockedBusinessPin({ action, business, setNotice, setView });
@@ -176,6 +200,23 @@ export function useBusinessCreditsModel({
       setNotice("No hay un pago Base USDC pendiente.");
       return;
     }
+    if (walletProviderStatus !== "available") {
+      setNotice("No detectamos una wallet compatible en este navegador. Abre NODO desde el navegador de tu wallet o usa una wallet compatible con Base.");
+      return;
+    }
+    if (!connectedWalletAddress) {
+      setNotice("Conecta la wallet desde donde pagaras.");
+      return;
+    }
+    if (!walletIsBase) {
+      setNotice("Cambia tu wallet a Base para continuar el pago.");
+      return;
+    }
+    const preparedWallet = getConnectedWalletSnapshot();
+    if (preparedWallet.address !== connectedWalletAddress || preparedWallet.chainId !== walletChainId) {
+      setNotice("La cuenta o red cambio. Revisa tu wallet e intenta de nuevo.");
+      return;
+    }
     setLoadingPendingPurchase(true);
     try {
       const data = await getBusinessCreditPurchase(request, rememberedPurchaseId);
@@ -183,6 +224,23 @@ export function useBusinessCreditsModel({
         setPendingCreditPurchase(null);
         clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
         setNotice("Ese pago ya no esta pendiente.");
+        return;
+      }
+      const currentWallet = getConnectedWalletSnapshot();
+      if (
+        currentWallet.address !== preparedWallet.address ||
+        currentWallet.chainId !== preparedWallet.chainId
+      ) {
+        setPendingCreditPurchase(null);
+        clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
+        setNotice("La cuenta o red cambio. Prepara la autorizacion de nuevo.");
+        return;
+      }
+      const paymentWallet = data.payment?.payer_wallet_address?.toLowerCase() || null;
+      if (!paymentWallet || paymentWallet !== preparedWallet.address) {
+        setPendingCreditPurchase(null);
+        clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
+        setNotice("Ese pago pendiente pertenece a otra wallet. Prepara una nueva autorizacion.");
         return;
       }
       setSelectedCreditPurchase(data.purchase);
@@ -198,7 +256,7 @@ export function useBusinessCreditsModel({
     } finally {
       setLoadingPendingPurchase(false);
     }
-  }, [business?.id, pendingCreditPurchase, pendingPurchaseStorageKey, request, setNotice, setView]);
+  }, [business?.id, connectedWalletAddress, getConnectedWalletSnapshot, pendingCreditPurchase, pendingPurchaseStorageKey, request, setNotice, setView, walletChainId, walletIsBase, walletProviderStatus]);
 
   const loadCreditDashboard = useCallback(async () => {
     setView("credits-dashboard");
@@ -219,9 +277,21 @@ export function useBusinessCreditsModel({
       setNotice("Elige un paquete para generar el pago.");
       return;
     }
-    const normalizedPayerWalletAddress = payerWalletAddress.trim();
-    if (!normalizedPayerWalletAddress) {
-      setNotice("Indica la wallet que firmara y pagara.");
+    if (walletProviderStatus !== "available") {
+      setNotice("No detectamos una wallet compatible en este navegador. Abre NODO desde el navegador de tu wallet o usa una wallet compatible con Base.");
+      return;
+    }
+    if (!connectedWalletAddress) {
+      setNotice("Conecta la wallet desde donde pagarás.");
+      return;
+    }
+    if (!walletIsBase) {
+      setNotice("Cambia tu wallet a Base para preparar el pago.");
+      return;
+    }
+    const preparedWallet = getConnectedWalletSnapshot();
+    if (preparedWallet.address !== connectedWalletAddress || preparedWallet.chainId !== walletChainId) {
+      setNotice("La cuenta o red cambió. Revisa tu wallet e intenta de nuevo.");
       return;
     }
     const action = "comprar creditos";
@@ -236,13 +306,21 @@ export function useBusinessCreditsModel({
       const data = await startBusinessBaseUsdcPayment(
         request,
         creditPackage,
-        normalizedPayerWalletAddress,
+        connectedWalletAddress,
         getIdempotencyKey(idempotencyScope, {
           creditPackage,
-          payerWalletAddress: normalizedPayerWalletAddress.toLowerCase()
+          connectedWalletAddress
         })
       );
       clearIdempotencyKey(idempotencyScope);
+      const currentWallet = getConnectedWalletSnapshot();
+      if (
+        currentWallet.address !== preparedWallet.address ||
+        currentWallet.chainId !== preparedWallet.chainId
+      ) {
+        setNotice("La cuenta o red cambió. Prepara la autorización de nuevo.");
+        return;
+      }
       setSelectedCreditPurchase(data.purchase);
       setSelectedCreditPayment(data.payment || null);
       setPendingCreditPurchase(data.purchase);
@@ -260,7 +338,7 @@ export function useBusinessCreditsModel({
     } finally {
       setGeneratingCreditPayment(false);
     }
-  }, [clearIdempotencyKey, creditPackage, getIdempotencyKey, handleBusinessPinError, payerWalletAddress, pendingPurchaseStorageKey, request, requireBusinessPinFor, setNotice, setView]);
+  }, [clearIdempotencyKey, connectedWalletAddress, creditPackage, getConnectedWalletSnapshot, getIdempotencyKey, handleBusinessPinError, pendingPurchaseStorageKey, request, requireBusinessPinFor, setNotice, setView, walletChainId, walletIsBase, walletProviderStatus]);
 
   const refreshSelectedCreditPurchase = useCallback(async () => {
     if (!selectedCreditPurchase) {
@@ -301,6 +379,10 @@ export function useBusinessCreditsModel({
 
   return {
     continuePendingBaseUsdcPayment,
+    connectWallet,
+    connectingWallet,
+    connectedWalletAddress,
+    connectedWalletAddressMasked,
     creditPackage,
     creditWallet,
     creditWalletRefreshState,
@@ -309,7 +391,6 @@ export function useBusinessCreditsModel({
     loadCreditDashboard,
     loadReferrals,
     openBuyCredits,
-    payerWalletAddress,
     referralData,
     refreshCreditWallet,
     refreshingCreditPurchase,
@@ -318,7 +399,10 @@ export function useBusinessCreditsModel({
     selectedCreditPayment,
     selectedCreditPurchase,
     setCreditPackage,
-    setPayerWalletAddress,
     startBaseUsdcPayment,
+    walletChainId,
+    walletError,
+    walletIsBase,
+    walletProviderStatus,
   };
 }

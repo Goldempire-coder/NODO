@@ -410,7 +410,9 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "Referidos" in credits_screen
     assert 'onClick={() => void loadReferrals()}>Referidos</Button>' not in credits_screen
     assert "Wallet pagadora" in credits_screen
-    assert "Esta wallet sera la que firma y paga." in credits_screen
+    assert "Esta wallet será la que firma y paga." in credits_screen
+    assert "Conectar wallet" in credits_screen
+    assert "useInjectedWallet" in credits_model
     assert "No pegues hashes en este flujo." in credits_screen
     assert "red Base" in credits_screen
     assert "red BASE" not in credits_screen
@@ -823,7 +825,7 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert 'disabled={busy || !canReactivate}' not in ad_view_sources
     assert 'disabled={busy || status !== "active"}' not in ad_view_sources
     assert "generatingCreditPayment" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
-    assert "payerWalletAddress" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    assert "connectedWalletAddress" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     assert "refreshingCreditPurchase" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     assert "savingPaymentMethodId" in ads_screen
     assert "deletingPaymentMethodId" in ads_screen
