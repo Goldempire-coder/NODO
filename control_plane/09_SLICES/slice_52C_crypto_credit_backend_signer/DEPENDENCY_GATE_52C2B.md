@@ -1,14 +1,17 @@
-# 52C2B-DEP Wallet Connection Dependency Gate
+# 52C2B-DEP Reown Wallet Connection Dependency Gate
 
-Estado: `BLOCKED_PENDING_AUDIT`
+Estado: `BLOCKED_PENDING_AUDIT_FOR_REOWN_STACK`
 
 Fecha de evaluacion: 2026-08-24
 
 ## Alcance
 
-Este gate evalua dependencias para una futura conexion de wallet en App Negocio.
-No implementa UI, provider, conexion, firma, approve, pago, watcher ni polling. No
-configura project IDs, wallets, treasury, staging o produccion.
+Este gate evalua el stack Reown/AppKit para una futura conexion de wallet en App
+Negocio. No es el reporte de implementacion del flujo simple EIP-1193.
+
+Durante esta evaluacion no se implementaron UI, provider, conexion, firma,
+approve, pago, watcher ni polling. Tampoco se configuraron project IDs, wallets,
+treasury, staging o produccion.
 
 ## Stack Evaluado
 
@@ -80,7 +83,7 @@ forzando una resolucion no soportada.
 
 ## Decision
 
-Clasificacion: `BLOCKED_PENDING_AUDIT`.
+Clasificacion: `BLOCKED_PENDING_AUDIT_FOR_REOWN_STACK`.
 
 No se agregan dependencias wallet a `apps/web/package.json`, no se modifica el
 lockfile y no se aprueban scripts nuevos. La arquitectura Reown puede volver a
@@ -94,13 +97,18 @@ evaluarse cuando se cumplan todas estas condiciones:
 5. Los scripts nativos opcionales permanezcan denegados salvo evidencia nueva.
 
 Este resultado no significa `DO_NOT_INSTALL_PRIMARY`: el bloqueo puede cerrarse
-con actualizaciones upstream y una nueva auditoria. Tampoco autoriza una
-implementacion manual de wallet como sustituto.
+con actualizaciones upstream y una nueva auditoria.
+
+Este gate tampoco bloquea una ruta separada sin dependencias nuevas basada en el
+provider EIP-1193 inyectado por la wallet. Esa ruta debe mantenerse minima,
+reemplazable y sin `approve`, `pay`, polling, WalletConnect/Reown ni nuevos
+paquetes hasta otro slice autorizado.
 
 ## No Acciones
 
-- No se implemento wallet connect.
-- No se modifico runtime frontend o backend.
+- Durante esta evaluacion de dependencias no se implemento WalletConnect/Reown.
+- Durante esta evaluacion de dependencias no se modifico runtime frontend o
+  backend.
 - No se tocaron contratos Solidity, migraciones o watcher.
 - No se instalaron claves ni configuracion cloud.
 - No hubo deploy, commit, push, staging o produccion.
