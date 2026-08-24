@@ -183,15 +183,26 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
         <button
           className="mini-action-button"
           type="button"
-          disabled={connectingWallet || walletProviderStatus !== "available"}
+          disabled={connectingWallet || walletProviderStatus === "checking"}
           onClick={() => void connectWallet()}
         >
-          {connectingWallet ? "Conectando..." : connectedWalletAddress ? "Cambiar wallet" : "Conectar wallet"}
+          {connectingWallet
+            ? "Conectando..."
+            : connectedWalletAddress
+              ? "Cambiar wallet"
+              : walletProviderStatus === "unavailable"
+                ? "Buscar wallet compatible"
+                : "Conectar wallet"}
         </button>
       </div>
+      {walletProviderStatus === "checking" ? (
+        <Text role="status">
+          Buscando una wallet compatible en este navegador.
+        </Text>
+      ) : null}
       {walletProviderStatus === "unavailable" ? (
         <Text role="alert">
-          No detectamos una wallet compatible en este navegador. Abre NODO desde el navegador de tu wallet o usa una wallet compatible con Base.
+          No detectamos una wallet compatible en este navegador. NODO no puede conectar tu wallet desde aqui; reintenta solo si abriste desde una wallet compatible con Base.
         </Text>
       ) : null}
       {connectedWalletAddress ? (

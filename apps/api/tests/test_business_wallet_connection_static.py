@@ -13,9 +13,13 @@ def test_business_credit_purchase_uses_connected_wallet_without_manual_input() -
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
 
     assert "Conectar wallet" in screen
+    assert "Buscar wallet compatible" in screen
+    assert "NODO no puede conectar tu wallet desde aqui" in screen
     assert "Conecta la wallet desde donde pagarás." in screen
     assert "NODO no ve ni guarda tu clave privada." in screen
     assert "Esta wallet será la que firma y paga." in screen
+    assert 'disabled={connectingWallet || walletProviderStatus === "checking"}' in screen
+    assert 'walletProviderStatus !== "available"' not in screen
     assert "value={payerWalletAddress}" not in screen
     assert "setPayerWalletAddress" not in screen
     assert 'placeholder="0x... wallet en Base"' not in screen

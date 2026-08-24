@@ -99,7 +99,7 @@ export function useInjectedWallet(onWalletContextChanged: () => void) {
     const injectedProvider = provider || getInjectedEthereumProvider();
     if (!injectedProvider) {
       setProviderStatus("unavailable");
-      setWalletError("No detectamos una wallet compatible en este navegador. Abre NODO desde el navegador de tu wallet o usa una wallet compatible con Base.");
+      setWalletError(null);
       return false;
     }
     setProvider(injectedProvider);

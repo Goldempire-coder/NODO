@@ -201,7 +201,7 @@ export function useBusinessCreditsModel({
       return;
     }
     if (walletProviderStatus !== "available") {
-      setNotice("No detectamos una wallet compatible en este navegador. Abre NODO desde el navegador de tu wallet o usa una wallet compatible con Base.");
+      setNotice("No detectamos una wallet compatible en este navegador. NODO no puede conectar tu wallet desde aqui.");
       return;
     }
     if (!connectedWalletAddress) {
@@ -278,7 +278,7 @@ export function useBusinessCreditsModel({
       return;
     }
     if (walletProviderStatus !== "available") {
-      setNotice("No detectamos una wallet compatible en este navegador. Abre NODO desde el navegador de tu wallet o usa una wallet compatible con Base.");
+      setNotice("No detectamos una wallet compatible en este navegador. NODO no puede conectar tu wallet desde aqui.");
       return;
     }
     if (!connectedWalletAddress) {
