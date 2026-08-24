@@ -476,6 +476,8 @@ class CreditBusinessPurchases:
             purchase = self._repository.get_purchase(purchase_id)
             if purchase is None or purchase.business_id != business.id:
                 raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
+            if purchase.payment_method == "base_usdc_contract":
+                raise ApiError("CRYPTO_PAYMENT_TX_HASH_NOT_ACCEPTED", status_code=409)
             if purchase.payment_method != "base_usdc_onchain":
                 raise ApiError("PURCHASE_STATUS_INVALID", status_code=409)
             if purchase.status == "credited":

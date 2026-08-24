@@ -1119,6 +1119,41 @@ def test_contract_payment_signs_backend_snapshot_and_does_not_credit() -> None:
     assert wallet is None or wallet.available_credits == 0
 
 
+def test_contract_payment_rejects_tx_hash_submission_without_financial_effects() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1115, "contract_tx_hash_reject")
+    business = _create_business(client, owner, "contract_tx_hash_reject")
+    payment = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_tx_hash_payment"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert payment.status_code == 201, payment.text
+    purchase = payment.json()["data"]["purchase"]
+    tx_hash = _tx_hash("contract-tx-hash-rejected")
+    wallet_before = client.app.state.credit_repository.get_wallet(business["id"])
+    credits_before = wallet_before.available_credits if wallet_before is not None else 0
+    ledger_count_before = len(client.app.state.ad_repository.ledger)
+
+    response = client.post(
+        f"/api/v1/business/credits/purchases/{purchase['id']}/tx-hash",
+        headers={**_headers(owner, "contract_tx_hash_submit"), "Content-Type": "application/json"},
+        json={"tx_hash": tx_hash},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "CRYPTO_PAYMENT_TX_HASH_NOT_ACCEPTED"
+    stored = client.app.state.credit_repository.get_purchase(purchase["id"])
+    assert stored is not None
+    assert stored.status == "pending_payment"
+    assert stored.tx_hash is None
+    assert client.app.state.credit_repository.ledger_for_purchase(purchase["id"]) is None
+    assert len(client.app.state.ad_repository.ledger) == ledger_count_before
+    wallet_after = client.app.state.credit_repository.get_wallet(business["id"])
+    credits_after = wallet_after.available_credits if wallet_after is not None else 0
+    assert credits_after == credits_before
+
+
 def test_contract_payment_idempotency_replays_same_signature_and_rejects_payload_change() -> None:
     client, _ = _contract_client()
     owner = _login(client, 1120, "contract_replay")
