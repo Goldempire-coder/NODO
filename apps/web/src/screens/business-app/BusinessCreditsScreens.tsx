@@ -2,11 +2,12 @@ import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import { humanizePurchaseStatus } from "../../hooks/business-mini-app/helpers";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 
+// Display-only mirror; backend signs the authoritative amount before payment.
 const CREDIT_PACKAGES = [
-  { code: "starter", name: "Starter", credits: 5, hint: "Para probar anuncios." },
-  { code: "pro", name: "Pro", credits: 15, hint: "Para operar varios anuncios." },
-  { code: "business", name: "Business", credits: 50, hint: "Mejor costo por credito." },
-  { code: "enterprise", name: "Enterprise", credits: 200, hint: "Alto volumen." }
+  { code: "starter", name: "Starter", credits: 5, priceUsdc: "10", hint: "Para probar anuncios." },
+  { code: "pro", name: "Pro", credits: 15, priceUsdc: "25", hint: "Para operar varios anuncios." },
+  { code: "business", name: "Business", credits: 50, priceUsdc: "75", hint: "Mejor costo por credito." },
+  { code: "enterprise", name: "Enterprise", credits: 200, priceUsdc: "250", hint: "Alto volumen." }
 ];
 
 function packageLabel(packageCode: string | null | undefined) {
@@ -140,6 +141,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           >
             <strong>{item.name}</strong>
             <span>{item.credits} creditos</span>
+            <b>{item.priceUsdc} USDC</b>
             <small>{item.hint}</small>
           </button>
         ))}
@@ -150,8 +152,8 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           <div>
             {selected ? (
               <>
-                <strong>{selected.name}: {selected.credits} creditos</strong>
-                <small>NODO calcula el monto y prepara la autorizacion.</small>
+                <strong>{selected.name}: {selected.credits} creditos por {selected.priceUsdc} USDC</strong>
+                <small>La autorizacion final confirma el monto antes de pagar.</small>
               </>
             ) : (
               <>
@@ -176,7 +178,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
         <small>Esta wallet sera la que firma y paga.</small>
       </label>
       <div className="business-status-panel" role="note">
-        <Text>NODO calcula el monto y prepara la autorizacion.</Text>
+        <Text>{selected ? `Pagas ${selected.priceUsdc} USDC por este paquete.` : "Elige un paquete para ver el monto."}</Text>
         <Text>Pago en USDC sobre red Base.</Text>
         <small>No pegues hashes en este flujo.</small>
       </div>

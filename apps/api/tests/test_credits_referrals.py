@@ -2131,7 +2131,15 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "Generando..." in source
     assert "Wallet pagadora" in source
     assert "Esta wallet sera la que firma y paga." in source
-    assert "NODO calcula el monto y prepara la autorizacion." in source
+    assert "priceUsdc" in source
+    assert "{item.priceUsdc} USDC" in source
+    assert 'priceUsdc: "10"' in source
+    assert 'priceUsdc: "25"' in source
+    assert 'priceUsdc: "75"' in source
+    assert 'priceUsdc: "250"' in source
+    assert "Pagas ${selected.priceUsdc} USDC por este paquete." in source
+    assert "La autorizacion final confirma el monto antes de pagar." in source
+    assert "NODO calcula el monto y prepara la autorizacion." not in source
     assert "No pegues hashes en este flujo." in source
     assert "authorization_status" in source
     assert "capabilities.can_pay" in source
