@@ -179,7 +179,11 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           <div>
             <strong>Conecta la wallet desde donde pagarás.</strong>
             <Text>NODO no ve ni guarda tu clave privada.</Text>
-            <small>Esta wallet será la que firma y paga.</small>
+            <small>
+              {walletProviderStatus === "unavailable"
+                ? "Abriremos MetaMask para probar la conexión. Luego vuelve a Telegram."
+                : "Esta wallet será la que firma y paga."}
+            </small>
           </div>
         </div>
         <button
@@ -210,7 +214,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
       ) : null}
       {walletProviderStatus === "unavailable" ? (
         <Text role="alert">
-          No detectamos una wallet compatible en este navegador. NODO no puede conectar tu wallet desde aqui; reintenta solo si abriste desde una wallet compatible con Base.
+          No detectamos una wallet compatible dentro de Telegram. Abre MetaMask para probar la conexión y vuelve a Telegram cuando quede en Base.
         </Text>
       ) : null}
       {connectedWalletAddress ? (

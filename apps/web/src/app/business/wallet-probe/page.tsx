@@ -16,6 +16,7 @@ export default function BusinessWalletProbePage() {
     walletIsBase,
     walletProviderStatus,
   } = useInjectedWallet(() => undefined);
+  const walletReadyForTelegram = Boolean(connectedWalletAddress) && walletIsBase;
 
   return (
     <main className="app-shell">
@@ -58,28 +59,39 @@ export default function BusinessWalletProbePage() {
             </div>
           ) : null}
           {walletError ? <Text role="alert">{walletError}</Text> : null}
-          <button
-            className="mini-action-button mini-action-button--filled mini-action-button--full"
-            type="button"
-            disabled={connectingWallet || switchingWalletNetwork || walletProviderStatus === "checking" || (Boolean(connectedWalletAddress) && walletIsBase)}
-            onClick={() => {
-              if (connectedWalletAddress && !walletIsBase) {
-                void switchWalletToBase();
-                return;
-              }
-              void connectWallet();
-            }}
-          >
-            {connectingWallet
-              ? "Conectando..."
-              : switchingWalletNetwork
-                ? "Abriendo Base..."
-                : connectedWalletAddress
-                  ? walletIsBase
-                    ? "Wallet lista en Base"
-                    : "Cambiar a Base"
-                  : "Conectar wallet"}
-          </button>
+          {walletReadyForTelegram ? (
+            <div className="business-status-panel" role="status">
+              <div>
+                <span className="status-dot" aria-hidden="true" />
+                <div>
+                  <strong>Listo para volver a Telegram</strong>
+                  <Text>MetaMask ya está en Base. Usa el botón Telegram de arriba para regresar a NODO.</Text>
+                  <small>Esta prueba terminó; todavía no prepara compras ni pagos.</small>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="mini-action-button mini-action-button--filled mini-action-button--full"
+              type="button"
+              disabled={connectingWallet || switchingWalletNetwork || walletProviderStatus === "checking"}
+              onClick={() => {
+                if (connectedWalletAddress && !walletIsBase) {
+                  void switchWalletToBase();
+                  return;
+                }
+                void connectWallet();
+              }}
+            >
+              {connectingWallet
+                ? "Conectando..."
+                : switchingWalletNetwork
+                  ? "Abriendo Base..."
+                  : connectedWalletAddress
+                    ? "Cambiar a Base"
+                    : "Conectar wallet"}
+            </button>
+          )}
         </div>
       </section>
     </main>

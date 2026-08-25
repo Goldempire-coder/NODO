@@ -111,6 +111,8 @@ def test_wallet_probe_can_request_base_network_without_payment_actions() -> None
     assert "switchInjectedWalletToBase" in adapter
     assert "switchWalletToBase" in page
     assert "Cambiar a Base" in page
-    assert "Wallet lista en Base" in page
+    assert "Listo para volver a Telegram" in page
+    assert "regresar a NODO" in page
+    assert "Wallet lista en Base" not in page
     assert "eth_sendTransaction" not in adapter
     assert "eth_signTypedData" not in adapter
