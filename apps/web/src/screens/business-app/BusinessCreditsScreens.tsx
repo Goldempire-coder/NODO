@@ -83,7 +83,6 @@ export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel 
         <button
           className="mini-action-button mini-action-button--filled mini-action-button--full"
           type="button"
-          disabled={busy}
           onClick={() => void openBuyCredits()}
         >
           Comprar

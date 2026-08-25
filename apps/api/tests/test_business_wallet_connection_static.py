@@ -28,6 +28,18 @@ def test_business_credit_purchase_uses_connected_wallet_without_manual_input() -
     assert 'placeholder="0x... wallet en Base"' not in screen
 
 
+def test_credit_dashboard_buy_button_stays_visually_ready_while_balance_refreshes() -> None:
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    dashboard = screen.split("export function CreditsDashboardScreen", 1)[1].split(
+        "export function BuyCreditsScreen",
+        1,
+    )[0]
+    buy_button = dashboard.split('onClick={() => void openBuyCredits()}', 1)[0].rsplit("<button", 1)[1]
+
+    assert "mini-action-button--filled" in buy_button
+    assert "disabled={busy}" not in buy_button
+
+
 def test_business_credit_authorization_uses_only_connected_base_account() -> None:
     hook = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
 
