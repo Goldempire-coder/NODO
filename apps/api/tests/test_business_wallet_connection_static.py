@@ -19,6 +19,9 @@ def test_business_credit_purchase_uses_connected_wallet_without_manual_input() -
     assert "NODO no ve ni guarda tu clave privada." in screen
     assert "Esta wallet será la que firma y paga." in screen
     assert 'disabled={connectingWallet || walletProviderStatus === "checking"}' in screen
+    assert "showPrepareAuthorizationButton" in screen
+    assert 'walletProviderStatus !== "unavailable" || Boolean(connectedWalletAddress)' in screen
+    assert "{showPrepareAuthorizationButton ? (" in screen
     assert 'walletProviderStatus !== "available"' not in screen
     assert "value={payerWalletAddress}" not in screen
     assert "setPayerWalletAddress" not in screen
@@ -45,6 +48,11 @@ def test_injected_wallet_adapter_handles_account_and_chain_changes() -> None:
     assert 'method: "eth_requestAccounts"' in adapter
     assert 'method: "eth_chainId"' in adapter
     assert "BASE_MAINNET_CHAIN_ID = 8453" in adapter
+    assert 'BASE_MAINNET_CHAIN_ID_HEX = "0x2105"' in adapter
+    assert 'method: "wallet_switchEthereumChain"' in adapter
+    assert 'method: "wallet_addEthereumChain"' in adapter
+    assert "switchWalletToBase" in wallet_hook
+    assert "switchingWalletNetwork" in wallet_hook
     assert '.on("accountsChanged"' in wallet_hook
     assert '.on("chainChanged"' in wallet_hook
     assert '.removeListener("accountsChanged"' in wallet_hook

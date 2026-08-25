@@ -9,6 +9,7 @@ import {
   maskWalletAddress,
   parseEip1193ChainId,
   readInjectedWallet,
+  switchInjectedWalletToBase,
   type Eip1193Provider,
   type InjectedWalletSnapshot,
 } from "../../lib/wallet/eip1193";
@@ -28,6 +29,7 @@ export function useInjectedWallet(onWalletContextChanged: () => void) {
   const [connectedWalletAddress, setConnectedWalletAddress] = useState<string | null>(null);
   const [walletChainId, setWalletChainId] = useState<number | null>(null);
   const [connectingWallet, setConnectingWallet] = useState(false);
+  const [switchingWalletNetwork, setSwitchingWalletNetwork] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
   const snapshotRef = useRef<InjectedWalletSnapshot>({ address: null, chainId: null });
   const onWalletContextChangedRef = useRef(onWalletContextChanged);
@@ -117,6 +119,28 @@ export function useInjectedWallet(onWalletContextChanged: () => void) {
     }
   }, [applySnapshot, provider]);
 
+  const switchWalletToBase = useCallback(async () => {
+    const injectedProvider = provider || getInjectedEthereumProvider();
+    if (!injectedProvider) {
+      setProviderStatus("unavailable");
+      setWalletError(null);
+      return false;
+    }
+    setProvider(injectedProvider);
+    setProviderStatus("available");
+    setSwitchingWalletNetwork(true);
+    setWalletError(null);
+    try {
+      applySnapshot(await switchInjectedWalletToBase(injectedProvider));
+      return true;
+    } catch (error) {
+      setWalletError(injectedWalletErrorMessage(error));
+      return false;
+    } finally {
+      setSwitchingWalletNetwork(false);
+    }
+  }, [applySnapshot, provider]);
+
   const getConnectedWalletSnapshot = useCallback(() => snapshotRef.current, []);
 
   return {
@@ -125,6 +149,8 @@ export function useInjectedWallet(onWalletContextChanged: () => void) {
     connectedWalletAddressMasked: maskWalletAddress(connectedWalletAddress),
     connectingWallet,
     getConnectedWalletSnapshot,
+    switchWalletToBase,
+    switchingWalletNetwork,
     walletChainId,
     walletError,
     walletIsBase: walletChainId === BASE_MAINNET_CHAIN_ID,

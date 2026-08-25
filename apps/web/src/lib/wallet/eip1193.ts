@@ -1,4 +1,5 @@
 export const BASE_MAINNET_CHAIN_ID = 8453;
+export const BASE_MAINNET_CHAIN_ID_HEX = "0x2105";
 
 type Eip1193RequestArguments = {
   readonly method: string;
@@ -78,4 +79,37 @@ export async function connectInjectedWallet(provider: Eip1193Provider): Promise<
     address,
     chainId: parseEip1193ChainId(chainId),
   };
+}
+
+export async function switchInjectedWalletToBase(provider: Eip1193Provider): Promise<InjectedWalletSnapshot> {
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: BASE_MAINNET_CHAIN_ID_HEX }],
+    });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === 4902) {
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          blockExplorerUrls: ["https://basescan.org"],
+          chainId: BASE_MAINNET_CHAIN_ID_HEX,
+          chainName: "Base",
+          nativeCurrency: {
+            decimals: 18,
+            name: "Ether",
+            symbol: "ETH",
+          },
+          rpcUrls: ["https://mainnet.base.org"],
+        }],
+      });
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: BASE_MAINNET_CHAIN_ID_HEX }],
+      });
+    } else {
+      throw error;
+    }
+  }
+  return readInjectedWallet(provider);
 }

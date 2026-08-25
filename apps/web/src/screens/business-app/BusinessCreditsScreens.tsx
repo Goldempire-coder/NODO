@@ -113,6 +113,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
     walletProviderStatus
   } = model;
   const selected = packageLabel(creditPackage);
+  const showPrepareAuthorizationButton = walletProviderStatus !== "unavailable" || Boolean(connectedWalletAddress);
   return (
     <div className="business-card">
       <Text className="business-card__label">Comprar creditos</Text>
@@ -230,14 +231,16 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
         <Text>Necesitas USDC y un poco de ETH en Base para gas.</Text>
         <small>No pegues hashes en este flujo.</small>
       </div>
-      <button
-        className="mini-action-button mini-action-button--filled mini-action-button--full"
-        type="button"
-        disabled={generatingCreditPayment || !creditPackage || !connectedWalletAddress || !walletIsBase}
-        onClick={() => void startBaseUsdcPayment()}
-      >
-        {generatingCreditPayment ? "Generando..." : creditPackage ? "Preparar autorizacion" : "Elige un paquete"}
-      </button>
+      {showPrepareAuthorizationButton ? (
+        <button
+          className="mini-action-button mini-action-button--filled mini-action-button--full"
+          type="button"
+          disabled={generatingCreditPayment || !creditPackage || !connectedWalletAddress || !walletIsBase}
+          onClick={() => void startBaseUsdcPayment()}
+        >
+          {generatingCreditPayment ? "Generando..." : creditPackage ? "Preparar autorizacion" : "Elige un paquete"}
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -97,3 +97,20 @@ def test_wallet_probe_is_read_only_and_dependency_free() -> None:
     )
     for marker in forbidden:
         assert marker not in source
+
+
+def test_wallet_probe_can_request_base_network_without_payment_actions() -> None:
+    adapter = _read("apps/web/src/lib/wallet/eip1193.ts")
+    page = _read("apps/web/src/app/business/wallet-probe/page.tsx")
+
+    assert 'BASE_MAINNET_CHAIN_ID_HEX = "0x2105"' in adapter
+    assert 'method: "wallet_switchEthereumChain"' in adapter
+    assert 'method: "wallet_addEthereumChain"' in adapter
+    assert "https://mainnet.base.org" in adapter
+    assert "https://basescan.org" in adapter
+    assert "switchInjectedWalletToBase" in adapter
+    assert "switchWalletToBase" in page
+    assert "Cambiar a Base" in page
+    assert "Wallet lista en Base" in page
+    assert "eth_sendTransaction" not in adapter
+    assert "eth_signTypedData" not in adapter

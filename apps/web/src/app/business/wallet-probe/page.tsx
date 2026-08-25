@@ -9,6 +9,8 @@ export default function BusinessWalletProbePage() {
     connectedWalletAddress,
     connectedWalletAddressMasked,
     connectingWallet,
+    switchWalletToBase,
+    switchingWalletNetwork,
     walletChainId,
     walletError,
     walletIsBase,
@@ -59,10 +61,24 @@ export default function BusinessWalletProbePage() {
           <button
             className="mini-action-button mini-action-button--filled mini-action-button--full"
             type="button"
-            disabled={connectingWallet || walletProviderStatus === "checking"}
-            onClick={() => void connectWallet()}
+            disabled={connectingWallet || switchingWalletNetwork || walletProviderStatus === "checking" || (Boolean(connectedWalletAddress) && walletIsBase)}
+            onClick={() => {
+              if (connectedWalletAddress && !walletIsBase) {
+                void switchWalletToBase();
+                return;
+              }
+              void connectWallet();
+            }}
           >
-            {connectingWallet ? "Conectando..." : "Conectar wallet"}
+            {connectingWallet
+              ? "Conectando..."
+              : switchingWalletNetwork
+                ? "Abriendo Base..."
+                : connectedWalletAddress
+                  ? walletIsBase
+                    ? "Wallet lista en Base"
+                    : "Cambiar a Base"
+                  : "Conectar wallet"}
           </button>
         </div>
       </section>
