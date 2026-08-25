@@ -1,0 +1,46 @@
+import { getTelegramWebApp } from "../../theme/telegramTheme";
+
+const WALLET_PROBE_PATH = "/business/wallet-probe";
+const METAMASK_DAPP_DEEPLINK_BASE = "https://link.metamask.io/dapp/";
+const NODO_PROBE_HTTPS_ORIGINS = new Set(["https://nodo-staging.pages.dev"]);
+
+function isAllowedProbeOrigin(url: URL): boolean {
+  if (url.protocol === "https:" && NODO_PROBE_HTTPS_ORIGINS.has(url.origin)) {
+    return true;
+  }
+  return url.protocol === "http:"
+    && (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]");
+}
+
+export function buildMetaMaskWalletProbeDeeplink(origin: string): string {
+  const source = new URL(origin);
+  if (
+    !isAllowedProbeOrigin(source)
+    || source.username
+    || source.password
+    || source.pathname !== "/"
+    || source.search
+    || source.hash
+  ) {
+    throw new Error("WALLET_PROBE_ORIGIN_INVALID");
+  }
+  const probe = new URL(WALLET_PROBE_PATH, source.origin);
+  return `${METAMASK_DAPP_DEEPLINK_BASE}${probe.host}${probe.pathname}`;
+}
+
+export function openMetaMaskWalletProbe(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const deeplink = buildMetaMaskWalletProbeDeeplink(window.location.origin);
+  const telegramWebApp = getTelegramWebApp();
+  if (telegramWebApp?.openLink) {
+    try {
+      telegramWebApp.openLink(deeplink);
+      return;
+    } catch {
+      // Fall through to normal navigation when the Telegram helper is unavailable.
+    }
+  }
+  window.location.assign(deeplink);
+}

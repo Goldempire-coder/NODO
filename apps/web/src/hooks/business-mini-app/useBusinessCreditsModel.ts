@@ -11,6 +11,7 @@ import type { BusinessSummary } from "../../types/business";
 import type { ContractCreditPayment, CreditPurchase, CreditWallet, ReferralData } from "../../types/credits";
 import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
+import { openMetaMaskWalletProbe as launchMetaMaskWalletProbe } from "../../lib/wallet/metamaskHandoff";
 import { useInjectedWallet } from "./useInjectedWallet";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 
@@ -272,6 +273,14 @@ export function useBusinessCreditsModel({
     }
   }, [refreshCreditWallet, setBusy, setNotice, setView]);
 
+  const openMetaMaskWalletProbe = useCallback(() => {
+    try {
+      launchMetaMaskWalletProbe();
+    } catch {
+      setNotice("No pudimos abrir MetaMask desde este navegador.");
+    }
+  }, [setNotice]);
+
   const startBaseUsdcPayment = useCallback(async () => {
     if (!creditPackage) {
       setNotice("Elige un paquete para generar el pago.");
@@ -391,6 +400,7 @@ export function useBusinessCreditsModel({
     loadCreditDashboard,
     loadReferrals,
     openBuyCredits,
+    openMetaMaskWalletProbe,
     referralData,
     refreshCreditWallet,
     refreshingCreditPurchase,

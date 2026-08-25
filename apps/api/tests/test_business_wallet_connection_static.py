@@ -13,7 +13,7 @@ def test_business_credit_purchase_uses_connected_wallet_without_manual_input() -
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
 
     assert "Conectar wallet" in screen
-    assert "Buscar wallet compatible" in screen
+    assert "Abrir MetaMask para probar conexión" in screen
     assert "NODO no puede conectar tu wallet desde aqui" in screen
     assert "Conecta la wallet desde donde pagarás." in screen
     assert "NODO no ve ni guarda tu clave privada." in screen

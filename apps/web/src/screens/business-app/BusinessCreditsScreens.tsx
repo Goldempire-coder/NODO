@@ -103,6 +103,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
     creditPackage,
     generatingCreditPayment,
     loadingPendingPurchase,
+    openMetaMaskWalletProbe,
     pendingCreditPurchase,
     setCreditPackage,
     startBaseUsdcPayment,
@@ -184,14 +185,20 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           className="mini-action-button"
           type="button"
           disabled={connectingWallet || walletProviderStatus === "checking"}
-          onClick={() => void connectWallet()}
+          onClick={() => {
+            if (walletProviderStatus === "unavailable") {
+              openMetaMaskWalletProbe();
+              return;
+            }
+            void connectWallet();
+          }}
         >
           {connectingWallet
             ? "Conectando..."
             : connectedWalletAddress
               ? "Cambiar wallet"
               : walletProviderStatus === "unavailable"
-                ? "Buscar wallet compatible"
+                ? "Abrir MetaMask para probar conexión"
                 : "Conectar wallet"}
         </button>
       </div>
