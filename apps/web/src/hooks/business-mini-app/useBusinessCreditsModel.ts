@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import {
+  createBusinessCreditHandoff,
+  getBusinessCreditHandoff,
   getBusinessCreditPurchase,
   getBusinessCreditWallet,
   getBusinessReferrals,
@@ -11,13 +13,14 @@ import type { BusinessSummary } from "../../types/business";
 import type { ContractCreditPayment, CreditPurchase, CreditWallet, ReferralData } from "../../types/credits";
 import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
-import { openMetaMaskWalletProbe as launchMetaMaskWalletProbe } from "../../lib/wallet/metamaskHandoff";
+import { openMetaMaskCreditHandoff as launchMetaMaskCreditHandoff } from "../../lib/wallet/metamaskHandoff";
 import { useInjectedWallet } from "./useInjectedWallet";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 
 const BASE_USDC_CREDIT_NOTICE = "NODO prepara compras de creditos en USDC sobre red Base.";
 const BASE_USDC_PENDING_PURCHASE_LEGACY_KEY = "nodo_base_usdc_pending_purchase_id";
 const BASE_USDC_PENDING_PURCHASE_KEY_PREFIX = "nodo_base_usdc_pending_purchase_id";
+const BASE_USDC_HANDOFF_KEY_PREFIX = "nodo_base_usdc_handoff_id";
 const BASE_USDC_PAYMENT_UNAVAILABLE_MESSAGE = "La compra de creditos no esta disponible en este momento.";
 const BASE_USDC_PENDING_STATUSES = new Set(["pending_payment", "pending_onchain_confirmation", "detected", "under_review"]);
 
@@ -40,6 +43,28 @@ function baseUsdcPaymentErrorMessage(error: unknown) {
 
 function pendingBaseUsdcPurchaseStorageKey(businessId: string | null | undefined) {
   return businessId ? `${BASE_USDC_PENDING_PURCHASE_KEY_PREFIX}:${businessId}` : null;
+}
+
+function creditHandoffStorageKey(businessId: string | null | undefined) {
+  return businessId ? `${BASE_USDC_HANDOFF_KEY_PREFIX}:${businessId}` : null;
+}
+
+function rememberCreditHandoffId(storageKey: string | null, handoffId: string) {
+  if (typeof window !== "undefined" && storageKey) {
+    window.localStorage.setItem(storageKey, handoffId);
+  }
+}
+
+function readRememberedCreditHandoffId(storageKey: string | null) {
+  return typeof window !== "undefined" && storageKey
+    ? window.localStorage.getItem(storageKey)
+    : null;
+}
+
+function clearRememberedCreditHandoffId(storageKey: string | null) {
+  if (typeof window !== "undefined" && storageKey) {
+    window.localStorage.removeItem(storageKey);
+  }
 }
 
 function isPendingBaseUsdcPurchaseForBusiness(purchase: CreditPurchase, businessId: string | null | undefined) {
@@ -119,8 +144,12 @@ export function useBusinessCreditsModel({
   const [generatingCreditPayment, setGeneratingCreditPayment] = useState(false);
   const [loadingPendingPurchase, setLoadingPendingPurchase] = useState(false);
   const [refreshingCreditPurchase, setRefreshingCreditPurchase] = useState(false);
+  const [creditHandoffId, setCreditHandoffId] = useState<string | null>(null);
+  const [preparingCreditHandoff, setPreparingCreditHandoff] = useState(false);
+  const [refreshingCreditHandoff, setRefreshingCreditHandoff] = useState(false);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
   const pendingPurchaseStorageKey = pendingBaseUsdcPurchaseStorageKey(business?.id);
+  const handoffStorageKey = creditHandoffStorageKey(business?.id);
 
   const invalidatePreparedCreditPayment = useCallback(() => {
     const hadPreparedPayment = Boolean(selectedCreditPurchase || selectedCreditPayment || pendingCreditPurchase);
@@ -176,6 +205,7 @@ export function useBusinessCreditsModel({
     setSelectedCreditPurchase(null);
     setSelectedCreditPayment(null);
     setPendingCreditPurchase(null);
+    setCreditHandoffId(readRememberedCreditHandoffId(handoffStorageKey));
     const rememberedPurchaseId = readRememberedBaseUsdcPurchaseId(pendingPurchaseStorageKey);
     if (rememberedPurchaseId) {
       setLoadingPendingPurchase(true);
@@ -195,7 +225,7 @@ export function useBusinessCreditsModel({
         setLoadingPendingPurchase(false);
       }
     }
-  }, [business?.id, pendingPurchaseStorageKey, request, setNotice, setView]);
+  }, [business?.id, handoffStorageKey, pendingPurchaseStorageKey, request, setNotice, setView]);
 
   const continuePendingBaseUsdcPayment = useCallback(async () => {
     const rememberedPurchaseId = pendingCreditPurchase?.id || readRememberedBaseUsdcPurchaseId(pendingPurchaseStorageKey);
@@ -275,13 +305,79 @@ export function useBusinessCreditsModel({
     }
   }, [refreshCreditWallet, setBusy, setNotice, setView]);
 
-  const openMetaMaskWalletProbe = useCallback(() => {
-    try {
-      launchMetaMaskWalletProbe();
-    } catch {
-      setNotice("No pudimos abrir MetaMask desde este navegador.");
+  const openMetaMaskCreditHandoff = useCallback(async () => {
+    if (!creditPackage) {
+      setNotice("Elige un paquete antes de abrir MetaMask.");
+      return;
     }
-  }, [setNotice]);
+    const action = "preparar compra de creditos";
+    if (!requireBusinessPinFor(action)) {
+      return;
+    }
+    setPreparingCreditHandoff(true);
+    try {
+      const data = await createBusinessCreditHandoff(request, creditPackage);
+      setCreditHandoffId(data.handoff.id);
+      rememberCreditHandoffId(handoffStorageKey, data.handoff.id);
+      try {
+        launchMetaMaskCreditHandoff(data.handoff.token);
+      } catch (error) {
+        clearRememberedCreditHandoffId(handoffStorageKey);
+        setCreditHandoffId(null);
+        throw error;
+      }
+      setNotice("MetaMask se abrira para comprobar la wallet. Luego vuelve y pulsa Actualizar.");
+    } catch (error) {
+      if (handleBusinessPinError(error, action)) {
+        return;
+      }
+      setNotice(error instanceof Error ? error.message : "No pudimos abrir MetaMask desde este navegador.");
+    } finally {
+      setPreparingCreditHandoff(false);
+    }
+  }, [creditPackage, handleBusinessPinError, handoffStorageKey, request, requireBusinessPinFor, setNotice]);
+
+  const refreshCreditHandoff = useCallback(async () => {
+    const handoffId = creditHandoffId || readRememberedCreditHandoffId(handoffStorageKey);
+    if (!handoffId) {
+      setNotice("No hay una preparacion de MetaMask pendiente.");
+      return;
+    }
+    setRefreshingCreditHandoff(true);
+    try {
+      const data = await getBusinessCreditHandoff(request, handoffId);
+      if (data.handoff.status === "prepared" && data.purchase && data.payment) {
+        setSelectedCreditPurchase(data.purchase);
+        setSelectedCreditPayment(data.payment);
+        setPendingCreditPurchase(data.purchase);
+        rememberPendingBaseUsdcPurchase(data.purchase, pendingPurchaseStorageKey);
+        clearRememberedCreditHandoffId(handoffStorageKey);
+        setCreditHandoffId(null);
+        setView("credit-payment-pending");
+        setNotice("Wallet comprobada y autorizacion preparada.");
+        return;
+      }
+      if (data.handoff.status === "expired") {
+        clearRememberedCreditHandoffId(handoffStorageKey);
+        setCreditHandoffId(null);
+        setNotice("La preparacion vencio. Abre MetaMask de nuevo.");
+        return;
+      }
+      setCreditHandoffId(handoffId);
+      setNotice("La wallet aun no esta confirmada. Completa la prueba en MetaMask.");
+    } catch (error) {
+      if (
+        error instanceof ApiClientError &&
+        (error.code === "CREDIT_HANDOFF_NOT_FOUND" || error.code === "CREDIT_HANDOFF_EXPIRED")
+      ) {
+        clearRememberedCreditHandoffId(handoffStorageKey);
+        setCreditHandoffId(null);
+      }
+      setNotice(error instanceof Error ? error.message : "No pudimos actualizar la preparacion de wallet.");
+    } finally {
+      setRefreshingCreditHandoff(false);
+    }
+  }, [creditHandoffId, handoffStorageKey, pendingPurchaseStorageKey, request, setNotice, setView]);
 
   const startBaseUsdcPayment = useCallback(async () => {
     if (!creditPackage) {
@@ -395,6 +491,7 @@ export function useBusinessCreditsModel({
     connectedWalletAddress,
     connectedWalletAddressMasked,
     creditPackage,
+    creditHandoffId,
     creditWallet,
     creditWalletRefreshState,
     generatingCreditPayment,
@@ -402,9 +499,12 @@ export function useBusinessCreditsModel({
     loadCreditDashboard,
     loadReferrals,
     openBuyCredits,
-    openMetaMaskWalletProbe,
+    openMetaMaskCreditHandoff,
+    preparingCreditHandoff,
     referralData,
     refreshCreditWallet,
+    refreshCreditHandoff,
+    refreshingCreditHandoff,
     refreshingCreditPurchase,
     refreshSelectedCreditPurchase,
     pendingCreditPurchase,

@@ -26,6 +26,20 @@ class ContractBaseUsdcPaymentRequest(StrictRequestModel):
 BaseUsdcPaymentRequest = ContractBaseUsdcPaymentRequest | LegacyBaseUsdcPaymentRequest
 
 
+class CreditHandoffCreateRequest(StrictRequestModel):
+    package_code: str = Field(pattern="^(starter|pro|business|enterprise)$")
+
+
+class CreditHandoffTokenRequest(StrictRequestModel):
+    handoff_token: str = Field(min_length=43, max_length=43, pattern="^[A-Za-z0-9_-]+$")
+
+
+class CreditHandoffClaimRequest(CreditHandoffTokenRequest):
+    wallet_address: str = Field(pattern="^0x[a-fA-F0-9]{40}$")
+    chain_id: int
+    signature: str = Field(pattern="^0x[a-fA-F0-9]{130}$")
+
+
 class BaseUsdcTxHashRequest(StrictRequestModel):
     tx_hash: str = Field(pattern="^0x[a-fA-F0-9]{64}$")
 

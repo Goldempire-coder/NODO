@@ -14,7 +14,7 @@ from urllib.parse import urlencode
 
 import pytest
 from eth_account import Account
-from eth_account.messages import encode_typed_data
+from eth_account.messages import encode_defunct, encode_typed_data
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -89,6 +89,7 @@ from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.credits import business_purchases as business_purchases_module  # noqa: E402
+from app.modules.credits.credit_handoffs import CreditHandoffStoreUnavailable  # noqa: E402
 from app.shared.rate_limit.redis import RateLimitUnavailableError  # noqa: E402
 
 
@@ -132,6 +133,12 @@ class UnavailableSharedRateLimiter:
     def allow_shared(self, key: str, *, max_attempts: int, window_seconds: int) -> bool:
         del key, max_attempts, window_seconds
         raise RateLimitUnavailableError("test shared limiter unavailable")
+
+
+class UnavailableCreditHandoffStore:
+    def create(self, record) -> None:  # type: ignore[no-untyped-def]
+        del record
+        raise CreditHandoffStoreUnavailable("test handoff store unavailable")
 
 
 def _client(**env_overrides: str) -> TestClient:
@@ -1371,6 +1378,214 @@ def test_contract_payment_fails_closed_when_shared_rate_limiter_is_unavailable()
     wallet_after = client.app.state.credit_repository.get_wallet(business["id"])
     credits_after = wallet_after.available_credits if wallet_after is not None else 0
     assert credits_after == credits_before
+
+
+def test_credit_wallet_handoff_prepares_one_contract_purchase_without_crediting() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1127, "credit_handoff_owner")
+    business = _create_business(client, owner, "credit_handoff_owner")
+    payer = Account.create()
+    wallet_before = client.app.state.credit_repository.ensure_wallet(business["id"])
+
+    created = client.post(
+        "/api/v1/business/credits/handoffs",
+        headers={**_bearer(owner, "req_handoff_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
+
+    assert created.status_code == 201, created.text
+    handoff = created.json()["data"]["handoff"]
+    assert handoff["token"]
+    assert "business_id" not in handoff
+    assert handoff["token"] not in repr(client.app.state.credit_handoff_store.__dict__)
+    assert handoff["token"] not in json.dumps(
+        [event.__dict__ for event in client.app.state.audit_writer.events],
+        default=str,
+    )
+    challenge = client.post(
+        "/api/v1/business/credits/handoffs/challenge",
+        json={"handoff_token": handoff["token"]},
+    )
+    assert challenge.status_code == 200, challenge.text
+    challenge_text = challenge.json()["data"]["challenge"]
+    signature = "0x" + Account.sign_message(
+        encode_defunct(text=challenge_text),
+        payer.key,
+    ).signature.hex()
+    claim_payload = {
+        "handoff_token": handoff["token"],
+        "wallet_address": payer.address,
+        "chain_id": 8453,
+        "signature": signature,
+    }
+
+    claimed = client.post(
+        "/api/v1/business/credits/handoffs/claim",
+        json=claim_payload,
+    )
+    replay = client.post(
+        "/api/v1/business/credits/handoffs/claim",
+        json=claim_payload,
+    )
+    status = client.get(
+        f"/api/v1/business/credits/handoffs/{handoff['id']}",
+        headers=_bearer(owner, "req_handoff_status"),
+    )
+
+    assert claimed.status_code == 200, claimed.text
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["data"] == claimed.json()["data"]
+    assert status.status_code == 200, status.text
+    for response in (created, challenge, claimed, replay, status):
+        assert response.headers["cache-control"] == "private, no-store"
+    status_data = status.json()["data"]
+    assert status_data["handoff"]["status"] == "prepared"
+    assert status_data["handoff"]["wallet_address_masked"] != payer.address.lower()
+    assert status_data["purchase"]["payment_method"] == "base_usdc_contract"
+    assert status_data["payment"]["payer_wallet_address"] == payer.address.lower()
+    assert len(client.app.state.credit_repository.purchases) == 1
+    purchase = next(iter(client.app.state.credit_repository.purchases.values()))
+    assert client.app.state.credit_repository.ledger_for_purchase(purchase.id) is None
+    wallet_after = client.app.state.credit_repository.ensure_wallet(business["id"])
+    assert wallet_after.available_credits == wallet_before.available_credits == 0
+
+
+def test_credit_wallet_handoff_rejects_wrong_chain_and_wrong_signature() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1128, "credit_handoff_invalid")
+    _create_business(client, owner, "credit_handoff_invalid")
+    payer = Account.create()
+    other = Account.create()
+    created = client.post(
+        "/api/v1/business/credits/handoffs",
+        headers={**_bearer(owner, "req_handoff_invalid_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
+    handoff = created.json()["data"]["handoff"]
+    challenge = client.post(
+        "/api/v1/business/credits/handoffs/challenge",
+        json={"handoff_token": handoff["token"]},
+    ).json()["data"]["challenge"]
+    wrong_signature = "0x" + Account.sign_message(
+        encode_defunct(text=challenge),
+        other.key,
+    ).signature.hex()
+
+    wrong_chain = client.post(
+        "/api/v1/business/credits/handoffs/claim",
+        json={
+            "handoff_token": handoff["token"],
+            "wallet_address": payer.address,
+            "chain_id": 1,
+            "signature": wrong_signature,
+        },
+    )
+    wrong_signer = client.post(
+        "/api/v1/business/credits/handoffs/claim",
+        json={
+            "handoff_token": handoff["token"],
+            "wallet_address": payer.address,
+            "chain_id": 8453,
+            "signature": wrong_signature,
+        },
+    )
+
+    assert wrong_chain.status_code == 409
+    assert wrong_chain.json()["error"]["code"] == "CREDIT_HANDOFF_NETWORK_INVALID"
+    assert wrong_signer.status_code == 409
+    assert wrong_signer.json()["error"]["code"] == "CREDIT_HANDOFF_SIGNATURE_INVALID"
+    assert client.app.state.credit_repository.purchases == {}
+
+
+def test_credit_wallet_handoff_status_is_owned_and_expired_handoff_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1129, "credit_handoff_expired")
+    _create_business(client, owner, "credit_handoff_expired")
+    other = _login(client, 1131, "credit_handoff_other")
+    _create_business(client, other, "credit_handoff_other")
+    created = client.post(
+        "/api/v1/business/credits/handoffs",
+        headers={**_bearer(owner, "req_handoff_expired_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
+    handoff = created.json()["data"]["handoff"]
+
+    forbidden_status = client.get(
+        f"/api/v1/business/credits/handoffs/{handoff['id']}",
+        headers=_bearer(other, "req_handoff_other_status"),
+    )
+    from app.modules.credits import credit_handoffs as credit_handoffs_module
+
+    monkeypatch.setattr(
+        credit_handoffs_module,
+        "utc_now",
+        lambda: datetime.fromisoformat(handoff["expires_at"]) + timedelta(seconds=1),
+    )
+    expired = client.post(
+        "/api/v1/business/credits/handoffs/challenge",
+        json={"handoff_token": handoff["token"]},
+    )
+
+    assert forbidden_status.status_code == 404
+    assert forbidden_status.json()["error"]["code"] == "CREDIT_HANDOFF_NOT_FOUND"
+    assert expired.status_code == 410
+    assert expired.json()["error"]["code"] == "CREDIT_HANDOFF_EXPIRED"
+    assert client.app.state.credit_repository.purchases == {}
+
+
+def test_credit_wallet_handoff_rejects_client_authority_and_store_failure() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1132, "credit_handoff_strict")
+    _create_business(client, owner, "credit_handoff_strict")
+    forbidden = client.post(
+        "/api/v1/business/credits/handoffs",
+        headers={**_bearer(owner, "req_handoff_forbidden"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "business_id": "client-controlled"},
+    )
+    client.app.state.credit_handoff_store = UnavailableCreditHandoffStore()
+    unavailable = client.post(
+        "/api/v1/business/credits/handoffs",
+        headers={**_bearer(owner, "req_handoff_store_down"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
+
+    assert forbidden.status_code == 422
+    assert forbidden.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert unavailable.status_code == 503
+    assert unavailable.json()["error"]["code"] == "CREDIT_HANDOFF_UNAVAILABLE"
+    assert client.app.state.credit_repository.purchases == {}
+
+
+@pytest.mark.parametrize(
+    "blocked_key_fragment",
+    (
+        "credits:wallet_handoff:create:user:",
+        "credits:wallet_handoff:create:business:",
+        "credits:wallet_handoff:create:ip:",
+    ),
+)
+def test_credit_wallet_handoff_creation_is_rate_limited_before_storage(
+    blocked_key_fragment: str,
+) -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1133, "credit_handoff_limited")
+    _create_business(client, owner, "credit_handoff_limited")
+    client.app.state.rate_limiter = SelectiveCreditContractRateLimiter(
+        blocked_key_fragment,
+    )
+
+    response = client.post(
+        "/api/v1/business/credits/handoffs",
+        headers={**_bearer(owner, "req_handoff_limited"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
+    assert client.app.state.credit_handoff_store._records == {}
+    assert client.app.state.credit_repository.purchases == {}
 
 
 def test_contract_payment_replay_rejects_an_expired_cached_authorization(monkeypatch: pytest.MonkeyPatch) -> None:

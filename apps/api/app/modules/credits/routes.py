@@ -3,9 +3,21 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Request, UploadFile
 
 from app.auth.dependencies import require_current_user, require_current_user_with_terms
-from app.modules.businesses.route_dependencies import business_service as business_access_service
+from app.modules.businesses.route_dependencies import (
+    business_service as business_access_service,
+)
 from app.modules.credits.models import MAX_PROOF_SIZE_BYTES
-from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest, BaseUsdcPaymentRequest, BaseUsdcTxHashRequest, ReferralApplyRequest, StripeCheckoutRequest
+from app.modules.credits.schemas import (
+    AdminCreditAdjustmentRequest,
+    AdminReviewCreditPurchaseRequest,
+    BaseUsdcPaymentRequest,
+    BaseUsdcTxHashRequest,
+    CreditHandoffClaimRequest,
+    CreditHandoffCreateRequest,
+    CreditHandoffTokenRequest,
+    ReferralApplyRequest,
+    StripeCheckoutRequest,
+)
 from app.modules.credits.service import CreditService
 from app.modules.operations import require_platform_operational
 from app.modules.users.models import UserRecord
@@ -29,6 +41,9 @@ def _service(request: Request) -> CreditService:
         storage=request.app.state.private_storage,
         onchain_verifier=request.app.state.onchain_credit_verifier,
         admin_notifications=getattr(request.app.state, "admin_notification_service", None),
+        user_repository=request.app.state.user_repository,
+        handoff_store=request.app.state.credit_handoff_store,
+        require_business_pin=lambda user: _require_business_pin(request, user),
     )
 
 
@@ -126,6 +141,65 @@ def business_credit_purchase_detail(
     user: UserRecord = Depends(require_current_user_with_terms),
 ) -> dict:
     return {"data": _service(request).purchase_detail(user=user, purchase_id=purchase_id), "request_id": _request_id(request)}
+
+
+@router.post("/business/credits/handoffs", status_code=201)
+def create_credit_handoff(
+    payload: CreditHandoffCreateRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user_with_terms),
+) -> dict:
+    require_platform_operational(request.app.state.emergency_mode_repository, operation="credit_wallet_handoff_create")
+    _require_business_pin(request, user)
+    return {
+        "data": _service(request).create_credit_handoff(
+            user=user,
+            package_code=payload.package_code,
+            request_id=_request_id(request),
+        ),
+        "request_id": _request_id(request),
+    }
+
+
+@router.post("/business/credits/handoffs/challenge")
+def credit_handoff_challenge(
+    payload: CreditHandoffTokenRequest,
+    request: Request,
+) -> dict:
+    return {
+        "data": _service(request).credit_handoff_challenge(token=payload.handoff_token),
+        "request_id": _request_id(request),
+    }
+
+
+@router.post("/business/credits/handoffs/claim")
+def claim_credit_handoff(
+    payload: CreditHandoffClaimRequest,
+    request: Request,
+) -> dict:
+    require_platform_operational(request.app.state.emergency_mode_repository, operation="credit_wallet_handoff_claim")
+    return {
+        "data": _service(request).claim_credit_handoff(
+            token=payload.handoff_token,
+            wallet_address=payload.wallet_address,
+            chain_id=payload.chain_id,
+            signature=payload.signature,
+            request_id=_request_id(request),
+        ),
+        "request_id": _request_id(request),
+    }
+
+
+@router.get("/business/credits/handoffs/{handoff_id}")
+def credit_handoff_status(
+    handoff_id: str,
+    request: Request,
+    user: UserRecord = Depends(require_current_user_with_terms),
+) -> dict:
+    return {
+        "data": _service(request).credit_handoff_status(user=user, handoff_id=handoff_id),
+        "request_id": _request_id(request),
+    }
 
 
 @router.post("/business/credits/purchases/{purchase_id}/tx-hash")

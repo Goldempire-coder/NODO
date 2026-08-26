@@ -10,13 +10,13 @@ def _read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-def test_business_credits_offers_metamask_probe_when_provider_is_missing() -> None:
+def test_business_credits_offers_metamask_handoff_when_provider_is_missing() -> None:
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
 
-    assert "Abrir MetaMask para probar conexión" in screen
+    assert "Abrir MetaMask" in screen
     assert 'walletProviderStatus === "unavailable"' in screen
-    assert "openMetaMaskWalletProbe" in model
+    assert "openMetaMaskCreditHandoff" in model
 
 
 def test_metamask_probe_uses_a_fixed_public_route_without_private_context() -> None:

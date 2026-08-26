@@ -13,12 +13,12 @@ def test_business_credit_purchase_uses_connected_wallet_without_manual_input() -
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
 
     assert "Conectar wallet" in screen
-    assert "Abrir MetaMask para probar conexión" in screen
+    assert "Abrir MetaMask" in screen
     assert "No detectamos una wallet compatible dentro de Telegram" in screen
     assert "Conecta la wallet desde donde pagarás." in screen
     assert "NODO no ve ni guarda tu clave privada." in screen
     assert "Esta wallet será la que firma y paga." in screen
-    assert 'disabled={connectingWallet || walletProviderStatus === "checking"}' in screen
+    assert 'disabled={connectingWallet || preparingCreditHandoff || walletProviderStatus === "checking"}' in screen
     assert "showPrepareAuthorizationButton" in screen
     assert 'walletProviderStatus !== "unavailable" || Boolean(connectedWalletAddress)' in screen
     assert "{showPrepareAuthorizationButton ? (" in screen

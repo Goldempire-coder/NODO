@@ -123,3 +123,19 @@ caido para comprobar pausa o divergencia de contrato:
 - no acreditar;
 - mensaje neutral;
 - audit/alerta segura.
+
+## Wallet Handoff Efimero
+
+- JWT, refresh token, cookie, PIN y Telegram `initData` nunca viajan a MetaMask.
+- Deeplink contiene solo token opaco en fragmento; la pagina lo elimina con
+  `history.replaceState` y lo conserva solo en memoria.
+- Backend persiste SHA-256 del token con TTL cinco minutos y una gracia corta
+  exclusivamente para informar expiracion neutral.
+- Challenge incluye origen backend, handoff, nonce, Base chain ID y expiracion.
+- `personal_sign` prueba control; no autoriza pago ni transfiere fondos.
+- Creacion limita usuario, negocio e IP. Challenge/claim limitan IP y handoff.
+- Redis compartido es obligatorio en staging/produccion.
+- Claim revalida usuario activo, negocio aprobado, owner link activo y PIN.
+- Replay identico devuelve el mismo resultado; otro claim no reutiliza la
+  capacidad.
+- Auditoria usa handoff ID y wallet enmascarada, nunca token o firma completos.

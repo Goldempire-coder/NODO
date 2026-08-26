@@ -113,3 +113,27 @@ export async function switchInjectedWalletToBase(provider: Eip1193Provider): Pro
   }
   return readInjectedWallet(provider);
 }
+
+function utf8Hex(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  return `0x${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+export async function signInjectedWalletChallenge(
+  provider: Eip1193Provider,
+  address: string,
+  challenge: string,
+): Promise<string> {
+  const normalizedAddress = normalizeConnectedAddress(address);
+  if (!normalizedAddress || !challenge.trim()) {
+    throw new Error("WALLET_CHALLENGE_INVALID");
+  }
+  const signature = await provider.request({
+    method: "personal_sign",
+    params: [utf8Hex(challenge), normalizedAddress],
+  });
+  if (typeof signature !== "string" || !/^0x[a-fA-F0-9]{130}$/.test(signature)) {
+    throw new Error("WALLET_SIGNATURE_INVALID");
+  }
+  return signature;
+}

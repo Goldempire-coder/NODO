@@ -99,11 +99,15 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
     connectedWalletAddress,
     connectedWalletAddressMasked,
     continuePendingBaseUsdcPayment,
+    creditHandoffId,
     creditPackage,
     generatingCreditPayment,
     loadingPendingPurchase,
-    openMetaMaskWalletProbe,
+    openMetaMaskCreditHandoff,
     pendingCreditPurchase,
+    preparingCreditHandoff,
+    refreshCreditHandoff,
+    refreshingCreditHandoff,
     setCreditPackage,
     startBaseUsdcPayment,
     walletChainId,
@@ -180,7 +184,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
             <Text>NODO no ve ni guarda tu clave privada.</Text>
             <small>
               {walletProviderStatus === "unavailable"
-                ? "Abriremos MetaMask para probar la conexión. Luego vuelve a Telegram."
+                ? "Abriremos MetaMask para comprobar la wallet. Luego vuelve a Telegram."
                 : "Esta wallet será la que firma y paga."}
             </small>
           </div>
@@ -188,10 +192,10 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
         <button
           className="mini-action-button"
           type="button"
-          disabled={connectingWallet || walletProviderStatus === "checking"}
+          disabled={connectingWallet || preparingCreditHandoff || walletProviderStatus === "checking"}
           onClick={() => {
             if (walletProviderStatus === "unavailable") {
-              openMetaMaskWalletProbe();
+              void openMetaMaskCreditHandoff();
               return;
             }
             void connectWallet();
@@ -199,11 +203,13 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
         >
           {connectingWallet
             ? "Conectando..."
-            : connectedWalletAddress
-              ? "Cambiar wallet"
-              : walletProviderStatus === "unavailable"
-                ? "Abrir MetaMask para probar conexión"
-                : "Conectar wallet"}
+            : preparingCreditHandoff
+              ? "Preparando..."
+              : connectedWalletAddress
+                ? "Cambiar wallet"
+                : walletProviderStatus === "unavailable"
+                  ? "Abrir MetaMask"
+                  : "Conectar wallet"}
         </button>
       </div>
       {walletProviderStatus === "checking" ? (
@@ -213,8 +219,27 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
       ) : null}
       {walletProviderStatus === "unavailable" ? (
         <Text role="alert">
-          No detectamos una wallet compatible dentro de Telegram. Abre MetaMask para probar la conexión y vuelve a Telegram cuando quede en Base.
+          No detectamos una wallet compatible dentro de Telegram. Abre MetaMask, confirma la wallet y vuelve a NODO.
         </Text>
+      ) : null}
+      {creditHandoffId ? (
+        <div className="business-status-panel" role="status">
+          <div>
+            <span className="status-dot" aria-hidden="true" />
+            <div>
+              <strong>Preparacion enviada a MetaMask</strong>
+              <Text>Completa la comprobacion y vuelve a Telegram.</Text>
+            </div>
+          </div>
+          <button
+            className="mini-action-button"
+            type="button"
+            disabled={refreshingCreditHandoff}
+            onClick={() => void refreshCreditHandoff()}
+          >
+            {refreshingCreditHandoff ? "Actualizando..." : "Actualizar"}
+          </button>
+        </div>
       ) : null}
       {connectedWalletAddress ? (
         <div className="business-status-panel" role="status">

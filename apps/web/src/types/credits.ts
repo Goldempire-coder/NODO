@@ -78,6 +78,29 @@ export type BusinessCreditPurchaseDetail = {
   disclaimer?: string;
 };
 
+export type CreditHandoff = {
+  id: string;
+  status: "active" | "claiming" | "prepared" | "expired";
+  expires_at: string;
+  wallet_address_masked?: string | null;
+};
+
+export type CreditHandoffCreated = {
+  handoff: CreditHandoff & {
+    token: string;
+  };
+};
+
+export type CreditHandoffChallenge = {
+  challenge: string;
+  chain_id: number;
+  expires_at: string;
+};
+
+export type CreditHandoffStatus = BusinessCreditPurchaseDetail & {
+  handoff: CreditHandoff;
+};
+
 export type AdminCreditPurchaseSummary = {
   id: string;
   business_id: string;

@@ -34,6 +34,7 @@ from app.modules.businesses.repository import InMemoryBusinessRepository, Postgr
 from app.modules.businesses.routes import router as businesses_router
 from app.modules.chat.repository import InMemoryChatRepository, PostgresChatRepository
 from app.modules.chat.routes import router as chat_router
+from app.modules.credits.credit_handoffs import InMemoryCreditHandoffStore, RedisCreditHandoffStore
 from app.modules.credits.repository import InMemoryCreditRepository, PostgresCreditRepository
 from app.modules.credits.routes import router as credits_router
 from app.modules.credits.onchain import JsonRpcBaseUsdcVerifier
@@ -294,6 +295,7 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.cost_rate_limiter = _build_cost_rate_limiter(None)
     app.state.marketplace_rate_limiter = app.state.cost_rate_limiter
     app.state.idempotency_store = InMemoryIdempotencyStore()
+    app.state.credit_handoff_store = InMemoryCreditHandoffStore()
     app.state.marketplace_cache = InMemoryTTLCache()
     app.state.admin_read_model_cache = InMemoryTTLCache()
     app.state.auth_user_cache = None
@@ -350,6 +352,7 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.cost_rate_limiter = _build_cost_rate_limiter(settings.redis_url)
     app.state.marketplace_rate_limiter = app.state.cost_rate_limiter
     app.state.idempotency_store = RedisIdempotencyStore(settings.redis_url)
+    app.state.credit_handoff_store = RedisCreditHandoffStore(settings.redis_url)
     app.state.marketplace_cache = VersionedLayeredTTLCache(
         local_cache=InMemoryTTLCache(),
         shared_cache=RedisTTLCache(settings.redis_url),

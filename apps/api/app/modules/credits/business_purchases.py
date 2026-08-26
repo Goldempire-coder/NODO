@@ -328,6 +328,24 @@ class CreditBusinessPurchases:
             )
         return contract_address, treasury_address
 
+    def ensure_contract_payment_available(self) -> None:
+        self._contract_configuration()
+
+    def contract_purchase_detail_for_id(
+        self,
+        purchase_id: str,
+        *,
+        business_id: str,
+    ) -> dict[str, Any]:
+        purchase = self._repository.get_purchase(purchase_id)
+        if (
+            purchase is None
+            or purchase.business_id != business_id
+            or purchase.payment_method != "base_usdc_contract"
+        ):
+            raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
+        return self.contract_purchase_detail(purchase)
+
     def _contract_payment_response(self, purchase: CreditPurchaseRecord) -> dict[str, Any]:
         response = self.contract_purchase_detail(purchase)
         authorization_status = response["payment"]["authorization_status"]

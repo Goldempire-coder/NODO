@@ -11,6 +11,7 @@ from app.modules.credits.business_referrals import (
     CREDITS_DISCLAIMER,
     CreditBusinessReferrals,
 )
+from app.modules.credits.credit_handoffs import CreditPaymentHandoffs
 from app.modules.credits.schemas import (
     AdminCreditAdjustmentRequest,
     AdminReviewCreditPurchaseRequest,
@@ -39,6 +40,9 @@ class CreditService:
         storage,
         onchain_verifier,
         admin_notifications=None,
+        user_repository=None,
+        handoff_store=None,
+        require_business_pin=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
@@ -75,6 +79,22 @@ class CreditService:
             idempotency_store=self._idempotency,
             rate_limit=self._rate_limit,
             require_idempotency_key=self._require_idempotency_key,
+        )
+        self._credit_handoffs = (
+            CreditPaymentHandoffs(
+                settings=self._settings,
+                store=handoff_store,
+                user_repository=user_repository,
+                business_purchases=self._business_purchases,
+                owner_business=self._owner_business,
+                require_business_pin=require_business_pin,
+                rate_limit=self._handoff_rate_limit,
+                audit_writer=self._audit,
+            )
+            if handoff_store is not None
+            and user_repository is not None
+            and require_business_pin is not None
+            else None
         )
 
     def _rate_limit(self, action: str, key: str) -> None:
@@ -125,6 +145,49 @@ class CreditService:
                     )
             except RateLimitUnavailableError as exc:
                 raise ApiError("CRYPTO_PAYMENT_RATE_LIMIT_UNAVAILABLE", status_code=503) from exc
+            if not allowed:
+                raise ApiError("RATE_LIMITED", status_code=429)
+
+    def _handoff_rate_limit(
+        self,
+        action: str,
+        user_id: str | None,
+        business_id: str | None,
+        handoff_key: str | None,
+    ) -> None:
+        if action == "create":
+            keys_and_limits = (
+                (f"credits:wallet_handoff:create:user:{user_id}", self._settings.credit_contract_rate_limit_user_max_attempts),
+                (f"credits:wallet_handoff:create:business:{business_id}", self._settings.credit_contract_rate_limit_business_max_attempts),
+                (f"credits:wallet_handoff:create:ip:{current_request_ip_hash()}", self._settings.credit_contract_rate_limit_ip_max_attempts),
+            )
+            window_seconds = self._settings.credit_contract_rate_limit_window_seconds
+        elif action in {"challenge", "claim"}:
+            keys_and_limits = (
+                (f"credits:wallet_handoff:{action}:ip:{current_request_ip_hash()}", 20),
+                (f"credits:wallet_handoff:{action}:handoff:{handoff_key}", 10 if action == "challenge" else 5),
+            )
+            window_seconds = 300
+        else:
+            keys_and_limits = (
+                (f"credits:wallet_handoff:status:user:{user_id}", 20),
+                (f"credits:wallet_handoff:status:business:{business_id}", 20),
+                (f"credits:wallet_handoff:status:handoff:{handoff_key}", 20),
+            )
+            window_seconds = 300
+        require_shared = self._settings.app_env in {"staging", "production"}
+        allow_shared = getattr(self._rate_limiter, "allow_shared", None)
+        if require_shared and allow_shared is None:
+            raise ApiError("CREDIT_HANDOFF_UNAVAILABLE", status_code=503)
+        for key, max_attempts in keys_and_limits:
+            try:
+                allowed = (
+                    allow_shared(key, max_attempts=max_attempts, window_seconds=window_seconds)
+                    if require_shared
+                    else self._rate_limiter.allow(key, max_attempts=max_attempts, window_seconds=window_seconds)
+                )
+            except RateLimitUnavailableError as exc:
+                raise ApiError("CREDIT_HANDOFF_UNAVAILABLE", status_code=503) from exc
             if not allowed:
                 raise ApiError("RATE_LIMITED", status_code=429)
 
@@ -181,6 +244,59 @@ class CreditService:
         if purchase.payment_method == "base_usdc_contract":
             return self._business_purchases.contract_purchase_detail(purchase)
         return {"purchase": purchase_public(purchase), "disclaimer": CREDITS_DISCLAIMER}
+
+    def create_credit_handoff(
+        self,
+        *,
+        user: UserRecord,
+        package_code: str,
+        request_id: str,
+    ) -> dict[str, Any]:
+        business = self._owner_business(user)
+        return self._require_credit_handoffs().create(
+            user=user,
+            business=business,
+            package_code=package_code,
+            request_id=request_id,
+        )
+
+    def credit_handoff_challenge(self, *, token: str) -> dict[str, Any]:
+        return self._require_credit_handoffs().challenge(token=token)
+
+    def claim_credit_handoff(
+        self,
+        *,
+        token: str,
+        wallet_address: str,
+        chain_id: int,
+        signature: str,
+        request_id: str,
+    ) -> dict[str, Any]:
+        return self._require_credit_handoffs().claim(
+            token=token,
+            wallet_address=wallet_address,
+            chain_id=chain_id,
+            signature=signature,
+            request_id=request_id,
+        )
+
+    def credit_handoff_status(
+        self,
+        *,
+        user: UserRecord,
+        handoff_id: str,
+    ) -> dict[str, Any]:
+        business = self._owner_business(user)
+        return self._require_credit_handoffs().status(
+            user=user,
+            business=business,
+            handoff_id=handoff_id,
+        )
+
+    def _require_credit_handoffs(self) -> CreditPaymentHandoffs:
+        if self._credit_handoffs is None:
+            raise ApiError("CREDIT_HANDOFF_UNAVAILABLE", status_code=503)
+        return self._credit_handoffs
 
     def submit_base_usdc_tx_hash(self, *, user: UserRecord, purchase_id: str, payload: BaseUsdcTxHashRequest, request_id: str, idempotency_key: str | None) -> dict[str, Any]:
         business = self._owner_business(user)

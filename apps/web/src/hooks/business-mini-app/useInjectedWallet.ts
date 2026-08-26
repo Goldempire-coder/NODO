@@ -9,6 +9,7 @@ import {
   maskWalletAddress,
   parseEip1193ChainId,
   readInjectedWallet,
+  signInjectedWalletChallenge,
   switchInjectedWalletToBase,
   type Eip1193Provider,
   type InjectedWalletSnapshot,
@@ -143,12 +144,26 @@ export function useInjectedWallet(onWalletContextChanged: () => void) {
 
   const getConnectedWalletSnapshot = useCallback(() => snapshotRef.current, []);
 
+  const signWalletChallenge = useCallback(async (challenge: string) => {
+    const injectedProvider = provider || getInjectedEthereumProvider();
+    const snapshot = snapshotRef.current;
+    if (
+      !injectedProvider
+      || !snapshot.address
+      || snapshot.chainId !== BASE_MAINNET_CHAIN_ID
+    ) {
+      throw new Error("WALLET_NOT_READY");
+    }
+    return signInjectedWalletChallenge(injectedProvider, snapshot.address, challenge);
+  }, [provider]);
+
   return {
     connectWallet,
     connectedWalletAddress,
     connectedWalletAddressMasked: maskWalletAddress(connectedWalletAddress),
     connectingWallet,
     getConnectedWalletSnapshot,
+    signWalletChallenge,
     switchWalletToBase,
     switchingWalletNetwork,
     walletChainId,

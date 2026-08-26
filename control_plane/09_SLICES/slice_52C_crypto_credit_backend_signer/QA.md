@@ -90,3 +90,13 @@ No declarar `READY_FOR_REAL_USE` hasta tener:
 - alertas Admin;
 - rollback;
 - aprobacion Owner para treasury/signer/owner.
+
+## 52C2C-S1
+
+- handoff Telegram -> MetaMask usa fragmento, limpia URL y no transporta auth;
+- handoff vencido, red incorrecta y firma incorrecta fallan neutralmente;
+- otro negocio no recupera el estado del handoff;
+- replay identico prepara una compra y claim no crea ledger ni saldo;
+- Redis/store o rate limit compartido caido falla cerrado;
+- no hay polling, `approve`, `pay`, watcher ni movimiento de fondos;
+- smoke Telegram iPhone/Android + MetaMask es obligatorio antes de uso real.

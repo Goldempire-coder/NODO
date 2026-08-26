@@ -146,3 +146,17 @@ Si el backend firma datos que vienen del frontend sin recalcularlos desde
 catalogo/configuracion oficial, el contrato funcionara correctamente pero NODO
 habra autorizado una compra falsa. Por eso 52C trata al signer como frontera de
 seguridad critica.
+
+## 52C2C-S1 Telegram A MetaMask
+
+La sesion Telegram no se transporta al navegador de MetaMask. La App Negocio
+crea un handoff opaco de cinco minutos, protegido por owner y PIN, y abre
+`/business/credit-payment` con el token solo en fragmento. La ruta elimina ese
+fragmento antes de llamar API, conecta EIP-1193 en Base y usa `personal_sign`
+para probar control de la wallet.
+
+Backend guarda solo hash del token en Memory local o Redis compartido,
+revalida acceso y PIN al reclamar, y usa idempotencia interna para preparar una
+sola compra contractual. Telegram recupera con un `handoff_id` no sensible y
+accion manual `Actualizar`. No hay polling, pago, approval, watcher, ledger,
+acreditacion ni fondos en este slice.

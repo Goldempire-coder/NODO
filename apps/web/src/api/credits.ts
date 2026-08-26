@@ -1,5 +1,11 @@
 import type { AuthenticatedRequest } from "./client";
-import type { BusinessCreditPurchaseDetail } from "../types/credits";
+import { resolveApiUrl } from "../lib/env";
+import type {
+  BusinessCreditPurchaseDetail,
+  CreditHandoffChallenge,
+  CreditHandoffCreated,
+  CreditHandoffStatus,
+} from "../types/credits";
 
 export function getBusinessCreditWallet<T>(request: AuthenticatedRequest) {
   return request<T>(`/api/v1/business/credits/wallet?_=${Date.now()}`, { cache: "no-store" });
@@ -34,6 +40,66 @@ export function startBusinessBaseUsdcPayment(
 
 export function getBusinessCreditPurchase(request: AuthenticatedRequest, purchaseId: string) {
   return request<BusinessCreditPurchaseDetail>(`/api/v1/business/credits/purchases/${purchaseId}`);
+}
+
+export function createBusinessCreditHandoff(
+  request: AuthenticatedRequest,
+  packageCode: string,
+) {
+  return request<CreditHandoffCreated>("/api/v1/business/credits/handoffs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ package_code: packageCode }),
+  });
+}
+
+export function getBusinessCreditHandoff(
+  request: AuthenticatedRequest,
+  handoffId: string,
+) {
+  return request<CreditHandoffStatus>(`/api/v1/business/credits/handoffs/${handoffId}`, {
+    cache: "no-store",
+  });
+}
+
+async function publicCreditHandoffRequest<T>(path: string, body: object): Promise<T> {
+  const response = await fetch(resolveApiUrl(path), {
+    method: "POST",
+    cache: "no-store",
+    credentials: "omit",
+    referrerPolicy: "no-referrer",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error?.message || "No pudimos completar la preparacion de wallet.");
+  }
+  return payload.data as T;
+}
+
+export function getCreditHandoffChallenge(handoffToken: string) {
+  return publicCreditHandoffRequest<CreditHandoffChallenge>(
+    "/api/v1/business/credits/handoffs/challenge",
+    { handoff_token: handoffToken },
+  );
+}
+
+export function claimCreditHandoff(payload: {
+  handoffToken: string;
+  walletAddress: string;
+  chainId: number;
+  signature: string;
+}) {
+  return publicCreditHandoffRequest<{ handoff: CreditHandoffStatus["handoff"] }>(
+    "/api/v1/business/credits/handoffs/claim",
+    {
+      handoff_token: payload.handoffToken,
+      wallet_address: payload.walletAddress,
+      chain_id: payload.chainId,
+      signature: payload.signature,
+    },
+  );
 }
 
 export function submitBusinessManualCreditPayment<T>(

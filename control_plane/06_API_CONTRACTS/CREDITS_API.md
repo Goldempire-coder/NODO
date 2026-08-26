@@ -550,3 +550,48 @@ Referral qualification:
 - Comprobantes manuales solo en storage privado y signed URL corta para admin.
 - Admin actions requieren reason.
 - Permission errors no filtran existencia privada.
+
+## 52C2C Wallet Handoff
+
+### POST /api/v1/business/credits/handoffs
+
+- Auth: negocio owner activo con terminos y PIN operativo desbloqueado.
+- Body estricto: `{ "package_code": "starter|pro|business|enterprise" }`.
+- Crea una capacidad efimera de cinco minutos; no crea credito, ledger,
+  movimiento de saldo ni transaccion blockchain.
+- Backend liga el handoff a usuario, negocio y paquete derivados de la sesion.
+  Rechaza `business_id`, wallet, monto, precio, token, red y contrato enviados
+  por cliente.
+- Responde una vez con `handoff.id`, token opaco y `expires_at`. El token viaja
+  a `/business/credit-payment` solo en fragment URL y backend persiste solo su
+  SHA-256 en store efimero.
+- Rate limit por usuario, negocio e IP. Redis compartido es obligatorio en
+  staging/produccion y el flujo falla cerrado si no esta disponible.
+
+### POST /api/v1/business/credits/handoffs/challenge
+
+- Publico por capacidad efimera; sin JWT, cookie, PIN ni Telegram `initData`.
+- Body: `{ "handoff_token": "opaque" }`.
+- Devuelve challenge legible, `chain_id = 8453` y expiracion.
+- Solo un handoff activo y no vencido puede obtener challenge.
+- Rate limit por IP y hash de handoff; respuesta `private, no-store`.
+
+### POST /api/v1/business/credits/handoffs/claim
+
+- Body estricto: `handoff_token`, `wallet_address`, `chain_id`, `signature`.
+- Requiere Base `8453` y recupera el signer EIP-191 de `personal_sign` sobre el
+  challenge exacto emitido por backend.
+- Revalida usuario, negocio, vinculo owner y PIN antes de preparar la compra.
+- Claim atomico y replay identico son idempotentes; otro signer o handoff
+  vencido/usado falla neutralmente.
+- Reutiliza `base_usdc_contract` con idempotencia interna. Solo crea
+  compra/autorizacion: no acredita, no crea ledger, no hace `approve`, no hace
+  `pay`, no acepta `tx_hash` y no mueve fondos.
+
+### GET /api/v1/business/credits/handoffs/{handoff_id}
+
+- Auth: mismo negocio owner activo.
+- Recuperacion manual desde Telegram; no polling.
+- Devuelve `active|claiming|prepared|expired`, wallet enmascarada y, solo al
+  quedar preparado, el detalle contractual de la compra propia.
+- Puede recordarse el `handoff_id`; el token nunca se persiste en storage web.
