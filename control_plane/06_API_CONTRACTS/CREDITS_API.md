@@ -610,6 +610,13 @@ Referral qualification:
 - Reutiliza `base_usdc_contract` con idempotencia interna. Solo crea
   compra/autorizacion: no acredita, no crea ledger, no hace `approve`, no hace
   `pay`, no acepta `tx_hash` y no mueve fondos.
+- Al quedar `prepared`, devuelve tambien `purchase` y `payment` con el snapshot
+  contractual pagable. La respuesta no incluye sesion Telegram, token de
+  handoff, secretos ni autoridad elegida por frontend.
+- En modo `base_sepolia`, la pagina MetaMask puede usar ese snapshot para leer
+  allowance bajo demanda, solicitar `approve` por el monto exacto y llamar
+  `pay`. Estas acciones ocurren en la wallet; el claim por si solo no las
+  ejecuta.
 
 ### GET /api/v1/business/credits/handoffs/{handoff_id}
 
@@ -619,3 +626,22 @@ Referral qualification:
   quedar preparado, el detalle contractual de la compra propia. Tambien devuelve
   el perfil publico de red ligado al handoff.
 - Puede recordarse el `handoff_id`; el token nunca se persiste en storage web.
+
+## 52C2F-S1 Pago Testnet En MetaMask
+
+- Solo habilitado por la UI cuando el snapshot backend declara
+  `network = base_sepolia`, `chain_id = 84532`, `is_testnet = true`,
+  `authorization_status = valid` y `capabilities.can_pay = true`.
+- La wallet conectada debe coincidir con `payer_wallet_address`; cualquier
+  cambio de cuenta o red elimina el snapshot pagable de memoria.
+- La lectura de allowance es una llamada puntual `eth_call`, iniciada al
+  preparar la compra. No hay polling ni timers.
+- Si falta allowance, la UI solicita `approve(vault, expected_amount_units)`.
+  Nunca solicita allowance ilimitado.
+- `pay` usa exclusivamente `purchase_ref`, payer, amount, validUntil, chainId,
+  verifyingContract, contractVersion y firma devueltos por backend.
+- `now >= validUntil` bloquea `approve` y `pay`.
+- La UI no acepta ni envia `tx_hash`. Enviar la transaccion no acredita; solo el
+  watcher contractual puede verificar el evento y acreditar exact-once.
+- Telegram conserva carga manual mediante `Actualizar`; no consulta blockchain
+  ni necesita provider de wallet.

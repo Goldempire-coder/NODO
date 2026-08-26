@@ -139,3 +139,19 @@ caido para comprobar pausa o divergencia de contrato:
 - Replay identico devuelve el mismo resultado; otro claim no reutiliza la
   capacidad.
 - Auditoria usa handoff ID y wallet enmascarada, nunca token o firma completos.
+
+## Ejecucion Testnet En Wallet
+
+- Solo Base Sepolia `84532` y snapshots backend con `is_testnet = true` son
+  pagables en 52C2F-S1; mainnet falla cerrado en frontend.
+- Token, vault, monto, payer, referencia, version, expiracion y firma provienen
+  del snapshot backend. La UI no acepta campos editables equivalentes.
+- `approve` usa exactamente `expected_amount_units`; no existe aprobacion
+  ilimitada.
+- `pay` envia valor nativo cero y calldata del contrato firmado. La wallet
+  muestra y autoriza cada transaccion.
+- Cambio de cuenta/red o expiracion estricta borra o bloquea el estado pagable.
+- Respuestas del provider, firmas y hashes de transaccion no se registran ni se
+  envian al backend por este flujo.
+- No hay polling. La confirmacion y acreditacion pertenecen al watcher
+  contractual exact-once.

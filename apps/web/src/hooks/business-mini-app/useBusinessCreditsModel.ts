@@ -253,23 +253,6 @@ export function useBusinessCreditsModel({
       setNotice("No hay un pago Base USDC pendiente.");
       return;
     }
-    if (walletProviderStatus !== "available") {
-      setNotice("No detectamos una wallet compatible en este navegador. NODO no puede conectar tu wallet desde aqui.");
-      return;
-    }
-    if (!connectedWalletAddress) {
-      setNotice("Conecta la wallet desde donde pagaras.");
-      return;
-    }
-    if (!walletIsExpectedNetwork) {
-      setNotice("Cambia tu wallet a Base Sepolia para continuar la prueba.");
-      return;
-    }
-    const preparedWallet = getConnectedWalletSnapshot();
-    if (preparedWallet.address !== connectedWalletAddress || preparedWallet.chainId !== walletChainId) {
-      setNotice("La cuenta o red cambio. Revisa tu wallet e intenta de nuevo.");
-      return;
-    }
     setLoadingPendingPurchase(true);
     try {
       const data = await getBusinessCreditPurchase(request, rememberedPurchaseId);
@@ -279,21 +262,10 @@ export function useBusinessCreditsModel({
         setNotice("Ese pago ya no esta pendiente.");
         return;
       }
-      const currentWallet = getConnectedWalletSnapshot();
-      if (
-        currentWallet.address !== preparedWallet.address ||
-        currentWallet.chainId !== preparedWallet.chainId
-      ) {
+      if (!data.payment?.payer_wallet_address) {
         setPendingCreditPurchase(null);
         clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
-        setNotice("La cuenta o red cambio. Prepara la autorizacion de nuevo.");
-        return;
-      }
-      const paymentWallet = data.payment?.payer_wallet_address?.toLowerCase() || null;
-      if (!paymentWallet || paymentWallet !== preparedWallet.address) {
-        setPendingCreditPurchase(null);
-        clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
-        setNotice("Ese pago pendiente pertenece a otra wallet. Prepara una nueva autorizacion.");
+        setNotice("Ese pago pendiente no tiene una wallet valida. Prepara una nueva autorizacion.");
         return;
       }
       setSelectedCreditPurchase(data.purchase);
@@ -309,7 +281,7 @@ export function useBusinessCreditsModel({
     } finally {
       setLoadingPendingPurchase(false);
     }
-  }, [business?.id, connectedWalletAddress, getConnectedWalletSnapshot, pendingCreditPurchase, pendingPurchaseStorageKey, request, setNotice, setView, walletChainId, walletIsExpectedNetwork, walletProviderStatus]);
+  }, [business?.id, pendingCreditPurchase, pendingPurchaseStorageKey, request, setNotice, setView]);
 
   const loadCreditDashboard = useCallback(async () => {
     setView("credits-dashboard");
@@ -351,7 +323,13 @@ export function useBusinessCreditsModel({
       setCreditHandoffLaunchToken(data.handoff.token);
       setCreditHandoffOpened(false);
       rememberCreditHandoffId(handoffStorageKey, data.handoff.id);
-      setNotice("Enlace listo. Toca Abrir MetaMask para continuar.");
+      try {
+        launchMetaMaskCreditHandoff(data.handoff.token);
+        setCreditHandoffOpened(true);
+        setNotice("MetaMask se abrira. Completa el pago de prueba y luego pulsa Actualizar.");
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Enlace listo. Toca Abrir MetaMask para continuar.");
+      }
     } catch (error) {
       if (handleBusinessPinError(error, action)) {
         return;
@@ -463,8 +441,8 @@ export function useBusinessCreditsModel({
       clearIdempotencyKey(idempotencyScope);
       const currentWallet = getConnectedWalletSnapshot();
       if (
-        currentWallet.address !== preparedWallet.address ||
-        currentWallet.chainId !== preparedWallet.chainId
+        currentWallet.address !== preparedWallet.address
+        || currentWallet.chainId !== preparedWallet.chainId
       ) {
         setNotice("La cuenta o red cambió. Prepara la autorización de nuevo.");
         return;

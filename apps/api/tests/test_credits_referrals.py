@@ -1639,6 +1639,13 @@ def test_credit_wallet_handoff_prepares_one_contract_purchase_without_crediting(
     assert claimed.status_code == 200, claimed.text
     assert replay.status_code == 200, replay.text
     assert replay.json()["data"] == claimed.json()["data"]
+    claimed_data = claimed.json()["data"]
+    assert claimed_data["purchase"]["payment_method"] == "base_usdc_contract"
+    assert claimed_data["payment"]["network"] == "base_sepolia"
+    assert claimed_data["payment"]["chain_id"] == 84532
+    assert claimed_data["payment"]["payer_wallet_address"] == payer.address.lower()
+    assert claimed_data["payment"]["capabilities"] == {"can_pay": True}
+    assert claimed_data["payment"]["authorization_signature"].startswith("0x")
     assert status.status_code == 200, status.text
     for response in (created, challenge, claimed, replay, status):
         assert response.headers["cache-control"] == "private, no-store"
@@ -2948,11 +2955,10 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     api_source = open("apps/web/src/api/credits.ts", encoding="utf-8").read()
     settings_source = open("apps/web/src/screens/business-app/BusinessSettingsScreen.tsx", encoding="utf-8").read()
     model_source = open("apps/web/src/hooks/useBusinessMiniAppModel.ts", encoding="utf-8").read()
-    assert "Generando..." in source
-    assert "Wallet pagadora" in source
-    assert "Conectar wallet" in source
-    assert "Conecta la wallet desde donde pagarás." in source
-    assert "Esta wallet será la que firma y paga." in source
+    assert "Abrir MetaMask para pagar en prueba" in source
+    assert "Pago de prueba con MetaMask" in source
+    assert "void connectWallet()" not in source
+    assert "Preparar autorizacion" not in source
     assert "NODO no ve ni guarda tu clave privada." in source
     assert "Necesitas USDC de prueba y un poco de ETH de prueba en Base Sepolia." in source
     assert "priceUsdc" in source
@@ -2961,7 +2967,7 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert 'priceUsdc: "25"' in source
     assert 'priceUsdc: "75"' in source
     assert 'priceUsdc: "250"' in source
-    assert "Prepararás ${selected.priceUsdc} USDC de prueba en Base Sepolia." in source
+    assert "Pagaras ${selected.priceUsdc} USDC de prueba en red Base Sepolia." in source
     assert "La autorizacion final confirma el monto antes de pagar." in source
     assert "NODO calcula el monto y prepara la autorizacion." not in source
     assert "No pegues hashes en este flujo." in source
@@ -2980,16 +2986,13 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "Identificador de transaccion" not in source
     assert 'placeholder="0x..."' not in source
     assert "Pegar un hash" not in settings_source
-    assert 'const action = "comprar creditos"' in hook_source
+    assert 'const action = "preparar compra de creditos"' in hook_source
     assert "requireBusinessPinFor(action)" in hook_source
     assert "handleBusinessPinError(error, action)" in hook_source
-    assert "BUSINESS_PIN_REQUIRED" in hook_source
-    assert "useInjectedWallet" in hook_source
-    assert "connectedWalletAddress" in hook_source
-    assert "walletIsExpectedNetwork" in hook_source
+    assert "createBusinessCreditHandoff" in hook_source
+    assert "launchMetaMaskCreditHandoff" in hook_source
     assert "setPayerWalletAddress" not in hook_source
     assert "useBusinessCreditsModel({ business: access.business" in model_source
-    assert "startBusinessBaseUsdcPayment" in hook_source
     assert "localStorage.setItem(storageKey, purchase.id)" in hook_source
     assert "Fallback tarjeta" not in source
     assert "Metodo manual" not in source
@@ -3012,7 +3015,7 @@ def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_cho
     assert "Tienes un pago pendiente" in source
     assert "Continuar pago pendiente" in source
     assert "Elige un paquete para generar el pago." in source
-    assert "disabled={generatingCreditPayment || !creditPackage || !connectedWalletAddress || !walletIsExpectedNetwork}" in source
+    assert "disabled={preparingCreditHandoff || generatingCreditPayment || !creditPackage}" in source
 
 
 def test_postgres_onchain_duplicate_tx_log_path_is_atomic() -> None:

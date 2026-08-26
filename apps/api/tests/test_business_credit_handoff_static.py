@@ -54,22 +54,44 @@ def test_credit_handoff_uses_backend_network_profile_for_wallet_validation() -> 
     assert "is_testnet: boolean" in types
 
 
-def test_credit_handoff_runtime_contains_no_payment_or_auth_transfer() -> None:
+def test_credit_handoff_runtime_contains_testnet_payment_without_auth_transfer() -> None:
     source = "\n".join(
         (
             _read("apps/web/src/app/business/credit-payment/page.tsx"),
             _read("apps/web/src/lib/wallet/metamaskHandoff.ts"),
             _read("apps/web/src/lib/wallet/eip1193.ts"),
+            _read("apps/web/src/lib/wallet/testnetCreditPayment.ts"),
             _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts"),
         )
     ).lower()
 
+    payment_helper = _read("apps/web/src/lib/wallet/testnetCreditPayment.ts")
+    payment_page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+
+    assert 'method: "eth_call"' in payment_helper
+    assert 'method: "eth_sendtransaction"' in payment_helper.lower()
+    assert 'const erc20_approve_selector = "095ea7b3"' in payment_helper.lower()
+    assert 'const vault_pay_selector = "a1147e9b"' in payment_helper.lower()
+    approve_call = payment_helper.split("export async function approveExactTestUsdc", 1)[1].split(
+        "export async function payTestCreditPurchase", 1
+    )[0]
+    pay_encoding = payment_helper.split("export function encodeTestCreditPaymentCall", 1)[1].split(
+        "export async function payTestCreditPurchase", 1
+    )[0]
+    assert "wordFromUint(snapshot.amount)" in approve_call
+    assert "snapshot.purchaseRef" in pay_encoding
+    assert "snapshot.signature" in pay_encoding
+    assert "snapshot.amount" in pay_encoding
+    assert "expected_amount_units" in payment_helper
+    assert "authorization_signature" in payment_helper
+    assert "paymentauthorizationexpired" in payment_helper.lower()
+    assert "Autorizar USDC de prueba" in payment_page
+    assert "Pagar creditos de prueba" in payment_page
+    assert "Pago enviado. Vuelve a Telegram y toca Actualizar" in payment_page
+
     for forbidden in (
-        "eth_sendtransaction",
         "eth_signtypeddata",
         "tx_hash",
-        "approve(",
-        "pay(",
         "accesstoken",
         "refreshtoken",
         "initdata",
@@ -81,6 +103,36 @@ def test_credit_handoff_runtime_contains_no_payment_or_auth_transfer() -> None:
         'from "viem"',
     ):
         assert forbidden not in source
+
+    assert "setinterval(" not in payment_helper.lower()
+    assert "settimeout(" not in payment_helper.lower()
+
+
+def test_credit_payment_invalidates_authorization_on_wallet_or_network_change() -> None:
+    page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+
+    wallet_change_handler = page.split("useInjectedWallet(() => {", 1)[1].split("}, expectedNetwork)", 1)[0]
+    assert "setPaymentDetail(null)" in wallet_change_handler
+    assert "setPaymentStep" in wallet_change_handler
+    assert "La cuenta o red cambio" in wallet_change_handler
+
+
+def test_credit_payment_keeps_recoverable_permission_steps() -> None:
+    page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+
+    assert '"review"' in page
+    assert '"approval_submitted"' in page
+    assert "checkTestUsdcPermission" in page
+    assert "setPaymentStep(\"review\")" in page
+    assert "Revisar permiso de USDC" in page
+    assert "Ya autorice USDC, revisar permiso" in page
+
+    approve_block = page.split("const approveTestUsdc = async", 1)[1].split(
+        "const submitTestPayment = async",
+        1,
+    )[0]
+    assert 'setPaymentStep("pay")' not in approve_block
+    assert 'setPaymentStep("approval_submitted")' in approve_block
 
 
 def test_telegram_credit_flow_creates_handoff_and_refreshes_manually() -> None:
@@ -95,17 +147,18 @@ def test_telegram_credit_flow_creates_handoff_and_refreshes_manually() -> None:
     assert "setInterval(" not in model
 
 
-def test_telegram_handoff_launch_waits_for_a_direct_second_tap() -> None:
+def test_telegram_handoff_exposes_one_payment_cta_with_safe_retry() -> None:
     model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
 
-    assert "creditHandoffLaunchReady" in screen
-    assert "Preparar enlace MetaMask" in screen
-    assert "Enlace listo. Toca Abrir MetaMask" in model
+    assert "Abrir MetaMask para pagar en prueba" in screen
+    assert "Preparar enlace MetaMask" not in screen
+    assert "void connectWallet()" not in screen
+    assert "Preparar autorizacion" not in screen
 
     creation_branch = model.split("const data = await createBusinessCreditHandoff", 1)[1].split("} catch", 1)[0]
     assert "setCreditHandoffLaunchToken(data.handoff.token)" in creation_branch
-    assert "launchMetaMaskCreditHandoff" not in creation_branch
+    assert "launchMetaMaskCreditHandoff(data.handoff.token)" in creation_branch
 
     launch_branch = model.split("if (creditHandoffLaunchToken) {", 1)[1].split("const action =", 1)[0]
     assert "launchMetaMaskCreditHandoff(creditHandoffLaunchToken)" in launch_branch

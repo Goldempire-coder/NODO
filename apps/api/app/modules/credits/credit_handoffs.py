@@ -445,7 +445,7 @@ class CreditPaymentHandoffs:
         return response
 
     def _claim_response(self, record: CreditHandoffRecord) -> dict[str, Any]:
-        return {
+        response: dict[str, Any] = {
             "handoff": {
                 "id": record.id,
                 "status": "prepared",
@@ -454,6 +454,14 @@ class CreditPaymentHandoffs:
                 **self._network_public(self._require_record_network(record)),
             }
         }
+        if record.purchase_id:
+            response.update(
+                self._business_purchases.contract_purchase_detail_for_id(
+                    record.purchase_id,
+                    business_id=record.business_id,
+                )
+            )
+        return response
 
     def _record_by_token(self, token: str) -> CreditHandoffRecord:
         try:

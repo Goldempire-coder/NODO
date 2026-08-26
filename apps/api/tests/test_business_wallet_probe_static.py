@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -10,12 +9,13 @@ def _read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-def test_business_credits_offers_metamask_handoff_when_provider_is_missing() -> None:
+def test_business_credits_offers_metamask_handoff_as_the_single_payment_cta() -> None:
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
 
     assert "Abrir MetaMask" in screen
-    assert 'walletProviderStatus === "unavailable"' in screen
+    assert "Abrir MetaMask para pagar en prueba" in screen
+    assert "void connectWallet()" not in screen
     assert "openMetaMaskCreditHandoff" in model
 
 

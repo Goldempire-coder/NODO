@@ -28,7 +28,7 @@ function authorizationStatusCopy(status: string | undefined, canPay: boolean) {
   if (status === "valid" && canPay) {
     return {
       title: "Autorizacion lista",
-      body: "El siguiente paso sera pagar con tu wallet cuando activemos el contrato."
+      body: "Si ya enviaste el pago desde MetaMask, pulsa Actualizar estado."
     };
   }
   if (status === "expired") {
@@ -94,13 +94,8 @@ export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel 
 
 export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
-    connectWallet,
-    connectingWallet,
-    connectedWalletAddress,
-    connectedWalletAddressMasked,
     continuePendingBaseUsdcPayment,
     creditHandoffId,
-    creditHandoffLaunchReady,
     creditHandoffOpened,
     creditPackage,
     generatingCreditPayment,
@@ -110,15 +105,9 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
     preparingCreditHandoff,
     refreshCreditHandoff,
     refreshingCreditHandoff,
-    setCreditPackage,
-    startBaseUsdcPayment,
-    walletChainId,
-    walletError,
-    walletIsExpectedNetwork,
-    walletProviderStatus
+    setCreditPackage
   } = model;
   const selected = packageLabel(creditPackage);
-  const showPrepareAuthorizationButton = walletProviderStatus !== "unavailable" || Boolean(connectedWalletAddress);
   return (
     <div className="business-card">
       <Text className="business-card__label">Comprar creditos</Text>
@@ -178,63 +167,36 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           </div>
         </div>
       </div>
-      <div className="business-status-panel" role="region" aria-label="Wallet pagadora">
+      <div className="business-status-panel" role="region" aria-label="Wallet pagadora: Pago de prueba con MetaMask">
         <div>
           <span className="status-dot" aria-hidden="true" />
           <div>
-            <strong>Conecta la wallet desde donde pagarás.</strong>
+            <strong>Abre MetaMask para pagar con USDC de prueba.</strong>
             <Text>NODO no ve ni guarda tu clave privada.</Text>
-            <small>
-              {walletProviderStatus === "unavailable"
-                ? creditHandoffLaunchReady
-                  ? "Enlace listo. Toca Abrir MetaMask y luego vuelve a Telegram."
-                  : "Primero prepararemos un enlace seguro. Luego abre MetaMask."
-                : "Esta wallet será la que firma y paga."}
-            </small>
+            <small>MetaMask mostrara Conectar wallet, validara Base Sepolia y mostrara cada accion.</small>
+            <small>Esta wallet será la que firma y paga.</small>
           </div>
         </div>
         <button
-          className="mini-action-button"
+          className="mini-action-button mini-action-button--filled mini-action-button--full"
           type="button"
-          disabled={connectingWallet || preparingCreditHandoff || walletProviderStatus === "checking"}
-          onClick={() => {
-            if (walletProviderStatus === "unavailable") {
-              void openMetaMaskCreditHandoff();
-              return;
-            }
-            void connectWallet();
-          }}
+          disabled={preparingCreditHandoff || generatingCreditPayment || !creditPackage}
+          onClick={() => void openMetaMaskCreditHandoff()}
         >
-          {connectingWallet
-            ? "Conectando..."
-            : preparingCreditHandoff
-              ? "Preparando..."
-              : connectedWalletAddress
-                ? "Cambiar wallet"
-                : walletProviderStatus === "unavailable"
-                  ? creditHandoffLaunchReady
-                    ? "Abrir MetaMask"
-                    : "Preparar enlace MetaMask"
-                  : "Conectar wallet"}
+          {preparingCreditHandoff
+            ? "Preparando MetaMask..."
+            : creditPackage
+              ? "Abrir MetaMask para pagar en prueba"
+              : "Elige un paquete"}
         </button>
       </div>
-      {walletProviderStatus === "checking" ? (
-        <Text role="status">
-          Buscando una wallet compatible en este navegador.
-        </Text>
-      ) : null}
-      {walletProviderStatus === "unavailable" ? (
-        <Text role="alert">
-          No detectamos una wallet compatible dentro de Telegram. Abre MetaMask, confirma la wallet y vuelve a NODO.
-        </Text>
-      ) : null}
-      {creditHandoffId && (creditHandoffOpened || !creditHandoffLaunchReady) ? (
+      {creditHandoffId && creditHandoffOpened ? (
         <div className="business-status-panel" role="status">
           <div>
             <span className="status-dot" aria-hidden="true" />
             <div>
-              <strong>Preparacion enviada a MetaMask</strong>
-              <Text>Completa la comprobacion y vuelve a Telegram.</Text>
+              <strong>Pago de prueba abierto en MetaMask</strong>
+              <Text>Completa las acciones en MetaMask, vuelve a Telegram y actualiza.</Text>
             </div>
           </div>
           <button
@@ -247,35 +209,12 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           </button>
         </div>
       ) : null}
-      {connectedWalletAddress ? (
-        <div className="business-status-panel" role="status">
-          <div>
-            <span className="status-dot" aria-hidden="true" />
-            <div>
-              <strong>{connectedWalletAddressMasked}</strong>
-              <Text>{walletIsExpectedNetwork ? "Base Sepolia conectada." : `Red actual: ${walletChainId ?? "desconocida"}.`}</Text>
-              {!walletIsExpectedNetwork ? <small>Cambia tu wallet a Base Sepolia para preparar la prueba.</small> : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {walletError ? <Text role="alert">{walletError}</Text> : null}
       <div className="business-status-panel" role="note">
-        <Text>{selected ? `Prepararás ${selected.priceUsdc} USDC de prueba en Base Sepolia.` : "Elige un paquete para ver el monto."}</Text>
+        <Text>{selected ? `Pagaras ${selected.priceUsdc} USDC de prueba en red Base Sepolia.` : "Elige un paquete para ver el monto."}</Text>
         <Text>Necesitas USDC de prueba y un poco de ETH de prueba en Base Sepolia.</Text>
-        <Text>Esta prueba no mueve fondos ni acredita créditos.</Text>
+        <Text>La wallet mostrara el permiso exacto y el pago antes de enviarlos.</Text>
         <small>No pegues hashes en este flujo.</small>
       </div>
-      {showPrepareAuthorizationButton ? (
-        <button
-          className="mini-action-button mini-action-button--filled mini-action-button--full"
-          type="button"
-          disabled={generatingCreditPayment || !creditPackage || !connectedWalletAddress || !walletIsExpectedNetwork}
-          onClick={() => void startBaseUsdcPayment()}
-        >
-          {generatingCreditPayment ? "Generando..." : creditPackage ? "Preparar autorizacion" : "Elige un paquete"}
-        </button>
-      ) : null}
     </div>
   );
 }
@@ -289,6 +228,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
     selectedCreditPurchase
   } = model;
   const selected = selectedCreditPurchase ? packageLabel(selectedCreditPurchase.package_code) : null;
+  const connectedWalletAddress = selectedCreditPayment?.payer_wallet_address;
   const canPay = selectedCreditPayment?.capabilities.can_pay === true;
   const authorizationCopy = authorizationStatusCopy(
     selectedCreditPayment?.authorization_status,
@@ -325,7 +265,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
           <div className="payment-copy-box payment-copy-box--compact">
             <div className="payment-copy-box__header">
               <span>Wallet pagadora</span>
-              <strong>{shortAddress(selectedCreditPayment?.payer_wallet_address)}</strong>
+                <strong>{shortAddress(connectedWalletAddress)}</strong>
             </div>
           </div>
           <div className="business-grid">

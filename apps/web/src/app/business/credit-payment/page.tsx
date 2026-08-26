@@ -4,8 +4,17 @@ import { Text, Title } from "@telegram-apps/telegram-ui";
 import { useEffect, useState } from "react";
 import { claimCreditHandoff, getCreditHandoffChallenge } from "../../../api/credits";
 import { useInjectedWallet } from "../../../hooks/business-mini-app/useInjectedWallet";
-import { resolveWalletNetworkProfile } from "../../../lib/wallet/eip1193";
-import type { CreditHandoffChallenge } from "../../../types/credits";
+import { getInjectedEthereumProvider, resolveWalletNetworkProfile } from "../../../lib/wallet/eip1193";
+import {
+  approveExactTestUsdc,
+  payTestCreditPurchase,
+  paymentAuthorizationExpired,
+  readTestUsdcAllowance,
+  testnetPaymentErrorMessage,
+} from "../../../lib/wallet/testnetCreditPayment";
+import type { ContractCreditPayment, CreditHandoffChallenge, CreditHandoffStatus } from "../../../types/credits";
+
+type PaymentStep = "wallet" | "checking" | "review" | "approval" | "approval_submitted" | "pay" | "sent";
 
 
 function extractCreditHandoffToken(fragment: string): string | null {
@@ -19,7 +28,9 @@ export default function BusinessCreditPaymentHandoffPage() {
   const [challenge, setChallenge] = useState<CreditHandoffChallenge | null>(null);
   const [loadingChallenge, setLoadingChallenge] = useState(true);
   const [claiming, setClaiming] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [paymentDetail, setPaymentDetail] = useState<CreditHandoffStatus | null>(null);
+  const [paymentStep, setPaymentStep] = useState<PaymentStep>("wallet");
+  const [paymentActionBusy, setPaymentActionBusy] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const expectedNetwork = challenge
     ? resolveWalletNetworkProfile(challenge.network, challenge.chain_id)
@@ -37,9 +48,13 @@ export default function BusinessCreditPaymentHandoffPage() {
     walletIsExpectedNetwork,
     walletProviderStatus,
   } = useInjectedWallet(() => {
-    setCompleted(false);
+    setPaymentDetail(null);
+    setPaymentStep("wallet");
     setPageError("La cuenta o red cambio. Revisa la wallet antes de continuar.");
   }, expectedNetwork);
+
+  const payment = paymentDetail?.payment || null;
+  const paymentExpired = payment ? paymentAuthorizationExpired(payment) : false;
 
   useEffect(() => {
     const token = extractCreditHandoffToken(window.location.hash);
@@ -64,6 +79,38 @@ export default function BusinessCreditPaymentHandoffPage() {
       .finally(() => setLoadingChallenge(false));
   }, []);
 
+  const checkTestUsdcPermission = async (currentPayment: ContractCreditPayment | null = payment) => {
+    if (!currentPayment || !connectedWalletAddress || walletChainId === null) {
+      setPaymentStep("review");
+      setPageError("Prepara la compra antes de revisar el permiso de USDC.");
+      return;
+    }
+    const provider = getInjectedEthereumProvider();
+    if (!provider) {
+      setPaymentStep("review");
+      setPageError("No detectamos una wallet compatible.");
+      return;
+    }
+    setPaymentActionBusy(true);
+    setPaymentStep("checking");
+    setPageError(null);
+    try {
+      const allowance = await readTestUsdcAllowance(
+        provider,
+        currentPayment,
+        connectedWalletAddress,
+        walletChainId,
+      );
+      const requiredAmount = BigInt(currentPayment.expected_amount_units || "0");
+      setPaymentStep(allowance >= requiredAmount ? "pay" : "approval");
+    } catch (error) {
+      setPaymentStep("review");
+      setPageError(testnetPaymentErrorMessage(error));
+    } finally {
+      setPaymentActionBusy(false);
+    }
+  };
+
   const confirmWallet = async () => {
     if (!handoffToken || !challenge || !connectedWalletAddress || !walletIsExpectedNetwork) {
       setPageError("Conecta una wallet en Base Sepolia antes de continuar.");
@@ -73,17 +120,68 @@ export default function BusinessCreditPaymentHandoffPage() {
     setPageError(null);
     try {
       const signature = await signWalletChallenge(challenge.challenge);
-      await claimCreditHandoff({
+      const data = await claimCreditHandoff({
         handoffToken,
         walletAddress: connectedWalletAddress,
         chainId: walletChainId ?? 0,
         signature,
       });
-      setCompleted(true);
+      if (!data.payment || !data.purchase) {
+        throw new Error("La compra no quedo preparada. Inicia de nuevo desde Telegram.");
+      }
+      setPaymentDetail(data);
+      await checkTestUsdcPermission(data.payment);
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "No pudimos comprobar esta wallet.");
+      const safeLocalMessage = error instanceof Error && (
+        error.message === "La compra no quedo preparada. Inicia de nuevo desde Telegram."
+      ) ? error.message : null;
+      setPageError(safeLocalMessage || testnetPaymentErrorMessage(error));
     } finally {
       setClaiming(false);
+    }
+  };
+
+  const approveTestUsdc = async () => {
+    if (!payment || !connectedWalletAddress || walletChainId === null) {
+      setPageError("Prepara la compra antes de autorizar USDC de prueba.");
+      return;
+    }
+    const provider = getInjectedEthereumProvider();
+    if (!provider) {
+      setPageError("No detectamos una wallet compatible.");
+      return;
+    }
+    setPaymentActionBusy(true);
+    setPageError(null);
+    try {
+      await approveExactTestUsdc(provider, payment, connectedWalletAddress, walletChainId);
+      setPaymentStep("approval_submitted");
+    } catch (error) {
+      setPageError(testnetPaymentErrorMessage(error));
+    } finally {
+      setPaymentActionBusy(false);
+    }
+  };
+
+  const submitTestPayment = async () => {
+    if (!payment || !connectedWalletAddress || walletChainId === null) {
+      setPageError("Prepara la compra antes de pagar.");
+      return;
+    }
+    const provider = getInjectedEthereumProvider();
+    if (!provider) {
+      setPageError("No detectamos una wallet compatible.");
+      return;
+    }
+    setPaymentActionBusy(true);
+    setPageError(null);
+    try {
+      await payTestCreditPurchase(provider, payment, connectedWalletAddress, walletChainId);
+      setPaymentStep("sent");
+    } catch (error) {
+      setPageError(testnetPaymentErrorMessage(error));
+    } finally {
+      setPaymentActionBusy(false);
     }
   };
 
@@ -95,8 +193,7 @@ export default function BusinessCreditPaymentHandoffPage() {
           <Title id="credit-handoff-title" level="2" className="business-shell__title">
             Wallet para creditos NODO
           </Title>
-          <Text>Esto no cobra, no aprueba pagos y no mueve fondos.</Text>
-          <Text>Prueba sin dinero real en Base Sepolia.</Text>
+          <Text>Este flujo usa USDC y ETH de prueba, sin valor real, en Base Sepolia.</Text>
           <Text>NODO no ve ni guarda tu clave privada.</Text>
 
           <div className="business-status-panel" role="status">
@@ -133,17 +230,35 @@ export default function BusinessCreditPaymentHandoffPage() {
 
           {pageError || walletError ? <Text role="alert">{pageError || walletError}</Text> : null}
 
-          {completed ? (
+          {paymentDetail ? (
             <div className="business-status-panel" role="status">
               <div>
                 <span className="status-dot" aria-hidden="true" />
                 <div>
-                  <strong>Listo. Vuelve a Telegram</strong>
-                  <Text>En NODO pulsa Actualizar para recuperar la compra preparada.</Text>
+                  <strong>
+                    {paymentStep === "sent"
+                      ? "Pago enviado. Vuelve a Telegram y toca Actualizar"
+                      : `Pagaras ${payment?.expected_amount_display || paymentDetail.purchase.price_usd} USDC de prueba en Base Sepolia`}
+                  </strong>
+                  <Text>
+                    {paymentStep === "approval"
+                      ? "MetaMask pedira permiso solo por el monto exacto de esta compra."
+                      : paymentStep === "approval_submitted"
+                        ? "Cuando MetaMask termine, revisa el permiso una vez antes de pagar."
+                        : paymentStep === "pay"
+                          ? "La compra esta lista para enviarse al contrato de prueba."
+                          : paymentStep === "sent"
+                            ? "El watcher de prueba confirmara el evento; NODO no usa hashes pegados."
+                            : paymentStep === "review"
+                              ? "Puedes revisar el permiso sin crear otra compra."
+                              : "Revisando el permiso de USDC de prueba."}
+                  </Text>
                 </div>
               </div>
             </div>
-          ) : (
+          ) : null}
+
+          {!paymentDetail ? (
             <button
               className="mini-action-button mini-action-button--filled mini-action-button--full"
               type="button"
@@ -170,7 +285,42 @@ export default function BusinessCreditPaymentHandoffPage() {
                         ? "Cambiar a Base Sepolia"
                         : "Confirmar esta wallet"}
             </button>
-          )}
+          ) : paymentStep === "review" || paymentStep === "checking" || paymentStep === "approval_submitted" ? (
+            <button
+              className="mini-action-button mini-action-button--filled mini-action-button--full"
+              type="button"
+              disabled={paymentActionBusy || claiming || paymentExpired}
+              onClick={() => void checkTestUsdcPermission()}
+            >
+              {paymentActionBusy || paymentStep === "checking"
+                ? "Revisando permiso..."
+                : paymentStep === "approval_submitted"
+                  ? "Ya autorice USDC, revisar permiso"
+                  : "Revisar permiso de USDC"}
+            </button>
+          ) : paymentStep === "approval" ? (
+            <button
+              className="mini-action-button mini-action-button--filled mini-action-button--full"
+              type="button"
+              disabled={paymentActionBusy || paymentExpired}
+              onClick={() => void approveTestUsdc()}
+            >
+              {paymentActionBusy ? "Abriendo MetaMask..." : "Autorizar USDC de prueba"}
+            </button>
+          ) : paymentStep === "pay" ? (
+            <button
+              className="mini-action-button mini-action-button--filled mini-action-button--full"
+              type="button"
+              disabled={paymentActionBusy || paymentExpired}
+              onClick={() => void submitTestPayment()}
+            >
+              {paymentActionBusy ? "Enviando..." : "Pagar creditos de prueba"}
+            </button>
+          ) : null}
+
+          {paymentExpired && paymentStep !== "sent" ? (
+            <Text role="alert">La autorizacion vencio. Inicia una compra nueva desde Telegram.</Text>
+          ) : null}
         </div>
       </section>
     </main>

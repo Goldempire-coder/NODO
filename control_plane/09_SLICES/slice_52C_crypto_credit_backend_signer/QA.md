@@ -148,3 +148,20 @@ No declarar `READY_FOR_REAL_USE` hasta tener:
 - `under_review`, `verification_failed` y `expired` conservan diagnostico
   neutral y no mutan estado;
 - `base_usdc_onchain` mantiene su contrato anterior.
+
+## 52C2F-S1
+
+- claim correcto devuelve compra y autorizacion Base Sepolia pagable, y replay
+  devuelve el mismo resultado;
+- claim, allowance y envio no crean ledger ni cambian saldo directamente;
+- cuenta o red distinta invalida el snapshot local;
+- `now >= validUntil` bloquea aprobacion y pago;
+- allowance suficiente omite aprobacion; allowance insuficiente usa el monto
+  exacto, nunca maximo uint256;
+- calldata de `pay` coincide con el ABI de `NODOCreditPaymentVaultSigned`;
+- rechazo MetaMask `4001` queda reintentable y no inicia loops;
+- no hay `tx_hash` manual, polling, dependencia wallet nueva ni selector
+  mainnet;
+- Next build y pruebas dirigidas deben pasar antes de smoke testnet;
+- smoke real MetaMask/Base Sepolia, contrato desplegado y watcher conectado
+  siguen pendientes hasta autorizacion separada.

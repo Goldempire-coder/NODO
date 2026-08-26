@@ -91,7 +91,7 @@ export function claimCreditHandoff(payload: {
   chainId: number;
   signature: string;
 }) {
-  return publicCreditHandoffRequest<{ handoff: CreditHandoffStatus["handoff"] }>(
+  return publicCreditHandoffRequest<CreditHandoffStatus>(
     "/api/v1/business/credits/handoffs/claim",
     {
       handoff_token: payload.handoffToken,

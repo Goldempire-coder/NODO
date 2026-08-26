@@ -219,3 +219,22 @@ Wallet pagadora, treasury, contrato, `purchase_ref` y hash se muestran
 enmascarados. El presenter compara pagador, destino y monto usando el snapshot y
 los campos verificados almacenados. No consulta RPC, no reintenta el watcher y
 no muta compra, ledger ni saldo.
+
+## 52C2F-S1 Pago Base Sepolia Desde MetaMask
+
+La pagina publica de handoff recibe `purchase` y `payment` solamente despues de
+verificar el challenge EIP-191 y preparar la compra idempotente. La conexion,
+lectura puntual de allowance, aprobacion y pago ocurren dentro del provider
+EIP-1193 de MetaMask. Telegram muestra un solo CTA para abrir MetaMask y recupera
+estado unicamente por accion manual.
+
+El adaptador de pago es interno, sin dependencia nueva y limitado a Base
+Sepolia. Codifica los selectores ERC20 `allowance`, `approve` y el `pay` exacto
+de `NODOCreditPaymentVaultSigned`. La aprobacion usa el monto firmado por
+backend, nunca maximo uint256. La llamada `pay` usa el snapshot y firma backend;
+el frontend no recalcula precio, token, contrato, version ni expiracion.
+
+Una transaccion aceptada por MetaMask solo cambia el estado visual a enviada.
+No se envia hash a NODO, no hay polling y no se acredita desde frontend. El
+watcher 52C2E sigue siendo la unica frontera de verificacion y acreditacion.
+Este slice no configura contrato, signer, treasury, RPC cloud ni fondos reales.
