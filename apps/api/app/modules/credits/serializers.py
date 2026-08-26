@@ -104,7 +104,7 @@ def admin_purchase_detail(purchase: CreditPurchaseRecord) -> dict[str, Any]:
 
 
 def admin_onchain_evidence(purchase: CreditPurchaseRecord) -> dict[str, Any] | None:
-    if purchase.payment_method != "base_usdc_onchain":
+    if purchase.payment_method not in {"base_usdc_onchain", "base_usdc_contract"}:
         return None
     return {
         "chain_id": purchase.chain_id,
@@ -114,6 +114,10 @@ def admin_onchain_evidence(purchase: CreditPurchaseRecord) -> dict[str, Any] | N
         "token_decimals": purchase.token_decimals,
         "expected_amount_units": str(purchase.expected_amount_units) if purchase.expected_amount_units is not None else None,
         "destination_wallet_masked": mask_tail(purchase.destination_wallet_address),
+        "payer_wallet_masked": mask_tail(purchase.onchain_payer_address),
+        "payment_contract_masked": mask_tail(purchase.payment_contract_address),
+        "payment_contract_version": purchase.payment_contract_version,
+        "purchase_ref_masked": mask_tail(purchase.onchain_purchase_ref, keep=8),
         "tx_hash_masked": mask_tail(purchase.tx_hash, keep=8),
         "tx_amount_units": str(purchase.tx_amount_units) if purchase.tx_amount_units is not None else None,
         "tx_from_address_masked": mask_tail(purchase.tx_from_address),
@@ -123,6 +127,7 @@ def admin_onchain_evidence(purchase: CreditPurchaseRecord) -> dict[str, Any] | N
         "confirmations": purchase.confirmations,
         "verification_source": purchase.verification_source,
         "verification_status": purchase.verification_status,
+        "payer_matches": _same_address(purchase.tx_from_address, purchase.onchain_payer_address),
         "destination_matches": _same_address(purchase.tx_to_address, purchase.destination_wallet_address),
         "amount_matches": _same_amount(purchase.tx_amount_units, purchase.expected_amount_units),
         "detected_at": purchase.detected_at.isoformat() if purchase.detected_at else None,

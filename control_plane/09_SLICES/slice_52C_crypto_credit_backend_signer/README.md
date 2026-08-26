@@ -207,3 +207,15 @@ forma controlada antes de cambiar constraints.
 
 Este slice no agrega boton `pay`, `approve`, dependencia wallet, contrato
 deployado, signer productivo, testnet real ni fondos.
+
+## 52C Admin Credit Contract Reconciliation
+
+El detalle Admin de una compra ahora trata `base_usdc_onchain` y
+`base_usdc_contract` como superficies on-chain. La lista sigue siendo liviana;
+solo al abrir `Detalle` se presentan el ledger relacionado, el diagnostico y la
+evidencia ya persistida por el watcher.
+
+Wallet pagadora, treasury, contrato, `purchase_ref` y hash se muestran
+enmascarados. El presenter compara pagador, destino y monto usando el snapshot y
+los campos verificados almacenados. No consulta RPC, no reintenta el watcher y
+no muta compra, ledger ni saldo.

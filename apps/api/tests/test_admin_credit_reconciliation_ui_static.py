@@ -29,11 +29,18 @@ def test_admin_credit_screen_uses_masked_reconciliation_and_scoped_scroll() -> N
     assert "onchain_evidence" in screen
     assert "tx_hash_masked" in screen
     assert "destination_wallet_masked" in screen
+    assert "payer_wallet_masked" in screen
+    assert "payment_contract_masked" in screen
+    assert "purchase_ref_masked" in screen
+    assert "payer_matches" in screen
     assert "reconciliation.warning_codes" in screen
     assert "admin-web-credit-detail-scroll" in screen
     assert ".admin-web-credit-detail-scroll" in css
     assert "overflow-y: auto" in css
     assert "destination_wallet_address" not in screen
+    assert "onchain_payer_address" not in screen
+    assert "payment_contract_address" not in screen
+    assert "onchain_purchase_ref" not in screen
     assert "tx_to_address" not in screen
 
 

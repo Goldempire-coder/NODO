@@ -2656,6 +2656,105 @@ def test_admin_credit_purchase_list_is_lightweight_and_detail_reconciles_masked_
     assert BASE_WALLET not in serialized_detail
 
 
+def test_admin_credit_purchase_detail_reconciles_masked_contract_payment() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1998, "contract_reconciliation_owner")
+    _create_business(client, owner, "contract_reconciliation_owner")
+    admin = _login(client, 1999, "contract_reconciliation_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_reconciliation_purchase"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+    purchase = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert purchase is not None
+    tx_hash = _tx_hash("contract-reconciliation-valid")
+    client.app.state.onchain_credit_verifier.set_contract_result(
+        purchase.onchain_purchase_ref,
+        _contract_verification(tx_hash, log_index=62),
+    )
+
+    watcher_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+        request_id="req_contract_reconciliation_watcher"
+    )
+    listed = client.get(
+        "/api/v1/admin/credit-purchases?status=credited&limit=20",
+        headers=_bearer(admin, "req_contract_reconciliation_list"),
+    )
+    detail = client.get(
+        f"/api/v1/admin/credit-purchases/{purchase_id}",
+        headers=_bearer(admin, "req_contract_reconciliation_detail"),
+    )
+
+    assert watcher_result["contract_credited"] == 1
+    assert listed.status_code == 200, listed.text
+    summary = next(item for item in listed.json()["data"]["items"] if item["id"] == purchase_id)
+    assert "onchain_evidence" not in summary
+    assert "ledger" not in summary
+    assert "reconciliation" not in summary
+
+    assert detail.status_code == 200, detail.text
+    data = detail.json()["data"]
+    assert data["purchase"]["payment_method"] == "base_usdc_contract"
+    assert data["ledger"]["related_credit_purchase_id"] == purchase_id
+    assert data["ledger"]["balance_available_before"] == 0
+    assert data["ledger"]["balance_available_after"] == 5
+    assert data["reconciliation"] == {"state": "matched", "warning_codes": []}
+    evidence = data["onchain_evidence"]
+    assert evidence["tx_hash_masked"].endswith(tx_hash[-8:])
+    assert evidence["payer_wallet_masked"].endswith(PAYER_WALLET[-4:])
+    assert evidence["payment_contract_masked"].endswith(PAYMENT_CONTRACT[-4:])
+    assert evidence["purchase_ref_masked"].endswith(purchase.onchain_purchase_ref[-8:])
+    assert evidence["payer_matches"] is True
+    assert evidence["destination_matches"] is True
+    assert evidence["amount_matches"] is True
+    serialized_detail = json.dumps(data)
+    for sensitive_value in (tx_hash, PAYER_WALLET, PAYMENT_CONTRACT, BASE_WALLET, purchase.onchain_purchase_ref):
+        assert sensitive_value not in serialized_detail
+
+
+def test_admin_contract_purchase_detail_reports_missing_ledger_and_non_terminal_diagnostics() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 2000, "contract_diagnostics_owner")
+    _create_business(client, owner, "contract_diagnostics_owner")
+    admin = _login(client, 2001, "contract_diagnostics_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    expected = {
+        "credited": ("warning", ["CREDITED_WITHOUT_LEDGER"]),
+        "under_review": ("pending", ["PAYMENT_REQUIRES_REVIEW"]),
+        "verification_failed": ("failed", ["ONCHAIN_VERIFICATION_FAILED"]),
+        "expired": ("failed", ["CREDIT_PURCHASE_EXPIRED"]),
+    }
+    for index, (status, (state, warning_codes)) in enumerate(expected.items()):
+        prepared = client.post(
+            "/api/v1/business/credits/base-payment",
+            headers={**_headers(owner, f"contract_diagnostics_{index}"), "Content-Type": "application/json"},
+            json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+        )
+        assert prepared.status_code == 201, prepared.text
+        purchase = client.app.state.credit_repository.get_purchase(prepared.json()["data"]["purchase"]["id"])
+        assert purchase is not None
+        purchase.status = status
+        if status == "credited":
+            purchase.credited_at = utc_now()
+
+        detail = client.get(
+            f"/api/v1/admin/credit-purchases/{purchase.id}",
+            headers=_bearer(admin, f"req_contract_diagnostics_{index}"),
+        )
+
+        assert detail.status_code == 200, detail.text
+        data = detail.json()["data"]
+        assert data["ledger"] is None
+        assert data["onchain_evidence"] is not None
+        assert data["reconciliation"] == {"state": state, "warning_codes": warning_codes}
+
+
 def test_admin_credit_purchase_detail_warns_when_credited_purchase_has_no_ledger() -> None:
     client = _client()
     owner = _login(client, 1993, "credit_missing_ledger_owner")

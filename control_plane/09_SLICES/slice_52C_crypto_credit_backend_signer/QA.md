@@ -136,3 +136,15 @@ No declarar `READY_FOR_REAL_USE` hasta tener:
   rollback si ya existe evidencia no-mainnet;
 - no hay frontend `pay`, `approve`, polling, testnet real, wallet real ni
   fondos reales.
+
+## 52C Admin Credit Contract Reconciliation
+
+- listado Admin sigue sin ledger, reconciliacion ni evidencia pesada;
+- detalle `base_usdc_contract` acreditado devuelve evidencia enmascarada y el
+  ledger por `related_credit_purchase_id`;
+- hash, pagador, treasury, contrato y `purchase_ref` completos no aparecen en
+  el payload Admin;
+- compra acreditada sin ledger usa `CREDITED_WITHOUT_LEDGER`;
+- `under_review`, `verification_failed` y `expired` conservan diagnostico
+  neutral y no mutan estado;
+- `base_usdc_onchain` mantiene su contrato anterior.

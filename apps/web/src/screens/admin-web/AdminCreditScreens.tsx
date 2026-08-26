@@ -101,10 +101,14 @@ export function CreditDetail({ model }: { model: AdminWebModel }) {
             <dl className="admin-web-dl">
               <dt>Red</dt><dd>{evidence.network || "-"} ({evidence.chain_id ?? "-"})</dd>
               <dt>Token</dt><dd>{evidence.token_symbol || "-"} / {evidence.token_contract_address_masked || "-"}</dd>
+              <dt>Pagador</dt><dd>{evidence.payer_wallet_masked || "-"}</dd>
               <dt>Wallet destino</dt><dd>{evidence.destination_wallet_masked || "-"}</dd>
+              <dt>Contrato</dt><dd>{evidence.payment_contract_masked || "-"} / v{evidence.payment_contract_version ?? "-"}</dd>
+              <dt>Referencia de compra</dt><dd>{evidence.purchase_ref_masked || "-"}</dd>
               <dt>Hash</dt><dd>{evidence.tx_hash_masked || "No reportado"}</dd>
               <dt>Monto esperado</dt><dd>{evidence.expected_amount_units ?? "-"}</dd>
               <dt>Monto detectado</dt><dd>{evidence.tx_amount_units ?? "-"}</dd>
+              <dt>Coincidencia pagador</dt><dd>{matchLabel(evidence.payer_matches)}</dd>
               <dt>Destino</dt><dd>{matchLabel(evidence.destination_matches)}</dd>
               <dt>Monto</dt><dd>{matchLabel(evidence.amount_matches)}</dd>
               <dt>Confirmaciones</dt><dd>{evidence.confirmations ?? "-"}</dd>

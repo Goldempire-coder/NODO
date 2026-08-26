@@ -423,7 +423,8 @@ Referral qualification:
   agrega polling.
 - Response:
   - `purchase`: detalle operativo de la compra
-  - `onchain_evidence`: metadata segura si payment_method = `base_usdc_onchain`
+  - `onchain_evidence`: metadata segura si `payment_method` es
+    `base_usdc_onchain` o `base_usdc_contract`
   - `ledger`: movimiento relacionado por `related_credit_purchase_id`, o null
   - `reconciliation`: estado y warnings calculados por backend
 - `onchain_evidence` puede incluir:
@@ -433,6 +434,10 @@ Referral qualification:
   - expected_amount_units
   - tx_amount_units
   - destination_wallet_masked
+  - payer_wallet_masked
+  - payment_contract_masked
+  - payment_contract_version
+  - purchase_ref_masked
   - tx_hash_masked
   - tx_from_address_masked
   - tx_to_address_masked
@@ -444,7 +449,10 @@ Referral qualification:
   - verified_at
   - credited_at
   - expires_at
-  - comparaciones booleanas calculadas por backend, sin exponer direcciones completas
+  - comparaciones booleanas de pagador, destino y monto calculadas por backend,
+    sin exponer direcciones completas
+- Para `base_usdc_contract`, el detalle reutiliza el snapshot y la evidencia
+  persistida por el watcher. El endpoint Admin no consulta la blockchain.
 - `ledger` puede incluir:
   - id
   - type

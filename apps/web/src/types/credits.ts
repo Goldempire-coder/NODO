@@ -156,6 +156,10 @@ export type AdminCreditOnchainEvidence = {
   token_decimals: number | null;
   expected_amount_units: string | null;
   destination_wallet_masked: string | null;
+  payer_wallet_masked: string | null;
+  payment_contract_masked: string | null;
+  payment_contract_version: number | null;
+  purchase_ref_masked: string | null;
   tx_hash_masked: string | null;
   tx_amount_units: string | null;
   tx_from_address_masked: string | null;
@@ -165,6 +169,7 @@ export type AdminCreditOnchainEvidence = {
   confirmations: number | null;
   verification_source: string | null;
   verification_status: string | null;
+  payer_matches: boolean | null;
   destination_matches: boolean | null;
   amount_matches: boolean | null;
   detected_at: string | null;
