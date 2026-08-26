@@ -75,3 +75,19 @@ def test_telegram_credit_flow_creates_handoff_and_refreshes_manually() -> None:
     assert "Abrir MetaMask" in screen
     assert "Actualizar" in screen
     assert "setInterval(" not in model
+
+
+def test_telegram_handoff_launch_waits_for_a_direct_second_tap() -> None:
+    model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+
+    assert "creditHandoffLaunchReady" in screen
+    assert "Preparar enlace MetaMask" in screen
+    assert "Enlace listo. Toca Abrir MetaMask" in model
+
+    creation_branch = model.split("const data = await createBusinessCreditHandoff", 1)[1].split("} catch", 1)[0]
+    assert "setCreditHandoffLaunchToken(data.handoff.token)" in creation_branch
+    assert "launchMetaMaskCreditHandoff" not in creation_branch
+
+    launch_branch = model.split("if (creditHandoffLaunchToken) {", 1)[1].split("const action =", 1)[0]
+    assert "launchMetaMaskCreditHandoff(creditHandoffLaunchToken)" in launch_branch

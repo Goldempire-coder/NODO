@@ -100,6 +100,8 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
     connectedWalletAddressMasked,
     continuePendingBaseUsdcPayment,
     creditHandoffId,
+    creditHandoffLaunchReady,
+    creditHandoffOpened,
     creditPackage,
     generatingCreditPayment,
     loadingPendingPurchase,
@@ -184,7 +186,9 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
             <Text>NODO no ve ni guarda tu clave privada.</Text>
             <small>
               {walletProviderStatus === "unavailable"
-                ? "Abriremos MetaMask para comprobar la wallet. Luego vuelve a Telegram."
+                ? creditHandoffLaunchReady
+                  ? "Enlace listo. Toca Abrir MetaMask y luego vuelve a Telegram."
+                  : "Primero prepararemos un enlace seguro. Luego abre MetaMask."
                 : "Esta wallet será la que firma y paga."}
             </small>
           </div>
@@ -208,7 +212,9 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
               : connectedWalletAddress
                 ? "Cambiar wallet"
                 : walletProviderStatus === "unavailable"
-                  ? "Abrir MetaMask"
+                  ? creditHandoffLaunchReady
+                    ? "Abrir MetaMask"
+                    : "Preparar enlace MetaMask"
                   : "Conectar wallet"}
         </button>
       </div>
@@ -222,7 +228,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           No detectamos una wallet compatible dentro de Telegram. Abre MetaMask, confirma la wallet y vuelve a NODO.
         </Text>
       ) : null}
-      {creditHandoffId ? (
+      {creditHandoffId && (creditHandoffOpened || !creditHandoffLaunchReady) ? (
         <div className="business-status-panel" role="status">
           <div>
             <span className="status-dot" aria-hidden="true" />
