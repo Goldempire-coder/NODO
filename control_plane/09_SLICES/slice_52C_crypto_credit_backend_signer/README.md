@@ -146,6 +146,12 @@ slice solo acepta `base_sepolia`; no ofrece selector y no puede activar mainnet.
 Crear el handoff o la autorizacion sigue sin hacer `approve`, `pay`, watcher,
 ledger, acreditacion ni movimiento de fondos.
 
+La migracion 0058 reemplaza solo la restriccion de forma contractual de 0057:
+conserva el perfil Base mainnet y agrega Base Sepolia como segunda tupla
+canonica. Rechaza mezclas de chain, network y token, asi como contrato o version
+faltantes. Su rollback falla antes de modificar constraints cuando existen
+compras `base_sepolia`; no borra ni convierte datos financieros.
+
 ## Fuera De Alcance
 
 - Cambiar contrato Solidity 52A.

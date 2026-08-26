@@ -276,6 +276,12 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
   real controlado.
 - Compra contractual Base usa `payment_method = base_usdc_contract` y es el
   flujo normal futuro.
+- `credit_purchases_base_usdc_contract_shape_check`, actualizado por 0058,
+  acepta solo perfiles completos y no mezclados: Base mainnet (`8453`,
+  `base_mainnet`, USDC mainnet) o Base Sepolia (`84532`, `base_sepolia`, USDC
+  testnet). Contrato de pago y version son obligatorios en ambos perfiles.
+- El `down` de 0058 restaura la restriccion mainnet de 0057 solo cuando no
+  existen compras contractuales Sepolia; nunca borra ni convierte esas compras.
 - Compra contractual requiere `onchain_purchase_ref` bytes32 canonico y unique, payer, contrato/version, signer address/version, digest, firma y expiracion.
 - Firma contractual usa EIP-712 y no crea wallet, ledger ni credito.
 - Compra on-chain Base requiere `chain_id = 8453`, `network = base_mainnet`, `token_symbol = USDC`, `token_contract_address = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, `token_decimals = 6`.

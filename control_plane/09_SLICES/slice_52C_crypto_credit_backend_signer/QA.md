@@ -71,6 +71,11 @@
 
 - Pytest dirigido creditos/signature.
 - PostgreSQL desechable con migracion 0057 desde cero.
+- PostgreSQL 16 desechable con 58 migraciones desde cero, incluida 0058.
+- 0058 acepta las tuplas canonicas Base mainnet y Base Sepolia y rechaza toda
+  mezcla de chain, network o token, contrato faltante y version invalida.
+- 0058 down/up funciona sin compras Sepolia; el down falla de forma controlada
+  antes de cambiar constraints cuando existe una compra Sepolia.
 - PostgreSQL concurrencia exact-once.
 - 0057 down/up funciona sin compras contractuales.
 - 0057 down falla de forma explicita antes de mutar si existen compras
