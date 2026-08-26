@@ -192,6 +192,27 @@ def list_onchain_pending_purchases_pg(connect, *, limit: int) -> list[CreditPurc
     return [purchase_from_row(row) for row in rows]
 
 
+def list_contract_pending_purchases_pg(connect, *, limit: int) -> list[CreditPurchaseRecord]:  # type: ignore[no-untyped-def]
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            select * from credit_purchases
+            where payment_method = 'base_usdc_contract'
+              and status in ('pending_payment', 'pending_onchain_confirmation', 'detected')
+              and expected_amount_units is not null
+              and destination_wallet_address is not null
+              and onchain_purchase_ref is not null
+              and onchain_payer_address is not null
+              and payment_contract_address is not null
+              and payment_contract_version is not null
+            order by created_at asc
+            limit %s
+            """,
+            (limit,),
+        ).fetchall()
+    return [purchase_from_row(row) for row in rows]
+
+
 def _mark_detected(conn, purchase_id: str, verification: OnchainVerificationResult) -> None:  # type: ignore[no-untyped-def]
     conn.execute(
         """
@@ -225,11 +246,14 @@ def _insert_or_update_onchain_payment_or_raise(conn, purchase_id: str, verificat
             credit_purchase_id, chain_id, network, token_symbol, token_contract_address,
             token_decimals, expected_amount_units, tx_hash, tx_from_address, tx_to_address,
             tx_amount_units, tx_block_number, tx_log_index, confirmations,
-            verification_source, verification_status, detected_at, verified_at, created_at, updated_at
+            verification_source, verification_status, payment_contract_address, purchase_ref,
+            payer_address, payment_contract_version, detected_at, verified_at, created_at, updated_at
         )
         select id, chain_id, network, token_symbol, token_contract_address, token_decimals,
             expected_amount_units, %s, %s, %s, %s, %s, %s, %s, 'base_rpc', %s,
-            now(), case when %s = 'verified' then now() else null end, now(), now()
+            payment_contract_address, onchain_purchase_ref, onchain_payer_address,
+            payment_contract_version, now(), case when %s = 'verified' then now() else null end,
+            now(), now()
         from credit_purchases where id = %s
         on conflict (chain_id, tx_hash, tx_log_index) do nothing
         returning credit_purchase_id

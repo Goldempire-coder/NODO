@@ -182,3 +182,28 @@ revalida acceso y PIN al reclamar, y usa idempotencia interna para preparar una
 sola compra contractual. Telegram recupera con un `handoff_id` no sensible y
 accion manual `Actualizar`. No hay polling, pago, approval, watcher, ledger,
 acreditacion ni fondos en este slice.
+
+## 52C2E-S0 Watcher Contractual
+
+El watcher de creditos mantiene el flujo legacy por `tx_hash`, pero ahora
+tambien puede revisar compras `base_usdc_contract` pendientes. No busca compras
+sin snapshot completo y usa una busqueda agrupada por `purchase_ref` con
+lookback acotado por
+`ONCHAIN_CREDIT_CONTRACT_WATCHER_LOOKBACK_BLOCKS`.
+
+Para una compra contractual, el watcher solo acepta evidencia si coinciden:
+
+- evento `NodoCreditPaymentReceived` desde el contrato configurado;
+- `purchase_ref`, payer, token, treasury, amount, chain, version y expiracion;
+- receipt exitoso;
+- `Transfer` ERC20 desde payer hacia treasury por el monto exacto;
+- confirmaciones minimas.
+
+Detectar o firmar no acredita por si solo. La acreditacion ocurre solamente al
+pasar esa verificacion y reutiliza la transaccion PostgreSQL exact-once
+existente. Un replay del worker no duplica ledger ni saldo. Si hay evidencia
+Base Sepolia, 0059 permite almacenarla de forma canonica y su rollback falla de
+forma controlada antes de cambiar constraints.
+
+Este slice no agrega boton `pay`, `approve`, dependencia wallet, contrato
+deployado, signer productivo, testnet real ni fondos.

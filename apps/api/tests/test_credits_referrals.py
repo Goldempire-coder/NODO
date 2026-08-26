@@ -19,7 +19,12 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.core.errors import ApiError
-from app.modules.credits.onchain import JsonRpcBaseUsdcVerifier, OnchainVerificationResult
+from app.modules.credits.onchain import (
+    NODO_CREDIT_PAYMENT_RECEIVED_TOPIC,
+    TRANSFER_EVENT_TOPIC,
+    JsonRpcBaseUsdcVerifier,
+    OnchainVerificationResult,
+)
 from app.modules.credits.payment_authorizations import authorization_is_expired
 
 
@@ -98,10 +103,16 @@ from app.shared.rate_limit.redis import RateLimitUnavailableError  # noqa: E402
 class FakeBaseUsdcVerifier:
     def __init__(self) -> None:
         self.results: dict[str, OnchainVerificationResult] = {}
+        self.contract_results: dict[str, OnchainVerificationResult | None] = {}
         self.calls: list[str] = []
+        self.contract_calls: list[str] = []
+        self.contract_batch_calls: list[list[str]] = []
 
     def set_result(self, tx_hash: str, result: OnchainVerificationResult) -> None:
         self.results[tx_hash.lower()] = result
+
+    def set_contract_result(self, purchase_ref: str, result: OnchainVerificationResult | None) -> None:
+        self.contract_results[purchase_ref.lower()] = result
 
     def verify(
         self,
@@ -114,6 +125,45 @@ class FakeBaseUsdcVerifier:
     ) -> OnchainVerificationResult:
         self.calls.append(tx_hash.lower())
         return self.results[tx_hash.lower()]
+
+    def find_contract_payment(
+        self,
+        *,
+        purchase,
+        min_confirmations: int,
+        latest_block_number: int | None = None,
+        lookback_blocks: int = 5000,
+    ) -> OnchainVerificationResult | None:
+        del min_confirmations, latest_block_number, lookback_blocks
+        self.contract_calls.append(purchase.id)
+        return self.contract_results.get((purchase.onchain_purchase_ref or "").lower())
+
+    def find_contract_payments(
+        self,
+        *,
+        purchases,
+        min_confirmations: int,
+        latest_block_number: int | None = None,
+        lookback_blocks: int = 5000,
+    ) -> dict[str, OnchainVerificationResult | None]:
+        del min_confirmations, latest_block_number, lookback_blocks
+        self.contract_batch_calls.append([purchase.id for purchase in purchases])
+        return {
+            purchase.id: self.contract_results.get((purchase.onchain_purchase_ref or "").lower())
+            for purchase in purchases
+        }
+
+
+class FakeJsonRpcContractVerifier(JsonRpcBaseUsdcVerifier):
+    def __init__(self, responses: dict[str, list[object]]) -> None:
+        super().__init__(rpc_url="http://127.0.0.1:8545", timeout_seconds=1)
+        self.responses = responses
+        self.requests: list[tuple[str, list[object]]] = []
+
+    def _rpc(self, method: str, params: list[object]) -> object:
+        self._rpc_call_count += 1
+        self.requests.append((method, params))
+        return self.responses[method].pop(0)
 
 
 class SelectiveCreditContractRateLimiter:
@@ -326,15 +376,89 @@ def _verification(
     )
 
 
-def _transfer_log(*, to_address: str = BASE_WALLET, amount_units: int = 10_000_000, log_index: int = 0) -> dict:
+def _contract_verification(
+    tx_hash: str,
+    *,
+    amount_units: int = 10_000_000,
+    confirmations: int = 6,
+    status: str = "verified",
+    error_code: str | None = None,
+    chain_id: int = 84532,
+    token: str = BASE_SEPOLIA_USDC,
+    destination: str = BASE_WALLET,
+    payer: str = PAYER_WALLET,
+    log_index: int = 0,
+) -> OnchainVerificationResult:
+    return OnchainVerificationResult(
+        chain_id=chain_id,
+        token_contract_address=token.lower(),
+        destination_wallet_address=destination.lower(),
+        tx_hash=tx_hash.lower(),
+        tx_from_address=payer.lower(),
+        tx_to_address=destination.lower(),
+        tx_amount_units=amount_units,
+        tx_block_number=456,
+        tx_log_index=log_index,
+        confirmations=confirmations,
+        verification_status=status,
+        error_code=error_code,
+    )
+
+
+def _topic_for_address(value: str) -> str:
+    return "0x" + "0" * 24 + value.lower().removeprefix("0x")
+
+
+def _abi_word_address(value: str) -> str:
+    return "0" * 24 + value.lower().removeprefix("0x")
+
+
+def _abi_word_int(value: int) -> str:
+    return hex(value).removeprefix("0x").rjust(64, "0")
+
+
+def _transfer_log(
+    *,
+    token: str = BASE_USDC,
+    from_address: str = PAYER_WALLET,
+    to_address: str = BASE_WALLET,
+    amount_units: int = 10_000_000,
+    log_index: int = 0,
+) -> dict:
     return {
-        "address": BASE_USDC,
+        "address": token,
         "topics": [
-            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-            "0x" + "0" * 24 + "2222222222222222222222222222222222222222",
-            "0x" + "0" * 24 + to_address.removeprefix("0x"),
+            TRANSFER_EVENT_TOPIC,
+            _topic_for_address(from_address),
+            _topic_for_address(to_address),
         ],
         "data": hex(amount_units),
+        "logIndex": hex(log_index),
+    }
+
+
+def _contract_payment_log(purchase, *, tx_hash: str, block_number: int, log_index: int = 2) -> dict:  # type: ignore[no-untyped-def]
+    valid_until = int(purchase.payment_authorization_expires_at.timestamp())
+    data = "0x" + "".join(
+        [
+            _abi_word_address(purchase.destination_wallet_address),
+            _abi_word_int(purchase.expected_amount_units),
+            _abi_word_int(purchase.chain_id),
+            _abi_word_int(purchase.payment_contract_version),
+            _abi_word_int(valid_until),
+        ]
+    )
+    return {
+        "address": purchase.payment_contract_address,
+        "topics": [
+            NODO_CREDIT_PAYMENT_RECEIVED_TOPIC,
+            purchase.onchain_purchase_ref,
+            _topic_for_address(purchase.onchain_payer_address),
+            _topic_for_address(purchase.token_contract_address),
+        ],
+        "data": data,
+        "transactionHash": tx_hash,
+        "blockNumber": hex(block_number),
         "logIndex": hex(log_index),
     }
 
@@ -2105,6 +2229,306 @@ def test_base_usdc_pending_tx_is_credited_later_by_watcher() -> None:
         if item.type == "purchase" and item.related_credit_purchase_id == purchase_id
     ]
     assert len(purchase_ledgers) == 1
+
+
+def test_contract_payment_event_is_credited_later_by_watcher() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1911, "contract_watcher_owner")
+    business = _create_business(client, owner, "contract_watcher_owner")
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_watcher_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+    purchase = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert purchase is not None
+    tx_hash = _tx_hash("contract-payment-event")
+    client.app.state.onchain_credit_verifier.set_contract_result(
+        purchase.onchain_purchase_ref,
+        _contract_verification(tx_hash, log_index=61),
+    )
+
+    watcher_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+        request_id="req_contract_watcher"
+    )
+    replay_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+        request_id="req_contract_watcher_replay"
+    )
+
+    assert watcher_result["contract_eligible"] == 1
+    assert watcher_result["contract_verified_attempts"] == 1
+    assert watcher_result["contract_credited"] == 1
+    assert replay_result["contract_credited"] == 0
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 5
+    stored = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert stored.status == "credited"
+    assert stored.tx_hash == tx_hash
+    assert stored.network == "base_sepolia"
+    ledgers = [
+        item
+        for item in client.app.state.ad_repository.ledger.values()
+        if item.related_credit_purchase_id == purchase_id and item.type == "purchase"
+    ]
+    assert len(ledgers) == 1
+
+
+def test_contract_payment_watcher_batches_pending_event_lookup() -> None:
+    client, _ = _contract_client()
+    purchases = []
+    business_ids = []
+    for index in range(3):
+        owner = _login(client, 19160 + index, f"contract_batch_owner_{index}")
+        business = _create_business(client, owner, f"contract_batch_owner_{index}")
+        prepared = client.post(
+            "/api/v1/business/credits/base-payment",
+            headers={**_headers(owner, f"contract_batch_create_{index}"), "Content-Type": "application/json"},
+            json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+        )
+        assert prepared.status_code == 201, prepared.text
+        purchase = client.app.state.credit_repository.get_purchase(prepared.json()["data"]["purchase"]["id"])
+        assert purchase is not None
+        purchases.append(purchase)
+        business_ids.append(business["id"])
+
+    tx_hash = _tx_hash("contract-payment-batched")
+    client.app.state.onchain_credit_verifier.set_contract_result(
+        purchases[1].onchain_purchase_ref,
+        _contract_verification(tx_hash, log_index=65),
+    )
+
+    result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+        request_id="req_contract_watcher_batch"
+    )
+
+    assert client.app.state.onchain_credit_verifier.contract_batch_calls == [[purchase.id for purchase in purchases]]
+    assert client.app.state.onchain_credit_verifier.contract_calls == []
+    assert result["contract_eligible"] == 3
+    assert result["contract_verified_attempts"] == 3
+    assert result["contract_credited"] == 1
+    assert result["contract_pending"] == 2
+    assert client.app.state.ad_repository.get_wallet(business_ids[1]).available_credits == 5
+
+
+def test_contract_payment_event_waits_for_required_confirmations() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1912, "contract_waits_confirmations")
+    business = _create_business(client, owner, "contract_waits_confirmations")
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_wait_confirm_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+    purchase = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert purchase is not None
+    tx_hash = _tx_hash("contract-payment-pending")
+    client.app.state.onchain_credit_verifier.set_contract_result(
+        purchase.onchain_purchase_ref,
+        _contract_verification(
+            tx_hash,
+            confirmations=1,
+            status="pending_onchain_confirmation",
+            log_index=62,
+        ),
+    )
+
+    pending_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+        request_id="req_contract_watcher_pending"
+    )
+    status_after_pending = client.app.state.credit_repository.get_purchase(purchase_id).status
+    wallet_after_pending = client.app.state.ad_repository.get_wallet(business["id"])
+    client.app.state.onchain_credit_verifier.set_contract_result(
+        purchase.onchain_purchase_ref,
+        _contract_verification(tx_hash, confirmations=6, log_index=62),
+    )
+    credited_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+        request_id="req_contract_watcher_confirmed"
+    )
+
+    assert pending_result["contract_pending"] == 1
+    assert status_after_pending == "pending_onchain_confirmation"
+    assert wallet_after_pending is None
+    assert credited_result["contract_credited"] == 1
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 5
+
+
+def test_contract_payment_event_after_authorization_deadline_still_credits() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1915, "contract_event_watcher_late")
+    business = _create_business(client, owner, "contract_event_watcher_late")
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_event_watcher_late"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+    purchase = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert purchase is not None
+    purchase.expires_at = utc_now() - timedelta(seconds=1)
+    tx_hash = _tx_hash("contract-payment-late-detection")
+    client.app.state.onchain_credit_verifier.set_contract_result(
+        purchase.onchain_purchase_ref,
+        _contract_verification(tx_hash, log_index=64),
+    )
+
+    result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+        request_id="req_contract_watcher_late"
+    )
+
+    assert result["contract_credited"] == 1
+    assert result["contract_under_review"] == 0
+    assert client.app.state.credit_repository.get_purchase(purchase_id).status == "credited"
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 5
+
+
+def test_contract_payment_wrong_amount_fails_without_credit() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1913, "contract_wrong_amount")
+    business = _create_business(client, owner, "contract_wrong_amount")
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_wrong_amount_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+    purchase = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert purchase is not None
+    tx_hash = _tx_hash("contract-payment-wrong-amount")
+    client.app.state.onchain_credit_verifier.set_contract_result(
+        purchase.onchain_purchase_ref,
+        _contract_verification(tx_hash, amount_units=1, log_index=63),
+    )
+
+    watcher_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+        request_id="req_contract_watcher_wrong_amount"
+    )
+
+    assert watcher_result["contract_credited"] == 0
+    assert watcher_result["errors"] == [
+        {
+            "purchase_id": purchase_id,
+            "code": "ONCHAIN_VERIFICATION_FAILED",
+            "stage": "contract_event",
+        }
+    ]
+    stored = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert stored.status == "verification_failed"
+    assert client.app.state.credit_repository.ledger_for_purchase(purchase_id) is None
+    wallet = client.app.state.ad_repository.get_wallet(business["id"])
+    assert wallet is None or wallet.available_credits == 0
+
+
+def test_json_rpc_contract_event_verifier_matches_event_and_transfer() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1914, "contract_rpc_event")
+    _create_business(client, owner, "contract_rpc_event")
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_rpc_event_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase = client.app.state.credit_repository.get_purchase(prepared.json()["data"]["purchase"]["id"])
+    assert purchase is not None
+    tx_hash = _tx_hash("contract-rpc-event")
+    latest_block = 600
+    payment_log = _contract_payment_log(purchase, tx_hash=tx_hash, block_number=598, log_index=5)
+    transfer_log = _transfer_log(
+        token=BASE_SEPOLIA_USDC,
+        from_address=PAYER_WALLET,
+        to_address=BASE_WALLET,
+        amount_units=10_000_000,
+        log_index=4,
+    )
+    verifier = FakeJsonRpcContractVerifier(
+        {
+            "eth_chainId": [hex(84532)],
+            "eth_blockNumber": [hex(latest_block)],
+            "eth_getLogs": [[payment_log]],
+            "eth_getTransactionReceipt": [
+                {"status": "0x1", "logs": [transfer_log, payment_log]},
+            ],
+        }
+    )
+
+    verification = verifier.find_contract_payment(
+        purchase=purchase,
+        min_confirmations=3,
+        lookback_blocks=50,
+    )
+
+    assert verification is not None
+    assert verification.verification_status == "verified"
+    assert verification.chain_id == 84532
+    assert verification.token_contract_address == BASE_SEPOLIA_USDC
+    assert verification.destination_wallet_address == BASE_WALLET
+    assert verification.tx_hash == tx_hash
+    assert verification.tx_from_address == PAYER_WALLET
+    assert verification.tx_amount_units == 10_000_000
+    assert verification.tx_log_index == 5
+    get_logs = next(params for method, params in verifier.requests if method == "eth_getLogs")
+    assert get_logs[0]["address"] == PAYMENT_CONTRACT
+    assert get_logs[0]["fromBlock"] == hex(latest_block - 50)
+    assert get_logs[0]["toBlock"] == hex(latest_block)
+    assert get_logs[0]["topics"] == [NODO_CREDIT_PAYMENT_RECEIVED_TOPIC, purchase.onchain_purchase_ref]
+
+
+def test_json_rpc_contract_event_verifier_batches_purchase_ref_filters() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1916, "contract_rpc_batch_event")
+    _create_business(client, owner, "contract_rpc_batch_event")
+    purchases = []
+    for index in range(2):
+        prepared = client.post(
+            "/api/v1/business/credits/base-payment",
+            headers={**_headers(owner, f"contract_rpc_batch_create_{index}"), "Content-Type": "application/json"},
+            json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+        )
+        assert prepared.status_code == 201, prepared.text
+        purchase = client.app.state.credit_repository.get_purchase(prepared.json()["data"]["purchase"]["id"])
+        assert purchase is not None
+        purchases.append(purchase)
+
+    tx_hash = _tx_hash("contract-rpc-batched-event")
+    latest_block = 700
+    payment_log = _contract_payment_log(purchases[1], tx_hash=tx_hash, block_number=699, log_index=6)
+    transfer_log = _transfer_log(
+        token=BASE_SEPOLIA_USDC,
+        from_address=PAYER_WALLET,
+        to_address=BASE_WALLET,
+        amount_units=10_000_000,
+        log_index=5,
+    )
+    verifier = FakeJsonRpcContractVerifier(
+        {
+            "eth_chainId": [hex(84532)],
+            "eth_blockNumber": [hex(latest_block)],
+            "eth_getLogs": [[payment_log]],
+            "eth_getTransactionReceipt": [
+                {"status": "0x1", "logs": [transfer_log, payment_log]},
+            ],
+        }
+    )
+
+    results = verifier.find_contract_payments(
+        purchases=purchases,
+        min_confirmations=3,
+        lookback_blocks=50,
+    )
+
+    assert results[purchases[0].id] is None
+    assert results[purchases[1].id] is not None
+    get_logs_requests = [params for method, params in verifier.requests if method == "eth_getLogs"]
+    assert len(get_logs_requests) == 1
+    assert get_logs_requests[0][0]["topics"] == [
+        NODO_CREDIT_PAYMENT_RECEIVED_TOPIC,
+        [purchase.onchain_purchase_ref for purchase in purchases],
+    ]
 
 
 def test_base_usdc_watcher_moves_expired_verified_payment_to_review_without_credit() -> None:

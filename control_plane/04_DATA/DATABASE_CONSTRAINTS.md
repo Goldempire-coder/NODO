@@ -290,6 +290,13 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - EVM values (`token_contract_address`, `destination_wallet_address`, `tx_hash`, `tx_from_address`, `tx_to_address`) deben persistirse/compararse normalizados lowercase; constraints o queries deben usar `lower(...)` o politica canonica equivalente.
 - `credit_purchase_onchain_payments(chain_id, tx_hash, tx_log_index)` debe ser unique.
 - `credit_purchase_onchain_payments.tx_amount_units > 0`.
+- `credit_purchase_onchain_payments`, actualizado por 0059, acepta evidencia
+  USDC solo para perfiles completos de Base mainnet o Base Sepolia. Las
+  combinaciones cruzadas de `chain_id`, `network` y contrato token quedan
+  rechazadas.
+- La metadata contractual de `credit_purchase_onchain_payments` debe estar
+  completamente ausente o completamente normalizada: contrato, `purchase_ref`,
+  payer y version.
 - No puede existir doble ledger `purchase` para el mismo `related_credit_purchase_id`.
 - `credited` requiere ledger `purchase` y `credited_at`.
 - Presentar `tx_hash` para una compra `base_usdc_contract` no crea registro

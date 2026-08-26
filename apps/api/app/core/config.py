@@ -68,6 +68,7 @@ class Settings:
     onchain_credit_watcher_interval_seconds: int
     onchain_credit_watcher_batch_size: int
     onchain_credit_watcher_timeout_seconds: int
+    onchain_credit_contract_watcher_lookback_blocks: int
     legacy_credit_payment_methods_enabled: bool
     auth_init_data_max_age_seconds: int
     access_token_ttl_seconds: int
@@ -229,6 +230,11 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         onchain_credit_watcher_interval_seconds=_read_int(source, "ONCHAIN_CREDIT_WATCHER_INTERVAL_SECONDS", 30),
         onchain_credit_watcher_batch_size=_read_int(source, "ONCHAIN_CREDIT_WATCHER_BATCH_SIZE", 50),
         onchain_credit_watcher_timeout_seconds=_read_int(source, "ONCHAIN_CREDIT_WATCHER_TIMEOUT_SECONDS", 10),
+        onchain_credit_contract_watcher_lookback_blocks=_read_int(
+            source,
+            "ONCHAIN_CREDIT_CONTRACT_WATCHER_LOOKBACK_BLOCKS",
+            5000,
+        ),
         legacy_credit_payment_methods_enabled=_read_bool(source, "LEGACY_CREDIT_PAYMENT_METHODS_ENABLED", False),
         auth_init_data_max_age_seconds=_read_int(source, "AUTH_INIT_DATA_MAX_AGE_SECONDS", 86400),
         access_token_ttl_seconds=_read_int(source, "ACCESS_TOKEN_TTL_SECONDS", 900),

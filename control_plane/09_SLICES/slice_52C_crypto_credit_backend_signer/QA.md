@@ -117,3 +117,22 @@ No declarar `READY_FOR_REAL_USE` hasta tener:
 - frontend solo firma si recibe `base_sepolia`, `84532` e `is_testnet = true`;
 - cambio de cuenta/red invalida el estado local preparado;
 - no hay polling, `approve`, `pay`, watcher, ledger, acreditacion ni fondos.
+
+## 52C2E-S0
+
+- watcher lista compras `base_usdc_contract` pendientes solo con snapshot
+  completo;
+- `eth_getLogs` usa contrato allowlisted, filtros agrupados de `purchase_ref` y
+  lookback acotado;
+- evento contractual debe coincidir con receipt, token, treasury, payer,
+  amount, chain, version y expiracion;
+- receipt debe incluir `Transfer` ERC20 exacto de payer hacia treasury;
+- confirmaciones insuficientes dejan la compra pendiente;
+- pago contractual detectado despues del vencimiento local se acredita si el
+  contrato ya emitio el evento valido;
+- amount incorrecto falla sin ledger ni credito;
+- PostgreSQL guarda evidencia contractual Base Sepolia y acredita exact-once;
+- 0059 acepta evidencia Base mainnet/Sepolia canonica, rechaza mezclas y bloquea
+  rollback si ya existe evidencia no-mainnet;
+- no hay frontend `pay`, `approve`, polling, testnet real, wallet real ni
+  fondos reales.

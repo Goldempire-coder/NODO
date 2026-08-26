@@ -24,11 +24,34 @@ class BaseUsdcCreditPurchaseWatcher:
     def run_once(self, *, request_id: str = "watcher") -> dict[str, Any]:
         purchases = self._credits.list_onchain_pending_purchases(limit=self._settings.onchain_credit_watcher_batch_size)
         eligible = [purchase for purchase in purchases if purchase.tx_hash and purchase.expected_amount_units is not None and purchase.destination_wallet_address]
+        contract_purchase_reader = getattr(self._credits, "list_contract_pending_purchases", None)
+        contract_purchases = (
+            contract_purchase_reader(limit=self._settings.onchain_credit_watcher_batch_size)
+            if callable(contract_purchase_reader)
+            else []
+        )
+        contract_eligible = [
+            purchase
+            for purchase in contract_purchases
+            if purchase.expected_amount_units is not None
+            and purchase.destination_wallet_address
+            and purchase.onchain_purchase_ref
+            and purchase.onchain_payer_address
+            and purchase.payment_contract_address
+            and purchase.payment_contract_version is not None
+        ]
         result: dict[str, Any] = {
             "job_type": self.job_type,
             "scanned": len(purchases),
             "eligible": len(eligible),
             "skipped_missing_tx": len(purchases) - len(eligible),
+            "contract_scanned": len(contract_purchases),
+            "contract_eligible": len(contract_eligible),
+            "contract_skipped_incomplete": len(contract_purchases) - len(contract_eligible),
+            "contract_verified_attempts": 0,
+            "contract_credited": 0,
+            "contract_under_review": 0,
+            "contract_pending": 0,
             "stuck_or_expired": 0,
             "verified_attempts": 0,
             "credited": 0,
@@ -41,7 +64,7 @@ class BaseUsdcCreditPurchaseWatcher:
         rpc_before = getattr(self._verifier, "rpc_call_count", None)
         latest_block_number: int | None = None
         latest_block_reader = getattr(self._verifier, "latest_block_number", None)
-        if eligible and callable(latest_block_reader):
+        if (eligible or contract_eligible) and callable(latest_block_reader):
             try:
                 latest_block_number = latest_block_reader()
                 result["latest_block_prefetched"] = True
@@ -94,6 +117,71 @@ class BaseUsdcCreditPurchaseWatcher:
                 current = self._credits.get_purchase(purchase.id)
                 if current is not None and current.status in {"verification_failed", "failed", "expired", "under_review"}:
                     self._notify_credit_attention(purchase=current, reason=current.status, request_id=request_id, error_code=exc.code)
+        contract_payment_reader = getattr(self._verifier, "find_contract_payments", None)
+        if contract_eligible and callable(contract_payment_reader):
+            try:
+                contract_verifications = contract_payment_reader(
+                    purchases=contract_eligible,
+                    min_confirmations=self._settings.onchain_credit_min_confirmations,
+                    latest_block_number=latest_block_number,
+                    lookback_blocks=getattr(self._settings, "onchain_credit_contract_watcher_lookback_blocks", 5000),
+                )
+            except ApiError as exc:
+                for purchase in contract_eligible:
+                    self._record_contract_verification_error(
+                        result=result,
+                        purchase=purchase,
+                        request_id=request_id,
+                        error=exc,
+                    )
+            else:
+                for purchase in contract_eligible:
+                    try:
+                        result["contract_verified_attempts"] += 1
+                        verification = contract_verifications.get(purchase.id)
+                        if verification is None:
+                            result["contract_pending"] += 1
+                            result["pending"] += 1
+                            continue
+                        verification = normalize_credit_verification(
+                            purchase=purchase,
+                            verification=verification,
+                            submitted_tx_hash=verification.tx_hash,
+                            min_confirmations=self._settings.onchain_credit_min_confirmations,
+                            now=utc_now(),
+                        )
+                        updated, ledger = self._credits.apply_onchain_verification(
+                            purchase=purchase,
+                            verification=verification,
+                            actor_user_id=None,
+                            min_confirmations=self._settings.onchain_credit_min_confirmations,
+                        )
+                        if ledger:
+                            result["contract_credited"] += 1
+                            result["credited"] += 1
+                            self._audit.write(
+                                event_type="onchain_credit_purchase_credited",
+                                actor_user_id=None,
+                                actor_role=None,
+                                resource_type="credit_purchase",
+                                resource_id=purchase.id,
+                                request_id=request_id,
+                                metadata_json={"source": self.job_type, "payment_method": "base_usdc_contract"},
+                            )
+                        elif updated.status == "under_review":
+                            result["contract_under_review"] += 1
+                            result["under_review"] += 1
+                            self._notify_credit_attention(purchase=updated, reason="under_review", request_id=request_id)
+                        else:
+                            result["contract_pending"] += 1
+                            result["pending"] += 1
+                    except ApiError as exc:
+                        self._record_contract_verification_error(
+                            result=result,
+                            purchase=purchase,
+                            request_id=request_id,
+                            error=exc,
+                        )
         result["stuck_or_expired"] = self._notify_stuck_or_expired_purchases(request_id=request_id)
         rpc_after = getattr(self._verifier, "rpc_call_count", None)
         if isinstance(rpc_before, int) and isinstance(rpc_after, int):
@@ -104,6 +192,24 @@ class BaseUsdcCreditPurchaseWatcher:
         if self._admin_notifications is None:
             return
         self._admin_notifications.credit_purchase_attention(purchase=purchase, reason=reason, request_id=request_id, error_code=error_code)
+
+    def _record_contract_verification_error(self, *, result: dict[str, Any], purchase, request_id: str, error: ApiError) -> None:  # type: ignore[no-untyped-def]
+        result["errors"].append({"purchase_id": purchase.id, "code": error.code, "stage": "contract_event"})
+        metadata: dict[str, Any] = {"source": self.job_type, "payment_method": "base_usdc_contract", "code": error.code}
+        if purchase.tx_hash:
+            metadata["tx_hash_masked"] = _mask_tx_hash(purchase.tx_hash)
+        self._audit.write(
+            event_type="onchain_payment_verification_failed",
+            actor_user_id=None,
+            actor_role=None,
+            resource_type="credit_purchase",
+            resource_id=purchase.id,
+            request_id=request_id,
+            metadata_json=metadata,
+        )
+        current = self._credits.get_purchase(purchase.id)
+        if current is not None and current.status in {"verification_failed", "failed", "expired", "under_review"}:
+            self._notify_credit_attention(purchase=current, reason=current.status, request_id=request_id, error_code=error.code)
 
     def _notify_stuck_or_expired_purchases(self, *, request_id: str) -> int:
         if self._admin_notifications is None:

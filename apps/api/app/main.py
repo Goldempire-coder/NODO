@@ -201,17 +201,29 @@ async def _base_usdc_credit_watcher_loop(app: FastAPI, settings: Settings, logge
                     request_id="scheduler_base_usdc_credit_watcher"
                 )
             )
-            if result.get("eligible") or result.get("credited") or result.get("errors"):
+            if (
+                result.get("eligible")
+                or result.get("credited")
+                or result.get("contract_eligible")
+                or result.get("contract_credited")
+                or result.get("errors")
+            ):
                 logger.info(
                     "base_usdc_credit_watcher_finished",
                     extra={
                         "event": "base_usdc_credit_watcher_finished",
                         "scanned": result.get("scanned", 0),
                         "eligible": result.get("eligible", 0),
+                        "contract_scanned": result.get("contract_scanned", 0),
+                        "contract_eligible": result.get("contract_eligible", 0),
                         "verified_attempts": result.get("verified_attempts", 0),
+                        "contract_verified_attempts": result.get("contract_verified_attempts", 0),
                         "credited": result.get("credited", 0),
+                        "contract_credited": result.get("contract_credited", 0),
                         "under_review": result.get("under_review", 0),
+                        "contract_under_review": result.get("contract_under_review", 0),
                         "pending": result.get("pending", 0),
+                        "contract_pending": result.get("contract_pending", 0),
                         "errors_count": len(result.get("errors", [])),
                         "rpc_calls": result.get("rpc_calls", 0),
                     },

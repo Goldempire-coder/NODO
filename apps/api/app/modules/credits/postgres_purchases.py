@@ -4,6 +4,7 @@ from app.modules.credits.postgres_purchase_creation import create_manual_purchas
 from app.modules.credits.postgres_onchain import (
     apply_onchain_verification_pg,
     create_base_usdc_purchase_pg,
+    list_contract_pending_purchases_pg,
     list_onchain_pending_purchases_pg,
 )
 from app.modules.credits.postgres_purchase_queries import (
@@ -23,6 +24,7 @@ __all__ = [
     "find_purchase_by_checkout_session_pg",
     "get_purchase_pg",
     "list_purchases_pg",
+    "list_contract_pending_purchases_pg",
     "list_onchain_pending_purchases_pg",
     "reject_purchase_pg",
     "stripe_event_processed_pg",

@@ -384,6 +384,22 @@ class InMemoryCreditPurchaseStore:
         items.sort(key=lambda item: item.created_at)
         return items[:limit]
 
+    def list_contract_pending_purchases(self, *, limit: int) -> list[CreditPurchaseRecord]:
+        items = [
+            item
+            for item in self.purchases.values()
+            if item.payment_method == "base_usdc_contract"
+            and item.status in {"pending_payment", "pending_onchain_confirmation", "detected"}
+            and item.expected_amount_units is not None
+            and item.destination_wallet_address
+            and item.onchain_purchase_ref
+            and item.onchain_payer_address
+            and item.payment_contract_address
+            and item.payment_contract_version is not None
+        ]
+        items.sort(key=lambda item: item.created_at)
+        return items[:limit]
+
     def list_purchases(self, *, status: str | None, business_id: str | None, cursor: str | None, limit: int) -> tuple[list[CreditPurchaseRecord], str | None]:
         items = list(self.purchases.values())
         if status:

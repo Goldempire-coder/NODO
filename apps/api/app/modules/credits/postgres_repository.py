@@ -21,6 +21,7 @@ from app.modules.credits.postgres_purchases import (
     create_stripe_purchase_pg,
     find_purchase_by_checkout_session_pg,
     get_purchase_pg,
+    list_contract_pending_purchases_pg,
     list_onchain_pending_purchases_pg,
     list_purchases_pg,
     reject_purchase_pg,
@@ -198,6 +199,9 @@ class PostgresCreditRepository:
 
     def list_onchain_pending_purchases(self, *, limit: int) -> list[CreditPurchaseRecord]:
         return list_onchain_pending_purchases_pg(self._connect, limit=limit)
+
+    def list_contract_pending_purchases(self, *, limit: int) -> list[CreditPurchaseRecord]:
+        return list_contract_pending_purchases_pg(self._connect, limit=limit)
 
     def adjust_wallet(self, *, business_id: str, amount: int, direction: str, reason: str, notes: str | None, created_by: str) -> CreditLedgerRecord:
         return adjust_wallet_pg(self._connect, business_id=business_id, amount=amount, direction=direction, reason=reason, notes=notes, created_by=created_by)

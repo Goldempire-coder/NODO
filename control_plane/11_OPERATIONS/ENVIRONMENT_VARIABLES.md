@@ -188,6 +188,7 @@ NODO no almacena private key, seed phrase, mnemonic ni signing key de esa wallet
 - `CREDIT_CONTRACT_RATE_LIMIT_IP_MAX_ATTEMPTS` (default `20`)
 - `CREDIT_CONTRACT_RATE_LIMIT_WINDOW_SECONDS` (default `600`)
 - `CREDIT_CONTRACT_PENDING_PURCHASE_LIMIT` (default `3`)
+- `ONCHAIN_CREDIT_CONTRACT_WATCHER_LOOKBACK_BLOCKS` (default `5000`)
 
 Los limites contractuales se aplican en backend. Staging/produccion requieren el
 limitador Redis compartido y fallan cerrado si no esta disponible. La IP se usa
@@ -197,6 +198,8 @@ ventana minima de `600` segundos y nunca permite mas de `3` compras pendientes.
 Para compras contractuales, el limitador usa la IP agregada por el proxy final en
 `X-Forwarded-For` y cae al cliente ASGI si no existe ese header. El valor se
 hashea antes de usarse como clave y no se registra en claro.
+El watcher contractual usa un lookback acotado para `eth_getLogs`; no debe
+escanear la cadena completa ni consultar eventos sin compras pendientes.
 
 Clasificacion:
 

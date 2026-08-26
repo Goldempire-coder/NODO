@@ -15,6 +15,7 @@ from app.modules.credits.payment_authorizations import (
     PaymentAuthorizationSnapshot,
     sign_payment_authorization,
 )
+from app.modules.credits.onchain import OnchainVerificationResult
 from app.modules.credits.postgres_repository import PostgresCreditRepository
 from eth_account import Account
 
@@ -99,6 +100,22 @@ def _candidate(repository: PostgresCreditRepository, *, business_id: str, idempo
     )
 
 
+def _contract_verified_purchase() -> OnchainVerificationResult:
+    return OnchainVerificationResult(
+        chain_id=84532,
+        token_contract_address=BASE_SEPOLIA_USDC,
+        destination_wallet_address=TREASURY,
+        tx_hash="0x" + uuid4().hex + uuid4().hex,
+        tx_from_address=PAYER,
+        tx_to_address=TREASURY,
+        tx_amount_units=10_000_000,
+        tx_block_number=456,
+        tx_log_index=17,
+        confirmations=6,
+        verification_status="verified",
+    )
+
+
 def test_postgres_contract_purchase_replay_is_exact_once_without_credit(
     credit_postgres_url: str,
 ) -> None:
@@ -167,6 +184,60 @@ def test_postgres_contract_purchase_replay_is_exact_once_without_credit(
     assert mismatch.value.code == "IDEMPOTENCY_PAYLOAD_MISMATCH"
 
 
+def test_postgres_contract_event_credit_is_exact_once_with_evidence(
+    credit_postgres_url: str,
+) -> None:
+    business_id = _seed_business(credit_postgres_url)
+    repository = PostgresCreditRepository(credit_postgres_url)
+    purchase, created = _candidate(
+        repository,
+        business_id=business_id,
+        idempotency_key=f"contract-credit-{uuid4()}",
+    )
+    assert created is True
+    pending_ids = {item.id for item in repository.list_contract_pending_purchases(limit=10)}
+    assert purchase.id in pending_ids
+
+    verification = _contract_verified_purchase()
+    updated, ledger = repository.apply_onchain_verification(
+        purchase=purchase,
+        verification=verification,
+        actor_user_id=None,
+        min_confirmations=3,
+    )
+    replayed, replay_ledger = repository.apply_onchain_verification(
+        purchase=updated,
+        verification=verification,
+        actor_user_id=None,
+        min_confirmations=3,
+    )
+
+    assert updated.status == "credited"
+    assert replayed.status == "credited"
+    assert ledger is not None
+    assert replay_ledger.id == ledger.id
+    with psycopg.connect(credit_postgres_url) as conn:
+        wallet = conn.execute(
+            "select available_credits, lifetime_purchased_credits from credit_wallets where business_id = %s",
+            (business_id,),
+        ).fetchone()
+        ledger_count = conn.execute(
+            "select count(*) from credits_ledger where related_credit_purchase_id = %s",
+            (purchase.id,),
+        ).fetchone()[0]
+        evidence = conn.execute(
+            """
+            select payment_contract_address, purchase_ref, payer_address, payment_contract_version
+            from credit_purchase_onchain_payments
+            where credit_purchase_id = %s
+            """,
+            (purchase.id,),
+        ).fetchone()
+    assert wallet == (5, 5)
+    assert ledger_count == 1
+    assert evidence == (CONTRACT, purchase.onchain_purchase_ref, PAYER, 2)
+
+
 def test_postgres_contract_pending_limit_is_atomic_under_concurrency(
     credit_postgres_url: str,
 ) -> None:
@@ -227,6 +298,22 @@ def test_0057_down_and_up_succeed_without_contract_purchases(credit_postgres_url
     up = MIGRATION_UP.read_text(encoding="utf-8")
 
     with psycopg.connect(credit_postgres_url) as conn:
+        conn.execute(
+            """
+            delete from credits_ledger
+            where related_credit_purchase_id in (
+                select id from credit_purchases where payment_method = 'base_usdc_contract'
+            )
+            """
+        )
+        conn.execute(
+            """
+            delete from credit_purchase_onchain_payments
+            where credit_purchase_id in (
+                select id from credit_purchases where payment_method = 'base_usdc_contract'
+            )
+            """
+        )
         conn.execute("delete from credit_purchases where payment_method = 'base_usdc_contract'")
         conn.execute(down)
         conn.execute(up)
