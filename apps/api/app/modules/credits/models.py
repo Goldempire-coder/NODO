@@ -25,7 +25,47 @@ BASE_MAINNET_NETWORK = "base_mainnet"
 BASE_USDC_TOKEN_SYMBOL = "USDC"
 BASE_USDC_CONTRACT_ADDRESS = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 BASE_USDC_DECIMALS = 6
+BASE_SEPOLIA_CHAIN_ID = 84532
+BASE_SEPOLIA_NETWORK = "base_sepolia"
+BASE_SEPOLIA_USDC_CONTRACT_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"
 ONCHAIN_CREDIT_LEDGER_REASON = "base_usdc_onchain_verified"
+
+
+@dataclass(frozen=True)
+class CreditPaymentNetworkProfile:
+    network: str
+    chain_id: int
+    display_name: str
+    token_symbol: str
+    token_contract_address: str
+    token_decimals: int
+    is_testnet: bool
+
+
+CREDIT_PAYMENT_NETWORK_PROFILES = {
+    BASE_MAINNET_NETWORK: CreditPaymentNetworkProfile(
+        network=BASE_MAINNET_NETWORK,
+        chain_id=BASE_MAINNET_CHAIN_ID,
+        display_name="Base",
+        token_symbol=BASE_USDC_TOKEN_SYMBOL,
+        token_contract_address=BASE_USDC_CONTRACT_ADDRESS,
+        token_decimals=BASE_USDC_DECIMALS,
+        is_testnet=False,
+    ),
+    BASE_SEPOLIA_NETWORK: CreditPaymentNetworkProfile(
+        network=BASE_SEPOLIA_NETWORK,
+        chain_id=BASE_SEPOLIA_CHAIN_ID,
+        display_name="Base Sepolia",
+        token_symbol=BASE_USDC_TOKEN_SYMBOL,
+        token_contract_address=BASE_SEPOLIA_USDC_CONTRACT_ADDRESS,
+        token_decimals=BASE_USDC_DECIMALS,
+        is_testnet=True,
+    ),
+}
+
+
+def credit_payment_network_profile(value: str | None) -> CreditPaymentNetworkProfile | None:
+    return CREDIT_PAYMENT_NETWORK_PROFILES.get((value or "").strip().lower())
 
 PURCHASE_METHODS = {"stripe_checkout", "zelle_manual_admin_approved", "usdt_manual_admin_approved", "base_usdc_onchain", "base_usdc_contract"}
 PURCHASE_STATUSES = {

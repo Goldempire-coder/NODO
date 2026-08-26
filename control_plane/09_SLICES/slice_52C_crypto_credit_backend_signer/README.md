@@ -131,6 +131,21 @@ rollback posterior a activacion requiere una migracion de transicion aprobada.
 - Acreditacion exact-once mediante transaccion PostgreSQL existente.
 - Limites por usuario, negocio, IP y maximo durable de compras pendientes.
 
+## 52C2D-S0 Autoridad De Red
+
+La compra contractual usa un perfil cerrado elegido solo por backend mediante
+`NODO_CREDIT_PAYMENT_NETWORK`:
+
+- `base_sepolia`: chain `84532`, USDC oficial de testnet y `is_testnet = true`;
+- `base_mainnet`: chain `8453`, USDC oficial de Base y `is_testnet = false`.
+
+El perfil fija conjuntamente red, chain y token. Firma EIP-712, handoff,
+challenge, Memory y PostgreSQL reciben el mismo snapshot. Configuracion ausente,
+desconocida o cambiada durante un handoff falla cerrado. El frontend de este
+slice solo acepta `base_sepolia`; no ofrece selector y no puede activar mainnet.
+Crear el handoff o la autorizacion sigue sin hacer `approve`, `pay`, watcher,
+ledger, acreditacion ni movimiento de fondos.
+
 ## Fuera De Alcance
 
 - Cambiar contrato Solidity 52A.
@@ -153,7 +168,8 @@ La sesion Telegram no se transporta al navegador de MetaMask. La App Negocio
 crea un handoff opaco de cinco minutos, protegido por owner y PIN, y abre
 `/business/credit-payment` con el token solo en fragmento. La ruta elimina ese
 fragmento antes de llamar API, conecta EIP-1193 en Base y usa `personal_sign`
-para probar control de la wallet.
+para probar control de la wallet. 52C2D-S0 usa Base Sepolia `84532` y rechaza
+un challenge mainnet o un perfil desconocido antes de solicitar la firma.
 
 Backend guarda solo hash del token en Memory local o Redis compartido,
 revalida acceso y PIN al reclamar, y usa idempotencia interna para preparar una

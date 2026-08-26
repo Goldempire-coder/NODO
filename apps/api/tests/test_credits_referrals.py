@@ -29,10 +29,12 @@ JWT_REFRESH_SECRET = "test-refresh-secret"
 STRIPE_WEBHOOK_SECRET = "whsec_test_secret"
 BASE_WALLET = "0x1111111111111111111111111111111111111111"
 BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+BASE_SEPOLIA_USDC = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"
 PAYMENT_CONTRACT = "0x3333333333333333333333333333333333333333"
 PAYER_WALLET = "0x2222222222222222222222222222222222222222"
 VALID_PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
 CONTRACT_ENV_KEYS = (
+    "NODO_CREDIT_PAYMENT_NETWORK",
     "NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS",
     "NODO_CREDIT_PAYMENT_CONTRACT_VERSION",
     "NODO_CREDIT_AUTH_SIGNER_KEY",
@@ -155,6 +157,7 @@ def _client(**env_overrides: str) -> TestClient:
 def _contract_client(**env_overrides: str | None) -> tuple[TestClient, str]:
     signer = Account.create()
     contract_env = {
+        "NODO_CREDIT_PAYMENT_NETWORK": "base_sepolia",
         "NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS": PAYMENT_CONTRACT,
         "NODO_CREDIT_PAYMENT_CONTRACT_VERSION": "2",
         "NODO_CREDIT_AUTH_SIGNER_KEY": signer.key.hex(),
@@ -1126,6 +1129,73 @@ def test_contract_payment_signs_backend_snapshot_and_does_not_credit() -> None:
     assert wallet is None or wallet.available_credits == 0
 
 
+def test_contract_payment_uses_configured_base_sepolia_profile_without_mainnet_mix() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1111, "contract_base_sepolia")
+    business = _create_business(client, owner, "contract_base_sepolia")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_base_sepolia"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+
+    assert response.status_code == 201, response.text
+    data = response.json()["data"]
+    assert data["payment"]["network"] == "base_sepolia"
+    assert data["payment"]["chain_id"] == 84532
+    assert data["payment"]["token_contract_address"] == BASE_SEPOLIA_USDC
+    assert data["payment"]["authorization_typed_data"]["domain"]["chainId"] == 84532
+    stored = client.app.state.credit_repository.get_purchase(data["purchase"]["id"])
+    assert stored is not None
+    assert stored.network == "base_sepolia"
+    assert stored.chain_id == 84532
+    assert stored.token_contract_address == BASE_SEPOLIA_USDC
+    assert client.app.state.credit_repository.ledger_for_purchase(data["purchase"]["id"]) is None
+    wallet = client.app.state.credit_repository.get_wallet(business["id"])
+    assert wallet is None or wallet.available_credits == 0
+
+
+def test_contract_payment_mainnet_profile_does_not_reuse_testnet_chain_or_token() -> None:
+    client, _ = _contract_client(NODO_CREDIT_PAYMENT_NETWORK="base_mainnet")
+    owner = _login(client, 1113, "contract_base_mainnet")
+    _create_business(client, owner, "contract_base_mainnet")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_base_mainnet"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+
+    assert response.status_code == 201, response.text
+    payment = response.json()["data"]["payment"]
+    assert payment["network"] == "base_mainnet"
+    assert payment["chain_id"] == 8453
+    assert payment["token_contract_address"] == BASE_USDC
+    assert payment["is_testnet"] is False
+    assert payment["chain_id"] != 84532
+    assert payment["token_contract_address"] != BASE_SEPOLIA_USDC
+
+
+@pytest.mark.parametrize("network", [None, "", "base_unknown"])
+def test_contract_payment_fails_closed_without_valid_network_profile(network: str | None) -> None:
+    client, _ = _contract_client(NODO_CREDIT_PAYMENT_NETWORK=network)
+    owner = _login(client, 1112, f"contract_network_{network or 'missing'}")
+    business = _create_business(client, owner, f"contract_network_{network or 'missing'}")
+
+    response = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_network_invalid"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "CRYPTO_CONTRACT_PAYMENT_NOT_CONFIGURED"
+    assert client.app.state.credit_repository.purchases == {}
+    wallet = client.app.state.credit_repository.get_wallet(business["id"])
+    assert wallet is None or wallet.available_credits == 0
+
+
 def test_contract_payment_rejects_tx_hash_submission_without_financial_effects() -> None:
     client, _ = _contract_client()
     owner = _login(client, 1115, "contract_tx_hash_reject")
@@ -1396,6 +1466,10 @@ def test_credit_wallet_handoff_prepares_one_contract_purchase_without_crediting(
     assert created.status_code == 201, created.text
     handoff = created.json()["data"]["handoff"]
     assert handoff["token"]
+    assert handoff["network"] == "base_sepolia"
+    assert handoff["chain_id"] == 84532
+    assert handoff["network_display_name"] == "Base Sepolia"
+    assert handoff["is_testnet"] is True
     assert "business_id" not in handoff
     assert handoff["token"] not in repr(client.app.state.credit_handoff_store.__dict__)
     assert handoff["token"] not in json.dumps(
@@ -1407,7 +1481,13 @@ def test_credit_wallet_handoff_prepares_one_contract_purchase_without_crediting(
         json={"handoff_token": handoff["token"]},
     )
     assert challenge.status_code == 200, challenge.text
-    challenge_text = challenge.json()["data"]["challenge"]
+    challenge_data = challenge.json()["data"]
+    assert challenge_data["network"] == "base_sepolia"
+    assert challenge_data["chain_id"] == 84532
+    assert challenge_data["is_testnet"] is True
+    assert "Network: base_sepolia" in challenge_data["challenge"]
+    assert "Chain ID: 84532" in challenge_data["challenge"]
+    challenge_text = challenge_data["challenge"]
     signature = "0x" + Account.sign_message(
         encode_defunct(text=challenge_text),
         payer.key,
@@ -1415,7 +1495,7 @@ def test_credit_wallet_handoff_prepares_one_contract_purchase_without_crediting(
     claim_payload = {
         "handoff_token": handoff["token"],
         "wallet_address": payer.address,
-        "chain_id": 8453,
+        "chain_id": 84532,
         "signature": signature,
     }
 
@@ -1440,6 +1520,8 @@ def test_credit_wallet_handoff_prepares_one_contract_purchase_without_crediting(
         assert response.headers["cache-control"] == "private, no-store"
     status_data = status.json()["data"]
     assert status_data["handoff"]["status"] == "prepared"
+    assert status_data["handoff"]["network"] == "base_sepolia"
+    assert status_data["handoff"]["chain_id"] == 84532
     assert status_data["handoff"]["wallet_address_masked"] != payer.address.lower()
     assert status_data["purchase"]["payment_method"] == "base_usdc_contract"
     assert status_data["payment"]["payer_wallet_address"] == payer.address.lower()
@@ -1485,7 +1567,7 @@ def test_credit_wallet_handoff_rejects_wrong_chain_and_wrong_signature() -> None
         json={
             "handoff_token": handoff["token"],
             "wallet_address": payer.address,
-            "chain_id": 8453,
+            "chain_id": 84532,
             "signature": wrong_signature,
         },
     )
@@ -2349,14 +2431,14 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "Conecta la wallet desde donde pagarás." in source
     assert "Esta wallet será la que firma y paga." in source
     assert "NODO no ve ni guarda tu clave privada." in source
-    assert "Necesitas USDC y un poco de ETH en Base para gas." in source
+    assert "Necesitas USDC de prueba y un poco de ETH de prueba en Base Sepolia." in source
     assert "priceUsdc" in source
     assert "{item.priceUsdc} USDC" in source
     assert 'priceUsdc: "10"' in source
     assert 'priceUsdc: "25"' in source
     assert 'priceUsdc: "75"' in source
     assert 'priceUsdc: "250"' in source
-    assert "Pagarás ${selected.priceUsdc} USDC en red Base." in source
+    assert "Prepararás ${selected.priceUsdc} USDC de prueba en Base Sepolia." in source
     assert "La autorizacion final confirma el monto antes de pagar." in source
     assert "NODO calcula el monto y prepara la autorizacion." not in source
     assert "No pegues hashes en este flujo." in source
@@ -2381,7 +2463,7 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "BUSINESS_PIN_REQUIRED" in hook_source
     assert "useInjectedWallet" in hook_source
     assert "connectedWalletAddress" in hook_source
-    assert "walletIsBase" in hook_source
+    assert "walletIsExpectedNetwork" in hook_source
     assert "setPayerWalletAddress" not in hook_source
     assert "useBusinessCreditsModel({ business: access.business" in model_source
     assert "startBusinessBaseUsdcPayment" in hook_source
@@ -2407,7 +2489,7 @@ def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_cho
     assert "Tienes un pago pendiente" in source
     assert "Continuar pago pendiente" in source
     assert "Elige un paquete para generar el pago." in source
-    assert "disabled={generatingCreditPayment || !creditPackage || !connectedWalletAddress || !walletIsBase}" in source
+    assert "disabled={generatingCreditPayment || !creditPackage || !connectedWalletAddress || !walletIsExpectedNetwork}" in source
 
 
 def test_postgres_onchain_duplicate_tx_log_path_is_atomic() -> None:

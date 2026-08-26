@@ -23,6 +23,7 @@ POSTGRES_URL_ENV = "NODO_CREDIT_POSTGRES_URL"
 TREASURY = "0x1111111111111111111111111111111111111111"
 PAYER = "0x2222222222222222222222222222222222222222"
 CONTRACT = "0x3333333333333333333333333333333333333333"
+BASE_SEPOLIA_USDC = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"
 ROOT = Path(__file__).resolve().parents[3]
 MIGRATION_UP = ROOT / "database" / "migrations" / "0057_crypto_credit_contract_authorizations.up.sql"
 MIGRATION_DOWN = ROOT / "database" / "migrations" / "0057_crypto_credit_contract_authorizations.down.sql"
@@ -65,7 +66,7 @@ def _candidate(repository: PostgresCreditRepository, *, business_id: str, idempo
         payer=PAYER,
         amount=10_000_000,
         valid_until=int(expires_at.timestamp()),
-        chain_id=8453,
+        chain_id=84532,
         verifying_contract=CONTRACT,
         contract_version=2,
     )
@@ -79,6 +80,11 @@ def _candidate(repository: PostgresCreditRepository, *, business_id: str, idempo
         package_code="starter",
         idempotency_key=idempotency_key,
         expected_amount_units=snapshot.amount,
+        chain_id=84532,
+        network="base_sepolia",
+        token_symbol="USDC",
+        token_contract_address=BASE_SEPOLIA_USDC,
+        token_decimals=6,
         destination_wallet_address=TREASURY,
         purchase_ref=snapshot.purchase_ref,
         payer_address=PAYER,
@@ -131,6 +137,9 @@ def test_postgres_contract_purchase_replay_is_exact_once_without_credit(
     assert purchase_count == 1
     assert ledger_count == 0
     assert wallet_count == 0
+    assert purchase.chain_id == 84532
+    assert purchase.network == "base_sepolia"
+    assert purchase.token_contract_address == BASE_SEPOLIA_USDC
 
     with pytest.raises(ApiError) as mismatch:
         repository.create_contract_purchase(
@@ -138,6 +147,11 @@ def test_postgres_contract_purchase_replay_is_exact_once_without_credit(
             package_code="pro",
             idempotency_key=idempotency_key,
             expected_amount_units=25_000_000,
+            chain_id=84532,
+            network="base_sepolia",
+            token_symbol="USDC",
+            token_contract_address=BASE_SEPOLIA_USDC,
+            token_decimals=6,
             destination_wallet_address=TREASURY,
             purchase_ref="0x" + uuid4().hex + uuid4().hex,
             payer_address=PAYER,

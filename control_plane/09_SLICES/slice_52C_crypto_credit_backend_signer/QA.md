@@ -30,6 +30,10 @@
   sin compra, firma, ledger o cambio de saldo;
 - Memory y PostgreSQL mantienen paridad; PostgreSQL serializa la creacion por
   negocio para impedir que concurrencia exceda tres compras pendientes.
+- `base_sepolia` persiste chain `84532` y USDC de testnet en Memory/PostgreSQL;
+- `base_mainnet` conserva chain/token propios y no reutiliza valores testnet;
+- perfil ausente o desconocido falla cerrado sin compra, ledger ni saldo;
+- handoff, challenge, firma EIP-712 y compra usan el mismo perfil configurado.
 
 ## Gates Diferidos Antes De Habilitar El Metodo
 
@@ -100,3 +104,11 @@ No declarar `READY_FOR_REAL_USE` hasta tener:
 - Redis/store o rate limit compartido caido falla cerrado;
 - no hay polling, `approve`, `pay`, watcher ni movimiento de fondos;
 - smoke Telegram iPhone/Android + MetaMask es obligatorio antes de uso real.
+
+## 52C2D-S0
+
+- UI y probe muestran Base Sepolia y no ofrecen selector de red;
+- challenge backend entrega `network`, `chain_id`, nombre e `is_testnet`;
+- frontend solo firma si recibe `base_sepolia`, `84532` e `is_testnet = true`;
+- cambio de cuenta/red invalida el estado local preparado;
+- no hay polling, `approve`, `pay`, watcher, ledger, acreditacion ni fondos.

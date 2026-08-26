@@ -9,14 +9,12 @@ from app.core.errors import ApiError
 from app.modules.businesses.models import BusinessRecord
 from app.modules.credits.models import (
     ALLOWED_PROOF_MIME_TYPES,
-    BASE_MAINNET_CHAIN_ID,
-    BASE_MAINNET_NETWORK,
-    BASE_USDC_CONTRACT_ADDRESS,
-    BASE_USDC_DECIMALS,
     BASE_USDC_TOKEN_SYMBOL,
     CREDIT_PACKAGES,
     MAX_PROOF_SIZE_BYTES,
     CreditPurchaseRecord,
+    CreditPaymentNetworkProfile,
+    credit_payment_network_profile,
     utc_now,
 )
 from app.modules.credits.onchain import (
@@ -126,6 +124,7 @@ class CreditBusinessPurchases:
         return any(
             (
                 self._settings.nodo_credit_payment_contract_address,
+                self._settings.nodo_credit_payment_network,
                 self._settings.nodo_credit_payment_contract_version,
                 self._settings.nodo_credit_auth_signer_key,
                 self._settings.nodo_credit_auth_signer_address,
@@ -234,7 +233,7 @@ class CreditBusinessPurchases:
                 >= self._settings.credit_contract_pending_purchase_limit
             ):
                 raise ApiError("CRYPTO_PAYMENT_PENDING_LIMIT_REACHED", status_code=409)
-            contract_address, treasury_address = self._contract_configuration()
+            contract_address, treasury_address, network_profile = self._contract_configuration()
             signed_at = utc_now()
             valid_until = int(signed_at.timestamp()) + self._settings.onchain_credit_authorization_ttl_minutes * 60
             authorization_expires_at = datetime.fromtimestamp(valid_until, tz=timezone.utc)
@@ -243,7 +242,7 @@ class CreditBusinessPurchases:
                 payer=payer_address,
                 amount=price_to_usdc_units(package["price_usd"]),
                 valid_until=valid_until,
-                chain_id=8453,
+                chain_id=network_profile.chain_id,
                 verifying_contract=contract_address,
                 contract_version=self._settings.nodo_credit_payment_contract_version,
             )
@@ -257,6 +256,11 @@ class CreditBusinessPurchases:
                 package_code=payload.package_code,
                 idempotency_key=stable_key,
                 expected_amount_units=snapshot.amount,
+                chain_id=network_profile.chain_id,
+                network=network_profile.network,
+                token_symbol=network_profile.token_symbol,
+                token_contract_address=network_profile.token_contract_address,
+                token_decimals=network_profile.token_decimals,
                 destination_wallet_address=treasury_address,
                 purchase_ref=snapshot.purchase_ref,
                 payer_address=payer_address,
@@ -298,10 +302,17 @@ class CreditBusinessPurchases:
             raise ApiError("CRYPTO_PAYMENT_AUTHORIZATION_EXPIRED", status_code=409)
         return response
 
-    def _contract_configuration(self) -> tuple[str, str]:
+    def _contract_configuration(self) -> tuple[str, str, CreditPaymentNetworkProfile]:
         if self._settings.nodo_credit_payment_contract_paused:
             raise ApiError(
                 "CRYPTO_PAYMENT_CONTRACT_PAUSED",
+                message="Este metodo de pago no esta disponible temporalmente.",
+                status_code=503,
+            )
+        network_profile = credit_payment_network_profile(self._settings.nodo_credit_payment_network)
+        if network_profile is None:
+            raise ApiError(
+                "CRYPTO_CONTRACT_PAYMENT_NOT_CONFIGURED",
                 message="Este metodo de pago no esta disponible temporalmente.",
                 status_code=503,
             )
@@ -326,10 +337,13 @@ class CreditBusinessPurchases:
                 message="No pudimos preparar el pago en este momento.",
                 status_code=503,
             )
-        return contract_address, treasury_address
+        return contract_address, treasury_address, network_profile
 
     def ensure_contract_payment_available(self) -> None:
         self._contract_configuration()
+
+    def contract_network_profile(self) -> CreditPaymentNetworkProfile:
+        return self._contract_configuration()[2]
 
     def contract_purchase_detail_for_id(
         self,
@@ -365,9 +379,12 @@ class CreditBusinessPurchases:
             purchase,
             valid_until=valid_until,
         )
+        network_profile = credit_payment_network_profile(purchase.network)
         payment: dict[str, Any] = {
             "network": purchase.network,
             "chain_id": purchase.chain_id,
+            "network_display_name": network_profile.display_name if network_profile else None,
+            "is_testnet": network_profile.is_testnet if network_profile else None,
             "token_symbol": purchase.token_symbol,
             "token_contract_address": purchase.token_contract_address,
             "token_decimals": purchase.token_decimals,
@@ -439,6 +456,9 @@ class CreditBusinessPurchases:
         )
 
     def _contract_snapshot_matches_configuration(self, purchase: CreditPurchaseRecord) -> bool:
+        profile = credit_payment_network_profile(self._settings.nodo_credit_payment_network)
+        if profile is None:
+            return False
         try:
             contract_address = normalize_payment_address(
                 self._settings.nodo_credit_payment_contract_address or ""
@@ -469,11 +489,11 @@ class CreditBusinessPurchases:
             == self._settings.nodo_credit_payment_contract_version
             and purchase.payment_authorization_signer_version
             == self._settings.nodo_credit_auth_signer_version
-            and purchase.chain_id == BASE_MAINNET_CHAIN_ID
-            and purchase.network == BASE_MAINNET_NETWORK
-            and purchase.token_symbol == BASE_USDC_TOKEN_SYMBOL
-            and purchase.token_contract_address == BASE_USDC_CONTRACT_ADDRESS
-            and purchase.token_decimals == BASE_USDC_DECIMALS
+            and purchase.chain_id == profile.chain_id
+            and purchase.network == profile.network
+            and purchase.token_symbol == profile.token_symbol
+            and purchase.token_contract_address == profile.token_contract_address
+            and purchase.token_decimals == profile.token_decimals
         )
 
     def submit_base_usdc_tx_hash(

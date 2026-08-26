@@ -114,7 +114,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
     startBaseUsdcPayment,
     walletChainId,
     walletError,
-    walletIsBase,
+    walletIsExpectedNetwork,
     walletProviderStatus
   } = model;
   const selected = packageLabel(creditPackage);
@@ -253,23 +253,24 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
             <span className="status-dot" aria-hidden="true" />
             <div>
               <strong>{connectedWalletAddressMasked}</strong>
-              <Text>{walletIsBase ? "Red Base conectada." : `Red actual: ${walletChainId ?? "desconocida"}.`}</Text>
-              {!walletIsBase ? <small>Cambia tu wallet a Base para preparar el pago.</small> : null}
+              <Text>{walletIsExpectedNetwork ? "Base Sepolia conectada." : `Red actual: ${walletChainId ?? "desconocida"}.`}</Text>
+              {!walletIsExpectedNetwork ? <small>Cambia tu wallet a Base Sepolia para preparar la prueba.</small> : null}
             </div>
           </div>
         </div>
       ) : null}
       {walletError ? <Text role="alert">{walletError}</Text> : null}
       <div className="business-status-panel" role="note">
-        <Text>{selected ? `Pagarás ${selected.priceUsdc} USDC en red Base.` : "Elige un paquete para ver el monto."}</Text>
-        <Text>Necesitas USDC y un poco de ETH en Base para gas.</Text>
+        <Text>{selected ? `Prepararás ${selected.priceUsdc} USDC de prueba en Base Sepolia.` : "Elige un paquete para ver el monto."}</Text>
+        <Text>Necesitas USDC de prueba y un poco de ETH de prueba en Base Sepolia.</Text>
+        <Text>Esta prueba no mueve fondos ni acredita créditos.</Text>
         <small>No pegues hashes en este flujo.</small>
       </div>
       {showPrepareAuthorizationButton ? (
         <button
           className="mini-action-button mini-action-button--filled mini-action-button--full"
           type="button"
-          disabled={generatingCreditPayment || !creditPackage || !connectedWalletAddress || !walletIsBase}
+          disabled={generatingCreditPayment || !creditPackage || !connectedWalletAddress || !walletIsExpectedNetwork}
           onClick={() => void startBaseUsdcPayment()}
         >
           {generatingCreditPayment ? "Generando..." : creditPackage ? "Preparar autorizacion" : "Elige un paquete"}
@@ -329,7 +330,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
           </div>
           <div className="business-grid">
             <Text>Estado: {humanizePurchaseStatus(selectedCreditPurchase.status)}</Text>
-            <Text>Red: {selectedCreditPayment?.network === "base_mainnet" ? "Base" : selectedCreditPayment?.network || "No disponible"}</Text>
+            <Text>Red: {selectedCreditPayment?.network_display_name || selectedCreditPayment?.network || "No disponible"}</Text>
             <Text>Token: {selectedCreditPayment?.token_symbol || "No disponible"}</Text>
             <Text>Contrato: {shortAddress(selectedCreditPayment?.contract_address)}</Text>
             <Text>Version: {selectedCreditPayment?.contract_version ?? "No disponible"}</Text>

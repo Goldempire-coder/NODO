@@ -1,16 +1,7 @@
 from __future__ import annotations
 
 from app.core.errors import ApiError
-from app.modules.credits.models import (
-    BASE_MAINNET_CHAIN_ID,
-    BASE_MAINNET_NETWORK,
-    BASE_USDC_CONTRACT_ADDRESS,
-    BASE_USDC_DECIMALS,
-    BASE_USDC_TOKEN_SYMBOL,
-    CREDIT_PACKAGES,
-    CreditPurchaseRecord,
-    new_id,
-)
+from app.modules.credits.models import CREDIT_PACKAGES, CreditPurchaseRecord, new_id
 from app.modules.credits.row_mappers import purchase_from_row
 
 
@@ -21,6 +12,11 @@ def create_contract_purchase_pg(
     package_code: str,
     idempotency_key: str,
     expected_amount_units: int,
+    chain_id: int,
+    network: str,
+    token_symbol: str,
+    token_contract_address: str,
+    token_decimals: int,
     destination_wallet_address: str,
     purchase_ref: str,
     payer_address: str,
@@ -103,11 +99,11 @@ def create_contract_purchase_pg(
                 package["credits"],
                 package["price_usd"],
                 idempotency_key,
-                BASE_MAINNET_CHAIN_ID,
-                BASE_MAINNET_NETWORK,
-                BASE_USDC_TOKEN_SYMBOL,
-                BASE_USDC_CONTRACT_ADDRESS,
-                BASE_USDC_DECIMALS,
+                chain_id,
+                network,
+                token_symbol,
+                token_contract_address,
+                token_decimals,
                 expected_amount_units,
                 destination_wallet_address,
                 purchase_ref,

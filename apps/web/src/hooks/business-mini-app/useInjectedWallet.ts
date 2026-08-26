@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  BASE_MAINNET_CHAIN_ID,
   connectInjectedWallet,
   firstConnectedAddress,
   getInjectedEthereumProvider,
@@ -10,9 +9,10 @@ import {
   parseEip1193ChainId,
   readInjectedWallet,
   signInjectedWalletChallenge,
-  switchInjectedWalletToBase,
+  switchInjectedWalletNetwork,
   type Eip1193Provider,
   type InjectedWalletSnapshot,
+  type WalletNetworkProfile,
 } from "../../lib/wallet/eip1193";
 
 type WalletProviderStatus = "checking" | "available" | "unavailable";
@@ -24,7 +24,10 @@ function injectedWalletErrorMessage(error: unknown): string {
   return "No pudimos conectar la wallet. Intenta de nuevo.";
 }
 
-export function useInjectedWallet(onWalletContextChanged: () => void) {
+export function useInjectedWallet(
+  onWalletContextChanged: () => void,
+  expectedNetwork: WalletNetworkProfile | null,
+) {
   const [provider, setProvider] = useState<Eip1193Provider | null>(null);
   const [providerStatus, setProviderStatus] = useState<WalletProviderStatus>("checking");
   const [connectedWalletAddress, setConnectedWalletAddress] = useState<string | null>(null);
@@ -120,9 +123,9 @@ export function useInjectedWallet(onWalletContextChanged: () => void) {
     }
   }, [applySnapshot, provider]);
 
-  const switchWalletToBase = useCallback(async () => {
+  const switchWalletToExpectedNetwork = useCallback(async () => {
     const injectedProvider = provider || getInjectedEthereumProvider();
-    if (!injectedProvider) {
+    if (!injectedProvider || !expectedNetwork) {
       setProviderStatus("unavailable");
       setWalletError(null);
       return false;
@@ -132,7 +135,7 @@ export function useInjectedWallet(onWalletContextChanged: () => void) {
     setSwitchingWalletNetwork(true);
     setWalletError(null);
     try {
-      applySnapshot(await switchInjectedWalletToBase(injectedProvider));
+      applySnapshot(await switchInjectedWalletNetwork(injectedProvider, expectedNetwork));
       return true;
     } catch (error) {
       setWalletError(injectedWalletErrorMessage(error));
@@ -140,7 +143,7 @@ export function useInjectedWallet(onWalletContextChanged: () => void) {
     } finally {
       setSwitchingWalletNetwork(false);
     }
-  }, [applySnapshot, provider]);
+  }, [applySnapshot, expectedNetwork, provider]);
 
   const getConnectedWalletSnapshot = useCallback(() => snapshotRef.current, []);
 
@@ -150,12 +153,13 @@ export function useInjectedWallet(onWalletContextChanged: () => void) {
     if (
       !injectedProvider
       || !snapshot.address
-      || snapshot.chainId !== BASE_MAINNET_CHAIN_ID
+      || !expectedNetwork
+      || snapshot.chainId !== expectedNetwork.chainId
     ) {
       throw new Error("WALLET_NOT_READY");
     }
     return signInjectedWalletChallenge(injectedProvider, snapshot.address, challenge);
-  }, [provider]);
+  }, [expectedNetwork, provider]);
 
   return {
     connectWallet,
@@ -164,11 +168,11 @@ export function useInjectedWallet(onWalletContextChanged: () => void) {
     connectingWallet,
     getConnectedWalletSnapshot,
     signWalletChallenge,
-    switchWalletToBase,
+    switchWalletToExpectedNetwork,
     switchingWalletNetwork,
     walletChainId,
     walletError,
-    walletIsBase: walletChainId === BASE_MAINNET_CHAIN_ID,
+    walletIsExpectedNetwork: Boolean(expectedNetwork) && walletChainId === expectedNetwork?.chainId,
     walletProviderStatus: providerStatus,
   };
 }

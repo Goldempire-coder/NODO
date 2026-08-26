@@ -36,6 +36,24 @@ def test_credit_handoff_page_signs_only_the_backend_challenge() -> None:
     assert "Authorization" not in public_api
 
 
+def test_credit_handoff_uses_backend_network_profile_for_wallet_validation() -> None:
+    page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+    types = _read("apps/web/src/types/credits.ts")
+
+    assert "challenge.network" in page
+    assert "challenge.chain_id" in page
+    assert "data.is_testnet" in page
+    assert "expectedNetwork" in page
+    assert "Base Sepolia" in page
+    handoff_type = types.split("export type CreditHandoff = {", 1)[1].split("};", 1)[0]
+    challenge_type = types.split("export type CreditHandoffChallenge = {", 1)[1].split("};", 1)[0]
+    assert "network: CreditPaymentNetwork;" in handoff_type
+    assert "network: CreditPaymentNetwork;" in challenge_type
+    assert "network: string" not in handoff_type
+    assert "network: string" not in challenge_type
+    assert "is_testnet: boolean" in types
+
+
 def test_credit_handoff_runtime_contains_no_payment_or_auth_transfer() -> None:
     source = "\n".join(
         (

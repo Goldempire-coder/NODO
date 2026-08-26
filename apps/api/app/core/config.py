@@ -54,6 +54,7 @@ class Settings:
     base_rpc_url: str | None
     base_rpc_api_key: str | None
     nodo_credit_receiving_wallet_base: str | None
+    nodo_credit_payment_network: str | None
     nodo_credit_payment_contract_address: str | None
     nodo_credit_payment_contract_version: int | None
     nodo_credit_auth_signer_key: str | None
@@ -206,6 +207,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         base_rpc_url=source.get("BASE_RPC_URL") or None,
         base_rpc_api_key=source.get("BASE_RPC_API_KEY") or None,
         nodo_credit_receiving_wallet_base=source.get("NODO_CREDIT_RECEIVING_WALLET_BASE") or None,
+        nodo_credit_payment_network=(source.get("NODO_CREDIT_PAYMENT_NETWORK") or "").strip().lower() or None,
         nodo_credit_payment_contract_address=source.get("NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS") or None,
         nodo_credit_payment_contract_version=_read_optional_int(source, "NODO_CREDIT_PAYMENT_CONTRACT_VERSION"),
         nodo_credit_auth_signer_key=source.get("NODO_CREDIT_AUTH_SIGNER_KEY") or None,

@@ -1,5 +1,45 @@
 export const BASE_MAINNET_CHAIN_ID = 8453;
 export const BASE_MAINNET_CHAIN_ID_HEX = "0x2105";
+export const BASE_SEPOLIA_CHAIN_ID = 84532;
+export const BASE_SEPOLIA_CHAIN_ID_HEX = "0x14a34";
+
+export type WalletNetworkProfile = {
+  network: "base_mainnet" | "base_sepolia";
+  chainId: number;
+  chainIdHex: string;
+  chainName: string;
+  rpcUrl: string;
+  blockExplorerUrl: string;
+  isTestnet: boolean;
+};
+
+export const BASE_MAINNET_WALLET_NETWORK: WalletNetworkProfile = {
+  network: "base_mainnet",
+  chainId: BASE_MAINNET_CHAIN_ID,
+  chainIdHex: BASE_MAINNET_CHAIN_ID_HEX,
+  chainName: "Base",
+  rpcUrl: "https://mainnet.base.org",
+  blockExplorerUrl: "https://basescan.org",
+  isTestnet: false,
+};
+
+export const BASE_SEPOLIA_WALLET_NETWORK: WalletNetworkProfile = {
+  network: "base_sepolia",
+  chainId: BASE_SEPOLIA_CHAIN_ID,
+  chainIdHex: BASE_SEPOLIA_CHAIN_ID_HEX,
+  chainName: "Base Sepolia",
+  rpcUrl: "https://sepolia.base.org",
+  blockExplorerUrl: "https://sepolia.basescan.org",
+  isTestnet: true,
+};
+
+export function resolveWalletNetworkProfile(
+  network: string,
+  chainId: number,
+): WalletNetworkProfile | null {
+  const profiles = [BASE_MAINNET_WALLET_NETWORK, BASE_SEPOLIA_WALLET_NETWORK];
+  return profiles.find((profile) => profile.network === network && profile.chainId === chainId) || null;
+}
 
 type Eip1193RequestArguments = {
   readonly method: string;
@@ -81,31 +121,34 @@ export async function connectInjectedWallet(provider: Eip1193Provider): Promise<
   };
 }
 
-export async function switchInjectedWalletToBase(provider: Eip1193Provider): Promise<InjectedWalletSnapshot> {
+export async function switchInjectedWalletNetwork(
+  provider: Eip1193Provider,
+  expectedNetwork: WalletNetworkProfile,
+): Promise<InjectedWalletSnapshot> {
   try {
     await provider.request({
       method: "wallet_switchEthereumChain",
-      params: [{ chainId: BASE_MAINNET_CHAIN_ID_HEX }],
+      params: [{ chainId: expectedNetwork.chainIdHex }],
     });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === 4902) {
       await provider.request({
         method: "wallet_addEthereumChain",
         params: [{
-          blockExplorerUrls: ["https://basescan.org"],
-          chainId: BASE_MAINNET_CHAIN_ID_HEX,
-          chainName: "Base",
+          blockExplorerUrls: [expectedNetwork.blockExplorerUrl],
+          chainId: expectedNetwork.chainIdHex,
+          chainName: expectedNetwork.chainName,
           nativeCurrency: {
             decimals: 18,
             name: "Ether",
             symbol: "ETH",
           },
-          rpcUrls: ["https://mainnet.base.org"],
+          rpcUrls: [expectedNetwork.rpcUrl],
         }],
       });
       await provider.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: BASE_MAINNET_CHAIN_ID_HEX }],
+        params: [{ chainId: expectedNetwork.chainIdHex }],
       });
     } else {
       throw error;

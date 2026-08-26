@@ -134,6 +134,7 @@ Railway must receive backend-only env vars:
 - ORDER_NOTIFICATION_SENDER_BATCH_SIZE
 - BASE_RPC_URL
 - NODO_CREDIT_RECEIVING_WALLET_BASE
+- NODO_CREDIT_PAYMENT_NETWORK
 - NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS
 - NODO_CREDIT_PAYMENT_CONTRACT_VERSION
 - NODO_CREDIT_PAYMENT_CONTRACT_PAUSED
@@ -174,6 +175,7 @@ NODO no almacena private key, seed phrase, mnemonic ni signing key de esa wallet
 
 52C introduce un signer operacional separado para autorizar pagos por contrato:
 
+- `NODO_CREDIT_PAYMENT_NETWORK`
 - `NODO_CREDIT_PAYMENT_CONTRACT_ADDRESS`
 - `NODO_CREDIT_PAYMENT_CONTRACT_VERSION`
 - `NODO_CREDIT_PAYMENT_CONTRACT_PAUSED`
@@ -198,6 +200,11 @@ hashea antes de usarse como clave y no se registra en claro.
 
 Clasificacion:
 
+- `NODO_CREDIT_PAYMENT_NETWORK` es autoridad backend obligatoria y solo acepta
+  `base_sepolia` o `base_mainnet`. No se infiere desde `APP_ENV`, no se expone
+  como selector frontend y un valor ausente/desconocido deshabilita el flujo;
+- 52C2D-S0 debe usar `base_sepolia`. Cambiar a `base_mainnet` requiere otro gate
+  Owner y no activa automaticamente frontend, watcher, wallet o fondos reales;
 - direccion/version/paused, signer address/version y TTL son configuracion
   backend; no son secretos, pero no pueden venir del cliente ni actuar como
   `NEXT_PUBLIC_*`;

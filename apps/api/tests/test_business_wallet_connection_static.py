@@ -45,7 +45,7 @@ def test_business_credit_authorization_uses_only_connected_base_account() -> Non
 
     assert "useInjectedWallet" in hook
     assert "connectedWalletAddress" in hook
-    assert "walletIsBase" in hook
+    assert "walletIsExpectedNetwork" in hook
     assert "startBusinessBaseUsdcPayment" in hook
     assert "connectedWalletAddress," in hook
     assert "payerWalletAddress" not in hook
@@ -59,11 +59,12 @@ def test_injected_wallet_adapter_handles_account_and_chain_changes() -> None:
 
     assert 'method: "eth_requestAccounts"' in adapter
     assert 'method: "eth_chainId"' in adapter
-    assert "BASE_MAINNET_CHAIN_ID = 8453" in adapter
-    assert 'BASE_MAINNET_CHAIN_ID_HEX = "0x2105"' in adapter
+    assert "BASE_SEPOLIA_CHAIN_ID = 84532" in adapter
+    assert 'BASE_SEPOLIA_CHAIN_ID_HEX = "0x14a34"' in adapter
     assert 'method: "wallet_switchEthereumChain"' in adapter
     assert 'method: "wallet_addEthereumChain"' in adapter
-    assert "switchWalletToBase" in wallet_hook
+    assert "expectedNetwork" in wallet_hook
+    assert "switchWalletToExpectedNetwork" in wallet_hook
     assert "switchingWalletNetwork" in wallet_hook
     assert '.on("accountsChanged"' in wallet_hook
     assert '.on("chainChanged"' in wallet_hook
@@ -87,7 +88,7 @@ def test_pending_contract_purchase_requires_the_current_connected_base_wallet() 
 
     assert 'walletProviderStatus !== "available"' in continue_block
     assert "!connectedWalletAddress" in continue_block
-    assert "!walletIsBase" in continue_block
+    assert "!walletIsExpectedNetwork" in continue_block
     assert "const preparedWallet = getConnectedWalletSnapshot()" in continue_block
     assert "data.payment?.payer_wallet_address" in continue_block
     assert "paymentWallet !== preparedWallet.address" in continue_block

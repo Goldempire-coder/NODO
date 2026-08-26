@@ -2,6 +2,7 @@
 
 import { Text, Title } from "@telegram-apps/telegram-ui";
 import { useInjectedWallet } from "../../../hooks/business-mini-app/useInjectedWallet";
+import { BASE_SEPOLIA_WALLET_NETWORK } from "../../../lib/wallet/eip1193";
 
 export default function BusinessWalletProbePage() {
   const {
@@ -9,14 +10,14 @@ export default function BusinessWalletProbePage() {
     connectedWalletAddress,
     connectedWalletAddressMasked,
     connectingWallet,
-    switchWalletToBase,
+    switchWalletToExpectedNetwork,
     switchingWalletNetwork,
     walletChainId,
     walletError,
-    walletIsBase,
+    walletIsExpectedNetwork,
     walletProviderStatus,
-  } = useInjectedWallet(() => undefined);
-  const walletReadyForTelegram = Boolean(connectedWalletAddress) && walletIsBase;
+  } = useInjectedWallet(() => undefined, BASE_SEPOLIA_WALLET_NETWORK);
+  const walletReadyForTelegram = Boolean(connectedWalletAddress) && walletIsExpectedNetwork;
 
   return (
     <main className="app-shell">
@@ -51,9 +52,9 @@ export default function BusinessWalletProbePage() {
               <div>
                 <span className="status-dot" aria-hidden="true" />
                 <div>
-                  <strong>{walletIsBase ? "Base conectada" : "Red distinta de Base"}</strong>
+                  <strong>{walletIsExpectedNetwork ? "Base Sepolia conectada" : "Red distinta de Base Sepolia"}</strong>
                   <Text>Chain ID: {walletChainId ?? "desconocido"}</Text>
-                  {!walletIsBase ? <small>Cambia la red de tu wallet a Base (8453).</small> : null}
+                  {!walletIsExpectedNetwork ? <small>Cambia la red de tu wallet a Base Sepolia (84532).</small> : null}
                 </div>
               </div>
             </div>
@@ -65,7 +66,7 @@ export default function BusinessWalletProbePage() {
                 <span className="status-dot" aria-hidden="true" />
                 <div>
                   <strong>Listo para volver a Telegram</strong>
-                  <Text>MetaMask ya está en Base. Usa el botón Telegram de arriba para regresar a NODO.</Text>
+                  <Text>MetaMask ya está en Base Sepolia. Usa el botón Telegram de arriba para regresar a NODO.</Text>
                   <small>Esta prueba terminó; todavía no prepara compras ni pagos.</small>
                 </div>
               </div>
@@ -76,8 +77,8 @@ export default function BusinessWalletProbePage() {
               type="button"
               disabled={connectingWallet || switchingWalletNetwork || walletProviderStatus === "checking"}
               onClick={() => {
-                if (connectedWalletAddress && !walletIsBase) {
-                  void switchWalletToBase();
+                if (connectedWalletAddress && !walletIsExpectedNetwork) {
+                  void switchWalletToExpectedNetwork();
                   return;
                 }
                 void connectWallet();
@@ -86,9 +87,9 @@ export default function BusinessWalletProbePage() {
               {connectingWallet
                 ? "Conectando..."
                 : switchingWalletNetwork
-                  ? "Abriendo Base..."
+                  ? "Abriendo Base Sepolia..."
                   : connectedWalletAddress
-                    ? "Cambiar a Base"
+                    ? "Cambiar a Base Sepolia"
                     : "Conectar wallet"}
             </button>
           )}

@@ -50,9 +50,13 @@ export type CreditPurchase = {
 
 export type ContractCreditAuthorizationStatus = "valid" | "expired" | "reissue_required";
 
+export type CreditPaymentNetwork = "base_sepolia" | "base_mainnet";
+
 export type ContractCreditPayment = {
-  network: string | null;
+  network: CreditPaymentNetwork | null;
   chain_id: number | null;
+  network_display_name?: string | null;
+  is_testnet?: boolean | null;
   token_symbol: string | null;
   token_contract_address: string | null;
   token_decimals: number | null;
@@ -83,6 +87,10 @@ export type CreditHandoff = {
   status: "active" | "claiming" | "prepared" | "expired";
   expires_at: string;
   wallet_address_masked?: string | null;
+  network: CreditPaymentNetwork;
+  chain_id: number;
+  network_display_name: string;
+  is_testnet: boolean;
 };
 
 export type CreditHandoffCreated = {
@@ -94,6 +102,9 @@ export type CreditHandoffCreated = {
 export type CreditHandoffChallenge = {
   challenge: string;
   chain_id: number;
+  network: CreditPaymentNetwork;
+  network_display_name: string;
+  is_testnet: boolean;
   expires_at: string;
 };
 

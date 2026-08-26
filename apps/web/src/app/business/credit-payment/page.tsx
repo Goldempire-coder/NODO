@@ -4,6 +4,7 @@ import { Text, Title } from "@telegram-apps/telegram-ui";
 import { useEffect, useState } from "react";
 import { claimCreditHandoff, getCreditHandoffChallenge } from "../../../api/credits";
 import { useInjectedWallet } from "../../../hooks/business-mini-app/useInjectedWallet";
+import { resolveWalletNetworkProfile } from "../../../lib/wallet/eip1193";
 import type { CreditHandoffChallenge } from "../../../types/credits";
 
 
@@ -20,22 +21,25 @@ export default function BusinessCreditPaymentHandoffPage() {
   const [claiming, setClaiming] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const expectedNetwork = challenge
+    ? resolveWalletNetworkProfile(challenge.network, challenge.chain_id)
+    : null;
   const {
     connectWallet,
     connectedWalletAddress,
     connectedWalletAddressMasked,
     connectingWallet,
     signWalletChallenge,
-    switchWalletToBase,
+    switchWalletToExpectedNetwork,
     switchingWalletNetwork,
     walletChainId,
     walletError,
-    walletIsBase,
+    walletIsExpectedNetwork,
     walletProviderStatus,
   } = useInjectedWallet(() => {
     setCompleted(false);
     setPageError("La cuenta o red cambio. Revisa la wallet antes de continuar.");
-  });
+  }, expectedNetwork);
 
   useEffect(() => {
     const token = extractCreditHandoffToken(window.location.hash);
@@ -47,7 +51,13 @@ export default function BusinessCreditPaymentHandoffPage() {
     }
     setHandoffToken(token);
     void getCreditHandoffChallenge(token)
-      .then(setChallenge)
+      .then((data) => {
+        const network = resolveWalletNetworkProfile(data.network, data.chain_id);
+        if (!network || !data.is_testnet || data.network !== "base_sepolia") {
+          throw new Error("La red de prueba no esta configurada correctamente.");
+        }
+        setChallenge(data);
+      })
       .catch((error: unknown) => {
         setPageError(error instanceof Error ? error.message : "No pudimos abrir esta preparacion.");
       })
@@ -55,8 +65,8 @@ export default function BusinessCreditPaymentHandoffPage() {
   }, []);
 
   const confirmWallet = async () => {
-    if (!handoffToken || !challenge || !connectedWalletAddress || !walletIsBase) {
-      setPageError("Conecta una wallet en Base antes de continuar.");
+    if (!handoffToken || !challenge || !connectedWalletAddress || !walletIsExpectedNetwork) {
+      setPageError("Conecta una wallet en Base Sepolia antes de continuar.");
       return;
     }
     setClaiming(true);
@@ -86,6 +96,7 @@ export default function BusinessCreditPaymentHandoffPage() {
             Wallet para creditos NODO
           </Title>
           <Text>Esto no cobra, no aprueba pagos y no mueve fondos.</Text>
+          <Text>Prueba sin dinero real en Base Sepolia.</Text>
           <Text>NODO no ve ni guarda tu clave privada.</Text>
 
           <div className="business-status-panel" role="status">
@@ -113,7 +124,7 @@ export default function BusinessCreditPaymentHandoffPage() {
               <div>
                 <span className="status-dot" aria-hidden="true" />
                 <div>
-                  <strong>{walletIsBase ? "Base conectada" : "Red distinta de Base"}</strong>
+                  <strong>{walletIsExpectedNetwork ? "Base Sepolia conectada" : "Red distinta de Base Sepolia"}</strong>
                   <Text>Chain ID: {walletChainId ?? "desconocido"}</Text>
                 </div>
               </div>
@@ -140,8 +151,8 @@ export default function BusinessCreditPaymentHandoffPage() {
               onClick={() => {
                 if (!connectedWalletAddress) {
                   void connectWallet();
-                } else if (!walletIsBase) {
-                  void switchWalletToBase();
+                } else if (!walletIsExpectedNetwork) {
+                  void switchWalletToExpectedNetwork();
                 } else {
                   void confirmWallet();
                 }
@@ -150,13 +161,13 @@ export default function BusinessCreditPaymentHandoffPage() {
               {connectingWallet
                 ? "Conectando..."
                 : switchingWalletNetwork
-                  ? "Abriendo Base..."
+                  ? "Abriendo Base Sepolia..."
                   : claiming
                     ? "Comprobando wallet..."
                     : !connectedWalletAddress
                       ? "Conectar wallet"
-                      : !walletIsBase
-                        ? "Cambiar a Base"
+                      : !walletIsExpectedNetwork
+                        ? "Cambiar a Base Sepolia"
                         : "Confirmar esta wallet"}
             </button>
           )}

@@ -14,10 +14,11 @@ import type { ContractCreditPayment, CreditPurchase, CreditWallet, ReferralData 
 import { actionStartedAt, recordBusinessActionCompleted, recordBusinessActionFailed, recordBusinessActionStarted } from "../actionTelemetry";
 import { useStableIdempotencyKeys } from "../useStableIdempotencyKeys";
 import { openMetaMaskCreditHandoff as launchMetaMaskCreditHandoff } from "../../lib/wallet/metamaskHandoff";
+import { BASE_SEPOLIA_WALLET_NETWORK } from "../../lib/wallet/eip1193";
 import { useInjectedWallet } from "./useInjectedWallet";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 
-const BASE_USDC_CREDIT_NOTICE = "NODO prepara compras de creditos en USDC sobre red Base.";
+const BASE_USDC_CREDIT_NOTICE = "Modo de prueba: NODO prepara compras de creditos en USDC sobre Base Sepolia.";
 const BASE_USDC_PENDING_PURCHASE_LEGACY_KEY = "nodo_base_usdc_pending_purchase_id";
 const BASE_USDC_PENDING_PURCHASE_KEY_PREFIX = "nodo_base_usdc_pending_purchase_id";
 const BASE_USDC_HANDOFF_KEY_PREFIX = "nodo_base_usdc_handoff_id";
@@ -175,13 +176,13 @@ export function useBusinessCreditsModel({
     connectedWalletAddress,
     connectedWalletAddressMasked,
     getConnectedWalletSnapshot,
-    switchWalletToBase,
+    switchWalletToExpectedNetwork,
     switchingWalletNetwork,
     walletChainId,
     walletError,
-    walletIsBase,
+    walletIsExpectedNetwork,
     walletProviderStatus,
-  } = useInjectedWallet(invalidatePreparedCreditPayment);
+  } = useInjectedWallet(invalidatePreparedCreditPayment, BASE_SEPOLIA_WALLET_NETWORK);
 
   const requireBusinessPinFor = useCallback((action: string) => {
     return requireUnlockedBusinessPin({ action, business, setNotice, setView });
@@ -260,8 +261,8 @@ export function useBusinessCreditsModel({
       setNotice("Conecta la wallet desde donde pagaras.");
       return;
     }
-    if (!walletIsBase) {
-      setNotice("Cambia tu wallet a Base para continuar el pago.");
+    if (!walletIsExpectedNetwork) {
+      setNotice("Cambia tu wallet a Base Sepolia para continuar la prueba.");
       return;
     }
     const preparedWallet = getConnectedWalletSnapshot();
@@ -308,7 +309,7 @@ export function useBusinessCreditsModel({
     } finally {
       setLoadingPendingPurchase(false);
     }
-  }, [business?.id, connectedWalletAddress, getConnectedWalletSnapshot, pendingCreditPurchase, pendingPurchaseStorageKey, request, setNotice, setView, walletChainId, walletIsBase, walletProviderStatus]);
+  }, [business?.id, connectedWalletAddress, getConnectedWalletSnapshot, pendingCreditPurchase, pendingPurchaseStorageKey, request, setNotice, setView, walletChainId, walletIsExpectedNetwork, walletProviderStatus]);
 
   const loadCreditDashboard = useCallback(async () => {
     setView("credits-dashboard");
@@ -424,8 +425,8 @@ export function useBusinessCreditsModel({
       setNotice("Conecta la wallet desde donde pagarás.");
       return;
     }
-    if (!walletIsBase) {
-      setNotice("Cambia tu wallet a Base para preparar el pago.");
+    if (!walletIsExpectedNetwork) {
+      setNotice("Cambia tu wallet a Base Sepolia para preparar la prueba.");
       return;
     }
     const preparedWallet = getConnectedWalletSnapshot();
@@ -451,6 +452,14 @@ export function useBusinessCreditsModel({
           connectedWalletAddress
         })
       );
+      if (
+        data.payment?.network !== BASE_SEPOLIA_WALLET_NETWORK.network
+        || data.payment.chain_id !== BASE_SEPOLIA_WALLET_NETWORK.chainId
+        || data.payment.is_testnet !== true
+      ) {
+        setNotice("La red de prueba no coincide con la configuracion del backend.");
+        return;
+      }
       clearIdempotencyKey(idempotencyScope);
       const currentWallet = getConnectedWalletSnapshot();
       if (
@@ -477,7 +486,7 @@ export function useBusinessCreditsModel({
     } finally {
       setGeneratingCreditPayment(false);
     }
-  }, [clearIdempotencyKey, connectedWalletAddress, creditPackage, getConnectedWalletSnapshot, getIdempotencyKey, handleBusinessPinError, pendingPurchaseStorageKey, request, requireBusinessPinFor, setNotice, setView, walletChainId, walletIsBase, walletProviderStatus]);
+  }, [clearIdempotencyKey, connectedWalletAddress, creditPackage, getConnectedWalletSnapshot, getIdempotencyKey, handleBusinessPinError, pendingPurchaseStorageKey, request, requireBusinessPinFor, setNotice, setView, walletChainId, walletIsExpectedNetwork, walletProviderStatus]);
 
   const refreshSelectedCreditPurchase = useCallback(async () => {
     if (!selectedCreditPurchase) {
@@ -546,11 +555,11 @@ export function useBusinessCreditsModel({
     selectedCreditPurchase,
     setCreditPackage: selectCreditPackage,
     startBaseUsdcPayment,
-    switchWalletToBase,
+    switchWalletToExpectedNetwork,
     switchingWalletNetwork,
     walletChainId,
     walletError,
-    walletIsBase,
+    walletIsExpectedNetwork,
     walletProviderStatus,
   };
 }

@@ -129,6 +129,14 @@ Rutas legacy prohibidas/no validas:
 - Backend deriva desde sesion/configuracion/catalogo: negocio, paquete, precio,
   creditos, token, chain, contrato, treasury, version, expiracion y
   `purchase_ref`.
+- La autoridad de red contractual es `NODO_CREDIT_PAYMENT_NETWORK`. Solo admite
+  los perfiles cerrados `base_sepolia` y `base_mainnet`; valor ausente o
+  desconocido falla cerrado con `503 CRYPTO_CONTRACT_PAYMENT_NOT_CONFIGURED`.
+- Cada perfil fija como unidad inseparable `network`, `chain_id`, simbolo,
+  contrato y decimales del token. Runtime no combina valores entre perfiles.
+- 52C2D-S0 habilita frontend solo para `base_sepolia`: chain `84532`, USDC de
+  testnet `0x036CbD53842c5426634e7929541eC2318f3dCF7e`. Esos tokens no tienen valor
+  financiero. Mainnet queda definida pero no seleccionable desde frontend.
 - Crear o firmar la compra no acredita creditos, no crea ledger y no mueve
   fondos.
 
@@ -166,6 +174,8 @@ Compatibilidad legacy durante la migracion:
   - status
   - network
   - chain_id
+  - network_display_name
+  - is_testnet
   - token_symbol
   - token_contract_address
   - token_decimals
@@ -562,7 +572,8 @@ Referral qualification:
 - Backend liga el handoff a usuario, negocio y paquete derivados de la sesion.
   Rechaza `business_id`, wallet, monto, precio, token, red y contrato enviados
   por cliente.
-- Responde una vez con `handoff.id`, token opaco y `expires_at`. El token viaja
+- Responde una vez con `handoff.id`, token opaco, `expires_at` y el perfil
+  publico `network`, `chain_id`, `network_display_name`, `is_testnet`. El token viaja
   a `/business/credit-payment` solo en fragment URL y backend persiste solo su
   SHA-256 en store efimero.
 - Rate limit por usuario, negocio e IP. Redis compartido es obligatorio en
@@ -572,15 +583,19 @@ Referral qualification:
 
 - Publico por capacidad efimera; sin JWT, cookie, PIN ni Telegram `initData`.
 - Body: `{ "handoff_token": "opaque" }`.
-- Devuelve challenge legible, `chain_id = 8453` y expiracion.
+- Devuelve challenge legible, expiracion y el mismo perfil de red ligado al
+  handoff. Para 52C2D-S0: `network = base_sepolia`, `chain_id = 84532` e
+  `is_testnet = true`.
 - Solo un handoff activo y no vencido puede obtener challenge.
 - Rate limit por IP y hash de handoff; respuesta `private, no-store`.
 
 ### POST /api/v1/business/credits/handoffs/claim
 
 - Body estricto: `handoff_token`, `wallet_address`, `chain_id`, `signature`.
-- Requiere Base `8453` y recupera el signer EIP-191 de `personal_sign` sobre el
+- Requiere el `chain_id` exacto ligado al handoff y recupera el signer EIP-191 de `personal_sign` sobre el
   challenge exacto emitido por backend.
+- Si la configuracion cambia entre create/challenge/claim o mezcla perfil de
+  mainnet y testnet, falla cerrado sin firma contractual, compra, ledger ni saldo.
 - Revalida usuario, negocio, vinculo owner y PIN antes de preparar la compra.
 - Claim atomico y replay identico son idempotentes; otro signer o handoff
   vencido/usado falla neutralmente.
@@ -593,5 +608,6 @@ Referral qualification:
 - Auth: mismo negocio owner activo.
 - Recuperacion manual desde Telegram; no polling.
 - Devuelve `active|claiming|prepared|expired`, wallet enmascarada y, solo al
-  quedar preparado, el detalle contractual de la compra propia.
+  quedar preparado, el detalle contractual de la compra propia. Tambien devuelve
+  el perfil publico de red ligado al handoff.
 - Puede recordarse el `handoff_id`; el token nunca se persiste en storage web.

@@ -18,7 +18,11 @@ from redis.exceptions import RedisError, WatchError
 
 from app.core.errors import ApiError
 from app.modules.businesses.models import BusinessRecord
-from app.modules.credits.models import BASE_MAINNET_CHAIN_ID, CREDIT_PACKAGES, utc_now
+from app.modules.credits.models import (
+    CREDIT_PACKAGES,
+    CreditPaymentNetworkProfile,
+    utc_now,
+)
 from app.modules.credits.payment_authorizations import normalize_payment_address
 from app.modules.credits.schemas import ContractBaseUsdcPaymentRequest
 from app.modules.users.models import UserRecord
@@ -48,6 +52,8 @@ class CreditHandoffRecord:
     status: str
     created_at: str
     expires_at: str
+    network: str = ""
+    chain_id: int = 0
     claim_wallet_address: str | None = None
     claim_signature_hash: str | None = None
     purchase_id: str | None = None
@@ -265,7 +271,7 @@ class CreditPaymentHandoffs:
         self._rate_limit("create", user.id, business.id, None)
         if package_code not in CREDIT_PACKAGES:
             raise ApiError("INVALID_PACKAGE", status_code=400)
-        self._business_purchases.ensure_contract_payment_available()
+        network_profile = self._business_purchases.contract_network_profile()
         now = utc_now()
         expires_at = now + timedelta(seconds=HANDOFF_TTL_SECONDS)
         token = secrets.token_urlsafe(HANDOFF_TOKEN_BYTES)
@@ -276,6 +282,7 @@ class CreditPaymentHandoffs:
             handoff_id=handoff_id,
             nonce=secrets.token_hex(16),
             expires_at=expires_at,
+            network_profile=network_profile,
         )
         record = CreditHandoffRecord(
             id=handoff_id,
@@ -287,6 +294,8 @@ class CreditPaymentHandoffs:
             status="active",
             created_at=now.isoformat(),
             expires_at=expires_at.isoformat(),
+            network=network_profile.network,
+            chain_id=network_profile.chain_id,
         )
         try:
             self._store.create(record)
@@ -307,6 +316,7 @@ class CreditPaymentHandoffs:
                 "token": token,
                 "status": record.status,
                 "expires_at": record.expires_at,
+                **self._network_public(network_profile),
             }
         }
 
@@ -315,10 +325,11 @@ class CreditPaymentHandoffs:
         self._rate_limit("challenge", None, None, token_hash)
         record = self._record_by_token(token)
         self._require_active(record)
+        network_profile = self._require_record_network(record)
         return {
             "challenge": record.challenge,
-            "chain_id": BASE_MAINNET_CHAIN_ID,
             "expires_at": record.expires_at,
+            **self._network_public(network_profile),
         }
 
     def claim(
@@ -334,7 +345,8 @@ class CreditPaymentHandoffs:
         self._rate_limit("claim", None, None, token_hash)
         record = self._record_by_token(token)
         self._require_not_expired(record)
-        if chain_id != BASE_MAINNET_CHAIN_ID:
+        network_profile = self._require_record_network(record)
+        if chain_id != network_profile.chain_id:
             raise ApiError("CREDIT_HANDOFF_NETWORK_INVALID", status_code=409)
         wallet = normalize_payment_address(wallet_address)
         try:
@@ -421,6 +433,7 @@ class CreditPaymentHandoffs:
                 "status": status,
                 "expires_at": record.expires_at,
                 "wallet_address_masked": _mask_wallet(record.claim_wallet_address),
+                **self._network_public(self._require_record_network(record)),
             }
         }
         if record.status == "prepared" and record.purchase_id:
@@ -438,6 +451,7 @@ class CreditPaymentHandoffs:
                 "status": "prepared",
                 "expires_at": record.expires_at,
                 "wallet_address_masked": _mask_wallet(record.claim_wallet_address),
+                **self._network_public(self._require_record_network(record)),
             }
         }
 
@@ -454,6 +468,28 @@ class CreditPaymentHandoffs:
         self._require_not_expired(record)
         if record.status != "active":
             raise ApiError("CREDIT_HANDOFF_ALREADY_USED", status_code=409)
+
+    def _require_record_network(
+        self,
+        record: CreditHandoffRecord,
+    ) -> CreditPaymentNetworkProfile:
+        profile = self._business_purchases.contract_network_profile()
+        if record.network != profile.network or record.chain_id != profile.chain_id:
+            raise ApiError(
+                "CRYPTO_CONTRACT_PAYMENT_NOT_CONFIGURED",
+                message="Este metodo de pago no esta disponible temporalmente.",
+                status_code=503,
+            )
+        return profile
+
+    @staticmethod
+    def _network_public(profile: CreditPaymentNetworkProfile) -> dict[str, Any]:
+        return {
+            "network": profile.network,
+            "chain_id": profile.chain_id,
+            "network_display_name": profile.display_name,
+            "is_testnet": profile.is_testnet,
+        }
 
     @staticmethod
     def _expires_at(record: CreditHandoffRecord) -> datetime:
@@ -472,6 +508,7 @@ class CreditPaymentHandoffs:
         handoff_id: str,
         nonce: str,
         expires_at: datetime,
+        network_profile: CreditPaymentNetworkProfile,
     ) -> str:
         configured = urlsplit(self._settings.telegram_web_app_url)
         origin = f"{configured.scheme}://{configured.netloc}"
@@ -483,7 +520,8 @@ class CreditPaymentHandoffs:
                 "Esto no cobra ni mueve fondos.",
                 f"Handoff: {handoff_id}",
                 f"Nonce: {nonce}",
-                f"Chain ID: {BASE_MAINNET_CHAIN_ID}",
+                f"Network: {network_profile.network}",
+                f"Chain ID: {network_profile.chain_id}",
                 f"Expires at: {expires_at.isoformat()}",
             )
         )

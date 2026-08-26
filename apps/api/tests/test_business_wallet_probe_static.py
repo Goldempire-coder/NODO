@@ -99,18 +99,18 @@ def test_wallet_probe_is_read_only_and_dependency_free() -> None:
         assert marker not in source
 
 
-def test_wallet_probe_can_request_base_network_without_payment_actions() -> None:
+def test_wallet_probe_can_request_base_sepolia_without_payment_actions() -> None:
     adapter = _read("apps/web/src/lib/wallet/eip1193.ts")
     page = _read("apps/web/src/app/business/wallet-probe/page.tsx")
 
-    assert 'BASE_MAINNET_CHAIN_ID_HEX = "0x2105"' in adapter
+    assert 'BASE_SEPOLIA_CHAIN_ID_HEX = "0x14a34"' in adapter
     assert 'method: "wallet_switchEthereumChain"' in adapter
     assert 'method: "wallet_addEthereumChain"' in adapter
-    assert "https://mainnet.base.org" in adapter
-    assert "https://basescan.org" in adapter
-    assert "switchInjectedWalletToBase" in adapter
-    assert "switchWalletToBase" in page
-    assert "Cambiar a Base" in page
+    assert "https://sepolia.base.org" in adapter
+    assert "https://sepolia.basescan.org" in adapter
+    assert "switchInjectedWalletNetwork" in adapter
+    assert "switchWalletToExpectedNetwork" in page
+    assert "Base Sepolia" in page
     assert "Listo para volver a Telegram" in page
     assert "regresar a NODO" in page
     assert "Wallet lista en Base" not in page
