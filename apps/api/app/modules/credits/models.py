@@ -20,6 +20,9 @@ CREDIT_PACKAGES = {
     "business": {"credits": 50, "price_usd": Decimal("75.00")},
     "enterprise": {"credits": 200, "price_usd": Decimal("250.00")},
 }
+TESTNET_CREDIT_PACKAGE_PRICE_SCALE = Decimal("0.01")
+TESTNET_CREDIT_PACKAGE_PRICE_QUANTUM = Decimal("0.01")
+TESTNET_CREDIT_PACKAGE_PRICE_ENVS = {"local", "test", "staging"}
 BASE_MAINNET_CHAIN_ID = 8453
 BASE_MAINNET_NETWORK = "base_mainnet"
 BASE_USDC_TOKEN_SYMBOL = "USDC"
@@ -66,6 +69,29 @@ CREDIT_PAYMENT_NETWORK_PROFILES = {
 
 def credit_payment_network_profile(value: str | None) -> CreditPaymentNetworkProfile | None:
     return CREDIT_PAYMENT_NETWORK_PROFILES.get((value or "").strip().lower())
+
+
+def contract_credit_package(
+    package_code: str,
+    *,
+    app_env: str,
+    network_profile: CreditPaymentNetworkProfile | None,
+) -> dict[str, int | Decimal] | None:
+    package = CREDIT_PACKAGES.get(package_code)
+    if package is None:
+        return None
+
+    price_usd = package["price_usd"]
+    if (
+        network_profile is not None
+        and network_profile.is_testnet
+        and app_env.strip().lower() in TESTNET_CREDIT_PACKAGE_PRICE_ENVS
+    ):
+        price_usd = (price_usd * TESTNET_CREDIT_PACKAGE_PRICE_SCALE).quantize(
+            TESTNET_CREDIT_PACKAGE_PRICE_QUANTUM
+        )
+
+    return {"credits": package["credits"], "price_usd": price_usd}
 
 PURCHASE_METHODS = {"stripe_checkout", "zelle_manual_admin_approved", "usdt_manual_admin_approved", "base_usdc_onchain", "base_usdc_contract"}
 PURCHASE_STATUSES = {

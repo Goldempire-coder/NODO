@@ -8,16 +8,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlencode
 
 import pytest
-from eth_account import Account
-from eth_account.messages import encode_defunct, encode_typed_data
-from fastapi.testclient import TestClient
-from PIL import Image
-
 from app.core.errors import ApiError
 from app.modules.credits.onchain import (
     NODO_CREDIT_PAYMENT_RECEIVED_TOPIC,
@@ -26,7 +22,10 @@ from app.modules.credits.onchain import (
     OnchainVerificationResult,
 )
 from app.modules.credits.payment_authorizations import authorization_is_expired
-
+from eth_account import Account
+from eth_account.messages import encode_defunct, encode_typed_data
+from fastapi.testclient import TestClient
+from PIL import Image
 
 BOT_TOKEN = "123456:test-bot-token"
 JWT_SECRET = "test-access-secret"
@@ -95,8 +94,16 @@ _set_env()
 from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
-from app.modules.credits import business_purchases as business_purchases_module  # noqa: E402
-from app.modules.credits.credit_handoffs import CreditHandoffStoreUnavailable  # noqa: E402
+from app.modules.credits import (  # noqa: E402
+    business_purchases as business_purchases_module,
+)
+from app.modules.credits.credit_handoffs import (  # noqa: E402
+    CreditHandoffStoreUnavailable,
+)
+from app.modules.credits.models import (  # noqa: E402
+    contract_credit_package,
+    credit_payment_network_profile,
+)
 from app.shared.rate_limit.redis import RateLimitUnavailableError  # noqa: E402
 
 
@@ -379,7 +386,7 @@ def _verification(
 def _contract_verification(
     tx_hash: str,
     *,
-    amount_units: int = 10_000_000,
+    amount_units: int = 100_000,
     confirmations: int = 6,
     status: str = "verified",
     error_code: str | None = None,
@@ -1253,6 +1260,41 @@ def test_contract_payment_signs_backend_snapshot_and_does_not_credit() -> None:
     assert wallet is None or wallet.available_credits == 0
 
 
+def test_contract_credit_package_uses_discount_only_for_testnet_non_production() -> None:
+    base_sepolia = credit_payment_network_profile("base_sepolia")
+    base_mainnet = credit_payment_network_profile("base_mainnet")
+    expected_testnet_prices = {
+        "starter": Decimal("0.10"),
+        "pro": Decimal("0.25"),
+        "business": Decimal("0.75"),
+        "enterprise": Decimal("2.50"),
+    }
+
+    staging_testnet_prices = {
+        code: contract_credit_package(code, app_env="staging", network_profile=base_sepolia)
+        for code in expected_testnet_prices
+    }
+    production_testnet = contract_credit_package(
+        "starter",
+        app_env="production",
+        network_profile=base_sepolia,
+    )
+    staging_mainnet = contract_credit_package(
+        "starter",
+        app_env="staging",
+        network_profile=base_mainnet,
+    )
+
+    assert {
+        code: package["price_usd"] if package is not None else None
+        for code, package in staging_testnet_prices.items()
+    } == expected_testnet_prices
+    assert production_testnet is not None
+    assert production_testnet["price_usd"] == Decimal("10.00")
+    assert staging_mainnet is not None
+    assert staging_mainnet["price_usd"] == Decimal("10.00")
+
+
 def test_contract_payment_uses_configured_base_sepolia_profile_without_mainnet_mix() -> None:
     client, _ = _contract_client()
     owner = _login(client, 1111, "contract_base_sepolia")
@@ -1270,11 +1312,16 @@ def test_contract_payment_uses_configured_base_sepolia_profile_without_mainnet_m
     assert data["payment"]["chain_id"] == 84532
     assert data["payment"]["token_contract_address"] == BASE_SEPOLIA_USDC
     assert data["payment"]["authorization_typed_data"]["domain"]["chainId"] == 84532
+    assert data["payment"]["expected_amount_units"] == "100000"
+    assert data["payment"]["expected_amount_display"] == "0.10"
+    assert data["purchase"]["price_usd"] == "0.10"
     stored = client.app.state.credit_repository.get_purchase(data["purchase"]["id"])
     assert stored is not None
     assert stored.network == "base_sepolia"
     assert stored.chain_id == 84532
     assert stored.token_contract_address == BASE_SEPOLIA_USDC
+    assert stored.expected_amount_units == 100_000
+    assert stored.price_usd == Decimal("0.10")
     assert client.app.state.credit_repository.ledger_for_purchase(data["purchase"]["id"]) is None
     wallet = client.app.state.credit_repository.get_wallet(business["id"])
     assert wallet is None or wallet.available_credits == 0
@@ -1297,6 +1344,8 @@ def test_contract_payment_mainnet_profile_does_not_reuse_testnet_chain_or_token(
     assert payment["chain_id"] == 8453
     assert payment["token_contract_address"] == BASE_USDC
     assert payment["is_testnet"] is False
+    assert payment["expected_amount_units"] == "10000000"
+    assert payment["expected_amount_display"] == "10.00"
     assert payment["chain_id"] != 84532
     assert payment["token_contract_address"] != BASE_SEPOLIA_USDC
 
@@ -2449,7 +2498,7 @@ def test_json_rpc_contract_event_verifier_matches_event_and_transfer() -> None:
         token=BASE_SEPOLIA_USDC,
         from_address=PAYER_WALLET,
         to_address=BASE_WALLET,
-        amount_units=10_000_000,
+        amount_units=purchase.expected_amount_units,
         log_index=4,
     )
     verifier = FakeJsonRpcContractVerifier(
@@ -2476,7 +2525,7 @@ def test_json_rpc_contract_event_verifier_matches_event_and_transfer() -> None:
     assert verification.destination_wallet_address == BASE_WALLET
     assert verification.tx_hash == tx_hash
     assert verification.tx_from_address == PAYER_WALLET
-    assert verification.tx_amount_units == 10_000_000
+    assert verification.tx_amount_units == purchase.expected_amount_units
     assert verification.tx_log_index == 5
     get_logs = next(params for method, params in verifier.requests if method == "eth_getLogs")
     assert get_logs[0]["address"] == PAYMENT_CONTRACT
@@ -2508,7 +2557,7 @@ def test_json_rpc_contract_event_verifier_batches_purchase_ref_filters() -> None
         token=BASE_SEPOLIA_USDC,
         from_address=PAYER_WALLET,
         to_address=BASE_WALLET,
-        amount_units=10_000_000,
+        amount_units=purchases[1].expected_amount_units,
         log_index=5,
     )
     verifier = FakeJsonRpcContractVerifier(

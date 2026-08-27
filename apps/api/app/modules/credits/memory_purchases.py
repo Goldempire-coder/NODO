@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from threading import RLock
 
 from app.core.errors import ApiError
@@ -131,6 +132,7 @@ class InMemoryCreditPurchaseStore:
         business_id: str,
         package_code: str,
         idempotency_key: str,
+        price_usd: Decimal | None = None,
         expected_amount_units: int,
         chain_id: int,
         network: str,
@@ -151,6 +153,7 @@ class InMemoryCreditPurchaseStore:
         max_pending: int = 3,
     ) -> tuple[CreditPurchaseRecord, bool]:  # type: ignore[no-untyped-def]
         package = CREDIT_PACKAGES[package_code]
+        payment_price_usd = price_usd if price_usd is not None else package["price_usd"]
         with self._lock:
             existing = next(
                 (
@@ -182,7 +185,7 @@ class InMemoryCreditPurchaseStore:
                 business_id=business_id,
                 package_code=package_code,
                 credits_amount=package["credits"],
-                price_usd=package["price_usd"],
+                price_usd=payment_price_usd,
                 payment_method="base_usdc_contract",
                 status="pending_payment",
                 idempotency_key=idempotency_key,

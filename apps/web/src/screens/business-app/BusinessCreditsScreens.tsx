@@ -1,17 +1,42 @@
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import { humanizePurchaseStatus } from "../../hooks/business-mini-app/helpers";
 import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
+import { getPublicEnv } from "../../lib/env";
 
 // Display-only mirror; backend signs the authoritative amount before payment.
-const CREDIT_PACKAGES = [
+const BASE_CREDIT_PACKAGES = [
   { code: "starter", name: "Starter", credits: 5, priceUsdc: "10", hint: "Para probar anuncios." },
   { code: "pro", name: "Pro", credits: 15, priceUsdc: "25", hint: "Para operar varios anuncios." },
   { code: "business", name: "Business", credits: 50, priceUsdc: "75", hint: "Mejor costo por credito." },
   { code: "enterprise", name: "Enterprise", credits: 200, priceUsdc: "250", hint: "Alto volumen." }
 ];
+const TESTNET_CREDIT_PACKAGE_PRICE_SCALE = 0.01;
+const TESTNET_CREDIT_PACKAGE_PRICE_ENVS = new Set(["local", "test", "staging"]);
 
-function packageLabel(packageCode: string | null | undefined) {
-  return CREDIT_PACKAGES.find((item) => item.code === packageCode) || null;
+function formatContractTestnetPrice(priceUsdc: string) {
+  const numericPrice = Number(priceUsdc);
+  if (!Number.isFinite(numericPrice)) {
+    return priceUsdc;
+  }
+  return (numericPrice * TESTNET_CREDIT_PACKAGE_PRICE_SCALE).toFixed(2);
+}
+
+function contractCreditPackagesForCurrentEnv() {
+  const appEnv = getPublicEnv().NEXT_PUBLIC_APP_ENV.trim().toLowerCase();
+  if (!TESTNET_CREDIT_PACKAGE_PRICE_ENVS.has(appEnv)) {
+    return BASE_CREDIT_PACKAGES;
+  }
+  return BASE_CREDIT_PACKAGES.map((item) => ({
+    ...item,
+    priceUsdc: formatContractTestnetPrice(item.priceUsdc)
+  }));
+}
+
+function packageLabel(
+  packageCode: string | null | undefined,
+  packages = contractCreditPackagesForCurrentEnv()
+) {
+  return packages.find((item) => item.code === packageCode) || null;
 }
 
 function shortAddress(value: string | null | undefined) {
@@ -109,7 +134,8 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
     refreshingCreditHandoff,
     setCreditPackage
   } = model;
-  const selected = packageLabel(creditPackage);
+  const packages = contractCreditPackagesForCurrentEnv();
+  const selected = packageLabel(creditPackage, packages);
   return (
     <div className="business-card">
       <Text className="business-card__label">Comprar creditos</Text>
@@ -121,7 +147,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
             <div>
               <strong>Tienes un pago pendiente</strong>
               <Text>
-                {packageLabel(pendingCreditPurchase.package_code)?.name || pendingCreditPurchase.package_code}: {pendingCreditPurchase.price_usd} USDC
+                {packageLabel(pendingCreditPurchase.package_code, packages)?.name || pendingCreditPurchase.package_code}: {pendingCreditPurchase.price_usd} USDC
               </Text>
               <small>Continualo para revisar la autorizacion preparada.</small>
             </div>
@@ -136,7 +162,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
         </div>
       ) : null}
       <div className="credit-package-grid">
-        {CREDIT_PACKAGES.map((item) => (
+        {packages.map((item) => (
           <button
             className={creditPackage === item.code ? "credit-package-button is-active" : "credit-package-button"}
             key={item.code}
@@ -232,7 +258,8 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
     selectedCreditPayment,
     selectedCreditPurchase
   } = model;
-  const selected = selectedCreditPurchase ? packageLabel(selectedCreditPurchase.package_code) : null;
+  const packages = contractCreditPackagesForCurrentEnv();
+  const selected = selectedCreditPurchase ? packageLabel(selectedCreditPurchase.package_code, packages) : null;
   const connectedWalletAddress = selectedCreditPayment?.payer_wallet_address;
   const canPay = selectedCreditPayment?.capabilities.can_pay === true;
   const authorizationCopy = authorizationStatusCopy(

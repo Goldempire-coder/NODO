@@ -12,8 +12,9 @@ from app.modules.credits.models import (
     BASE_USDC_TOKEN_SYMBOL,
     CREDIT_PACKAGES,
     MAX_PROOF_SIZE_BYTES,
-    CreditPurchaseRecord,
     CreditPaymentNetworkProfile,
+    CreditPurchaseRecord,
+    contract_credit_package,
     credit_payment_network_profile,
     utc_now,
 )
@@ -234,13 +235,20 @@ class CreditBusinessPurchases:
             ):
                 raise ApiError("CRYPTO_PAYMENT_PENDING_LIMIT_REACHED", status_code=409)
             contract_address, treasury_address, network_profile = self._contract_configuration()
+            payment_package = contract_credit_package(
+                payload.package_code,
+                app_env=self._settings.app_env,
+                network_profile=network_profile,
+            )
+            if payment_package is None:
+                raise ApiError("INVALID_PACKAGE", status_code=400)
             signed_at = utc_now()
             valid_until = int(signed_at.timestamp()) + self._settings.onchain_credit_authorization_ttl_minutes * 60
             authorization_expires_at = datetime.fromtimestamp(valid_until, tz=timezone.utc)
             snapshot = PaymentAuthorizationSnapshot(
                 purchase_ref=new_purchase_ref(),
                 payer=payer_address,
-                amount=price_to_usdc_units(package["price_usd"]),
+                amount=price_to_usdc_units(payment_package["price_usd"]),
                 valid_until=valid_until,
                 chain_id=network_profile.chain_id,
                 verifying_contract=contract_address,
@@ -255,6 +263,7 @@ class CreditBusinessPurchases:
                 business_id=business.id,
                 package_code=payload.package_code,
                 idempotency_key=stable_key,
+                price_usd=payment_package["price_usd"],
                 expected_amount_units=snapshot.amount,
                 chain_id=network_profile.chain_id,
                 network=network_profile.network,

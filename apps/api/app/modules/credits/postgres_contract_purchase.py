@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from app.core.errors import ApiError
 from app.modules.credits.models import CREDIT_PACKAGES, CreditPurchaseRecord, new_id
 from app.modules.credits.row_mappers import purchase_from_row
@@ -11,6 +13,7 @@ def create_contract_purchase_pg(
     business_id: str,
     package_code: str,
     idempotency_key: str,
+    price_usd: Decimal | None = None,
     expected_amount_units: int,
     chain_id: int,
     network: str,
@@ -31,6 +34,7 @@ def create_contract_purchase_pg(
     max_pending: int = 3,
 ) -> tuple[CreditPurchaseRecord, bool]:  # type: ignore[no-untyped-def]
     package = CREDIT_PACKAGES[package_code]
+    payment_price_usd = price_usd if price_usd is not None else package["price_usd"]
     with connect() as conn:
         conn.execute("select pg_advisory_xact_lock(hashtextextended(%s, 0))", (business_id,))
         existing_row = conn.execute(
@@ -97,7 +101,7 @@ def create_contract_purchase_pg(
                 business_id,
                 package_code,
                 package["credits"],
-                package["price_usd"],
+                payment_price_usd,
                 idempotency_key,
                 chain_id,
                 network,

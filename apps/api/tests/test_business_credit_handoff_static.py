@@ -183,3 +183,15 @@ def test_telegram_handoff_shows_rate_limit_next_to_the_cta_without_false_success
     assert "Intentamos abrir MetaMask" in model
     assert "Intentamos abrir MetaMask" in screen
     assert "Pago de prueba abierto en MetaMask" not in screen
+
+
+def test_business_credit_screen_mirrors_fractional_testnet_contract_prices() -> None:
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+
+    assert "BASE_CREDIT_PACKAGES" in screen
+    assert "TESTNET_CREDIT_PACKAGE_PRICE_SCALE = 0.01" in screen
+    assert 'new Set(["local", "test", "staging"])' in screen
+    assert "getPublicEnv().NEXT_PUBLIC_APP_ENV" in screen
+    assert "contractCreditPackagesForCurrentEnv" in screen
+    assert "formatContractTestnetPrice" in screen
+    assert "{CREDIT_PACKAGES.map" not in screen
