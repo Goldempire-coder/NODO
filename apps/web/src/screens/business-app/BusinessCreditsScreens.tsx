@@ -95,7 +95,9 @@ export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel 
 export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
     continuePendingBaseUsdcPayment,
+    creditHandoffError,
     creditHandoffId,
+    creditHandoffLaunchReady,
     creditHandoffOpened,
     creditPackage,
     generatingCreditPayment,
@@ -184,19 +186,22 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           onClick={() => void openMetaMaskCreditHandoff()}
         >
           {preparingCreditHandoff
-            ? "Preparando MetaMask..."
+            ? "Preparando enlace..."
+            : creditHandoffLaunchReady
+              ? "Enlace listo - Abrir MetaMask"
             : creditPackage
               ? "Abrir MetaMask para pagar en prueba"
               : "Elige un paquete"}
         </button>
+        {creditHandoffError ? <Text role="alert">{creditHandoffError}</Text> : null}
       </div>
       {creditHandoffId && creditHandoffOpened ? (
         <div className="business-status-panel" role="status">
           <div>
             <span className="status-dot" aria-hidden="true" />
             <div>
-              <strong>Pago de prueba abierto en MetaMask</strong>
-              <Text>Completa las acciones en MetaMask, vuelve a Telegram y actualiza.</Text>
+              <strong>Intentamos abrir MetaMask</strong>
+              <Text>Si MetaMask se abrio, completa las acciones, vuelve a Telegram y actualiza.</Text>
             </div>
           </div>
           <button

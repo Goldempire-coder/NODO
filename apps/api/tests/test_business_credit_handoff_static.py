@@ -158,7 +158,28 @@ def test_telegram_handoff_exposes_one_payment_cta_with_safe_retry() -> None:
 
     creation_branch = model.split("const data = await createBusinessCreditHandoff", 1)[1].split("} catch", 1)[0]
     assert "setCreditHandoffLaunchToken(data.handoff.token)" in creation_branch
-    assert "launchMetaMaskCreditHandoff(data.handoff.token)" in creation_branch
+    assert "launchMetaMaskCreditHandoff(data.handoff.token)" not in creation_branch
+    assert "Enlace listo. Toca Abrir MetaMask para continuar." in creation_branch
 
     launch_branch = model.split("if (creditHandoffLaunchToken) {", 1)[1].split("const action =", 1)[0]
     assert "launchMetaMaskCreditHandoff(creditHandoffLaunchToken)" in launch_branch
+    before_launch = launch_branch.split("launchMetaMaskCreditHandoff", 1)[0]
+    assert "await " not in before_launch
+
+    assert "creditHandoffLaunchReady" in screen
+    assert "Preparando enlace..." in screen
+    assert "Enlace listo - Abrir MetaMask" in screen
+
+
+def test_telegram_handoff_shows_rate_limit_next_to_the_cta_without_false_success() -> None:
+    model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+
+    assert 'error.code === "RATE_LIMITED"' in model
+    assert "Demasiados intentos. Espera unos minutos y vuelve a intentar." in model
+    assert "setCreditHandoffError" in model
+    assert "creditHandoffError" in screen
+    assert 'role="alert"' in screen
+    assert "Intentamos abrir MetaMask" in model
+    assert "Intentamos abrir MetaMask" in screen
+    assert "Pago de prueba abierto en MetaMask" not in screen

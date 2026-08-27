@@ -148,6 +148,7 @@ export function useBusinessCreditsModel({
   const [creditHandoffId, setCreditHandoffId] = useState<string | null>(null);
   const [creditHandoffLaunchToken, setCreditHandoffLaunchToken] = useState<string | null>(null);
   const [creditHandoffOpened, setCreditHandoffOpened] = useState(false);
+  const [creditHandoffError, setCreditHandoffError] = useState<string | null>(null);
   const [preparingCreditHandoff, setPreparingCreditHandoff] = useState(false);
   const [refreshingCreditHandoff, setRefreshingCreditHandoff] = useState(false);
   const { clearIdempotencyKey, getIdempotencyKey } = useStableIdempotencyKeys();
@@ -163,6 +164,7 @@ export function useBusinessCreditsModel({
     setCreditHandoffId(null);
     setCreditHandoffLaunchToken(null);
     setCreditHandoffOpened(false);
+    setCreditHandoffError(null);
     clearRememberedCreditHandoffId(handoffStorageKey);
     if (hadPreparedPayment) {
       setView("buy-credits");
@@ -213,6 +215,7 @@ export function useBusinessCreditsModel({
     setSelectedCreditPayment(null);
     setPendingCreditPurchase(null);
     setCreditHandoffLaunchToken(null);
+    setCreditHandoffError(null);
     const rememberedHandoffId = readRememberedCreditHandoffId(handoffStorageKey);
     setCreditHandoffId(rememberedHandoffId);
     setCreditHandoffOpened(Boolean(rememberedHandoffId));
@@ -242,6 +245,7 @@ export function useBusinessCreditsModel({
       setCreditHandoffId(null);
       setCreditHandoffLaunchToken(null);
       setCreditHandoffOpened(false);
+      setCreditHandoffError(null);
       clearRememberedCreditHandoffId(handoffStorageKey);
     }
     setCreditPackage(packageCode);
@@ -298,6 +302,7 @@ export function useBusinessCreditsModel({
   }, [refreshCreditWallet, setBusy, setNotice, setView]);
 
   const openMetaMaskCreditHandoff = useCallback(async () => {
+    setCreditHandoffError(null);
     if (!creditPackage) {
       setNotice("Elige un paquete antes de abrir MetaMask.");
       return;
@@ -306,9 +311,11 @@ export function useBusinessCreditsModel({
       try {
         launchMetaMaskCreditHandoff(creditHandoffLaunchToken);
         setCreditHandoffOpened(true);
-        setNotice("MetaMask se abrira. Luego vuelve a Telegram y pulsa Actualizar.");
+        setNotice("Intentamos abrir MetaMask. Luego vuelve a Telegram y pulsa Actualizar.");
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "No pudimos abrir MetaMask desde este navegador.");
+        const message = error instanceof Error ? error.message : "No pudimos abrir MetaMask desde este navegador.";
+        setCreditHandoffError(message);
+        setNotice(message);
       }
       return;
     }
@@ -323,18 +330,18 @@ export function useBusinessCreditsModel({
       setCreditHandoffLaunchToken(data.handoff.token);
       setCreditHandoffOpened(false);
       rememberCreditHandoffId(handoffStorageKey, data.handoff.id);
-      try {
-        launchMetaMaskCreditHandoff(data.handoff.token);
-        setCreditHandoffOpened(true);
-        setNotice("MetaMask se abrira. Completa el pago de prueba y luego pulsa Actualizar.");
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Enlace listo. Toca Abrir MetaMask para continuar.");
-      }
+      setNotice("Enlace listo. Toca Abrir MetaMask para continuar.");
     } catch (error) {
       if (handleBusinessPinError(error, action)) {
         return;
       }
-      setNotice(error instanceof Error ? error.message : "No pudimos abrir MetaMask desde este navegador.");
+      const message = error instanceof ApiClientError && error.code === "RATE_LIMITED"
+        ? "Demasiados intentos. Espera unos minutos y vuelve a intentar."
+        : error instanceof Error
+          ? error.message
+          : "No pudimos preparar MetaMask desde este navegador.";
+      setCreditHandoffError(message);
+      setNotice(message);
     } finally {
       setPreparingCreditHandoff(false);
     }
@@ -509,6 +516,7 @@ export function useBusinessCreditsModel({
     connectingWallet,
     connectedWalletAddress,
     connectedWalletAddressMasked,
+    creditHandoffError,
     creditPackage,
     creditHandoffId,
     creditHandoffLaunchReady: Boolean(creditHandoffLaunchToken),
