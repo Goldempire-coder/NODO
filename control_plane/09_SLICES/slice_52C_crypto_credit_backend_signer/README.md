@@ -1,5 +1,10 @@
 # slice_52C_crypto_credit_backend_signer
 
+> Dependencia operativa 52C2G-S0: existe tooling local para planificar y
+> verificar el vault V2 en Base Sepolia, pero no existe una direccion desplegada
+> aprobada en este slice. Backend, signer y watcher deben permanecer cerrados
+> hasta registrar y verificar ese deploy mediante el SOP Owner-approved.
+
 Estado: `CONTRACT_RECONCILED_READY_FOR_IMPLEMENTATION`
 
 ## Objetivo

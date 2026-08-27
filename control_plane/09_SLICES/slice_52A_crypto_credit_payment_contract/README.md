@@ -13,6 +13,19 @@ controlado.
 
 Estado: LOCAL_CONTRACT_IMPLEMENTED_READY_FOR_OWNER_REVIEW
 
+## Tooling 52C2G-S0
+
+`apps/contracts` incluye un plan offline y un script reproducible para un futuro
+deploy de `NODOCreditPaymentVaultSigned` en Base Sepolia. El perfil queda fijado
+a chain `84532`, USDC oficial de Base Sepolia y `CONTRACT_VERSION = 2`.
+
+El tooling valida treasury, owner y authorized signer publicos, exige una frase
+de aprobacion Owner antes de crear una transaccion y comprueba bytecode, token,
+treasury, owner, signer, version y pausa despues del deploy. Este slice no
+desplego el contrato, no genero wallets y no registro direcciones reales.
+
+SOP: `operations/sops/BASE_SEPOLIA_VAULT_DEPLOYMENT_SOP.md`.
+
 ## Objetivo
 
 Disenar el contrato crypto para recibir pagos de paquetes de creditos

@@ -103,6 +103,20 @@ Solo con aprobacion Owner:
 No se ejecuta smoke con fondos reales. Antes de staging se usa testnet y luego,
 solo con aprobacion Owner, wallet temporal y monto pequeno.
 
+## Gate De Deploy Base Sepolia 52C2G-S0
+
+- plan offline no conecta RPC ni crea transacciones;
+- chain queda fijada a `84532`;
+- token queda fijado al USDC oficial de Base Sepolia;
+- treasury, owner y authorized signer rechazan valores faltantes, invalidos o
+  cero;
+- deploy exige aprobacion Owner literal antes de abrir la conexion de red;
+- post-deploy comprueba bytecode, version 2, token, treasury, owner, signer y
+  estado de pausa;
+- errores del tooling son neutrales y no imprimen RPC ni secretos;
+- contrato, wallet y variables backend siguen sin activarse hasta un slice
+  separado.
+
 ## Evidencia Requerida
 
 - commit SHA frontend/backend;

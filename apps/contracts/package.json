@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "hardhat build",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "plan:base-sepolia-vault": "hardhat run --no-compile scripts/planBaseSepoliaVault.ts",
+    "deploy:base-sepolia-vault": "hardhat run scripts/deployBaseSepoliaVault.ts --build-profile production --network baseSepolia"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-network-helpers": "3.0.11",
