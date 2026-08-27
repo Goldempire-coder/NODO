@@ -14,10 +14,10 @@ def test_credit_handoff_uses_fragment_and_clears_it_before_network_work() -> Non
     page = _read("apps/web/src/app/business/credit-payment/page.tsx")
 
     assert 'const CREDIT_PAYMENT_PATH = "/business/credit-payment"' in helper
-    assert 'const CREDIT_HANDOFF_FRAGMENT_PREFIX = "%23handoff%3D";' in helper
     assert "target.hash = `handoff=${handoffToken}`" in helper
     assert "encodeURIComponent(dappUrl)" not in helper
-    assert "`${target.host}${target.pathname}${CREDIT_HANDOFF_FRAGMENT_PREFIX}${handoffToken}`" in helper
+    assert "%23handoff%3D" not in helper
+    assert "`${target.host}${target.pathname}${target.hash}`" in helper
     assert "extractCreditHandoffToken" in page
     assert "window.history.replaceState" in page
     effect = page.split("useEffect(() => {", 1)[1].split("}, []);", 1)[0]

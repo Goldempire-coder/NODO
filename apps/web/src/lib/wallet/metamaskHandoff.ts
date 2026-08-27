@@ -4,7 +4,6 @@ const WALLET_PROBE_PATH = "/business/wallet-probe";
 const CREDIT_PAYMENT_PATH = "/business/credit-payment";
 const METAMASK_DAPP_DEEPLINK_BASE = "https://link.metamask.io/dapp/";
 const NODO_PROBE_HTTPS_ORIGINS = new Set(["https://nodo-staging.pages.dev"]);
-const CREDIT_HANDOFF_FRAGMENT_PREFIX = "%23handoff%3D";
 
 function isAllowedProbeOrigin(url: URL): boolean {
   if (url.protocol === "https:" && NODO_PROBE_HTTPS_ORIGINS.has(url.origin)) {
@@ -64,7 +63,7 @@ export function buildMetaMaskCreditHandoffDeeplink(origin: string, handoffToken:
   }
   const target = new URL(CREDIT_PAYMENT_PATH, source.origin);
   target.hash = `handoff=${handoffToken}`;
-  const dappUrl = `${target.host}${target.pathname}${CREDIT_HANDOFF_FRAGMENT_PREFIX}${handoffToken}`;
+  const dappUrl = `${target.host}${target.pathname}${target.hash}`;
   return `${METAMASK_DAPP_DEEPLINK_BASE}${dappUrl}`;
 }
 
