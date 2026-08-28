@@ -21,7 +21,7 @@ const TESTNET_CREDIT_PACKAGE_PRICE_ENVS = new Set(["local", "test", "staging"]);
 export const AUTO_REFRESH_CREDIT_HANDOFF_MS = 3000;
 export const AUTO_REFRESH_CREDIT_HANDOFF_LIMIT = 5;
 export const AUTO_REFRESH_PENDING_CREDIT_PAYMENT_MS = 5000;
-export const AUTO_REFRESH_PENDING_CREDIT_PAYMENT_LIMIT = 6;
+export const AUTO_REFRESH_PENDING_CREDIT_PAYMENT_LIMIT = 18;
 
 const AUTO_REFRESHABLE_CREDIT_PAYMENT_STATUSES = new Set([
   "pending_payment",
@@ -68,8 +68,8 @@ export function paymentProgressCopy(status: string | null | undefined, canPay: b
   }
   if (status === "pending_onchain_confirmation" || status === "detected") {
     return {
-      title: "Pago recibido",
-      body: "NODO esta confirmando los creditos. Esta pantalla se actualiza sola.",
+      title: "Estamos acreditando",
+      body: "Ya vimos el pago. Normalmente termina en menos de un minuto. Esta pantalla se actualiza sola.",
     };
   }
   if (status === "under_review") {
@@ -80,8 +80,8 @@ export function paymentProgressCopy(status: string | null | undefined, canPay: b
   }
   if (canPay) {
     return {
-      title: "Listo para pagar",
-      body: "Completa el pago en MetaMask. Al volver, NODO revisara el estado.",
+      title: "Estamos acreditando",
+      body: "Si ya confirmaste en MetaMask, NODO lo acreditara automaticamente. Suele tardar menos de un minuto. Esta pantalla se actualiza sola.",
     };
   }
   return {

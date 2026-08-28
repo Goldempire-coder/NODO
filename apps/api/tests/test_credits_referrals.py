@@ -3260,11 +3260,14 @@ def test_base_usdc_duplicate_tx_log_race_only_one_purchase_credits() -> None:
 
 
 def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
-    source = open("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx", encoding="utf-8").read()
-    hook_source = open("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts", encoding="utf-8").read()
-    api_source = open("apps/web/src/api/credits.ts", encoding="utf-8").read()
-    settings_source = open("apps/web/src/screens/business-app/BusinessSettingsScreen.tsx", encoding="utf-8").read()
-    model_source = open("apps/web/src/hooks/useBusinessMiniAppModel.ts", encoding="utf-8").read()
+    source = Path("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx").read_text(encoding="utf-8")
+    hook_source = Path("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts").read_text(encoding="utf-8")
+    presentation_source = Path("apps/web/src/screens/business-app/businessCreditPresentation.ts").read_text(encoding="utf-8")
+    api_source = Path("apps/web/src/api/credits.ts").read_text(encoding="utf-8")
+    storage_source = Path("apps/web/src/hooks/business-mini-app/businessCreditPaymentStorage.ts").read_text(encoding="utf-8")
+    types_source = Path("apps/web/src/types/credits.ts").read_text(encoding="utf-8")
+    settings_source = Path("apps/web/src/screens/business-app/BusinessSettingsScreen.tsx").read_text(encoding="utf-8")
+    model_source = Path("apps/web/src/hooks/useBusinessMiniAppModel.ts").read_text(encoding="utf-8")
     assert "Abrir MetaMask para pagar en prueba" in source
     assert "Pago de prueba con MetaMask" in source
     assert "void connectWallet()" not in source
@@ -3273,17 +3276,20 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "Necesitas USDC de prueba y un poco de ETH de prueba en Base Sepolia." in source
     assert "priceUsdc" in source
     assert "{item.priceUsdc} USDC" in source
-    assert 'priceUsdc: "10"' in source
-    assert 'priceUsdc: "25"' in source
-    assert 'priceUsdc: "75"' in source
-    assert 'priceUsdc: "250"' in source
-    assert "Pagaras ${selected.priceUsdc} USDC de prueba en red Base Sepolia." in source
+    assert 'priceUsdc: "10"' in presentation_source
+    assert 'priceUsdc: "25"' in presentation_source
+    assert 'priceUsdc: "75"' in presentation_source
+    assert 'priceUsdc: "250"' in presentation_source
+    assert "Pagaras ${displayedSelection.priceUsdc} USDC de prueba en red Base Sepolia." in source
     assert "La autorizacion final confirma el monto antes de pagar." in source
     assert "NODO calcula el monto y prepara la autorizacion." not in source
     assert "No pegues hashes en este flujo." in source
-    assert "authorization_status" in source
     assert "capabilities.can_pay" in source
-    assert "Actualizar estado" in source
+    assert "expected_amount_display" in source
+    assert "authorization_status" in types_source
+    assert "NODO esta revisando el pago automaticamente." in source
+    assert "Estamos acreditando" in presentation_source
+    assert "menos de un minuto" in presentation_source
     assert "payer_wallet_address: payerWalletAddress" in api_source
     assert "token_symbol" not in api_source
     assert "submitBusinessBaseUsdcTxHash" not in api_source
@@ -3303,7 +3309,7 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "launchMetaMaskCreditHandoff" in hook_source
     assert "setPayerWalletAddress" not in hook_source
     assert "useBusinessCreditsModel({ business: access.business" in model_source
-    assert "localStorage.setItem(storageKey, purchase.id)" in hook_source
+    assert "localStorage.setItem(storageKey, purchase.id)" in storage_source
     assert "Fallback tarjeta" not in source
     assert "Metodo manual" not in source
     assert "Zelle manual" not in source

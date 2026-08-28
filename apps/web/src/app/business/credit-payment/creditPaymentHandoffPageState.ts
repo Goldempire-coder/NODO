@@ -44,7 +44,7 @@ export function paymentStepBody(step: PaymentStep) {
     return "Autorizacion enviada. Si MetaMask aun la confirma, espera unos segundos antes de pagar.";
   }
   if (step === "sent") {
-    return "Vuelve a NODO para ver la confirmacion de tus creditos.";
+    return "Vuelve a NODO. Los creditos se acreditan automaticamente; suele tardar menos de un minuto.";
   }
   if (step === "review") {
     return "Puedes revisar el permiso sin crear otra compra.";

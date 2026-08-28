@@ -220,15 +220,20 @@ def test_credit_payment_skips_manual_permission_recheck_after_exact_approval() -
     assert 'setPaymentStep("pay")' in approve_block
 
 
-def test_telegram_credit_flow_creates_handoff_and_refreshes_manually() -> None:
+def test_telegram_credit_flow_creates_handoff_and_refreshes_automatically() -> None:
     model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    presentation = _read("apps/web/src/screens/business-app/businessCreditPresentation.ts")
 
     assert "createBusinessCreditHandoff" in model
     assert "openMetaMaskCreditHandoff" in model
     assert "refreshCreditHandoff" in model
     assert "Abrir MetaMask" in screen
-    assert "Actualizar" in screen
+    assert "NODO esta revisando el pago automaticamente." in screen
+    assert "AUTO_REFRESH_PENDING_CREDIT_PAYMENT_LIMIT = 18" in presentation
+    assert "refreshSelectedCreditPurchase({ silent: true })" in screen
+    assert "pulsa Actualizar" not in model
+    assert "Actualiza el estado" not in model
     assert "setInterval(" not in model
 
 
@@ -309,7 +314,7 @@ def test_telegram_handoff_prepares_default_starter_only_from_visible_buy_screen(
     assert "accessLink?.pin_required" in model
 
 
-def test_credit_payment_silent_auto_refresh_does_not_tint_manual_refresh_button() -> None:
+def test_credit_payment_silent_auto_refresh_does_not_surface_manual_loading_state() -> None:
     model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
 
@@ -324,7 +329,31 @@ def test_credit_payment_silent_auto_refresh_does_not_tint_manual_refresh_button(
     assert "setRefreshingCreditPurchase(true)" in refresh_block
     assert "setRefreshingCreditPurchase(false)" in refresh_block
     assert "refreshSelectedCreditPurchase({ silent: true })" in screen
-    assert 'refreshingCreditPurchase ? "Actualizando..." : "Actualizar estado"' in screen
+    pending_screen = screen.split("export function CreditPaymentPendingScreen", 1)[1].split(
+        "export function ReferralProgramScreen",
+        1,
+    )[0]
+    assert "Actualizar estado" not in pending_screen
+    assert "Actualizando..." not in pending_screen
+
+
+def test_pending_credit_payment_waits_for_auto_accreditation_without_user_refresh_cta() -> None:
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    presentation = _read("apps/web/src/screens/business-app/businessCreditPresentation.ts")
+    handoff_page_state = _read("apps/web/src/app/business/credit-payment/creditPaymentHandoffPageState.ts")
+
+    pending_screen = screen.split("export function CreditPaymentPendingScreen", 1)[1].split(
+        "export function ReferralProgramScreen",
+        1,
+    )[0]
+    assert "Estamos acreditando" in presentation
+    assert "menos de un minuto" in presentation
+    assert "Esta pantalla se actualiza sola" in presentation
+    assert "se acreditan automaticamente" in handoff_page_state
+    assert "refreshSelectedCreditPurchase({ silent: true })" in pending_screen
+    assert "Preparar nueva compra" in pending_screen
+    assert "Actualizar estado" not in pending_screen
+    assert "Actualizando..." not in pending_screen
 
 
 def test_pending_credit_purchase_hides_package_picker_and_uses_one_primary_path() -> None:

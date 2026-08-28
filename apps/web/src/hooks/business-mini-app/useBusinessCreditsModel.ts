@@ -364,7 +364,7 @@ export function useBusinessCreditsModel({
         setSelectedCreditPurchase(detail.purchase);
         setSelectedCreditPayment(detail.payment || null);
         setView("credit-payment-pending");
-        setNotice("NODO esta revisando ese pago. Actualiza el estado en unos segundos.");
+        setNotice("NODO esta revisando ese pago automaticamente. Puede tardar menos de un minuto.");
         return;
       }
       const handoff = await createBusinessCreditHandoff(request, data.purchase.package_code);
@@ -388,7 +388,7 @@ export function useBusinessCreditsModel({
 
   const requestPendingCreditPurchaseDismiss = useCallback(() => {
     if (!isDismissableBaseUsdcPurchase(pendingCreditPurchase, business?.id)) {
-      setNotice("Este intento ya no se puede descartar desde la app. Actualiza el estado.");
+      setNotice("Este intento ya no se puede descartar desde la app. NODO seguira revisandolo automaticamente.");
       return;
     }
     setCreditHandoffError(null);
@@ -403,7 +403,7 @@ export function useBusinessCreditsModel({
   const dismissPendingBaseUsdcPayment = useCallback(async () => {
     const purchase = pendingCreditPurchase;
     if (!purchase || !isDismissableBaseUsdcPurchase(purchase, business?.id)) {
-      setNotice("Este intento ya no se puede descartar desde la app. Actualiza el estado.");
+      setNotice("Este intento ya no se puede descartar desde la app. NODO seguira revisandolo automaticamente.");
       return;
     }
     const action = "descartar intento de pago";
@@ -467,7 +467,7 @@ export function useBusinessCreditsModel({
       try {
         launchMetaMaskCreditHandoff(creditHandoffLaunchToken);
         setCreditHandoffOpened(true);
-        setNotice("Intentamos abrir MetaMask. Luego vuelve a Telegram y pulsa Actualizar.");
+        setNotice("Intentamos abrir MetaMask. Luego vuelve a Telegram; NODO revisara el pago automaticamente.");
       } catch (error) {
         const message = error instanceof Error ? error.message : "No pudimos abrir MetaMask desde este navegador.";
         setCreditHandoffError(message);

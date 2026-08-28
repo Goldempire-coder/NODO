@@ -416,9 +416,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
                 Preparar nueva compra
               </button>
             ) : (
-              <button className="mini-action-button" type="button" disabled={refreshingCreditPurchase} onClick={() => void refreshSelectedCreditPurchase()}>
-                {refreshingCreditPurchase ? "Actualizando..." : "Actualizar estado"}
-              </button>
+              <Text role="status">NODO esta revisando el pago automaticamente. Esto suele tardar menos de un minuto.</Text>
             )}
           </div>
         </>
