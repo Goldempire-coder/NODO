@@ -1,7 +1,7 @@
 import { getTelegramWebApp } from "../../theme/telegramTheme";
 
-const WALLET_PROBE_PATH = "/business/wallet-probe";
-const CREDIT_PAYMENT_PATH = "/business/credit-payment";
+const WALLET_PROBE_PATH = "/business/wallet-probe/";
+const CREDIT_PAYMENT_PATH = "/business/credit-payment/";
 const METAMASK_DAPP_DEEPLINK_BASE = "https://link.metamask.io/dapp/";
 const NODO_PROBE_HTTPS_ORIGINS = new Set(["https://nodo-staging.pages.dev"]);
 
@@ -63,8 +63,8 @@ export function buildMetaMaskCreditHandoffDeeplink(origin: string, handoffToken:
   }
   const target = new URL(CREDIT_PAYMENT_PATH, source.origin);
   target.hash = `handoff=${handoffToken}`;
-  const dappUrl = `${target.host}${target.pathname}${target.hash}`;
-  return `${METAMASK_DAPP_DEEPLINK_BASE}${encodeURIComponent(dappUrl)}`;
+  const dappUrl = `${target.host}${target.pathname}${target.hash.replace("#", "%23")}`;
+  return `${METAMASK_DAPP_DEEPLINK_BASE}${dappUrl}`;
 }
 
 export function openMetaMaskCreditHandoff(handoffToken: string): void {

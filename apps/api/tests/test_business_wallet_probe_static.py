@@ -23,7 +23,7 @@ def test_metamask_probe_uses_a_fixed_public_route_without_private_context() -> N
     helper = _read("apps/web/src/lib/wallet/metamaskHandoff.ts")
     page = _read("apps/web/src/app/business/wallet-probe/page.tsx")
 
-    assert 'const WALLET_PROBE_PATH = "/business/wallet-probe"' in helper
+    assert 'const WALLET_PROBE_PATH = "/business/wallet-probe/"' in helper
     assert "https://link.metamask.io/dapp/" in helper
     assert "https://metamask.app.link/dapp/" not in helper
     assert "window.location.origin" in helper

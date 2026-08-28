@@ -13,11 +13,11 @@ def test_credit_handoff_uses_fragment_and_clears_it_before_network_work() -> Non
     helper = _read("apps/web/src/lib/wallet/metamaskHandoff.ts")
     page = _read("apps/web/src/app/business/credit-payment/page.tsx")
 
-    assert 'const CREDIT_PAYMENT_PATH = "/business/credit-payment"' in helper
+    assert 'const CREDIT_PAYMENT_PATH = "/business/credit-payment/"' in helper
     assert "target.hash = `handoff=${handoffToken}`" in helper
-    assert "encodeURIComponent(dappUrl)" in helper
-    assert "`${target.host}${target.pathname}${target.hash}`" in helper
-    assert "`${METAMASK_DAPP_DEEPLINK_BASE}${encodeURIComponent(dappUrl)}`" in helper
+    assert "dappUrl = `${target.host}${target.pathname}${target.hash.replace(\"#\", \"%23\")}`" in helper
+    assert "encodeURIComponent(dappUrl)" not in helper
+    assert "`${METAMASK_DAPP_DEEPLINK_BASE}${dappUrl}`" in helper
     assert "extractCreditHandoffToken" in page
     assert "window.history.replaceState" in page
     effect = page.split("useEffect(() => {", 1)[1].split("}, []);", 1)[0]
