@@ -17,8 +17,9 @@ import type { ContractCreditPayment, CreditHandoffChallenge, CreditHandoffStatus
 type PaymentStep = "wallet" | "checking" | "review" | "approval" | "pay" | "sent";
 
 
-function extractCreditHandoffToken(fragment: string): string | null {
-  const token = new URLSearchParams(fragment.replace(/^#/, "")).get("handoff");
+function extractCreditHandoffToken(search: string, fragment: string): string | null {
+  const token = new URLSearchParams(search).get("handoff")
+    || new URLSearchParams(fragment.replace(/^#/, "")).get("handoff");
   return token && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
 }
 
@@ -57,8 +58,8 @@ export default function BusinessCreditPaymentHandoffPage() {
   const paymentExpired = payment ? paymentAuthorizationExpired(payment) : false;
 
   useEffect(() => {
-    const token = extractCreditHandoffToken(window.location.hash);
-    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    const token = extractCreditHandoffToken(window.location.search, window.location.hash);
+    window.history.replaceState(null, "", window.location.pathname);
     if (!token) {
       setPageError("Este enlace no es valido. Inicia de nuevo desde Telegram.");
       setLoadingChallenge(false);

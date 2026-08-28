@@ -62,8 +62,8 @@ export function buildMetaMaskCreditHandoffDeeplink(origin: string, handoffToken:
     throw new Error("CREDIT_HANDOFF_ORIGIN_INVALID");
   }
   const target = new URL(CREDIT_PAYMENT_PATH, source.origin);
-  target.hash = `handoff=${handoffToken}`;
-  const dappUrl = `${target.host}${target.pathname}${target.hash.replace("#", "%23")}`;
+  target.searchParams.set("handoff", handoffToken);
+  const dappUrl = `${target.host}${target.pathname}${target.search}`;
   return `${METAMASK_DAPP_DEEPLINK_BASE}${dappUrl}`;
 }
 

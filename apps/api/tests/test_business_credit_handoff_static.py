@@ -14,12 +14,18 @@ def test_credit_handoff_uses_fragment_and_clears_it_before_network_work() -> Non
     page = _read("apps/web/src/app/business/credit-payment/page.tsx")
 
     assert 'const CREDIT_PAYMENT_PATH = "/business/credit-payment/"' in helper
-    assert "target.hash = `handoff=${handoffToken}`" in helper
-    assert "dappUrl = `${target.host}${target.pathname}${target.hash.replace(\"#\", \"%23\")}`" in helper
+    assert 'target.searchParams.set("handoff", handoffToken)' in helper
+    assert "dappUrl = `${target.host}${target.pathname}${target.search}`" in helper
+    assert "target.hash" not in helper
+    assert "%23" not in helper
     assert "encodeURIComponent(dappUrl)" not in helper
     assert "`${METAMASK_DAPP_DEEPLINK_BASE}${dappUrl}`" in helper
     assert "extractCreditHandoffToken" in page
+    assert "new URLSearchParams(search).get(\"handoff\")" in page
+    assert "new URLSearchParams(fragment.replace(/^#/, \"\")).get(\"handoff\")" in page
     assert "window.history.replaceState" in page
+    assert "window.history.replaceState(null, \"\", window.location.pathname)" in page
+    assert "window.history.replaceState(null, \"\", `${window.location.pathname}${window.location.search}`)" not in page
     effect = page.split("useEffect(() => {", 1)[1].split("}, []);", 1)[0]
     assert effect.index("window.history.replaceState") < effect.index("getCreditHandoffChallenge")
     assert "localStorage" not in page
