@@ -35,10 +35,10 @@ export function paymentStepTitle(step: PaymentStep, amountDisplay: string) {
     return "Pago enviado";
   }
   if (step === "submitting") {
-    return "Confirmando en MetaMask";
+    return "Esperando confirmacion";
   }
   if (step === "pay") {
-    return "Paso final: enviar pago";
+    return "Autorizacion lista";
   }
   if (step === "approval") {
     return "Autoriza el monto";
@@ -48,13 +48,13 @@ export function paymentStepTitle(step: PaymentStep, amountDisplay: string) {
 
 export function paymentStepBody(step: PaymentStep) {
   if (step === "approval") {
-    return "MetaMask pedira permiso solo por el monto exacto. Esto todavia no cobra.";
+    return "MetaMask pedira permiso solo por el monto exacto. Ese permiso todavia no acredita creditos.";
   }
   if (step === "pay") {
-    return "Ya autorizaste el monto. Confirma el pago final en MetaMask.";
+    return "El primer aviso fue solo el permiso de USDC. Ahora confirma el pago.";
   }
   if (step === "submitting") {
-    return "Confirma la transaccion en MetaMask. Al terminar, NODO acreditara los creditos automaticamente.";
+    return "Confirma en MetaMask. Al terminar, NODO acreditara los creditos automaticamente.";
   }
   if (step === "sent") {
     return "Vuelve a NODO. Los creditos se acreditan automaticamente; suele tardar menos de un minuto.";

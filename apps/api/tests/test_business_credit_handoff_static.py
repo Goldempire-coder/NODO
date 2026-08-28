@@ -170,13 +170,15 @@ def test_credit_handoff_runtime_contains_testnet_payment_without_auth_transfer()
     assert "authorization_signature" in payment_helper
     assert "paymentauthorizationexpired" in payment_helper.lower()
     assert "Autorizar USDC" in payment_page
-    assert "Enviar pago final" in payment_page
+    assert "Confirmar pago ahora" in payment_page
     assert "Pagar creditos de prueba" not in payment_page
     assert "submitting" in payment_page_state
-    assert "Paso final: enviar pago" in payment_page_state
-    assert "Confirma la transaccion en MetaMask." in payment_page_state
+    assert "Autorizacion lista" in payment_page_state
+    assert "El primer aviso fue solo el permiso de USDC." in payment_page_state
+    assert "Esperando confirmacion" in payment_page_state
+    assert "Confirma en MetaMask." in payment_page_state
     assert 'setPaymentStep("submitting")' in payment_page
-    assert "Ya autorizaste el monto. Confirma el pago final en MetaMask." in payment_page_state
+    assert "Ahora confirma el pago." in payment_page_state
     assert "Pago enviado" in payment_runtime
     assert "Volver a NODO" in payment_page
     assert "Pago enviado. Vuelve a Telegram y toca Actualizar" not in payment_runtime

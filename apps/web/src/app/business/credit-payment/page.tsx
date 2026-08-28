@@ -330,7 +330,7 @@ export default function BusinessCreditPaymentHandoffPage() {
               disabled={paymentActionBusy || paymentExpired}
               onClick={() => void submitTestPayment()}
             >
-              {paymentActionBusy ? "Enviando pago..." : "Enviar pago final"}
+              {paymentActionBusy ? "Enviando pago..." : "Confirmar pago ahora"}
             </button>
           ) : paymentStep === "submitting" ? (
             <button
