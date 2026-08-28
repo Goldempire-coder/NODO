@@ -13,6 +13,7 @@ import {
   isAutoRefreshableCreditPaymentStatus,
   packageLabel,
   paymentProgressCopy,
+  shouldContinueCreditPayment,
   shouldOfferNewCreditPurchase,
 } from "./businessCreditPresentation";
 
@@ -158,7 +159,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
               <Text>
                 {pendingSelected?.name || pendingCreditPurchase.package_code}: {pendingCreditPurchase.price_usd} USDC
               </Text>
-              <small>Continualo desde el boton principal de pago.</small>
+              <small>Continua en MetaMask o descartalo solo si no enviaste el pago.</small>
             </div>
           </div>
         </div>
@@ -209,9 +210,9 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
         <div>
           <span className="status-dot" aria-hidden="true" />
           <div>
-            <strong>Abre MetaMask para pagar con USDC de prueba.</strong>
+            <strong>{pendingCreditPurchase ? "Termina este pago en MetaMask." : "Paga con MetaMask."}</strong>
             <Text>NODO no ve ni guarda tu clave privada.</Text>
-            <small>MetaMask mostrara Conectar wallet, validara Base Sepolia y mostrara cada accion.</small>
+            <small>{pendingCreditPurchase ? "MetaMask abrira el paso que falta." : "MetaMask mostrara cada paso antes de enviarlo."}</small>
             <small>Esta wallet será la que firma y paga.</small>
           </div>
         </div>
@@ -245,12 +246,12 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
               ? "Confirmar descarte"
             : pendingCreditPurchase
               ? creditHandoffLaunchReady
-                ? "Enlace listo - Continuar en MetaMask"
-                : "Continuar pago pendiente"
+                ? "Continuar en MetaMask"
+                : "Continuar pago"
               : creditHandoffLaunchReady
               ? "Enlace listo - Abrir MetaMask"
             : creditPackage
-              ? "Abrir MetaMask para pagar en prueba"
+              ? "Abrir MetaMask"
               : "Elige un paquete"}
         </button>
         {canDismissPendingCreditPurchase ? (
@@ -294,12 +295,12 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           {pendingCreditPurchase
             ? "Continua este intento o descartalo solo si no enviaste el pago."
             : displayedSelection
-              ? `Pagaras ${displayedSelection.priceUsdc} USDC de prueba en red Base Sepolia.`
+              ? `Pagaras ${displayedSelection.priceUsdc} USDC de prueba.`
               : "Elige un paquete para ver el monto."}
         </Text>
-        <Text>Necesitas USDC de prueba y un poco de ETH de prueba en Base Sepolia.</Text>
+        <Text>Necesitas saldo USDC y gas de prueba.</Text>
         <Text>La wallet mostrara el permiso exacto y el pago antes de enviarlos.</Text>
-        <small>No pegues hashes en este flujo.</small>
+        <small>NODO revisa el pago automaticamente.</small>
       </div>
     </div>
   );
@@ -308,6 +309,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
 export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
     creditWallet,
+    continuePendingBaseUsdcPayment,
     loadCreditDashboard,
     openBuyCredits,
     refreshingCreditPurchase,
@@ -329,6 +331,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
   const selectedPurchaseStatus = selectedCreditPurchase?.status ?? null;
   const availableCredits = availableCreditsLabel(creditWallet?.available_credits);
   const offerNewPurchase = shouldOfferNewCreditPurchase(selectedCreditPurchase?.status, canPay);
+  const continuePayment = shouldContinueCreditPayment(selectedCreditPurchase?.status, canPay);
 
   useEffect(() => {
     autoRefreshAttemptsRef.current = 0;
@@ -411,7 +414,11 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
             </Text>
           </div>
           <div className="business-shell__tabs">
-            {offerNewPurchase ? (
+            {continuePayment ? (
+              <button className="mini-action-button mini-action-button--filled" type="button" onClick={() => void continuePendingBaseUsdcPayment()}>
+                Continuar en MetaMask
+              </button>
+            ) : offerNewPurchase ? (
               <button className="mini-action-button mini-action-button--filled" type="button" onClick={() => void openBuyCredits()}>
                 Preparar nueva compra
               </button>

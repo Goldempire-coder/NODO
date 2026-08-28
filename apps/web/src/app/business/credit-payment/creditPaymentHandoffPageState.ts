@@ -1,4 +1,4 @@
-export type PaymentStep = "wallet" | "checking" | "review" | "approval" | "pay" | "sent";
+export type PaymentStep = "wallet" | "checking" | "review" | "approval" | "pay" | "submitting" | "sent";
 
 const HANDOFF_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
@@ -31,27 +31,40 @@ export function isWalletUserRejected(error: unknown): boolean {
 }
 
 export function paymentStepTitle(step: PaymentStep, amountDisplay: string) {
-  return step === "sent"
-    ? "Pago enviado"
-    : `Pagaras ${amountDisplay} USDC de prueba en Base Sepolia`;
+  if (step === "sent") {
+    return "Pago enviado";
+  }
+  if (step === "submitting") {
+    return "Confirmando en MetaMask";
+  }
+  if (step === "pay") {
+    return "Paso final: enviar pago";
+  }
+  if (step === "approval") {
+    return "Autoriza el monto";
+  }
+  return `Compra por ${amountDisplay} USDC`;
 }
 
 export function paymentStepBody(step: PaymentStep) {
   if (step === "approval") {
-    return "MetaMask pedira permiso solo por el monto exacto de esta compra.";
+    return "MetaMask pedira permiso solo por el monto exacto. Esto todavia no cobra.";
   }
   if (step === "pay") {
-    return "Autorizacion enviada. Si MetaMask aun la confirma, espera unos segundos antes de pagar.";
+    return "Ya autorizaste el monto. Confirma el pago final en MetaMask.";
+  }
+  if (step === "submitting") {
+    return "Confirma la transaccion en MetaMask. Al terminar, NODO acreditara los creditos automaticamente.";
   }
   if (step === "sent") {
     return "Vuelve a NODO. Los creditos se acreditan automaticamente; suele tardar menos de un minuto.";
   }
   if (step === "review") {
-    return "Puedes revisar el permiso sin crear otra compra.";
+    return "Revisando si falta autorizar o enviar el pago final.";
   }
-  return "Revisando el permiso de USDC de prueba.";
+  return "Revisando el estado de la compra.";
 }
 
 export function expectedNetworkBody(isExpectedNetwork: boolean) {
-  return isExpectedNetwork ? "Lista para esta compra de prueba." : "Cambia la red antes de continuar.";
+  return isExpectedNetwork ? "Lista para pagar." : "Cambia la red para continuar.";
 }

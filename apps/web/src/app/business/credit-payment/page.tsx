@@ -188,11 +188,13 @@ export default function BusinessCreditPaymentHandoffPage() {
       return;
     }
     setPaymentActionBusy(true);
+    setPaymentStep("submitting");
     setPageError(null);
     try {
       await payTestCreditPurchase(provider, payment, connectedWalletAddress, walletChainId);
       setPaymentStep("sent");
     } catch (error) {
+      setPaymentStep("pay");
       setPageError(testnetPaymentErrorMessage(error));
     } finally {
       setPaymentActionBusy(false);
@@ -203,12 +205,12 @@ export default function BusinessCreditPaymentHandoffPage() {
     <main className="app-shell">
       <section className="business-shell" aria-labelledby="credit-handoff-title">
         <div className="business-card">
-          <Text className="business-card__label">Preparacion segura</Text>
+          <Text className="business-card__label">Checkout seguro</Text>
           <Title id="credit-handoff-title" level="2" className="business-shell__title">
-            Wallet para creditos NODO
+            Pago de creditos
           </Title>
-          <Text>Este flujo usa USDC y ETH de prueba, sin valor real, en Base Sepolia.</Text>
-          <Text>NODO no ve ni guarda tu clave privada.</Text>
+          <Text>Completa los pasos en MetaMask. NODO acreditara los creditos al terminar.</Text>
+          <Text>Nunca pediremos tu frase secreta ni tu clave privada.</Text>
 
           <div className="business-status-panel" role="status">
             <div>
@@ -237,7 +239,7 @@ export default function BusinessCreditPaymentHandoffPage() {
               <div>
                 <span className="status-dot" aria-hidden="true" />
                 <div>
-                  <strong>{walletIsExpectedNetwork ? "Base Sepolia conectada" : "Red distinta de Base Sepolia"}</strong>
+                  <strong>{walletIsExpectedNetwork ? "Red de pago lista" : "Cambia la red para pagar"}</strong>
                   <Text>{expectedNetworkBody(walletIsExpectedNetwork)}</Text>
                 </div>
               </div>
@@ -319,7 +321,7 @@ export default function BusinessCreditPaymentHandoffPage() {
               disabled={paymentActionBusy || paymentExpired}
               onClick={() => void approveTestUsdc()}
             >
-              {paymentActionBusy ? "Abriendo MetaMask..." : "Autorizar USDC de prueba"}
+              {paymentActionBusy ? "Abriendo MetaMask..." : "Autorizar USDC"}
             </button>
           ) : paymentStep === "pay" ? (
             <button
@@ -328,7 +330,15 @@ export default function BusinessCreditPaymentHandoffPage() {
               disabled={paymentActionBusy || paymentExpired}
               onClick={() => void submitTestPayment()}
             >
-              {paymentActionBusy ? "Enviando..." : "Pagar creditos de prueba"}
+              {paymentActionBusy ? "Enviando pago..." : "Enviar pago final"}
+            </button>
+          ) : paymentStep === "submitting" ? (
+            <button
+              className="mini-action-button mini-action-button--filled mini-action-button--full"
+              type="button"
+              disabled
+            >
+              Esperando MetaMask...
             </button>
           ) : paymentStep === "sent" ? (
             <button

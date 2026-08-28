@@ -80,14 +80,18 @@ export function paymentProgressCopy(status: string | null | undefined, canPay: b
   }
   if (canPay) {
     return {
-      title: "Estamos acreditando",
-      body: "Si ya confirmaste en MetaMask, NODO lo acreditara automaticamente. Suele tardar menos de un minuto. Esta pantalla se actualiza sola.",
+      title: "Falta enviar el pago final",
+      body: "La wallet ya esta preparada. Abre MetaMask y confirma el pago final.",
     };
   }
   return {
     title: "Nueva preparacion necesaria",
     body: "Este intento ya no puede pagarse. Prepara una compra nueva.",
   };
+}
+
+export function shouldContinueCreditPayment(status: string | null | undefined, canPay: boolean) {
+  return status === "pending_payment" && canPay;
 }
 
 export function shouldOfferNewCreditPurchase(status: string | null | undefined, canPay: boolean) {

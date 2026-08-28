@@ -169,8 +169,14 @@ def test_credit_handoff_runtime_contains_testnet_payment_without_auth_transfer()
     assert "expected_amount_units" in payment_helper
     assert "authorization_signature" in payment_helper
     assert "paymentauthorizationexpired" in payment_helper.lower()
-    assert "Autorizar USDC de prueba" in payment_page
-    assert "Pagar creditos de prueba" in payment_page
+    assert "Autorizar USDC" in payment_page
+    assert "Enviar pago final" in payment_page
+    assert "Pagar creditos de prueba" not in payment_page
+    assert "submitting" in payment_page_state
+    assert "Paso final: enviar pago" in payment_page_state
+    assert "Confirma la transaccion en MetaMask." in payment_page_state
+    assert 'setPaymentStep("submitting")' in payment_page
+    assert "Ya autorizaste el monto. Confirma el pago final en MetaMask." in payment_page_state
     assert "Pago enviado" in payment_runtime
     assert "Volver a NODO" in payment_page
     assert "Pago enviado. Vuelve a Telegram y toca Actualizar" not in payment_runtime
@@ -241,7 +247,7 @@ def test_telegram_handoff_exposes_one_payment_cta_with_safe_retry() -> None:
     model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
 
-    assert "Abrir MetaMask para pagar en prueba" in screen
+    assert "Abrir MetaMask" in screen
     assert "Preparar enlace MetaMask" not in screen
     assert "void connectWallet()" not in screen
     assert "Preparar autorizacion" not in screen
@@ -347,10 +353,13 @@ def test_pending_credit_payment_waits_for_auto_accreditation_without_user_refres
         1,
     )[0]
     assert "Estamos acreditando" in presentation
+    assert "Falta enviar el pago final" in presentation
     assert "menos de un minuto" in presentation
     assert "Esta pantalla se actualiza sola" in presentation
     assert "se acreditan automaticamente" in handoff_page_state
     assert "refreshSelectedCreditPurchase({ silent: true })" in pending_screen
+    assert "shouldContinueCreditPayment" in screen
+    assert "Continuar en MetaMask" in pending_screen
     assert "Preparar nueva compra" in pending_screen
     assert "Actualizar estado" not in pending_screen
     assert "Actualizando..." not in pending_screen
@@ -465,9 +474,9 @@ def test_telegram_handoff_resumes_backend_pending_purchase_with_new_link() -> No
     assert "pendingCreditPurchase && pendingDismissConfirmationRequested" in screen
     assert "continuePendingBaseUsdcPayment()" in screen
     assert "openMetaMaskCreditHandoff()" in screen
-    assert screen.count("continuePendingBaseUsdcPayment()") == 1
-    assert "Continuar pago pendiente" in screen
-    assert "Enlace listo - Continuar en MetaMask" in screen
+    assert screen.count("continuePendingBaseUsdcPayment()") >= 1
+    assert "Continuar pago" in screen
+    assert "Continuar en MetaMask" in screen
     assert '@router.get("/business/credits/purchases/pending-contract")' in routes
     assert routes.index('@router.get("/business/credits/purchases/pending-contract")') < routes.index(
         '@router.get("/business/credits/purchases/{purchase_id}")'
