@@ -3314,13 +3314,14 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
 def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_choice() -> None:
     source = Path("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx").read_text(encoding="utf-8")
     hook_source = Path("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts").read_text(encoding="utf-8")
+    storage_source = Path("apps/web/src/hooks/business-mini-app/businessCreditPaymentStorage.ts").read_text(encoding="utf-8")
     open_buy_source = hook_source.split("const openBuyCredits = useCallback", 1)[1].split("const continuePendingBaseUsdcPayment", 1)[0]
 
     assert "pendingCreditPurchase" in hook_source
     assert "loadingPendingPurchase" in hook_source
     assert "continuePendingBaseUsdcPayment" in hook_source
     assert "pendingBaseUsdcPurchaseStorageKey(business?.id)" in hook_source
-    assert "BASE_USDC_PENDING_PURCHASE_LEGACY_KEY" in hook_source
+    assert "BASE_USDC_PENDING_PURCHASE_LEGACY_KEY" in storage_source
     assert 'setView("credit-payment-pending")' not in open_buy_source
     assert "Tienes un pago pendiente" in source
     assert "Continuar pago pendiente" in source

@@ -13,39 +13,15 @@ import {
   testnetPaymentErrorMessage,
 } from "../../../lib/wallet/testnetCreditPayment";
 import type { ContractCreditPayment, CreditHandoffChallenge, CreditHandoffStatus } from "../../../types/credits";
-
-type PaymentStep = "wallet" | "checking" | "review" | "approval" | "pay" | "sent";
-
-const HANDOFF_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-
-function readHandoffTokenFromHistoryState(state: unknown): string | null {
-  if (!state || typeof state !== "object" || !("nodoCreditHandoffToken" in state)) {
-    return null;
-  }
-  const token = (state as { nodoCreditHandoffToken?: unknown }).nodoCreditHandoffToken;
-  return typeof token === "string" && HANDOFF_TOKEN_PATTERN.test(token) ? token : null;
-}
-
-function extractCreditHandoffToken(search: string, fragment: string, pathname: string, historyState: unknown): string | null {
-  const pathMatch = pathname.match(/^\/business\/credit-payment\/handoff\/([A-Za-z0-9_-]{43})\/?$/);
-  const token = new URLSearchParams(search).get("handoff")
-    || new URLSearchParams(fragment.replace(/^#/, "")).get("handoff")
-    || pathMatch?.[1]
-    || readHandoffTokenFromHistoryState(historyState);
-  return token && HANDOFF_TOKEN_PATTERN.test(token) ? token : null;
-}
-
-function returnToTelegram() {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.location.assign("tg://");
-}
-
-function isWalletUserRejected(error: unknown): boolean {
-  return Boolean(error && typeof error === "object" && "code" in error && error.code === 4001);
-}
-
+import {
+  expectedNetworkBody,
+  extractCreditHandoffToken,
+  isWalletUserRejected,
+  paymentStepBody,
+  paymentStepTitle,
+  returnToTelegram,
+  type PaymentStep,
+} from "./creditPaymentHandoffPageState";
 
 export default function BusinessCreditPaymentHandoffPage() {
   const [handoffToken, setHandoffToken] = useState<string | null>(null);
@@ -262,7 +238,7 @@ export default function BusinessCreditPaymentHandoffPage() {
                 <span className="status-dot" aria-hidden="true" />
                 <div>
                   <strong>{walletIsExpectedNetwork ? "Base Sepolia conectada" : "Red distinta de Base Sepolia"}</strong>
-                  <Text>Chain ID: {walletChainId ?? "desconocido"}</Text>
+                  <Text>{expectedNetworkBody(walletIsExpectedNetwork)}</Text>
                 </div>
               </div>
             </div>
@@ -275,22 +251,8 @@ export default function BusinessCreditPaymentHandoffPage() {
               <div>
                 <span className="status-dot" aria-hidden="true" />
                 <div>
-                  <strong>
-                    {paymentStep === "sent"
-                      ? "Pago enviado. Vuelve a Telegram y toca Actualizar"
-                      : `Pagaras ${payment?.expected_amount_display || paymentDetail.purchase.price_usd} USDC de prueba en Base Sepolia`}
-                  </strong>
-                  <Text>
-                    {paymentStep === "approval"
-                      ? "MetaMask pedira permiso solo por el monto exacto de esta compra."
-                        : paymentStep === "pay"
-                          ? "Autorizacion enviada. Si MetaMask aun la confirma, espera unos segundos antes de pagar."
-                          : paymentStep === "sent"
-                            ? "El watcher de prueba confirmara el evento; NODO no usa hashes pegados."
-                            : paymentStep === "review"
-                              ? "Puedes revisar el permiso sin crear otra compra."
-                              : "Revisando el permiso de USDC de prueba."}
-                  </Text>
+                  <strong>{paymentStepTitle(paymentStep, payment?.expected_amount_display || paymentDetail.purchase.price_usd)}</strong>
+                  <Text>{paymentStepBody(paymentStep)}</Text>
                 </div>
               </div>
             </div>
@@ -367,6 +329,14 @@ export default function BusinessCreditPaymentHandoffPage() {
               onClick={() => void submitTestPayment()}
             >
               {paymentActionBusy ? "Enviando..." : "Pagar creditos de prueba"}
+            </button>
+          ) : paymentStep === "sent" ? (
+            <button
+              className="mini-action-button mini-action-button--filled mini-action-button--full"
+              type="button"
+              onClick={returnToTelegram}
+            >
+              Volver a NODO
             </button>
           ) : null}
 

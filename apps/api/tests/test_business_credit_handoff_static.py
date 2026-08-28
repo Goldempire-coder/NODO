@@ -12,6 +12,7 @@ def _read(path: str) -> str:
 def test_credit_handoff_puts_token_in_static_safe_metamask_path_and_clears_url() -> None:
     helper = _read("apps/web/src/lib/wallet/metamaskHandoff.ts")
     page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+    page_state = _read("apps/web/src/app/business/credit-payment/creditPaymentHandoffPageState.ts")
     redirects = _read("apps/web/public/_redirects")
 
     assert 'const CREDIT_PAYMENT_HANDOFF_PATH_PREFIX = "/business/credit-payment/handoff/"' in helper
@@ -30,11 +31,11 @@ def test_credit_handoff_puts_token_in_static_safe_metamask_path_and_clears_url()
 
     assert "extractCreditHandoffToken" in page
     assert "extractCreditHandoffToken(window.location.search, window.location.hash, window.location.pathname, window.history.state)" in page
-    assert 'const pathMatch = pathname.match(/^\\/business\\/credit-payment\\/handoff\\/([A-Za-z0-9_-]{43})\\/?$/)' in page
-    assert "readHandoffTokenFromHistoryState(historyState)" in page
-    assert "nodoCreditHandoffToken" in page
-    assert "new URLSearchParams(search).get(\"handoff\")" in page
-    assert "new URLSearchParams(fragment.replace(/^#/, \"\")).get(\"handoff\")" in page
+    assert 'const pathMatch = pathname.match(/^\\/business\\/credit-payment\\/handoff\\/([A-Za-z0-9_-]{43})\\/?$/)' in page_state
+    assert "readHandoffTokenFromHistoryState(historyState)" in page_state
+    assert "nodoCreditHandoffToken" in page_state
+    assert "new URLSearchParams(search).get(\"handoff\")" in page_state
+    assert "new URLSearchParams(fragment.replace(/^#/, \"\")).get(\"handoff\")" in page_state
     assert "window.history.replaceState" in page
     assert "window.history.replaceState({ nodoCreditHandoffToken: token }, \"\", \"/business/credit-payment/\")" in page
     assert "window.history.replaceState(null, \"\", `${window.location.pathname}${window.location.search}`)" not in page
@@ -46,9 +47,10 @@ def test_credit_handoff_puts_token_in_static_safe_metamask_path_and_clears_url()
 
 def test_credit_handoff_dead_end_errors_offer_one_telegram_exit_without_wallet_actions() -> None:
     page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+    page_state = _read("apps/web/src/app/business/credit-payment/creditPaymentHandoffPageState.ts")
 
-    assert "function returnToTelegram()" in page
-    assert 'window.location.assign("tg://")' in page
+    assert "function returnToTelegram()" in page_state
+    assert 'window.location.assign("tg://")' in page_state
     assert "Este enlace no es valido. Vuelve a Telegram para iniciar de nuevo." in page
     assert "Volver a Telegram" in page
 
@@ -67,8 +69,9 @@ def test_credit_handoff_dead_end_errors_offer_one_telegram_exit_without_wallet_a
 
 def test_credit_handoff_wallet_confirmation_error_exits_to_telegram_without_wallet_retry() -> None:
     page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+    page_state = _read("apps/web/src/app/business/credit-payment/creditPaymentHandoffPageState.ts")
 
-    assert "function isWalletUserRejected(error: unknown)" in page
+    assert "function isWalletUserRejected(error: unknown)" in page_state
     assert "walletConfirmationRequiresTelegramRestart" in page
     assert "setWalletConfirmationRequiresTelegramRestart(!isWalletUserRejected(error))" in page
 
@@ -136,6 +139,7 @@ def test_credit_handoff_runtime_contains_testnet_payment_without_auth_transfer()
     source = "\n".join(
         (
             _read("apps/web/src/app/business/credit-payment/page.tsx"),
+            _read("apps/web/src/app/business/credit-payment/creditPaymentHandoffPageState.ts"),
             _read("apps/web/src/lib/wallet/metamaskHandoff.ts"),
             _read("apps/web/src/lib/wallet/eip1193.ts"),
             _read("apps/web/src/lib/wallet/testnetCreditPayment.ts"),
@@ -145,6 +149,8 @@ def test_credit_handoff_runtime_contains_testnet_payment_without_auth_transfer()
 
     payment_helper = _read("apps/web/src/lib/wallet/testnetCreditPayment.ts")
     payment_page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+    payment_page_state = _read("apps/web/src/app/business/credit-payment/creditPaymentHandoffPageState.ts")
+    payment_runtime = f"{payment_page}\n{payment_page_state}"
 
     assert 'method: "eth_call"' in payment_helper
     assert 'method: "eth_sendtransaction"' in payment_helper.lower()
@@ -165,7 +171,9 @@ def test_credit_handoff_runtime_contains_testnet_payment_without_auth_transfer()
     assert "paymentauthorizationexpired" in payment_helper.lower()
     assert "Autorizar USDC de prueba" in payment_page
     assert "Pagar creditos de prueba" in payment_page
-    assert "Pago enviado. Vuelve a Telegram y toca Actualizar" in payment_page
+    assert "Pago enviado" in payment_runtime
+    assert "Volver a NODO" in payment_page
+    assert "Pago enviado. Vuelve a Telegram y toca Actualizar" not in payment_runtime
 
     for forbidden in (
         "eth_signtypeddata",
@@ -238,6 +246,41 @@ def test_telegram_handoff_exposes_one_payment_cta_with_safe_retry() -> None:
     assert "launchMetaMaskCreditHandoff(data.handoff.token)" not in creation_branch
     assert "Enlace listo. Toca Abrir MetaMask para continuar." in creation_branch
 
+
+def test_business_credit_success_state_uses_clear_business_copy_without_contract_debug() -> None:
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+
+    assert 'selectedCreditPurchase?.status === "credited"' in screen
+    assert "Pago exitoso" in screen
+    assert "Se acreditaron" in screen
+    assert "Ver mis creditos" in screen
+    assert "loadCreditDashboard" in screen
+
+    success_branch = screen.split('selectedCreditPurchase?.status === "credited"', 1)[1].split(
+        "const statusCopy",
+        1,
+    )[0]
+    assert "Contrato:" not in success_branch
+    assert "Version:" not in success_branch
+    assert "Autorizacion:" not in success_branch
+    assert "Puede pagar:" not in success_branch
+
+
+def test_business_credit_pending_screen_auto_refreshes_visible_purchase_without_interval() -> None:
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+
+    assert "AUTO_REFRESH_CREDIT_HANDOFF_MS" in screen
+    assert "AUTO_REFRESH_CREDIT_HANDOFF_LIMIT" in screen
+    assert "AUTO_REFRESH_PENDING_CREDIT_PAYMENT_MS" in screen
+    assert "AUTO_REFRESH_PENDING_CREDIT_PAYMENT_LIMIT" in screen
+    assert "window.setTimeout" in screen
+    assert "window.clearTimeout" in screen
+    assert "setInterval(" not in screen
+    assert "silent?: boolean" in model
+    assert "Estado de compra actualizado." in model
+    assert "Pago exitoso. Tus creditos ya estan disponibles." in model
+
     launch_branch = model.split("const openMetaMaskCreditHandoff = useCallback", 1)[1].split(
         "await prepareMetaMaskCreditHandoff();",
         1,
@@ -251,14 +294,53 @@ def test_telegram_handoff_exposes_one_payment_cta_with_safe_retry() -> None:
     assert "Enlace listo - Abrir MetaMask" in screen
 
 
-def test_telegram_handoff_prepares_default_starter_after_pin_is_unlocked() -> None:
+def test_telegram_handoff_prepares_default_starter_only_from_visible_buy_screen() -> None:
     model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+    rules = _read("apps/web/src/hooks/business-mini-app/businessCreditPaymentRules.ts")
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
 
-    assert 'const DEFAULT_CREDIT_PACKAGE = "starter"' in model
+    assert 'DEFAULT_CREDIT_PACKAGE = "starter"' in rules
     assert 'setCreditPackage((current) => current || DEFAULT_CREDIT_PACKAGE)' in model
-    assert "prepareMetaMaskCreditHandoff({ silent: true })" in model
+    assert "prepareMetaMaskCreditHandoff({ silent: true })" not in model
+    assert "prepareMetaMaskCreditHandoff({ silent: true })" in screen
+    assert "canPrepareCreditHandoffSilently" in screen
+    assert "canPrepareCreditHandoffSilently" in model
     assert "accessLink.pin_unlocked" in model
     assert "accessLink?.pin_required" in model
+
+
+def test_credit_payment_silent_auto_refresh_does_not_tint_manual_refresh_button() -> None:
+    model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+
+    refresh_block = model.split(
+        "const refreshSelectedCreditPurchase = useCallback",
+        1,
+    )[1].split("const loadReferrals", 1)[0]
+
+    assert "const showManualRefreshLoading = !silent" in refresh_block
+    assert "refreshingCreditPurchaseRef.current" in refresh_block
+    assert "if (showManualRefreshLoading) {" in refresh_block
+    assert "setRefreshingCreditPurchase(true)" in refresh_block
+    assert "setRefreshingCreditPurchase(false)" in refresh_block
+    assert "refreshSelectedCreditPurchase({ silent: true })" in screen
+    assert 'refreshingCreditPurchase ? "Actualizando..." : "Actualizar estado"' in screen
+
+
+def test_pending_credit_purchase_hides_package_picker_and_uses_one_primary_path() -> None:
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+
+    assert 'pendingCreditPurchase ? "Continua tu pago" : "Elige un paquete"' in screen
+    assert '!pendingCreditPurchase ? (\n        <div className="credit-package-grid">' in screen
+    assert "!pendingCreditPurchase ? (\n        <div className=\"business-status-panel\">" in screen
+    assert "pendingSelected" in screen
+    assert "displayedSelection" in screen
+
+    pending_branch = screen.split("{pendingCreditPurchase ? (", 1)[1].split(
+        ") : loadingPendingPurchase ? (",
+        1,
+    )[0]
+    assert "credit-package-grid" not in pending_branch
 
 
 def test_contract_pending_dismiss_is_backend_owned_and_watcher_safe() -> None:
@@ -295,6 +377,7 @@ def test_contract_pending_dismiss_is_backend_owned_and_watcher_safe() -> None:
 
 def test_telegram_pending_payment_uses_single_primary_cta_with_discrete_dismiss() -> None:
     model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+    rules = _read("apps/web/src/hooks/business-mini-app/businessCreditPaymentRules.ts")
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     api = _read("apps/web/src/api/credits.ts")
     styles = _read("apps/web/src/app/globals.css")
@@ -305,7 +388,7 @@ def test_telegram_pending_payment_uses_single_primary_cta_with_discrete_dismiss(
     assert "dismissPendingBaseUsdcPayment" in model
     assert "requestPendingCreditPurchaseDismiss" in model
     assert "resetPendingCreditPurchaseDismiss" in model
-    assert "owner_dismissed" in model
+    assert "owner_dismissed" in rules
     assert "Confirmar descarte" in screen
     assert "No envie el pago" in screen
     assert "Mantener pago pendiente" in screen
@@ -380,11 +463,12 @@ def test_postgres_pending_contract_purchase_reader_filters_business_and_expiry()
 
 def test_business_credit_screen_mirrors_fractional_testnet_contract_prices() -> None:
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    presentation = _read("apps/web/src/screens/business-app/businessCreditPresentation.ts")
 
-    assert "BASE_CREDIT_PACKAGES" in screen
-    assert "TESTNET_CREDIT_PACKAGE_PRICE_SCALE = 0.01" in screen
-    assert 'new Set(["local", "test", "staging"])' in screen
-    assert "getPublicEnv().NEXT_PUBLIC_APP_ENV" in screen
+    assert "BASE_CREDIT_PACKAGES" in presentation
+    assert "TESTNET_CREDIT_PACKAGE_PRICE_SCALE = 0.01" in presentation
+    assert 'new Set(["local", "test", "staging"])' in presentation
+    assert "getPublicEnv().NEXT_PUBLIC_APP_ENV" in presentation
     assert "contractCreditPackagesForCurrentEnv" in screen
-    assert "formatContractTestnetPrice" in screen
+    assert "formatContractTestnetPrice" in presentation
     assert "{CREDIT_PACKAGES.map" not in screen
