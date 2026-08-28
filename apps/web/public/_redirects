@@ -1,0 +1,2 @@
+/business/credit-payment/handoff/:token/ /business/credit-payment/ 200
+/business/credit-payment/handoff/:token /business/credit-payment/ 200

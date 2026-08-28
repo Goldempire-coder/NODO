@@ -9,23 +9,32 @@ def _read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-def test_credit_handoff_encodes_token_inside_metamask_dapp_path_and_clears_url() -> None:
+def test_credit_handoff_puts_token_in_static_safe_metamask_path_and_clears_url() -> None:
     helper = _read("apps/web/src/lib/wallet/metamaskHandoff.ts")
     page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+    redirects = _read("apps/web/public/_redirects")
 
-    assert 'const CREDIT_PAYMENT_PATH = "/business/credit-payment/"' in helper
-    assert 'target.searchParams.set("handoff", handoffToken)' in helper
-    assert "dappUrl = `${target.host}${target.pathname}${encodeURIComponent(target.search)}`" in helper
+    assert 'const CREDIT_PAYMENT_HANDOFF_PATH_PREFIX = "/business/credit-payment/handoff/"' in helper
+    assert 'new URL(`${CREDIT_PAYMENT_HANDOFF_PATH_PREFIX}${handoffToken}/`, source.origin)' in helper
+    assert "dappUrl = `${target.host}${target.pathname}`" in helper
+    assert 'target.searchParams.set("handoff", handoffToken)' not in helper
+    assert "encodeURIComponent(target.search)" not in helper
     assert "dappUrl = `${target.host}${target.pathname}${target.search}`" not in helper
     assert "target.hash" not in helper
     assert "%23" not in helper
     assert "encodeURIComponent(dappUrl)" not in helper
     assert "`${METAMASK_DAPP_DEEPLINK_BASE}${dappUrl}`" in helper
+
+    assert "/business/credit-payment/handoff/:token/ /business/credit-payment/ 200" in redirects
+    assert "/business/credit-payment/handoff/:token /business/credit-payment/ 200" in redirects
+
     assert "extractCreditHandoffToken" in page
+    assert "extractCreditHandoffToken(window.location.search, window.location.hash, window.location.pathname)" in page
+    assert 'const pathMatch = pathname.match(/^\\/business\\/credit-payment\\/handoff\\/([A-Za-z0-9_-]{43})\\/?$/)' in page
     assert "new URLSearchParams(search).get(\"handoff\")" in page
     assert "new URLSearchParams(fragment.replace(/^#/, \"\")).get(\"handoff\")" in page
     assert "window.history.replaceState" in page
-    assert "window.history.replaceState(null, \"\", window.location.pathname)" in page
+    assert "window.history.replaceState(null, \"\", \"/business/credit-payment/\")" in page
     assert "window.history.replaceState(null, \"\", `${window.location.pathname}${window.location.search}`)" not in page
     effect = page.split("useEffect(() => {", 1)[1].split("}, []);", 1)[0]
     assert effect.index("window.history.replaceState") < effect.index("getCreditHandoffChallenge")
