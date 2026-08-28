@@ -44,6 +44,10 @@ class BaseUsdcTxHashRequest(StrictRequestModel):
     tx_hash: str = Field(pattern="^0x[a-fA-F0-9]{64}$")
 
 
+class ContractCreditPurchaseDismissRequest(StrictRequestModel):
+    confirmation: str = Field(pattern="^NO_PAYMENT_SENT$")
+
+
 class ReferralApplyRequest(StrictRequestModel):
     referral_code: str = Field(min_length=4, max_length=32)
 

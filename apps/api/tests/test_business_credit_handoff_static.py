@@ -259,6 +259,59 @@ def test_telegram_handoff_prepares_default_starter_after_pin_is_unlocked() -> No
     assert "prepareMetaMaskCreditHandoff({ silent: true })" in model
     assert "accessLink.pin_unlocked" in model
     assert "accessLink?.pin_required" in model
+
+
+def test_contract_pending_dismiss_is_backend_owned_and_watcher_safe() -> None:
+    routes = _read("apps/api/app/modules/credits/routes.py")
+    schemas = _read("apps/api/app/modules/credits/schemas.py")
+    service = _read("apps/api/app/modules/credits/business_purchases.py")
+    postgres_contract = _read("apps/api/app/modules/credits/postgres_contract_purchase.py")
+    postgres_onchain = _read("apps/api/app/modules/credits/postgres_onchain.py")
+
+    assert '@router.post("/business/credits/purchases/{purchase_id}/dismiss")' in routes
+    assert "ContractCreditPurchaseDismissRequest" in schemas
+    assert 'confirmation: str = Field(pattern="^NO_PAYMENT_SENT$")' in schemas
+    assert "crypto_contract_credit_purchase_dismissed" in service
+    assert "owner_dismissed_at = now()" in postgres_contract
+    assert "owner_dismissed_by_user_id = %s" in postgres_contract
+    assert "CRYPTO_PAYMENT_DISMISS_NOT_ALLOWED" in postgres_contract
+    assert "status <> 'pending_payment'" in postgres_contract
+    assert "owner_dismissed_at is null" in postgres_contract
+
+    migration_up = _read("database/migrations/0060_contract_credit_purchase_owner_dismiss.up.sql")
+    migration_down = _read("database/migrations/0060_contract_credit_purchase_owner_dismiss.down.sql")
+    assert "add column if not exists owner_dismissed_at" in migration_up
+    assert "references users(id) on delete set null" in migration_up
+    assert "credit_purchases_contract_owner_dismissed_idx" in migration_up
+    assert "0060 rollback blocked: owner dismissed contract purchases exist" in migration_down
+    assert "drop column if exists owner_dismissed_at" in migration_down
+
+    watcher_selection = postgres_onchain.split("def list_contract_pending_purchases_pg", 1)[1].split(
+        "def _mark_detected",
+        1,
+    )[0]
+    assert "owner_dismissed_at" not in watcher_selection
+
+
+def test_telegram_pending_payment_uses_single_primary_cta_with_discrete_dismiss() -> None:
+    model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    api = _read("apps/web/src/api/credits.ts")
+    styles = _read("apps/web/src/app/globals.css")
+
+    assert "dismissBusinessContractCreditPurchase" in api
+    assert 'confirmation: "NO_PAYMENT_SENT"' in api
+    assert "pendingDismissConfirmationRequested" in model
+    assert "dismissPendingBaseUsdcPayment" in model
+    assert "requestPendingCreditPurchaseDismiss" in model
+    assert "resetPendingCreditPurchaseDismiss" in model
+    assert "owner_dismissed" in model
+    assert "Confirmar descarte" in screen
+    assert "No envie el pago" in screen
+    assert "Mantener pago pendiente" in screen
+    assert "mini-inline-action" in screen
+    assert ".mini-inline-action" in styles
+    assert "cancelar pago" not in screen.lower()
     assert "creditHandoffLaunchToken" in model
     assert "pendingCreditPurchase" in model
 
@@ -297,7 +350,9 @@ def test_telegram_handoff_resumes_backend_pending_purchase_with_new_link() -> No
     assert "launchMetaMaskCreditHandoff(creditHandoffLaunchToken)" in continue_branch
     assert "await " not in continue_branch.split("launchMetaMaskCreditHandoff", 1)[0]
     assert "Boolean(pendingCreditPurchase)" not in screen
-    assert "pendingCreditPurchase ? continuePendingBaseUsdcPayment() : openMetaMaskCreditHandoff()" in screen
+    assert "pendingCreditPurchase && pendingDismissConfirmationRequested" in screen
+    assert "continuePendingBaseUsdcPayment()" in screen
+    assert "openMetaMaskCreditHandoff()" in screen
     assert screen.count("continuePendingBaseUsdcPayment()") == 1
     assert "Continuar pago pendiente" in screen
     assert "Enlace listo - Continuar en MetaMask" in screen

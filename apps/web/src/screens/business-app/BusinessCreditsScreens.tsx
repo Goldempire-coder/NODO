@@ -119,17 +119,23 @@ export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel 
 
 export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
+    canDismissPendingCreditPurchase,
     continuePendingBaseUsdcPayment,
     creditHandoffError,
     creditHandoffId,
     creditHandoffLaunchReady,
     creditHandoffOpened,
     creditPackage,
+    dismissPendingBaseUsdcPayment,
+    dismissingPendingCreditPurchase,
     generatingCreditPayment,
     loadingPendingPurchase,
     openMetaMaskCreditHandoff,
+    pendingDismissConfirmationRequested,
     pendingCreditPurchase,
     preparingCreditHandoff,
+    requestPendingCreditPurchaseDismiss,
+    resetPendingCreditPurchaseDismiss,
     refreshCreditHandoff,
     refreshingCreditHandoff,
     setCreditPackage
@@ -209,12 +215,23 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
             preparingCreditHandoff
             || generatingCreditPayment
             || loadingPendingPurchase
+            || dismissingPendingCreditPurchase
             || (!pendingCreditPurchase && !creditPackage)
           }
-          onClick={() => void (pendingCreditPurchase ? continuePendingBaseUsdcPayment() : openMetaMaskCreditHandoff())}
+          onClick={() => void (
+            pendingCreditPurchase && pendingDismissConfirmationRequested
+              ? dismissPendingBaseUsdcPayment()
+              : pendingCreditPurchase
+                ? continuePendingBaseUsdcPayment()
+                : openMetaMaskCreditHandoff()
+          )}
         >
           {preparingCreditHandoff
             ? "Preparando enlace..."
+            : dismissingPendingCreditPurchase
+              ? "Descartando..."
+            : pendingCreditPurchase && pendingDismissConfirmationRequested
+              ? "Confirmar descarte"
             : pendingCreditPurchase
               ? creditHandoffLaunchReady
                 ? "Enlace listo - Continuar en MetaMask"
@@ -225,6 +242,29 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
               ? "Abrir MetaMask para pagar en prueba"
               : "Elige un paquete"}
         </button>
+        {canDismissPendingCreditPurchase ? (
+          <>
+            {pendingDismissConfirmationRequested ? (
+              <Text role="alert">
+                Descarta este intento solo si no enviaste el pago en MetaMask. Si lo enviaste, NODO todavia lo verificara.
+              </Text>
+            ) : null}
+            <button
+              className="mini-inline-action"
+              type="button"
+              disabled={dismissingPendingCreditPurchase}
+              onClick={() => {
+                if (pendingDismissConfirmationRequested) {
+                  resetPendingCreditPurchaseDismiss();
+                  return;
+                }
+                requestPendingCreditPurchaseDismiss();
+              }}
+            >
+              {pendingDismissConfirmationRequested ? "Mantener pago pendiente" : "No envie el pago"}
+            </button>
+          </>
+        ) : null}
         {creditHandoffError ? <Text role="alert">{creditHandoffError}</Text> : null}
       </div>
       {creditHandoffId && creditHandoffOpened ? (

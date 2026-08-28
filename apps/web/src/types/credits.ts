@@ -20,6 +20,8 @@ export type CreditPurchase = {
   payment_method: string;
   status: string;
   proof_file_id: string | null;
+  owner_dismissed?: boolean;
+  owner_dismissed_at?: string | null;
   manual_payment_reference_masked?: string | null;
   manual_tx_hash_masked?: string | null;
   manual_network?: string | null;
@@ -141,6 +143,8 @@ export type AdminCreditPurchaseRecord = {
   payment_method: string;
   status: string;
   proof_file_id: string | null;
+  owner_dismissed?: boolean;
+  owner_dismissed_at?: string | null;
   manual_payment_reference_masked: string | null;
   manual_tx_hash_masked: string | null;
   manual_network: string | null;

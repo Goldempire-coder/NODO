@@ -51,6 +51,12 @@ def purchase_from_row(row) -> CreditPurchaseRecord:  # type: ignore[no-untyped-d
         payment_authorization_signer_address=_optional(row, "payment_authorization_signer_address"),
         payment_authorization_signer_version=_optional(row, "payment_authorization_signer_version"),
         payment_authorization_signed_at=_optional(row, "payment_authorization_signed_at"),
+        owner_dismissed_at=_optional(row, "owner_dismissed_at"),
+        owner_dismissed_by_user_id=(
+            str(_optional(row, "owner_dismissed_by_user_id"))
+            if _optional(row, "owner_dismissed_by_user_id") is not None
+            else None
+        ),
         tx_hash=_optional(row, "tx_hash"),
         tx_amount_units=int(_optional(row, "tx_amount_units")) if _optional(row, "tx_amount_units") is not None else None,
         tx_from_address=_optional(row, "tx_from_address"),

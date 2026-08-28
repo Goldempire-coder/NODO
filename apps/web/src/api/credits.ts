@@ -49,6 +49,17 @@ export function getBusinessPendingContractCreditPurchase(request: AuthenticatedR
   });
 }
 
+export function dismissBusinessContractCreditPurchase(
+  request: AuthenticatedRequest,
+  purchaseId: string,
+) {
+  return request<BusinessCreditPurchaseDetail>(`/api/v1/business/credits/purchases/${purchaseId}/dismiss`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmation: "NO_PAYMENT_SENT" }),
+  });
+}
+
 export function createBusinessCreditHandoff(
   request: AuthenticatedRequest,
   packageCode: string,

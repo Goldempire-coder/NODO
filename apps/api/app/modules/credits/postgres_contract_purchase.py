@@ -67,6 +67,10 @@ def create_contract_purchase_pg(
                   'detected',
                   'under_review'
               )
+              and (
+                  status <> 'pending_payment'
+                  or owner_dismissed_at is null
+              )
             """,
             (business_id,),
         ).fetchone()["pending_count"]
@@ -168,10 +172,111 @@ def count_pending_contract_purchases_pg(connect, business_id: str) -> int:  # ty
                   'detected',
                   'under_review'
               )
+              and (
+                  status <> 'pending_payment'
+                  or owner_dismissed_at is null
+              )
             """,
             (business_id,),
         ).fetchone()
     return int(row["pending_count"])
+
+
+def dismiss_contract_purchase_pg(
+    connect,
+    *,
+    purchase_id: str,
+    business_id: str,
+    owner_user_id: str,
+) -> CreditPurchaseRecord:  # type: ignore[no-untyped-def]
+    with connect() as conn:
+        row = conn.execute(
+            """
+            select *
+            from credit_purchases
+            where id = %s
+            for update
+            """,
+            (purchase_id,),
+        ).fetchone()
+        if row is None:
+            conn.rollback()
+            raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
+        purchase = purchase_from_row(row)
+        if purchase.business_id != business_id or purchase.payment_method != "base_usdc_contract":
+            conn.rollback()
+            raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
+        has_ledger = conn.execute(
+            """
+            select 1
+            from credits_ledger
+            where type = 'purchase'
+              and related_credit_purchase_id = %s
+            limit 1
+            """,
+            (purchase.id,),
+        ).fetchone()
+        has_onchain_evidence = conn.execute(
+            """
+            select 1
+            from credit_purchase_onchain_payments
+            where credit_purchase_id = %s
+            limit 1
+            """,
+            (purchase.id,),
+        ).fetchone()
+        if purchase.owner_dismissed_at is not None:
+            if (
+                purchase.status == "pending_payment"
+                and purchase.tx_hash is None
+                and purchase.tx_amount_units is None
+                and purchase.tx_from_address is None
+                and purchase.tx_to_address is None
+                and purchase.tx_block_number is None
+                and purchase.tx_log_index is None
+                and purchase.detected_at is None
+                and purchase.verified_at is None
+                and purchase.credited_at is None
+                and purchase.paid_at is None
+                and purchase.approved_at is None
+                and has_ledger is None
+                and has_onchain_evidence is None
+            ):
+                conn.commit()
+                return purchase
+            conn.rollback()
+            raise ApiError("CRYPTO_PAYMENT_DISMISS_NOT_ALLOWED", status_code=409)
+        if (
+            purchase.status != "pending_payment"
+            or purchase.tx_hash is not None
+            or purchase.tx_amount_units is not None
+            or purchase.tx_from_address is not None
+            or purchase.tx_to_address is not None
+            or purchase.tx_block_number is not None
+            or purchase.tx_log_index is not None
+            or purchase.detected_at is not None
+            or purchase.verified_at is not None
+            or purchase.credited_at is not None
+            or purchase.paid_at is not None
+            or purchase.approved_at is not None
+            or has_ledger is not None
+            or has_onchain_evidence is not None
+        ):
+            conn.rollback()
+            raise ApiError("CRYPTO_PAYMENT_DISMISS_NOT_ALLOWED", status_code=409)
+        updated = conn.execute(
+            """
+            update credit_purchases
+            set owner_dismissed_at = now(),
+                owner_dismissed_by_user_id = %s,
+                updated_at = now()
+            where id = %s
+            returning *
+            """,
+            (owner_user_id, purchase.id),
+        ).fetchone()
+        conn.commit()
+    return purchase_from_row(updated)
 
 
 def find_pending_contract_purchase_pg(connect, business_id: str) -> CreditPurchaseRecord | None:  # type: ignore[no-untyped-def]
@@ -191,6 +296,8 @@ def find_pending_contract_purchase_pg(connect, business_id: str) -> CreditPurcha
               and (
                   status <> 'pending_payment'
                   or (
+                      owner_dismissed_at is null
+                      and
                       (expires_at is null or expires_at > now())
                       and (
                           payment_authorization_expires_at is null

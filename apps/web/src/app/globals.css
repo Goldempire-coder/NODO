@@ -1360,6 +1360,25 @@ div.ad-row {
   opacity: 0.48;
 }
 
+.mini-inline-action {
+  -webkit-tap-highlight-color: transparent;
+  justify-self: start;
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--nodo-muted);
+  font: inherit;
+  font-weight: 700;
+  padding: 4px 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mini-inline-action:disabled {
+  opacity: 0.48;
+}
+
 .business-ad-card,
 .business-ad-detail {
   display: grid;

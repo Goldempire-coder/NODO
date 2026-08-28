@@ -17,6 +17,7 @@ from app.modules.credits.schemas import (
     AdminReviewCreditPurchaseRequest,
     BaseUsdcPaymentRequest,
     BaseUsdcTxHashRequest,
+    ContractCreditPurchaseDismissRequest,
     ReferralApplyRequest,
     StripeCheckoutRequest,
 )
@@ -250,6 +251,24 @@ class CreditService:
         self._rate_limit("pending_contract_purchase", business.id)
         return self._business_purchases.pending_contract_purchase_detail_for_business(
             business_id=business.id,
+        )
+
+    def dismiss_contract_purchase(
+        self,
+        *,
+        user: UserRecord,
+        purchase_id: str,
+        payload: ContractCreditPurchaseDismissRequest,
+        request_id: str,
+    ) -> dict[str, Any]:
+        business = self._owner_business(user)
+        self._rate_limit("contract_purchase_dismiss", business.id)
+        return self._business_purchases.dismiss_contract_purchase(
+            user=user,
+            business=business,
+            purchase_id=purchase_id,
+            payload=payload,
+            request_id=request_id,
         )
 
     def create_credit_handoff(

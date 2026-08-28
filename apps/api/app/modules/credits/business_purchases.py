@@ -36,6 +36,7 @@ from app.modules.credits.schemas import (
     BaseUsdcPaymentRequest,
     BaseUsdcTxHashRequest,
     ContractBaseUsdcPaymentRequest,
+    ContractCreditPurchaseDismissRequest,
     LegacyBaseUsdcPaymentRequest,
     StripeCheckoutRequest,
 )
@@ -397,6 +398,40 @@ class CreditBusinessPurchases:
                 "disclaimer": "No hay compras Base USDC pendientes.",
             }
         return self.contract_purchase_detail(purchase)
+
+    def dismiss_contract_purchase(
+        self,
+        *,
+        user: UserRecord,
+        business: BusinessRecord,
+        purchase_id: str,
+        payload: ContractCreditPurchaseDismissRequest,
+        request_id: str,
+    ) -> dict[str, Any]:
+        if payload.confirmation != "NO_PAYMENT_SENT":
+            raise ApiError("VALIDATION_ERROR", status_code=422)
+        purchase = self._repository.dismiss_contract_purchase(
+            purchase_id=purchase_id,
+            business_id=business.id,
+            owner_user_id=user.id,
+        )
+        self._audit.write(
+            event_type="crypto_contract_credit_purchase_dismissed",
+            actor_user_id=user.id,
+            actor_role=user.role,
+            resource_type="credit_purchase",
+            resource_id=purchase.id,
+            request_id=request_id,
+            metadata_json={
+                "payment_method": "base_usdc_contract",
+                "purchase_status": purchase.status,
+            },
+        )
+        return {
+            "purchase": purchase_public(purchase),
+            "dismissed": True,
+            "disclaimer": "Si enviaste el pago, NODO todavia puede acreditarlo cuando lo verifique.",
+        }
 
     def _contract_payment_response(self, purchase: CreditPurchaseRecord) -> dict[str, Any]:
         response = self.contract_purchase_detail(purchase)

@@ -112,6 +112,20 @@ class InMemoryCreditRepository:
     def count_pending_contract_purchases(self, business_id: str) -> int:
         return self._purchase_store.count_pending_contract_purchases(business_id)
 
+    def dismiss_contract_purchase(
+        self,
+        *,
+        purchase_id: str,
+        business_id: str,
+        owner_user_id: str,
+    ) -> CreditPurchaseRecord:
+        return self._purchase_store.dismiss_contract_purchase(
+            purchase_id=purchase_id,
+            business_id=business_id,
+            owner_user_id=owner_user_id,
+            ledger_for_purchase=self._wallet_store.ledger_for_purchase,
+        )
+
     def get_purchase(self, purchase_id: str) -> CreditPurchaseRecord | None:
         return self._purchase_store.get_purchase(purchase_id)
 

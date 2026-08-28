@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import {
   createBusinessCreditHandoff,
+  dismissBusinessContractCreditPurchase,
   getBusinessCreditHandoff,
   getBusinessPendingContractCreditPurchase,
   getBusinessCreditPurchase,
@@ -26,6 +27,7 @@ const BASE_USDC_HANDOFF_KEY_PREFIX = "nodo_base_usdc_handoff_id";
 const DEFAULT_CREDIT_PACKAGE = "starter";
 const BASE_USDC_PAYMENT_UNAVAILABLE_MESSAGE = "La compra de creditos no esta disponible en este momento.";
 const BASE_USDC_PENDING_STATUSES = new Set(["pending_payment", "pending_onchain_confirmation", "detected", "under_review"]);
+const BASE_USDC_PAYABLE_PENDING_STATUS = "pending_payment";
 
 type PrepareCreditHandoffOptions = {
   silent?: boolean;
@@ -77,12 +79,30 @@ function clearRememberedCreditHandoffId(storageKey: string | null) {
   }
 }
 
+function isRememberableBaseUsdcPurchase(purchase: CreditPurchase) {
+  return (
+    purchase.payment_method === "base_usdc_contract" &&
+    BASE_USDC_PENDING_STATUSES.has(purchase.status) &&
+    !(purchase.status === BASE_USDC_PAYABLE_PENDING_STATUS && purchase.owner_dismissed)
+  );
+}
+
 function isPendingBaseUsdcPurchaseForBusiness(purchase: CreditPurchase, businessId: string | null | undefined) {
   return Boolean(
     businessId &&
     purchase.business_id === businessId &&
+    isRememberableBaseUsdcPurchase(purchase)
+  );
+}
+
+function isDismissableBaseUsdcPurchase(purchase: CreditPurchase | null, businessId: string | null | undefined) {
+  return Boolean(
+    purchase &&
+    businessId &&
+    purchase.business_id === businessId &&
     purchase.payment_method === "base_usdc_contract" &&
-    BASE_USDC_PENDING_STATUSES.has(purchase.status)
+    purchase.status === BASE_USDC_PAYABLE_PENDING_STATUS &&
+    !purchase.owner_dismissed
   );
 }
 
@@ -97,7 +117,7 @@ function rememberPendingBaseUsdcPurchase(purchase: CreditPurchase, storageKey: s
   if (!storageKey) {
     return;
   }
-  if (purchase.payment_method === "base_usdc_contract" && BASE_USDC_PENDING_STATUSES.has(purchase.status)) {
+  if (isRememberableBaseUsdcPurchase(purchase)) {
     window.localStorage.setItem(storageKey, purchase.id);
     return;
   }
@@ -153,6 +173,8 @@ export function useBusinessCreditsModel({
   const [referralData, setReferralData] = useState<ReferralData | null>(null);
   const [generatingCreditPayment, setGeneratingCreditPayment] = useState(false);
   const [loadingPendingPurchase, setLoadingPendingPurchase] = useState(false);
+  const [dismissingPendingCreditPurchase, setDismissingPendingCreditPurchase] = useState(false);
+  const [pendingDismissConfirmationRequested, setPendingDismissConfirmationRequested] = useState(false);
   const [refreshingCreditPurchase, setRefreshingCreditPurchase] = useState(false);
   const [creditHandoffId, setCreditHandoffId] = useState<string | null>(null);
   const [creditHandoffLaunchToken, setCreditHandoffLaunchToken] = useState<string | null>(null);
@@ -174,6 +196,7 @@ export function useBusinessCreditsModel({
     setSelectedCreditPurchase(null);
     setSelectedCreditPayment(null);
     setPendingCreditPurchase(null);
+    setPendingDismissConfirmationRequested(false);
     clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey);
     setCreditHandoffId(null);
     setCreditHandoffLaunchToken(null);
@@ -230,6 +253,12 @@ export function useBusinessCreditsModel({
       return data;
     }
     setPendingCreditPurchase(null);
+    setPendingDismissConfirmationRequested(false);
+    if (data.purchase) {
+      clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, data.purchase.id);
+    } else {
+      clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey);
+    }
     return null;
   }, [business?.id, pendingPurchaseStorageKey, request]);
 
@@ -253,6 +282,7 @@ export function useBusinessCreditsModel({
         const data = await getBusinessCreditPurchase(request, rememberedPurchaseId);
         if (isPendingBaseUsdcPurchaseForBusiness(data.purchase, business?.id)) {
           setPendingCreditPurchase(data.purchase);
+          setPendingDismissConfirmationRequested(false);
           setCreditHandoffId(null);
           setCreditHandoffLaunchToken(null);
           setCreditHandoffOpened(false);
@@ -265,6 +295,7 @@ export function useBusinessCreditsModel({
       }
       const backendPending = await loadBackendPendingBaseUsdcPurchase();
       if (backendPending?.purchase) {
+        setPendingDismissConfirmationRequested(false);
         setCreditHandoffId(null);
         setCreditHandoffLaunchToken(null);
         setCreditHandoffOpened(false);
@@ -287,6 +318,7 @@ export function useBusinessCreditsModel({
       setCreditHandoffLaunchToken(null);
       setCreditHandoffOpened(false);
       setCreditHandoffError(null);
+      setPendingDismissConfirmationRequested(false);
       clearRememberedCreditHandoffId(handoffStorageKey);
     }
     setCreditPackage(packageCode);
@@ -409,6 +441,7 @@ export function useBusinessCreditsModel({
         : await getBusinessCreditPurchase(request, rememberedPurchaseId as string);
       if (!isPendingBaseUsdcPurchaseForBusiness(data.purchase, business?.id)) {
         setPendingCreditPurchase(null);
+        setPendingDismissConfirmationRequested(false);
         clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
         setNotice("Ese pago ya no esta pendiente.");
         return;
@@ -416,6 +449,15 @@ export function useBusinessCreditsModel({
       setPendingCreditPurchase(data.purchase);
       setCreditPackage(data.purchase.package_code);
       rememberPendingBaseUsdcPurchase(data.purchase, pendingPurchaseStorageKey);
+      setPendingDismissConfirmationRequested(false);
+      if (data.purchase.status !== BASE_USDC_PAYABLE_PENDING_STATUS) {
+        const detail = await getBusinessCreditPurchase(request, data.purchase.id);
+        setSelectedCreditPurchase(detail.purchase);
+        setSelectedCreditPayment(detail.payment || null);
+        setView("credit-payment-pending");
+        setNotice("NODO esta revisando ese pago. Actualiza el estado en unos segundos.");
+        return;
+      }
       const handoff = await createBusinessCreditHandoff(request, data.purchase.package_code);
       setCreditHandoffId(handoff.handoff.id);
       setCreditHandoffLaunchToken(handoff.handoff.token);
@@ -434,6 +476,67 @@ export function useBusinessCreditsModel({
       setLoadingPendingPurchase(false);
     }
   }, [business?.id, creditHandoffLaunchToken, handoffStorageKey, pendingCreditPurchase, pendingPurchaseStorageKey, request, setNotice]);
+
+  const requestPendingCreditPurchaseDismiss = useCallback(() => {
+    if (!isDismissableBaseUsdcPurchase(pendingCreditPurchase, business?.id)) {
+      setNotice("Este intento ya no se puede descartar desde la app. Actualiza el estado.");
+      return;
+    }
+    setCreditHandoffError(null);
+    setPendingDismissConfirmationRequested(true);
+    setNotice("Confirma solo si no enviaste el pago en MetaMask.");
+  }, [business?.id, pendingCreditPurchase, setNotice]);
+
+  const resetPendingCreditPurchaseDismiss = useCallback(() => {
+    setPendingDismissConfirmationRequested(false);
+  }, []);
+
+  const dismissPendingBaseUsdcPayment = useCallback(async () => {
+    const purchase = pendingCreditPurchase;
+    if (!purchase || !isDismissableBaseUsdcPurchase(purchase, business?.id)) {
+      setNotice("Este intento ya no se puede descartar desde la app. Actualiza el estado.");
+      return;
+    }
+    const action = "descartar intento de pago";
+    if (!requireBusinessPinFor(action)) {
+      return;
+    }
+    setDismissingPendingCreditPurchase(true);
+    setCreditHandoffError(null);
+    try {
+      await dismissBusinessContractCreditPurchase(request, purchase.id);
+      clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, purchase.id);
+      clearRememberedCreditHandoffId(handoffStorageKey);
+      setPendingCreditPurchase(null);
+      setSelectedCreditPurchase(null);
+      setSelectedCreditPayment(null);
+      setCreditHandoffId(null);
+      setCreditHandoffLaunchToken(null);
+      setCreditHandoffOpened(false);
+      setPendingDismissConfirmationRequested(false);
+      setView("buy-credits");
+      setNotice("Listo. Este intento no seguira bloqueando. Si enviaste el pago, NODO todavia lo verificara.");
+    } catch (error) {
+      if (handleBusinessPinError(error, action)) {
+        return;
+      }
+      const message = error instanceof Error ? error.message : "No pudimos descartar este intento.";
+      setCreditHandoffError(message);
+      setNotice(message);
+    } finally {
+      setDismissingPendingCreditPurchase(false);
+    }
+  }, [
+    business?.id,
+    handoffStorageKey,
+    handleBusinessPinError,
+    pendingCreditPurchase,
+    pendingPurchaseStorageKey,
+    request,
+    requireBusinessPinFor,
+    setNotice,
+    setView,
+  ]);
 
   const loadCreditDashboard = useCallback(async () => {
     setView("credits-dashboard");
@@ -601,7 +704,11 @@ export function useBusinessCreditsModel({
       const data = await getBusinessCreditPurchase(request, selectedCreditPurchase.id);
       setSelectedCreditPurchase(data.purchase);
       setSelectedCreditPayment(data.payment || null);
-      setPendingCreditPurchase(BASE_USDC_PENDING_STATUSES.has(data.purchase.status) ? data.purchase : null);
+      const purchaseIsPending = isPendingBaseUsdcPurchaseForBusiness(data.purchase, business?.id);
+      setPendingCreditPurchase(purchaseIsPending ? data.purchase : null);
+      if (!purchaseIsPending || !isDismissableBaseUsdcPurchase(data.purchase, business?.id)) {
+        setPendingDismissConfirmationRequested(false);
+      }
       rememberPendingBaseUsdcPurchase(data.purchase, pendingPurchaseStorageKey);
       if (data.purchase.status === "credited") {
         await refreshCreditWallet();
@@ -612,7 +719,7 @@ export function useBusinessCreditsModel({
     } finally {
       setRefreshingCreditPurchase(false);
     }
-  }, [pendingPurchaseStorageKey, refreshCreditWallet, request, selectedCreditPurchase, setNotice]);
+  }, [business?.id, pendingPurchaseStorageKey, refreshCreditWallet, request, selectedCreditPurchase, setNotice]);
 
   const loadReferrals = useCallback(async () => {
     setView("referrals");
@@ -635,6 +742,7 @@ export function useBusinessCreditsModel({
     connectingWallet,
     connectedWalletAddress,
     connectedWalletAddressMasked,
+    canDismissPendingCreditPurchase: isDismissableBaseUsdcPurchase(pendingCreditPurchase, business?.id),
     creditHandoffError,
     creditPackage,
     creditHandoffId,
@@ -642,14 +750,19 @@ export function useBusinessCreditsModel({
     creditHandoffOpened,
     creditWallet,
     creditWalletRefreshState,
+    dismissPendingBaseUsdcPayment,
+    dismissingPendingCreditPurchase,
     generatingCreditPayment,
     loadingPendingPurchase,
     loadCreditDashboard,
     loadReferrals,
     openBuyCredits,
     openMetaMaskCreditHandoff,
+    pendingDismissConfirmationRequested,
     preparingCreditHandoff,
     referralData,
+    requestPendingCreditPurchaseDismiss,
+    resetPendingCreditPurchaseDismiss,
     refreshCreditWallet,
     refreshCreditHandoff,
     refreshingCreditHandoff,

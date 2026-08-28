@@ -1506,6 +1506,123 @@ def test_contract_payment_reuses_matching_pending_and_rejects_mismatch_before_si
     assert credits_after == credits_before
 
 
+def test_contract_payment_dismiss_hides_pending_without_blocking_late_watcher_credit() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1127, "contract_pending_dismiss")
+    business = _create_business(client, owner, "contract_pending_dismiss")
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_pending_dismiss_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+    purchase = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert purchase is not None
+
+    dismissed = client.post(
+        f"/api/v1/business/credits/purchases/{purchase_id}/dismiss",
+        headers={**_headers(owner, "contract_pending_dismiss"), "Content-Type": "application/json"},
+        json={"confirmation": "NO_PAYMENT_SENT"},
+    )
+    pending = client.get(
+        "/api/v1/business/credits/purchases/pending-contract",
+        headers=_bearer(owner, "req_contract_pending_dismiss_hidden"),
+    )
+    next_purchase = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_pending_dismiss_next"), "Content-Type": "application/json"},
+        json={"package_code": "pro", "payer_wallet_address": PAYER_WALLET},
+    )
+
+    assert dismissed.status_code == 200, dismissed.text
+    assert dismissed.json()["data"]["purchase"]["status"] == "pending_payment"
+    assert dismissed.json()["data"]["purchase"]["owner_dismissed"] is True
+    assert dismissed.json()["data"]["purchase"]["owner_dismissed_at"] is not None
+    assert pending.status_code == 200, pending.text
+    assert pending.json()["data"]["purchase"] is None
+    assert next_purchase.status_code == 201, next_purchase.text
+    assert client.app.state.credit_repository.ledger_for_purchase(purchase_id) is None
+
+    tx_hash = _tx_hash("contract-dismissed-late-payment")
+    client.app.state.onchain_credit_verifier.set_contract_result(
+        purchase.onchain_purchase_ref,
+        _contract_verification(tx_hash, log_index=67),
+    )
+    watcher_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+        request_id="req_contract_dismissed_late_watcher"
+    )
+
+    assert watcher_result["contract_credited"] == 1
+    assert client.app.state.credit_repository.get_purchase(purchase_id).status == "credited"
+    assert client.app.state.ad_repository.get_wallet(business["id"]).available_credits == 5
+
+
+def test_contract_payment_dismiss_is_confirmed_owned_idempotent_and_evidence_safe() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1128, "contract_dismiss_owner")
+    _create_business(client, owner, "contract_dismiss_owner")
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_dismiss_owned_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+
+    invalid_confirmation = client.post(
+        f"/api/v1/business/credits/purchases/{purchase_id}/dismiss",
+        headers={**_headers(owner, "contract_dismiss_invalid_confirmation"), "Content-Type": "application/json"},
+        json={"confirmation": "CANCEL"},
+    )
+    other_owner = _login(client, 1129, "contract_dismiss_other")
+    _create_business(client, other_owner, "contract_dismiss_other")
+    foreign = client.post(
+        f"/api/v1/business/credits/purchases/{purchase_id}/dismiss",
+        headers={**_headers(other_owner, "contract_dismiss_foreign"), "Content-Type": "application/json"},
+        json={"confirmation": "NO_PAYMENT_SENT"},
+    )
+    first = client.post(
+        f"/api/v1/business/credits/purchases/{purchase_id}/dismiss",
+        headers={**_headers(owner, "contract_dismiss_first"), "Content-Type": "application/json"},
+        json={"confirmation": "NO_PAYMENT_SENT"},
+    )
+    second = client.post(
+        f"/api/v1/business/credits/purchases/{purchase_id}/dismiss",
+        headers={**_headers(owner, "contract_dismiss_second"), "Content-Type": "application/json"},
+        json={"confirmation": "NO_PAYMENT_SENT"},
+    )
+
+    assert invalid_confirmation.status_code == 422
+    assert foreign.status_code == 404
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert second.json()["data"]["purchase"]["owner_dismissed_at"] == first.json()["data"]["purchase"]["owner_dismissed_at"]
+    assert client.app.state.credit_repository.ledger_for_purchase(purchase_id) is None
+
+    detected_purchase = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert detected_purchase is not None
+    detected_purchase.status = "pending_onchain_confirmation"
+    rejected_state = client.post(
+        f"/api/v1/business/credits/purchases/{purchase_id}/dismiss",
+        headers={**_headers(owner, "contract_dismiss_detected"), "Content-Type": "application/json"},
+        json={"confirmation": "NO_PAYMENT_SENT"},
+    )
+    detected_purchase.status = "pending_payment"
+    detected_purchase.owner_dismissed_at = None
+    detected_purchase.tx_hash = _tx_hash("contract-dismiss-with-evidence")
+    rejected_evidence = client.post(
+        f"/api/v1/business/credits/purchases/{purchase_id}/dismiss",
+        headers={**_headers(owner, "contract_dismiss_evidence"), "Content-Type": "application/json"},
+        json={"confirmation": "NO_PAYMENT_SENT"},
+    )
+
+    assert rejected_state.status_code == 409
+    assert rejected_state.json()["error"]["code"] == "CRYPTO_PAYMENT_DISMISS_NOT_ALLOWED"
+    assert rejected_evidence.status_code == 409
+    assert rejected_evidence.json()["error"]["code"] == "CRYPTO_PAYMENT_DISMISS_NOT_ALLOWED"
+
+
 def test_contract_payment_terminal_purchases_do_not_count_and_replay_does_not_add_pending() -> None:
     client, _ = _contract_client()
     owner = _login(client, 1123, "contract_pending_terminal")
@@ -3209,8 +3326,11 @@ def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_cho
     assert "Continuar pago pendiente" in source
     assert "Elige un paquete para generar el pago." in source
     assert "Boolean(pendingCreditPurchase)" not in source
-    assert "pendingCreditPurchase ? continuePendingBaseUsdcPayment() : openMetaMaskCreditHandoff()" in source
+    assert "pendingCreditPurchase && pendingDismissConfirmationRequested" in source
+    assert "continuePendingBaseUsdcPayment()" in source
+    assert "openMetaMaskCreditHandoff()" in source
     assert "Enlace listo - Continuar en MetaMask" in source
+    assert "Confirmar descarte" in source
     assert "createBusinessCreditHandoff(request, data.purchase.package_code)" in hook_source
 
 

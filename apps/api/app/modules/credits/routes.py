@@ -12,6 +12,7 @@ from app.modules.credits.schemas import (
     AdminReviewCreditPurchaseRequest,
     BaseUsdcPaymentRequest,
     BaseUsdcTxHashRequest,
+    ContractCreditPurchaseDismissRequest,
     CreditHandoffClaimRequest,
     CreditHandoffCreateRequest,
     CreditHandoffTokenRequest,
@@ -152,6 +153,25 @@ def business_credit_purchase_detail(
     user: UserRecord = Depends(require_current_user_with_terms),
 ) -> dict:
     return {"data": _service(request).purchase_detail(user=user, purchase_id=purchase_id), "request_id": _request_id(request)}
+
+
+@router.post("/business/credits/purchases/{purchase_id}/dismiss")
+def dismiss_contract_credit_purchase(
+    purchase_id: str,
+    payload: ContractCreditPurchaseDismissRequest,
+    request: Request,
+    user: UserRecord = Depends(require_current_user_with_terms),
+) -> dict:
+    _require_business_pin(request, user)
+    return {
+        "data": _service(request).dismiss_contract_purchase(
+            user=user,
+            purchase_id=purchase_id,
+            payload=payload,
+            request_id=_request_id(request),
+        ),
+        "request_id": _request_id(request),
+    }
 
 
 @router.post("/business/credits/handoffs", status_code=201)

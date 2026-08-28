@@ -11,6 +11,7 @@ from app.modules.credits.postgres_admin_adjustment import adjust_wallet_pg
 from app.modules.credits.postgres_contract_purchase import (
     count_pending_contract_purchases_pg,
     create_contract_purchase_pg,
+    dismiss_contract_purchase_pg,
     find_pending_contract_purchase_pg,
     get_contract_purchase_by_idempotency_pg,
 )
@@ -170,6 +171,20 @@ class PostgresCreditRepository:
 
     def count_pending_contract_purchases(self, business_id: str) -> int:
         return count_pending_contract_purchases_pg(self._connect, business_id)
+
+    def dismiss_contract_purchase(
+        self,
+        *,
+        purchase_id: str,
+        business_id: str,
+        owner_user_id: str,
+    ) -> CreditPurchaseRecord:
+        return dismiss_contract_purchase_pg(
+            self._connect,
+            purchase_id=purchase_id,
+            business_id=business_id,
+            owner_user_id=owner_user_id,
+        )
 
     def find_pending_contract_purchase(self, business_id: str) -> CreditPurchaseRecord | None:
         return find_pending_contract_purchase_pg(self._connect, business_id)

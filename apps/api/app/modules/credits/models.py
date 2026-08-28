@@ -155,6 +155,8 @@ class CreditPurchaseRecord:
     payment_authorization_signer_address: str | None = None
     payment_authorization_signer_version: str | None = None
     payment_authorization_signed_at: datetime | None = None
+    owner_dismissed_at: datetime | None = None
+    owner_dismissed_by_user_id: str | None = None
     tx_hash: str | None = None
     tx_amount_units: int | None = None
     tx_from_address: str | None = None

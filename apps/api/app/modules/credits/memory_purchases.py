@@ -177,6 +177,10 @@ class InMemoryCreditPurchaseStore:
                 if item.business_id == business_id
                 and item.payment_method == "base_usdc_contract"
                 and item.status in CONTRACT_NON_TERMINAL_PURCHASE_STATUSES
+                and (
+                    item.status != "pending_payment"
+                    or item.owner_dismissed_at is None
+                )
             )
             if pending_count >= max_pending:
                 raise ApiError("CRYPTO_PAYMENT_PENDING_LIMIT_REACHED", status_code=409)
@@ -236,7 +240,53 @@ class InMemoryCreditPurchaseStore:
                 if item.business_id == business_id
                 and item.payment_method == "base_usdc_contract"
                 and item.status in CONTRACT_NON_TERMINAL_PURCHASE_STATUSES
+                and (
+                    item.status != "pending_payment"
+                    or item.owner_dismissed_at is None
+                )
             )
+
+    def dismiss_contract_purchase(
+        self,
+        *,
+        purchase_id: str,
+        business_id: str,
+        owner_user_id: str,
+        ledger_for_purchase,
+    ) -> CreditPurchaseRecord:  # type: ignore[no-untyped-def]
+        with self._lock:
+            purchase = self.purchases.get(purchase_id)
+            if (
+                purchase is None
+                or purchase.business_id != business_id
+                or purchase.payment_method != "base_usdc_contract"
+            ):
+                raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
+            has_financial_evidence = bool(
+                purchase.tx_hash
+                or purchase.tx_amount_units is not None
+                or purchase.tx_from_address
+                or purchase.tx_to_address
+                or purchase.tx_block_number is not None
+                or purchase.tx_log_index is not None
+                or purchase.detected_at
+                or purchase.verified_at
+                or purchase.credited_at
+                or purchase.paid_at
+                or purchase.approved_at
+                or ledger_for_purchase(purchase.id)
+            )
+            if purchase.owner_dismissed_at is not None:
+                if purchase.status == "pending_payment" and not has_financial_evidence:
+                    return purchase
+                raise ApiError("CRYPTO_PAYMENT_DISMISS_NOT_ALLOWED", status_code=409)
+            if purchase.status != "pending_payment" or has_financial_evidence:
+                raise ApiError("CRYPTO_PAYMENT_DISMISS_NOT_ALLOWED", status_code=409)
+            now = utc_now()
+            purchase.owner_dismissed_at = now
+            purchase.owner_dismissed_by_user_id = owner_user_id
+            purchase.updated_at = now
+            return purchase
 
     def get_purchase(self, purchase_id: str) -> CreditPurchaseRecord | None:
         return self.purchases.get(purchase_id)
@@ -415,6 +465,8 @@ class InMemoryCreditPurchaseStore:
                 and (
                     item.status != "pending_payment"
                     or (
+                        item.owner_dismissed_at is None
+                        and
                         (item.expires_at is None or item.expires_at > now)
                         and (
                             item.payment_authorization_expires_at is None
