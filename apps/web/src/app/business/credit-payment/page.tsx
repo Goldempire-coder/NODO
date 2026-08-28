@@ -16,13 +16,30 @@ import type { ContractCreditPayment, CreditHandoffChallenge, CreditHandoffStatus
 
 type PaymentStep = "wallet" | "checking" | "review" | "approval" | "pay" | "sent";
 
+const HANDOFF_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
-function extractCreditHandoffToken(search: string, fragment: string, pathname: string): string | null {
+function readHandoffTokenFromHistoryState(state: unknown): string | null {
+  if (!state || typeof state !== "object" || !("nodoCreditHandoffToken" in state)) {
+    return null;
+  }
+  const token = (state as { nodoCreditHandoffToken?: unknown }).nodoCreditHandoffToken;
+  return typeof token === "string" && HANDOFF_TOKEN_PATTERN.test(token) ? token : null;
+}
+
+function extractCreditHandoffToken(search: string, fragment: string, pathname: string, historyState: unknown): string | null {
   const pathMatch = pathname.match(/^\/business\/credit-payment\/handoff\/([A-Za-z0-9_-]{43})\/?$/);
   const token = new URLSearchParams(search).get("handoff")
     || new URLSearchParams(fragment.replace(/^#/, "")).get("handoff")
-    || pathMatch?.[1];
-  return token && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
+    || pathMatch?.[1]
+    || readHandoffTokenFromHistoryState(historyState);
+  return token && HANDOFF_TOKEN_PATTERN.test(token) ? token : null;
+}
+
+function returnToTelegram() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.location.assign("tg://");
 }
 
 
@@ -60,10 +77,14 @@ export default function BusinessCreditPaymentHandoffPage() {
   const paymentExpired = payment ? paymentAuthorizationExpired(payment) : false;
 
   useEffect(() => {
-    const token = extractCreditHandoffToken(window.location.search, window.location.hash, window.location.pathname);
-    window.history.replaceState(null, "", "/business/credit-payment/");
+    const token = extractCreditHandoffToken(window.location.search, window.location.hash, window.location.pathname, window.history.state);
+    if (token) {
+      window.history.replaceState({ nodoCreditHandoffToken: token }, "", "/business/credit-payment/");
+    } else {
+      window.history.replaceState(null, "", "/business/credit-payment/");
+    }
     if (!token) {
-      setPageError("Este enlace no es valido. Inicia de nuevo desde Telegram.");
+      setPageError("Este enlace no es valido. Vuelve a Telegram para iniciar de nuevo.");
       setLoadingChallenge(false);
       return;
     }
@@ -261,7 +282,15 @@ export default function BusinessCreditPaymentHandoffPage() {
             </div>
           ) : null}
 
-          {!paymentDetail && (loadingChallenge || challenge) ? (
+          {!paymentDetail && !loadingChallenge && !challenge ? (
+            <button
+              className="mini-action-button mini-action-button--filled mini-action-button--full"
+              type="button"
+              onClick={returnToTelegram}
+            >
+              Volver a Telegram
+            </button>
+          ) : !paymentDetail && (loadingChallenge || challenge) ? (
             <button
               className="mini-action-button mini-action-button--filled mini-action-button--full"
               type="button"

@@ -29,17 +29,40 @@ def test_credit_handoff_puts_token_in_static_safe_metamask_path_and_clears_url()
     assert "/business/credit-payment/handoff/:token /business/credit-payment/ 200" in redirects
 
     assert "extractCreditHandoffToken" in page
-    assert "extractCreditHandoffToken(window.location.search, window.location.hash, window.location.pathname)" in page
+    assert "extractCreditHandoffToken(window.location.search, window.location.hash, window.location.pathname, window.history.state)" in page
     assert 'const pathMatch = pathname.match(/^\\/business\\/credit-payment\\/handoff\\/([A-Za-z0-9_-]{43})\\/?$/)' in page
+    assert "readHandoffTokenFromHistoryState(historyState)" in page
+    assert "nodoCreditHandoffToken" in page
     assert "new URLSearchParams(search).get(\"handoff\")" in page
     assert "new URLSearchParams(fragment.replace(/^#/, \"\")).get(\"handoff\")" in page
     assert "window.history.replaceState" in page
-    assert "window.history.replaceState(null, \"\", \"/business/credit-payment/\")" in page
+    assert "window.history.replaceState({ nodoCreditHandoffToken: token }, \"\", \"/business/credit-payment/\")" in page
     assert "window.history.replaceState(null, \"\", `${window.location.pathname}${window.location.search}`)" not in page
     effect = page.split("useEffect(() => {", 1)[1].split("}, []);", 1)[0]
     assert effect.index("window.history.replaceState") < effect.index("getCreditHandoffChallenge")
     assert "localStorage" not in page
     assert "sessionStorage" not in page
+
+
+def test_credit_handoff_dead_end_errors_offer_one_telegram_exit_without_wallet_actions() -> None:
+    page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+
+    assert "function returnToTelegram()" in page
+    assert 'window.location.assign("tg://")' in page
+    assert "Este enlace no es valido. Vuelve a Telegram para iniciar de nuevo." in page
+    assert "Volver a Telegram" in page
+
+    dead_end_branch = page.split("{!paymentDetail && !loadingChallenge && !challenge ? (", 1)[1].split(
+        ") : !paymentDetail && (loadingChallenge || challenge)",
+        1,
+    )[0]
+    assert dead_end_branch.count("<button") == 1
+    assert "Volver a Telegram" in dead_end_branch
+    assert "connectWallet" not in dead_end_branch
+    assert "switchWalletToExpectedNetwork" not in dead_end_branch
+    assert "confirmWallet" not in dead_end_branch
+    assert "approveTestUsdc" not in dead_end_branch
+    assert "submitTestPayment" not in dead_end_branch
 
 
 def test_credit_handoff_page_does_not_offer_wallet_actions_without_valid_challenge() -> None:
