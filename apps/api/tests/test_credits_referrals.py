@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 import pytest
+from app.core.config import load_settings
 from app.core.errors import ApiError
 from app.modules.credits.onchain import (
     NODO_CREDIT_PAYMENT_RECEIVED_TOPIC,
@@ -295,6 +296,22 @@ def _create_business(client: TestClient, login: dict, key: str, *, approved: boo
         client.app.state.business_repository.set_access_link_pin_hash(link_id=link.id, pin_hash=hash_pin("1234"))
         client.app.state.business_repository.mark_access_link_pin_verified(link_id=link.id, unlocked_until=utc_now() + timedelta(minutes=15))
     return business
+
+
+def test_onchain_credit_watcher_requires_explicit_enablement() -> None:
+    env = {
+        "APP_ENV": "staging",
+        "DATABASE_URL": "postgresql://user:password@127.0.0.1:1/nodo",
+        "REDIS_URL": "redis://127.0.0.1:1/0",
+        "BASE_RPC_URL": "https://base-sepolia.example.invalid",
+        "NODO_CREDIT_RECEIVING_WALLET_BASE": BASE_WALLET,
+    }
+
+    settings = load_settings(env)
+    enabled = load_settings({**env, "ONCHAIN_CREDIT_WATCHER_ENABLED": "1"})
+
+    assert settings.onchain_credit_watcher_enabled is False
+    assert enabled.onchain_credit_watcher_enabled is True
 
 
 def _stripe_signature(raw: bytes, *, secret: str = STRIPE_WEBHOOK_SECRET, timestamp: int | None = None) -> str:
@@ -608,6 +625,15 @@ def test_legacy_credit_payment_methods_can_be_disabled() -> None:
         headers={**_headers(owner, "legacy_disabled_base"), "Content-Type": "application/json"},
         json={"package_code": "starter", "token_symbol": "USDC"},
     )
+    raw = _stripe_completed_event("cs_legacy_disabled")
+    webhook = client.post(
+        "/api/v1/webhooks/stripe",
+        headers={
+            "Stripe-Signature": _stripe_signature(raw),
+            "X-Request-Id": "req_legacy_disabled_webhook",
+        },
+        content=raw,
+    )
 
     assert stripe.status_code == 410
     assert stripe.json()["error"]["code"] == "CREDIT_PAYMENT_METHOD_DISABLED"
@@ -615,6 +641,8 @@ def test_legacy_credit_payment_methods_can_be_disabled() -> None:
     assert manual.json()["error"]["code"] == "CREDIT_PAYMENT_METHOD_DISABLED"
     assert base.status_code == 410
     assert base.json()["error"]["code"] == "CREDIT_PAYMENT_METHOD_DISABLED"
+    assert webhook.status_code == 410
+    assert webhook.json()["error"]["code"] == "CREDIT_PAYMENT_METHOD_DISABLED"
     assert client.app.state.credit_repository.purchases == {}
 
 
@@ -1427,12 +1455,12 @@ def test_contract_payment_idempotency_replays_same_signature_and_rejects_payload
     assert len(client.app.state.credit_repository.purchases) == 1
 
 
-def test_contract_payment_allows_three_pending_and_rejects_fourth_before_signing(
+def test_contract_payment_reuses_matching_pending_and_rejects_mismatch_before_signing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client, _ = _contract_client()
-    owner = _login(client, 1122, "contract_pending_limit")
-    business = _create_business(client, owner, "contract_pending_limit")
+    owner = _login(client, 1122, "contract_pending_reuse")
+    business = _create_business(client, owner, "contract_pending_reuse")
     payload = {"package_code": "starter", "payer_wallet_address": PAYER_WALLET}
     signed_calls = 0
     original_sign = business_purchases_module.sign_payment_authorization
@@ -1443,28 +1471,32 @@ def test_contract_payment_allows_three_pending_and_rejects_fourth_before_signing
         return original_sign(*args, **kwargs)
 
     monkeypatch.setattr(business_purchases_module, "sign_payment_authorization", track_signing)
-    created = [
-        client.post(
-            "/api/v1/business/credits/base-payment",
-            headers={**_headers(owner, f"contract_pending_{index}"), "Content-Type": "application/json"},
-            json=payload,
-        )
-        for index in range(1, 4)
-    ]
+    first = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_pending_reuse_1"), "Content-Type": "application/json"},
+        json=payload,
+    )
+    reused = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_pending_reuse_2"), "Content-Type": "application/json"},
+        json=payload,
+    )
     wallet_before = client.app.state.credit_repository.get_wallet(business["id"])
     credits_before = wallet_before.available_credits if wallet_before is not None else 0
 
     blocked = client.post(
         "/api/v1/business/credits/base-payment",
-        headers={**_headers(owner, "contract_pending_4"), "Content-Type": "application/json"},
-        json=payload,
+        headers={**_headers(owner, "contract_pending_reuse_3"), "Content-Type": "application/json"},
+        json={"package_code": "pro", "payer_wallet_address": PAYER_WALLET},
     )
 
-    assert [response.status_code for response in created] == [201, 201, 201]
+    assert first.status_code == 201, first.text
+    assert reused.status_code == 201, reused.text
+    assert reused.json()["data"] == first.json()["data"]
     assert blocked.status_code == 409
-    assert blocked.json()["error"]["code"] == "CRYPTO_PAYMENT_PENDING_LIMIT_REACHED"
-    assert signed_calls == 3
-    assert len(client.app.state.credit_repository.purchases) == 3
+    assert blocked.json()["error"]["code"] == "CRYPTO_PAYMENT_PENDING_PURCHASE_EXISTS"
+    assert signed_calls == 1
+    assert len(client.app.state.credit_repository.purchases) == 1
     assert all(
         client.app.state.credit_repository.ledger_for_purchase(purchase.id) is None
         for purchase in client.app.state.credit_repository.purchases.values()
@@ -1482,19 +1514,27 @@ def test_contract_payment_terminal_purchases_do_not_count_and_replay_does_not_ad
     first_headers = {**_headers(owner, "contract_terminal_1"), "Content-Type": "application/json"}
     first = client.post("/api/v1/business/credits/base-payment", headers=first_headers, json=payload)
     replay = client.post("/api/v1/business/credits/base-payment", headers=first_headers, json=payload)
+    assert first.status_code == replay.status_code == 201
+    assert replay.json()["data"] == first.json()["data"]
+    purchases = list(client.app.state.credit_repository.purchases.values())
+    purchases[0].status = "credited"
+
     second = client.post(
         "/api/v1/business/credits/base-payment",
         headers={**_headers(owner, "contract_terminal_2"), "Content-Type": "application/json"},
         json=payload,
     )
+    assert second.status_code == 201, second.text
+    purchases = list(client.app.state.credit_repository.purchases.values())
+    purchases[1].status = "expired"
+
     third = client.post(
         "/api/v1/business/credits/base-payment",
         headers={**_headers(owner, "contract_terminal_3"), "Content-Type": "application/json"},
         json=payload,
     )
+    assert third.status_code == 201, third.text
     purchases = list(client.app.state.credit_repository.purchases.values())
-    purchases[0].status = "credited"
-    purchases[1].status = "expired"
     purchases[2].status = "rejected"
 
     fourth = client.post(
@@ -1503,8 +1543,6 @@ def test_contract_payment_terminal_purchases_do_not_count_and_replay_does_not_ad
         json=payload,
     )
 
-    assert first.status_code == replay.status_code == second.status_code == third.status_code == 201
-    assert replay.json()["data"] == first.json()["data"]
     assert fourth.status_code == 201, fourth.text
     assert len(client.app.state.credit_repository.purchases) == 4
 
@@ -1710,6 +1748,81 @@ def test_credit_wallet_handoff_prepares_one_contract_purchase_without_crediting(
     assert client.app.state.credit_repository.ledger_for_purchase(purchase.id) is None
     wallet_after = client.app.state.credit_repository.ensure_wallet(business["id"])
     assert wallet_after.available_credits == wallet_before.available_credits == 0
+
+
+def test_pending_contract_purchase_is_exposed_and_blocks_new_handoff() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1134, "credit_handoff_pending")
+    _create_business(client, owner, "credit_handoff_pending")
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "handoff_pending_existing"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+
+    pending = client.get(
+        "/api/v1/business/credits/purchases/pending-contract",
+        headers=_bearer(owner, "req_pending_contract_purchase"),
+    )
+    blocked = client.post(
+        "/api/v1/business/credits/handoffs",
+        headers={**_bearer(owner, "req_handoff_blocked_pending"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
+
+    assert pending.status_code == 200, pending.text
+    assert pending.json()["data"]["purchase"]["id"] == purchase_id
+    assert pending.json()["data"]["payment"]["payer_wallet_address"] == PAYER_WALLET
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "CRYPTO_PAYMENT_PENDING_PURCHASE_EXISTS"
+    assert client.app.state.credit_handoff_store._records == {}
+    assert len(client.app.state.credit_repository.purchases) == 1
+
+
+def test_credit_wallet_handoff_claim_reuses_matching_pending_contract_purchase() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 1135, "credit_handoff_reuse_pending")
+    _create_business(client, owner, "credit_handoff_reuse_pending")
+    payer = Account.create()
+    created = client.post(
+        "/api/v1/business/credits/handoffs",
+        headers={**_bearer(owner, "req_handoff_reuse_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
+    assert created.status_code == 201, created.text
+    handoff = created.json()["data"]["handoff"]
+    challenge_text = client.post(
+        "/api/v1/business/credits/handoffs/challenge",
+        json={"handoff_token": handoff["token"]},
+    ).json()["data"]["challenge"]
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "handoff_reuse_existing"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": payer.address},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+    signature = "0x" + Account.sign_message(
+        encode_defunct(text=challenge_text),
+        payer.key,
+    ).signature.hex()
+
+    claimed = client.post(
+        "/api/v1/business/credits/handoffs/claim",
+        json={
+            "handoff_token": handoff["token"],
+            "wallet_address": payer.address,
+            "chain_id": 84532,
+            "signature": signature,
+        },
+    )
+
+    assert claimed.status_code == 200, claimed.text
+    assert claimed.json()["data"]["purchase"]["id"] == purchase_id
+    assert claimed.json()["data"]["payment"]["payer_wallet_address"] == payer.address.lower()
+    assert len(client.app.state.credit_repository.purchases) == 1
 
 
 def test_credit_wallet_handoff_rejects_wrong_chain_and_wrong_signature() -> None:
@@ -2367,6 +2480,30 @@ def test_contract_payment_watcher_batches_pending_event_lookup() -> None:
     assert client.app.state.ad_repository.get_wallet(business_ids[1]).available_credits == 5
 
 
+def test_contract_payment_watcher_skips_when_job_lock_is_held() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 19163, "contract_watcher_locked")
+    _create_business(client, owner, "contract_watcher_locked")
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "contract_watcher_locked_create"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    lock_key = "jobs:verify_base_usdc_credit_purchases"
+    assert client.app.state.job_lock_manager.acquire(lock_key, "external-owner", 120) is True
+    try:
+        result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+            request_id="req_contract_watcher_locked"
+        )
+    finally:
+        client.app.state.job_lock_manager.release(lock_key, "external-owner")
+
+    assert result["lock_acquired"] is False
+    assert result["contract_eligible"] == 0
+    assert client.app.state.onchain_credit_verifier.contract_batch_calls == []
+
+
 def test_contract_payment_event_waits_for_required_confirmations() -> None:
     client, _ = _contract_client()
     owner = _login(client, 1912, "contract_waits_confirmations")
@@ -2536,10 +2673,10 @@ def test_json_rpc_contract_event_verifier_matches_event_and_transfer() -> None:
 
 def test_json_rpc_contract_event_verifier_batches_purchase_ref_filters() -> None:
     client, _ = _contract_client()
-    owner = _login(client, 1916, "contract_rpc_batch_event")
-    _create_business(client, owner, "contract_rpc_batch_event")
     purchases = []
     for index in range(2):
+        owner = _login(client, 1916 + index, f"contract_rpc_batch_event_{index}")
+        _create_business(client, owner, f"contract_rpc_batch_event_{index}")
         prepared = client.post(
             "/api/v1/business/credits/base-payment",
             headers={**_headers(owner, f"contract_rpc_batch_create_{index}"), "Content-Type": "application/json"},
@@ -3064,7 +3201,8 @@ def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_cho
     assert "Tienes un pago pendiente" in source
     assert "Continuar pago pendiente" in source
     assert "Elige un paquete para generar el pago." in source
-    assert "disabled={preparingCreditHandoff || generatingCreditPayment || !creditPackage}" in source
+    assert "disabled={preparingCreditHandoff || generatingCreditPayment || !creditPackage || Boolean(pendingCreditPurchase)}" in source
+    assert "Continua el pago pendiente" in source
 
 
 def test_postgres_onchain_duplicate_tx_log_path_is_atomic() -> None:

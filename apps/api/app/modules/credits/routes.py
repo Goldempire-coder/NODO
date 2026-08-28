@@ -134,6 +134,17 @@ def create_base_usdc_credit_payment(
     }
 
 
+@router.get("/business/credits/purchases/pending-contract")
+def business_pending_contract_credit_purchase(
+    request: Request,
+    user: UserRecord = Depends(require_current_user_with_terms),
+) -> dict:
+    return {
+        "data": _service(request).pending_contract_purchase(user=user),
+        "request_id": _request_id(request),
+    }
+
+
 @router.get("/business/credits/purchases/{purchase_id}")
 def business_credit_purchase_detail(
     purchase_id: str,

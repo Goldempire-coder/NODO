@@ -397,6 +397,7 @@ def _configure_workers(app: FastAPI) -> None:
         audit_writer=app.state.audit_writer,
         onchain_verifier=app.state.onchain_credit_verifier,
         admin_notifications=app.state.admin_notification_service,
+        lock_manager=app.state.job_lock_manager,
     )
     app.state.notification_sender_worker = NotificationSenderWorker(
         settings=app.state.settings,

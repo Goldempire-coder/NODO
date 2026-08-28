@@ -15,9 +15,9 @@ def test_credit_handoff_uses_fragment_and_clears_it_before_network_work() -> Non
 
     assert 'const CREDIT_PAYMENT_PATH = "/business/credit-payment"' in helper
     assert "target.hash = `handoff=${handoffToken}`" in helper
-    assert "encodeURIComponent(dappUrl)" not in helper
-    assert "%23handoff%3D" not in helper
+    assert "encodeURIComponent(dappUrl)" in helper
     assert "`${target.host}${target.pathname}${target.hash}`" in helper
+    assert "`${METAMASK_DAPP_DEEPLINK_BASE}${encodeURIComponent(dappUrl)}`" in helper
     assert "extractCreditHandoffToken" in page
     assert "window.history.replaceState" in page
     effect = page.split("useEffect(() => {", 1)[1].split("}, []);", 1)[0]
@@ -120,22 +120,21 @@ def test_credit_payment_invalidates_authorization_on_wallet_or_network_change() 
     assert "La cuenta o red cambio" in wallet_change_handler
 
 
-def test_credit_payment_keeps_recoverable_permission_steps() -> None:
+def test_credit_payment_skips_manual_permission_recheck_after_exact_approval() -> None:
     page = _read("apps/web/src/app/business/credit-payment/page.tsx")
 
     assert '"review"' in page
-    assert '"approval_submitted"' in page
+    assert '"approval_submitted"' not in page
     assert "checkTestUsdcPermission" in page
     assert "setPaymentStep(\"review\")" in page
     assert "Revisar permiso de USDC" in page
-    assert "Ya autorice USDC, revisar permiso" in page
+    assert "Ya autorice USDC, revisar permiso" not in page
 
     approve_block = page.split("const approveTestUsdc = async", 1)[1].split(
         "const submitTestPayment = async",
         1,
     )[0]
-    assert 'setPaymentStep("pay")' not in approve_block
-    assert 'setPaymentStep("approval_submitted")' in approve_block
+    assert 'setPaymentStep("pay")' in approve_block
 
 
 def test_telegram_credit_flow_creates_handoff_and_refreshes_manually() -> None:
@@ -164,7 +163,10 @@ def test_telegram_handoff_exposes_one_payment_cta_with_safe_retry() -> None:
     assert "launchMetaMaskCreditHandoff(data.handoff.token)" not in creation_branch
     assert "Enlace listo. Toca Abrir MetaMask para continuar." in creation_branch
 
-    launch_branch = model.split("if (creditHandoffLaunchToken) {", 1)[1].split("const action =", 1)[0]
+    launch_branch = model.split("const openMetaMaskCreditHandoff = useCallback", 1)[1].split(
+        "await prepareMetaMaskCreditHandoff();",
+        1,
+    )[0]
     assert "launchMetaMaskCreditHandoff(creditHandoffLaunchToken)" in launch_branch
     before_launch = launch_branch.split("launchMetaMaskCreditHandoff", 1)[0]
     assert "await " not in before_launch
@@ -172,6 +174,18 @@ def test_telegram_handoff_exposes_one_payment_cta_with_safe_retry() -> None:
     assert "creditHandoffLaunchReady" in screen
     assert "Preparando enlace..." in screen
     assert "Enlace listo - Abrir MetaMask" in screen
+
+
+def test_telegram_handoff_prepares_default_starter_after_pin_is_unlocked() -> None:
+    model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+
+    assert 'const DEFAULT_CREDIT_PACKAGE = "starter"' in model
+    assert 'setCreditPackage((current) => current || DEFAULT_CREDIT_PACKAGE)' in model
+    assert "prepareMetaMaskCreditHandoff({ silent: true })" in model
+    assert "accessLink.pin_unlocked" in model
+    assert "accessLink?.pin_required" in model
+    assert "creditHandoffLaunchToken" in model
+    assert "pendingCreditPurchase" in model
 
 
 def test_telegram_handoff_shows_rate_limit_next_to_the_cta_without_false_success() -> None:
@@ -186,6 +200,41 @@ def test_telegram_handoff_shows_rate_limit_next_to_the_cta_without_false_success
     assert "Intentamos abrir MetaMask" in model
     assert "Intentamos abrir MetaMask" in screen
     assert "Pago de prueba abierto en MetaMask" not in screen
+
+
+def test_telegram_handoff_checks_backend_pending_purchase_before_new_handoff() -> None:
+    api = _read("apps/web/src/api/credits.ts")
+    model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    routes = _read("apps/api/app/modules/credits/routes.py")
+
+    assert "getBusinessPendingContractCreditPurchase" in api
+    assert "/api/v1/business/credits/purchases/pending-contract" in api
+    assert "loadBackendPendingBaseUsdcPurchase" in model
+    assert "await loadBackendPendingBaseUsdcPurchase()" in model
+    assert "Tienes un pago Base USDC pendiente. Continua ese pago antes de abrir otro." in model
+    assert "Boolean(pendingCreditPurchase)" in screen
+    assert "Continua el pago pendiente" in screen
+    assert '@router.get("/business/credits/purchases/pending-contract")' in routes
+    assert routes.index('@router.get("/business/credits/purchases/pending-contract")') < routes.index(
+        '@router.get("/business/credits/purchases/{purchase_id}")'
+    )
+
+
+def test_postgres_pending_contract_purchase_reader_filters_business_and_expiry() -> None:
+    postgres = _read("apps/api/app/modules/credits/postgres_contract_purchase.py")
+    repository = _read("apps/api/app/modules/credits/postgres_repository.py")
+
+    assert "def find_pending_contract_purchase_pg" in postgres
+    assert "business_id = %s" in postgres
+    assert "payment_method = 'base_usdc_contract'" in postgres
+    assert "'pending_payment'" in postgres
+    assert "'pending_onchain_confirmation'" in postgres
+    assert "'detected'" in postgres
+    assert "'under_review'" in postgres
+    assert "payment_authorization_expires_at" in postgres
+    assert "order by created_at asc" in postgres
+    assert "find_pending_contract_purchase_pg" in repository
 
 
 def test_business_credit_screen_mirrors_fractional_testnet_contract_prices() -> None:

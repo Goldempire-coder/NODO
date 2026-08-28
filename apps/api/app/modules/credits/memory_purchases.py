@@ -403,6 +403,29 @@ class InMemoryCreditPurchaseStore:
         items.sort(key=lambda item: item.created_at)
         return items[:limit]
 
+    def find_pending_contract_purchase(self, business_id: str) -> CreditPurchaseRecord | None:
+        now = utc_now()
+        with self._lock:
+            items = [
+                item
+                for item in self.purchases.values()
+                if item.business_id == business_id
+                and item.payment_method == "base_usdc_contract"
+                and item.status in CONTRACT_NON_TERMINAL_PURCHASE_STATUSES
+                and (
+                    item.status != "pending_payment"
+                    or (
+                        (item.expires_at is None or item.expires_at > now)
+                        and (
+                            item.payment_authorization_expires_at is None
+                            or item.payment_authorization_expires_at > now
+                        )
+                    )
+                )
+            ]
+            items.sort(key=lambda item: item.created_at)
+            return items[0] if items else None
+
     def list_purchases(self, *, status: str | None, business_id: str | None, cursor: str | None, limit: int) -> tuple[list[CreditPurchaseRecord], str | None]:
         items = list(self.purchases.values())
         if status:

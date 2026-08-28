@@ -229,6 +229,14 @@ class CreditBusinessPurchases:
                 ):
                     raise ApiError("IDEMPOTENCY_PAYLOAD_MISMATCH", status_code=409)
                 return self._contract_payment_response(existing)
+            pending_purchase = self.pending_contract_purchase_for_business(business_id=business.id)
+            if pending_purchase is not None:
+                if (
+                    pending_purchase.package_code == payload.package_code
+                    and pending_purchase.onchain_payer_address == payer_address
+                ):
+                    return self._contract_payment_response(pending_purchase)
+                raise ApiError("CRYPTO_PAYMENT_PENDING_PURCHASE_EXISTS", status_code=409)
             if (
                 self._repository.count_pending_contract_purchases(business.id)
                 >= self._settings.credit_contract_pending_purchase_limit
@@ -259,30 +267,35 @@ class CreditBusinessPurchases:
                 signer_key=self._settings.nodo_credit_auth_signer_key or "",
                 configured_signer_address=self._settings.nodo_credit_auth_signer_address or "",
             )
-            purchase, created = self._repository.create_contract_purchase(
-                business_id=business.id,
-                package_code=payload.package_code,
-                idempotency_key=stable_key,
-                price_usd=payment_package["price_usd"],
-                expected_amount_units=snapshot.amount,
-                chain_id=network_profile.chain_id,
-                network=network_profile.network,
-                token_symbol=network_profile.token_symbol,
-                token_contract_address=network_profile.token_contract_address,
-                token_decimals=network_profile.token_decimals,
-                destination_wallet_address=treasury_address,
-                purchase_ref=snapshot.purchase_ref,
-                payer_address=payer_address,
-                contract_address=contract_address,
-                contract_version=snapshot.contract_version,
-                authorization_expires_at=authorization_expires_at,
-                authorization_digest=signed.digest,
-                authorization_signature=signed.signature,
-                signer_address=signed.signer_address,
-                signer_version=self._settings.nodo_credit_auth_signer_version or "",
-                signed_at=signed_at,
-                max_pending=self._settings.credit_contract_pending_purchase_limit,
-            )
+            try:
+                purchase, created = self._repository.create_contract_purchase(
+                    business_id=business.id,
+                    package_code=payload.package_code,
+                    idempotency_key=stable_key,
+                    price_usd=payment_package["price_usd"],
+                    expected_amount_units=snapshot.amount,
+                    chain_id=network_profile.chain_id,
+                    network=network_profile.network,
+                    token_symbol=network_profile.token_symbol,
+                    token_contract_address=network_profile.token_contract_address,
+                    token_decimals=network_profile.token_decimals,
+                    destination_wallet_address=treasury_address,
+                    purchase_ref=snapshot.purchase_ref,
+                    payer_address=payer_address,
+                    contract_address=contract_address,
+                    contract_version=snapshot.contract_version,
+                    authorization_expires_at=authorization_expires_at,
+                    authorization_digest=signed.digest,
+                    authorization_signature=signed.signature,
+                    signer_address=signed.signer_address,
+                    signer_version=self._settings.nodo_credit_auth_signer_version or "",
+                    signed_at=signed_at,
+                    max_pending=1,
+                )
+            except ApiError as exc:
+                if exc.code == "CRYPTO_PAYMENT_PENDING_LIMIT_REACHED":
+                    raise ApiError("CRYPTO_PAYMENT_PENDING_PURCHASE_EXISTS", status_code=409) from exc
+                raise
             if created:
                 self._audit.write(
                     event_type="crypto_contract_credit_purchase_authorized",
@@ -367,6 +380,22 @@ class CreditBusinessPurchases:
             or purchase.payment_method != "base_usdc_contract"
         ):
             raise ApiError("PURCHASE_NOT_FOUND", status_code=404)
+        return self.contract_purchase_detail(purchase)
+
+    def pending_contract_purchase_for_business(self, *, business_id: str) -> CreditPurchaseRecord | None:
+        reader = getattr(self._repository, "find_pending_contract_purchase", None)
+        if not callable(reader):
+            return None
+        return reader(business_id)
+
+    def pending_contract_purchase_detail_for_business(self, *, business_id: str) -> dict[str, Any]:
+        purchase = self.pending_contract_purchase_for_business(business_id=business_id)
+        if purchase is None:
+            return {
+                "purchase": None,
+                "payment": None,
+                "disclaimer": "No hay compras Base USDC pendientes.",
+            }
         return self.contract_purchase_detail(purchase)
 
     def _contract_payment_response(self, purchase: CreditPurchaseRecord) -> dict[str, Any]:

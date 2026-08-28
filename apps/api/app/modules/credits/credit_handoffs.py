@@ -366,6 +366,45 @@ class CreditPaymentHandoffs:
             raise ApiError("CREDIT_HANDOFF_NOT_FOUND", status_code=404)
         self._require_business_pin(user)
         signature_hash = hashlib.sha256(signature.lower().encode("ascii")).hexdigest()
+        pending_purchase = self._business_purchases.pending_contract_purchase_for_business(
+            business_id=business.id,
+        )
+        if pending_purchase is not None:
+            if (
+                pending_purchase.package_code != record.package_code
+                or pending_purchase.onchain_payer_address != wallet
+            ):
+                raise ApiError("CRYPTO_PAYMENT_PENDING_PURCHASE_EXISTS", status_code=409)
+            try:
+                claimed = self._store.begin_claim(
+                    token=token,
+                    wallet_address=wallet,
+                    signature_hash=signature_hash,
+                )
+                if claimed.status == "prepared" and claimed.purchase_id:
+                    return self._claim_response(claimed)
+                completed = self._store.complete_claim(
+                    token=token,
+                    purchase_id=pending_purchase.id,
+                )
+            except CreditHandoffClaimConflict as exc:
+                raise ApiError("CREDIT_HANDOFF_ALREADY_USED", status_code=409) from exc
+            except CreditHandoffStoreUnavailable as exc:
+                raise ApiError("CREDIT_HANDOFF_UNAVAILABLE", status_code=503) from exc
+            self._audit.write(
+                event_type="credit_wallet_handoff_prepared",
+                actor_user_id=user.id,
+                actor_role=user.role,
+                resource_type="credit_wallet_handoff",
+                resource_id=completed.id,
+                request_id=request_id,
+                metadata_json={
+                    "purchase_id": pending_purchase.id,
+                    "wallet_address_masked": _mask_wallet(wallet),
+                    "source": "existing_pending_purchase",
+                },
+            )
+            return self._claim_response(completed)
         try:
             claimed = self._store.begin_claim(
                 token=token,

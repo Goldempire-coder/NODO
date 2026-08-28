@@ -221,11 +221,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         onchain_credit_watcher_enabled=_read_bool(
             source,
             "ONCHAIN_CREDIT_WATCHER_ENABLED",
-            bool(
-                source.get("APP_ENV") != "test"
-                and source.get("BASE_RPC_URL")
-                and source.get("NODO_CREDIT_RECEIVING_WALLET_BASE")
-            ),
+            False,
         ),
         onchain_credit_watcher_interval_seconds=_read_int(source, "ONCHAIN_CREDIT_WATCHER_INTERVAL_SECONDS", 30),
         onchain_credit_watcher_batch_size=_read_int(source, "ONCHAIN_CREDIT_WATCHER_BATCH_SIZE", 50),

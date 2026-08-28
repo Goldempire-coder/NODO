@@ -2,6 +2,7 @@ import type { AuthenticatedRequest } from "./client";
 import { resolveApiUrl } from "../lib/env";
 import type {
   BusinessCreditPurchaseDetail,
+  BusinessPendingCreditPurchaseDetail,
   CreditHandoffChallenge,
   CreditHandoffCreated,
   CreditHandoffStatus,
@@ -40,6 +41,12 @@ export function startBusinessBaseUsdcPayment(
 
 export function getBusinessCreditPurchase(request: AuthenticatedRequest, purchaseId: string) {
   return request<BusinessCreditPurchaseDetail>(`/api/v1/business/credits/purchases/${purchaseId}`);
+}
+
+export function getBusinessPendingContractCreditPurchase(request: AuthenticatedRequest) {
+  return request<BusinessPendingCreditPurchaseDetail>("/api/v1/business/credits/purchases/pending-contract", {
+    cache: "no-store",
+  });
 }
 
 export function createBusinessCreditHandoff(

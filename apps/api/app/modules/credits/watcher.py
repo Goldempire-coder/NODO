@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
 from app.core.errors import ApiError
 from app.modules.credits.models import utc_now
 from app.modules.credits.onchain import normalize_credit_verification
+
+VERIFY_BASE_USDC_CREDIT_PURCHASES_LOCK_KEY = "jobs:verify_base_usdc_credit_purchases"
+VERIFY_BASE_USDC_CREDIT_PURCHASES_LOCK_TTL_SECONDS = 120
 
 
 def _mask_tx_hash(value: str, keep: int = 8) -> str:
@@ -14,14 +18,35 @@ def _mask_tx_hash(value: str, keep: int = 8) -> str:
 class BaseUsdcCreditPurchaseWatcher:
     job_type = "verify_base_usdc_credit_purchases"
 
-    def __init__(self, *, settings, credit_repository, audit_writer, onchain_verifier, admin_notifications=None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, *, settings, credit_repository, audit_writer, onchain_verifier, admin_notifications=None, lock_manager=None) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._credits = credit_repository
         self._audit = audit_writer
         self._verifier = onchain_verifier
         self._admin_notifications = admin_notifications
+        self._lock_manager = lock_manager
 
     def run_once(self, *, request_id: str = "watcher") -> dict[str, Any]:
+        lock_owner = f"{self.job_type}:{uuid4()}"
+        lock_acquired = False
+        if self._lock_manager is not None:
+            lock_acquired = self._lock_manager.acquire(
+                VERIFY_BASE_USDC_CREDIT_PURCHASES_LOCK_KEY,
+                lock_owner,
+                VERIFY_BASE_USDC_CREDIT_PURCHASES_LOCK_TTL_SECONDS,
+            )
+            if not lock_acquired:
+                return self._empty_result(lock_acquired=False)
+        try:
+            return self._run_once_locked(
+                request_id=request_id,
+                lock_acquired=self._lock_manager is None or lock_acquired,
+            )
+        finally:
+            if self._lock_manager is not None and lock_acquired:
+                self._lock_manager.release(VERIFY_BASE_USDC_CREDIT_PURCHASES_LOCK_KEY, lock_owner)
+
+    def _run_once_locked(self, *, request_id: str, lock_acquired: bool) -> dict[str, Any]:
         purchases = self._credits.list_onchain_pending_purchases(limit=self._settings.onchain_credit_watcher_batch_size)
         eligible = [purchase for purchase in purchases if purchase.tx_hash and purchase.expected_amount_units is not None and purchase.destination_wallet_address]
         contract_purchase_reader = getattr(self._credits, "list_contract_pending_purchases", None)
@@ -42,6 +67,7 @@ class BaseUsdcCreditPurchaseWatcher:
         ]
         result: dict[str, Any] = {
             "job_type": self.job_type,
+            "lock_acquired": lock_acquired,
             "scanned": len(purchases),
             "eligible": len(eligible),
             "skipped_missing_tx": len(purchases) - len(eligible),
@@ -187,6 +213,30 @@ class BaseUsdcCreditPurchaseWatcher:
         if isinstance(rpc_before, int) and isinstance(rpc_after, int):
             result["rpc_calls"] = max(0, rpc_after - rpc_before)
         return result
+
+    def _empty_result(self, *, lock_acquired: bool) -> dict[str, Any]:
+        return {
+            "job_type": self.job_type,
+            "lock_acquired": lock_acquired,
+            "scanned": 0,
+            "eligible": 0,
+            "skipped_missing_tx": 0,
+            "contract_scanned": 0,
+            "contract_eligible": 0,
+            "contract_skipped_incomplete": 0,
+            "contract_verified_attempts": 0,
+            "contract_credited": 0,
+            "contract_under_review": 0,
+            "contract_pending": 0,
+            "stuck_or_expired": 0,
+            "verified_attempts": 0,
+            "credited": 0,
+            "under_review": 0,
+            "pending": 0,
+            "errors": [],
+            "rpc_calls": 0,
+            "latest_block_prefetched": False,
+        }
 
     def _notify_credit_attention(self, *, purchase, reason: str, request_id: str, error_code: str | None = None) -> None:  # type: ignore[no-untyped-def]
         if self._admin_notifications is None:

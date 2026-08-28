@@ -245,6 +245,13 @@ class CreditService:
             return self._business_purchases.contract_purchase_detail(purchase)
         return {"purchase": purchase_public(purchase), "disclaimer": CREDITS_DISCLAIMER}
 
+    def pending_contract_purchase(self, *, user: UserRecord) -> dict[str, Any]:
+        business = self._owner_business(user)
+        self._rate_limit("pending_contract_purchase", business.id)
+        return self._business_purchases.pending_contract_purchase_detail_for_business(
+            business_id=business.id,
+        )
+
     def create_credit_handoff(
         self,
         *,
@@ -253,6 +260,8 @@ class CreditService:
         request_id: str,
     ) -> dict[str, Any]:
         business = self._owner_business(user)
+        if self._business_purchases.pending_contract_purchase_for_business(business_id=business.id):
+            raise ApiError("CRYPTO_PAYMENT_PENDING_PURCHASE_EXISTS", status_code=409)
         return self._require_credit_handoffs().create(
             user=user,
             business=business,
@@ -344,6 +353,8 @@ class CreditService:
         return self._business_referrals.apply_referral(user=user, business=business, payload=payload, request_id=request_id, idempotency_key=idempotency_key)
 
     def stripe_webhook(self, *, raw_body: bytes, signature_header: str | None, request_id: str) -> dict[str, Any]:
+        if not self._settings.legacy_credit_payment_methods_enabled:
+            raise ApiError("CREDIT_PAYMENT_METHOD_DISABLED", status_code=410)
         self._rate_limit("stripe_webhook", "stripe")
         event = parse_stripe_webhook_event(raw_body=raw_body, signature_header=signature_header, webhook_secret=self._settings.stripe_webhook_secret)
         event_id = str(event.get("id") or "")

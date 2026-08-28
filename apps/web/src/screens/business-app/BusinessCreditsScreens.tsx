@@ -208,12 +208,14 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
         <button
           className="mini-action-button mini-action-button--filled mini-action-button--full"
           type="button"
-          disabled={preparingCreditHandoff || generatingCreditPayment || !creditPackage}
+          disabled={preparingCreditHandoff || generatingCreditPayment || !creditPackage || Boolean(pendingCreditPurchase)}
           onClick={() => void openMetaMaskCreditHandoff()}
         >
           {preparingCreditHandoff
             ? "Preparando enlace..."
-            : creditHandoffLaunchReady
+            : pendingCreditPurchase
+              ? "Continua el pago pendiente"
+              : creditHandoffLaunchReady
               ? "Enlace listo - Abrir MetaMask"
             : creditPackage
               ? "Abrir MetaMask para pagar en prueba"

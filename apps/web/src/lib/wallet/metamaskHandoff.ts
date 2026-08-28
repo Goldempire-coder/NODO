@@ -64,7 +64,7 @@ export function buildMetaMaskCreditHandoffDeeplink(origin: string, handoffToken:
   const target = new URL(CREDIT_PAYMENT_PATH, source.origin);
   target.hash = `handoff=${handoffToken}`;
   const dappUrl = `${target.host}${target.pathname}${target.hash}`;
-  return `${METAMASK_DAPP_DEEPLINK_BASE}${dappUrl}`;
+  return `${METAMASK_DAPP_DEEPLINK_BASE}${encodeURIComponent(dappUrl)}`;
 }
 
 export function openMetaMaskCreditHandoff(handoffToken: string): void {

@@ -154,6 +154,9 @@ class InMemoryCreditRepository:
     def list_contract_pending_purchases(self, *, limit: int) -> list[CreditPurchaseRecord]:
         return self._purchase_store.list_contract_pending_purchases(limit=limit)
 
+    def find_pending_contract_purchase(self, business_id: str) -> CreditPurchaseRecord | None:
+        return self._purchase_store.find_pending_contract_purchase(business_id)
+
     def adjust_wallet(self, *, business_id: str, amount: int, direction: str, reason: str, notes: str | None, created_by: str) -> CreditLedgerRecord:
         return self._wallet_store.adjust_wallet(business_id=business_id, amount=amount, direction=direction, reason=reason, notes=notes, created_by=created_by)
 

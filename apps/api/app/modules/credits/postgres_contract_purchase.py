@@ -172,3 +172,35 @@ def count_pending_contract_purchases_pg(connect, business_id: str) -> int:  # ty
             (business_id,),
         ).fetchone()
     return int(row["pending_count"])
+
+
+def find_pending_contract_purchase_pg(connect, business_id: str) -> CreditPurchaseRecord | None:  # type: ignore[no-untyped-def]
+    with connect() as conn:
+        row = conn.execute(
+            """
+            select *
+            from credit_purchases
+            where business_id = %s
+              and payment_method = 'base_usdc_contract'
+              and status in (
+                  'pending_payment',
+                  'pending_onchain_confirmation',
+                  'detected',
+                  'under_review'
+              )
+              and (
+                  status <> 'pending_payment'
+                  or (
+                      (expires_at is null or expires_at > now())
+                      and (
+                          payment_authorization_expires_at is null
+                          or payment_authorization_expires_at > now()
+                      )
+                  )
+              )
+            order by created_at asc
+            limit 1
+            """,
+            (business_id,),
+        ).fetchone()
+    return purchase_from_row(row) if row is not None else None

@@ -14,7 +14,7 @@ import {
 } from "../../../lib/wallet/testnetCreditPayment";
 import type { ContractCreditPayment, CreditHandoffChallenge, CreditHandoffStatus } from "../../../types/credits";
 
-type PaymentStep = "wallet" | "checking" | "review" | "approval" | "approval_submitted" | "pay" | "sent";
+type PaymentStep = "wallet" | "checking" | "review" | "approval" | "pay" | "sent";
 
 
 function extractCreditHandoffToken(fragment: string): string | null {
@@ -155,7 +155,7 @@ export default function BusinessCreditPaymentHandoffPage() {
     setPageError(null);
     try {
       await approveExactTestUsdc(provider, payment, connectedWalletAddress, walletChainId);
-      setPaymentStep("approval_submitted");
+      setPaymentStep("pay");
     } catch (error) {
       setPageError(testnetPaymentErrorMessage(error));
     } finally {
@@ -243,10 +243,8 @@ export default function BusinessCreditPaymentHandoffPage() {
                   <Text>
                     {paymentStep === "approval"
                       ? "MetaMask pedira permiso solo por el monto exacto de esta compra."
-                      : paymentStep === "approval_submitted"
-                        ? "Cuando MetaMask termine, revisa el permiso una vez antes de pagar."
                         : paymentStep === "pay"
-                          ? "La compra esta lista para enviarse al contrato de prueba."
+                          ? "Autorizacion enviada. Si MetaMask aun la confirma, espera unos segundos antes de pagar."
                           : paymentStep === "sent"
                             ? "El watcher de prueba confirmara el evento; NODO no usa hashes pegados."
                             : paymentStep === "review"
@@ -285,7 +283,7 @@ export default function BusinessCreditPaymentHandoffPage() {
                         ? "Cambiar a Base Sepolia"
                         : "Confirmar esta wallet"}
             </button>
-          ) : paymentStep === "review" || paymentStep === "checking" || paymentStep === "approval_submitted" ? (
+          ) : paymentStep === "review" || paymentStep === "checking" ? (
             <button
               className="mini-action-button mini-action-button--filled mini-action-button--full"
               type="button"
@@ -294,9 +292,7 @@ export default function BusinessCreditPaymentHandoffPage() {
             >
               {paymentActionBusy || paymentStep === "checking"
                 ? "Revisando permiso..."
-                : paymentStep === "approval_submitted"
-                  ? "Ya autorice USDC, revisar permiso"
-                  : "Revisar permiso de USDC"}
+                : "Revisar permiso de USDC"}
             </button>
           ) : paymentStep === "approval" ? (
             <button

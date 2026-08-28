@@ -82,6 +82,12 @@ export type BusinessCreditPurchaseDetail = {
   disclaimer?: string;
 };
 
+export type BusinessPendingCreditPurchaseDetail = {
+  purchase: CreditPurchase | null;
+  payment?: ContractCreditPayment | null;
+  disclaimer?: string;
+};
+
 export type CreditHandoff = {
   id: string;
   status: "active" | "claiming" | "prepared" | "expired";
