@@ -1750,7 +1750,7 @@ def test_credit_wallet_handoff_prepares_one_contract_purchase_without_crediting(
     assert wallet_after.available_credits == wallet_before.available_credits == 0
 
 
-def test_pending_contract_purchase_is_exposed_and_blocks_new_handoff() -> None:
+def test_pending_contract_purchase_is_exposed_and_allows_matching_resume_handoff() -> None:
     client, _ = _contract_client()
     owner = _login(client, 1134, "credit_handoff_pending")
     _create_business(client, owner, "credit_handoff_pending")
@@ -1766,18 +1766,25 @@ def test_pending_contract_purchase_is_exposed_and_blocks_new_handoff() -> None:
         "/api/v1/business/credits/purchases/pending-contract",
         headers=_bearer(owner, "req_pending_contract_purchase"),
     )
+    resume = client.post(
+        "/api/v1/business/credits/handoffs",
+        headers={**_bearer(owner, "req_handoff_resume_pending"), "Content-Type": "application/json"},
+        json={"package_code": "starter"},
+    )
     blocked = client.post(
         "/api/v1/business/credits/handoffs",
         headers={**_bearer(owner, "req_handoff_blocked_pending"), "Content-Type": "application/json"},
-        json={"package_code": "starter"},
+        json={"package_code": "pro"},
     )
 
     assert pending.status_code == 200, pending.text
     assert pending.json()["data"]["purchase"]["id"] == purchase_id
     assert pending.json()["data"]["payment"]["payer_wallet_address"] == PAYER_WALLET
+    assert resume.status_code == 201, resume.text
+    assert resume.json()["data"]["handoff"]["token"]
     assert blocked.status_code == 409
     assert blocked.json()["error"]["code"] == "CRYPTO_PAYMENT_PENDING_PURCHASE_EXISTS"
-    assert client.app.state.credit_handoff_store._records == {}
+    assert len(client.app.state.credit_handoff_store._records) == 1
     assert len(client.app.state.credit_repository.purchases) == 1
 
 
@@ -3188,8 +3195,8 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
 
 
 def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_choice() -> None:
-    source = open("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx", encoding="utf-8").read()
-    hook_source = open("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts", encoding="utf-8").read()
+    source = Path("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx").read_text(encoding="utf-8")
+    hook_source = Path("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts").read_text(encoding="utf-8")
     open_buy_source = hook_source.split("const openBuyCredits = useCallback", 1)[1].split("const continuePendingBaseUsdcPayment", 1)[0]
 
     assert "pendingCreditPurchase" in hook_source
@@ -3201,8 +3208,10 @@ def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_cho
     assert "Tienes un pago pendiente" in source
     assert "Continuar pago pendiente" in source
     assert "Elige un paquete para generar el pago." in source
-    assert "disabled={preparingCreditHandoff || generatingCreditPayment || !creditPackage || Boolean(pendingCreditPurchase)}" in source
-    assert "Continua el pago pendiente" in source
+    assert "Boolean(pendingCreditPurchase)" not in source
+    assert "pendingCreditPurchase ? continuePendingBaseUsdcPayment() : openMetaMaskCreditHandoff()" in source
+    assert "Enlace listo - Continuar en MetaMask" in source
+    assert "createBusinessCreditHandoff(request, data.purchase.package_code)" in hook_source
 
 
 def test_postgres_onchain_duplicate_tx_log_path_is_atomic() -> None:

@@ -260,7 +260,10 @@ class CreditService:
         request_id: str,
     ) -> dict[str, Any]:
         business = self._owner_business(user)
-        if self._business_purchases.pending_contract_purchase_for_business(business_id=business.id):
+        pending_purchase = self._business_purchases.pending_contract_purchase_for_business(
+            business_id=business.id,
+        )
+        if pending_purchase is not None and pending_purchase.package_code != package_code:
             raise ApiError("CRYPTO_PAYMENT_PENDING_PURCHASE_EXISTS", status_code=409)
         return self._require_credit_handoffs().create(
             user=user,

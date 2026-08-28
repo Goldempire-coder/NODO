@@ -208,7 +208,7 @@ def test_telegram_handoff_shows_rate_limit_next_to_the_cta_without_false_success
     assert "Pago de prueba abierto en MetaMask" not in screen
 
 
-def test_telegram_handoff_checks_backend_pending_purchase_before_new_handoff() -> None:
+def test_telegram_handoff_resumes_backend_pending_purchase_with_new_link() -> None:
     api = _read("apps/web/src/api/credits.ts")
     model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
@@ -219,8 +219,18 @@ def test_telegram_handoff_checks_backend_pending_purchase_before_new_handoff() -
     assert "loadBackendPendingBaseUsdcPurchase" in model
     assert "await loadBackendPendingBaseUsdcPurchase()" in model
     assert "Tienes un pago Base USDC pendiente. Continua ese pago antes de abrir otro." in model
-    assert "Boolean(pendingCreditPurchase)" in screen
-    assert "Continua el pago pendiente" in screen
+    assert "createBusinessCreditHandoff(request, data.purchase.package_code)" in model
+    assert "Enlace listo. Toca Continuar en MetaMask para terminar el pago pendiente." in model
+    continue_branch = model.split("const continuePendingBaseUsdcPayment = useCallback", 1)[1].split(
+        "const loadCreditDashboard = useCallback",
+        1,
+    )[0]
+    assert "launchMetaMaskCreditHandoff(creditHandoffLaunchToken)" in continue_branch
+    assert "await " not in continue_branch.split("launchMetaMaskCreditHandoff", 1)[0]
+    assert "Boolean(pendingCreditPurchase)" not in screen
+    assert "pendingCreditPurchase ? continuePendingBaseUsdcPayment() : openMetaMaskCreditHandoff()" in screen
+    assert "Continuar pago pendiente" in screen
+    assert "Enlace listo - Continuar en MetaMask" in screen
     assert '@router.get("/business/credits/purchases/pending-contract")' in routes
     assert routes.index('@router.get("/business/credits/purchases/pending-contract")') < routes.index(
         '@router.get("/business/credits/purchases/{purchase_id}")'

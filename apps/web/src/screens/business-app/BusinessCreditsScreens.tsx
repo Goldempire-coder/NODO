@@ -152,8 +152,17 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
               <small>Continualo para revisar la autorizacion preparada.</small>
             </div>
           </div>
-          <button className="mini-action-button" type="button" disabled={loadingPendingPurchase} onClick={() => void continuePendingBaseUsdcPayment()}>
-            {loadingPendingPurchase ? "Cargando..." : "Continuar pago pendiente"}
+          <button
+            className="mini-action-button"
+            type="button"
+            disabled={loadingPendingPurchase || preparingCreditHandoff || generatingCreditPayment}
+            onClick={() => void continuePendingBaseUsdcPayment()}
+          >
+            {loadingPendingPurchase || preparingCreditHandoff
+              ? "Preparando..."
+              : creditHandoffLaunchReady
+                ? "Abrir MetaMask"
+                : "Continuar pago pendiente"}
           </button>
         </div>
       ) : loadingPendingPurchase ? (
@@ -208,13 +217,20 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
         <button
           className="mini-action-button mini-action-button--filled mini-action-button--full"
           type="button"
-          disabled={preparingCreditHandoff || generatingCreditPayment || !creditPackage || Boolean(pendingCreditPurchase)}
-          onClick={() => void openMetaMaskCreditHandoff()}
+          disabled={
+            preparingCreditHandoff
+            || generatingCreditPayment
+            || loadingPendingPurchase
+            || (!pendingCreditPurchase && !creditPackage)
+          }
+          onClick={() => void (pendingCreditPurchase ? continuePendingBaseUsdcPayment() : openMetaMaskCreditHandoff())}
         >
           {preparingCreditHandoff
             ? "Preparando enlace..."
             : pendingCreditPurchase
-              ? "Continua el pago pendiente"
+              ? creditHandoffLaunchReady
+                ? "Enlace listo - Continuar en MetaMask"
+                : "Continuar pago pendiente"
               : creditHandoffLaunchReady
               ? "Enlace listo - Abrir MetaMask"
             : creditPackage

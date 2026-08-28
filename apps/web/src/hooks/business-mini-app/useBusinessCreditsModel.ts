@@ -384,40 +384,56 @@ export function useBusinessCreditsModel({
   }, [business?.access_link, creditHandoffError, creditHandoffId, creditHandoffLaunchToken, creditPackage, loadingPendingPurchase, pendingCreditPurchase, prepareMetaMaskCreditHandoff, preparingCreditHandoff]);
 
   const continuePendingBaseUsdcPayment = useCallback(async () => {
+    if (creditHandoffLaunchToken && pendingCreditPurchase) {
+      try {
+        launchMetaMaskCreditHandoff(creditHandoffLaunchToken);
+        setCreditHandoffOpened(true);
+        setNotice("Intentamos abrir MetaMask. Termina el pago pendiente y vuelve a Telegram.");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "No pudimos abrir MetaMask desde este navegador.";
+        setCreditHandoffError(message);
+        setNotice(message);
+      }
+      return;
+    }
     const rememberedPurchaseId = pendingCreditPurchase?.id || readRememberedBaseUsdcPurchaseId(pendingPurchaseStorageKey);
-    if (!rememberedPurchaseId) {
+    if (!rememberedPurchaseId && !pendingCreditPurchase) {
       setNotice("No hay un pago Base USDC pendiente.");
       return;
     }
+    setCreditHandoffError(null);
     setLoadingPendingPurchase(true);
     try {
-      const data = await getBusinessCreditPurchase(request, rememberedPurchaseId);
+      const data = pendingCreditPurchase
+        ? { purchase: pendingCreditPurchase }
+        : await getBusinessCreditPurchase(request, rememberedPurchaseId as string);
       if (!isPendingBaseUsdcPurchaseForBusiness(data.purchase, business?.id)) {
         setPendingCreditPurchase(null);
         clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
         setNotice("Ese pago ya no esta pendiente.");
         return;
       }
-      if (!data.payment?.payer_wallet_address) {
-        setPendingCreditPurchase(null);
-        clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
-        setNotice("Ese pago pendiente no tiene una wallet valida. Prepara una nueva autorizacion.");
-        return;
-      }
-      setSelectedCreditPurchase(data.purchase);
-      setSelectedCreditPayment(data.payment || null);
       setPendingCreditPurchase(data.purchase);
+      setCreditPackage(data.purchase.package_code);
       rememberPendingBaseUsdcPurchase(data.purchase, pendingPurchaseStorageKey);
-      setView("credit-payment-pending");
-      setNotice("Revisa la autorizacion Base USDC pendiente.");
+      const handoff = await createBusinessCreditHandoff(request, data.purchase.package_code);
+      setCreditHandoffId(handoff.handoff.id);
+      setCreditHandoffLaunchToken(handoff.handoff.token);
+      setCreditHandoffOpened(false);
+      rememberCreditHandoffId(handoffStorageKey, handoff.handoff.id);
+      setNotice("Enlace listo. Toca Continuar en MetaMask para terminar el pago pendiente.");
     } catch (error) {
-      setPendingCreditPurchase(null);
-      clearRememberedBaseUsdcPurchase(pendingPurchaseStorageKey, rememberedPurchaseId);
-      setNotice(error instanceof Error ? error.message : "No pudimos abrir el pago pendiente.");
+      const message = error instanceof ApiClientError && error.code === "RATE_LIMITED"
+        ? "Demasiados intentos. Espera unos minutos y vuelve a intentar."
+        : error instanceof Error
+          ? error.message
+          : "No pudimos preparar el pago pendiente.";
+      setCreditHandoffError(message);
+      setNotice(message);
     } finally {
       setLoadingPendingPurchase(false);
     }
-  }, [business?.id, pendingCreditPurchase, pendingPurchaseStorageKey, request, setNotice, setView]);
+  }, [business?.id, creditHandoffLaunchToken, handoffStorageKey, pendingCreditPurchase, pendingPurchaseStorageKey, request, setNotice]);
 
   const loadCreditDashboard = useCallback(async () => {
     setView("credits-dashboard");
