@@ -42,6 +42,10 @@ function returnToTelegram() {
   window.location.assign("tg://");
 }
 
+function isWalletUserRejected(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === 4001);
+}
+
 
 export default function BusinessCreditPaymentHandoffPage() {
   const [handoffToken, setHandoffToken] = useState<string | null>(null);
@@ -51,6 +55,7 @@ export default function BusinessCreditPaymentHandoffPage() {
   const [paymentDetail, setPaymentDetail] = useState<CreditHandoffStatus | null>(null);
   const [paymentStep, setPaymentStep] = useState<PaymentStep>("wallet");
   const [paymentActionBusy, setPaymentActionBusy] = useState(false);
+  const [walletConfirmationRequiresTelegramRestart, setWalletConfirmationRequiresTelegramRestart] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const expectedNetwork = challenge
     ? resolveWalletNetworkProfile(challenge.network, challenge.chain_id)
@@ -70,6 +75,7 @@ export default function BusinessCreditPaymentHandoffPage() {
   } = useInjectedWallet(() => {
     setPaymentDetail(null);
     setPaymentStep("wallet");
+    setWalletConfirmationRequiresTelegramRestart(false);
     setPageError("La cuenta o red cambio. Revisa la wallet antes de continuar.");
   }, expectedNetwork);
 
@@ -137,10 +143,12 @@ export default function BusinessCreditPaymentHandoffPage() {
 
   const confirmWallet = async () => {
     if (!handoffToken || !challenge || !connectedWalletAddress || !walletIsExpectedNetwork) {
+      setWalletConfirmationRequiresTelegramRestart(false);
       setPageError("Conecta una wallet en Base Sepolia antes de continuar.");
       return;
     }
     setClaiming(true);
+    setWalletConfirmationRequiresTelegramRestart(false);
     setPageError(null);
     try {
       const signature = await signWalletChallenge(challenge.challenge);
@@ -159,7 +167,13 @@ export default function BusinessCreditPaymentHandoffPage() {
       const safeLocalMessage = error instanceof Error && (
         error.message === "La compra no quedo preparada. Inicia de nuevo desde Telegram."
       ) ? error.message : null;
-      setPageError(safeLocalMessage || testnetPaymentErrorMessage(error));
+      setWalletConfirmationRequiresTelegramRestart(!isWalletUserRejected(error));
+      setPageError(
+        safeLocalMessage
+        || (isWalletUserRejected(error)
+          ? testnetPaymentErrorMessage(error)
+          : "MetaMask no pudo completar esta preparacion. Vuelve a Telegram e inicia de nuevo."),
+      );
     } finally {
       setClaiming(false);
     }
@@ -282,7 +296,15 @@ export default function BusinessCreditPaymentHandoffPage() {
             </div>
           ) : null}
 
-          {!paymentDetail && !loadingChallenge && !challenge ? (
+          {!paymentDetail && walletConfirmationRequiresTelegramRestart ? (
+            <button
+              className="mini-action-button mini-action-button--filled mini-action-button--full"
+              type="button"
+              onClick={returnToTelegram}
+            >
+              Volver a Telegram
+            </button>
+          ) : !paymentDetail && !loadingChallenge && !challenge ? (
             <button
               className="mini-action-button mini-action-button--filled mini-action-button--full"
               type="button"

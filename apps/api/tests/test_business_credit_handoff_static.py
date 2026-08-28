@@ -52,7 +52,7 @@ def test_credit_handoff_dead_end_errors_offer_one_telegram_exit_without_wallet_a
     assert "Este enlace no es valido. Vuelve a Telegram para iniciar de nuevo." in page
     assert "Volver a Telegram" in page
 
-    dead_end_branch = page.split("{!paymentDetail && !loadingChallenge && !challenge ? (", 1)[1].split(
+    dead_end_branch = page.split(") : !paymentDetail && !loadingChallenge && !challenge ? (", 1)[1].split(
         ") : !paymentDetail && (loadingChallenge || challenge)",
         1,
     )[0]
@@ -63,6 +63,29 @@ def test_credit_handoff_dead_end_errors_offer_one_telegram_exit_without_wallet_a
     assert "confirmWallet" not in dead_end_branch
     assert "approveTestUsdc" not in dead_end_branch
     assert "submitTestPayment" not in dead_end_branch
+
+
+def test_credit_handoff_wallet_confirmation_error_exits_to_telegram_without_wallet_retry() -> None:
+    page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+
+    assert "function isWalletUserRejected(error: unknown)" in page
+    assert "walletConfirmationRequiresTelegramRestart" in page
+    assert "setWalletConfirmationRequiresTelegramRestart(!isWalletUserRejected(error))" in page
+
+    confirmation_error_branch = page.split(
+        "{!paymentDetail && walletConfirmationRequiresTelegramRestart ? (",
+        1,
+    )[1].split(
+        ") : !paymentDetail && !loadingChallenge && !challenge",
+        1,
+    )[0]
+    assert confirmation_error_branch.count("<button") == 1
+    assert "Volver a Telegram" in confirmation_error_branch
+    assert "connectWallet" not in confirmation_error_branch
+    assert "switchWalletToExpectedNetwork" not in confirmation_error_branch
+    assert "confirmWallet" not in confirmation_error_branch
+    assert "approveTestUsdc" not in confirmation_error_branch
+    assert "submitTestPayment" not in confirmation_error_branch
 
 
 def test_credit_handoff_page_does_not_offer_wallet_actions_without_valid_challenge() -> None:
