@@ -204,7 +204,9 @@ export default function BusinessCreditPaymentHandoffPage() {
                 <strong>
                   {loadingChallenge
                     ? "Validando enlace"
-                    : walletProviderStatus === "available"
+                    : connectedWalletAddress
+                      ? "Wallet conectada"
+                      : walletProviderStatus === "available"
                       ? "Wallet compatible detectada"
                       : "No detectamos una wallet compatible"}
                 </strong>
@@ -217,7 +219,7 @@ export default function BusinessCreditPaymentHandoffPage() {
             </div>
           </div>
 
-          {connectedWalletAddress ? (
+          {connectedWalletAddress && challenge ? (
             <div className="business-status-panel" role="status">
               <div>
                 <span className="status-dot" aria-hidden="true" />
@@ -257,7 +259,7 @@ export default function BusinessCreditPaymentHandoffPage() {
             </div>
           ) : null}
 
-          {!paymentDetail ? (
+          {!paymentDetail && (loadingChallenge || challenge) ? (
             <button
               className="mini-action-button mini-action-button--filled mini-action-button--full"
               type="button"

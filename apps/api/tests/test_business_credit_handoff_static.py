@@ -9,13 +9,14 @@ def _read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-def test_credit_handoff_uses_fragment_and_clears_it_before_network_work() -> None:
+def test_credit_handoff_encodes_token_inside_metamask_dapp_path_and_clears_url() -> None:
     helper = _read("apps/web/src/lib/wallet/metamaskHandoff.ts")
     page = _read("apps/web/src/app/business/credit-payment/page.tsx")
 
     assert 'const CREDIT_PAYMENT_PATH = "/business/credit-payment/"' in helper
     assert 'target.searchParams.set("handoff", handoffToken)' in helper
-    assert "dappUrl = `${target.host}${target.pathname}${target.search}`" in helper
+    assert "dappUrl = `${target.host}${target.pathname}${encodeURIComponent(target.search)}`" in helper
+    assert "dappUrl = `${target.host}${target.pathname}${target.search}`" not in helper
     assert "target.hash" not in helper
     assert "%23" not in helper
     assert "encodeURIComponent(dappUrl)" not in helper
@@ -30,6 +31,19 @@ def test_credit_handoff_uses_fragment_and_clears_it_before_network_work() -> Non
     assert effect.index("window.history.replaceState") < effect.index("getCreditHandoffChallenge")
     assert "localStorage" not in page
     assert "sessionStorage" not in page
+
+
+def test_credit_handoff_page_does_not_offer_wallet_actions_without_valid_challenge() -> None:
+    page = _read("apps/web/src/app/business/credit-payment/page.tsx")
+
+    wallet_label_branch = page.split('loadingChallenge\n                    ? "Validando enlace"', 1)[1].split(
+        ": walletProviderStatus",
+        1,
+    )[0]
+    assert "connectedWalletAddress" in wallet_label_branch
+    assert '"Wallet conectada"' in wallet_label_branch
+    assert "connectedWalletAddress && challenge" in page
+    assert "!paymentDetail && (loadingChallenge || challenge)" in page
 
 
 def test_credit_handoff_page_signs_only_the_backend_challenge() -> None:
@@ -229,6 +243,7 @@ def test_telegram_handoff_resumes_backend_pending_purchase_with_new_link() -> No
     assert "await " not in continue_branch.split("launchMetaMaskCreditHandoff", 1)[0]
     assert "Boolean(pendingCreditPurchase)" not in screen
     assert "pendingCreditPurchase ? continuePendingBaseUsdcPayment() : openMetaMaskCreditHandoff()" in screen
+    assert screen.count("continuePendingBaseUsdcPayment()") == 1
     assert "Continuar pago pendiente" in screen
     assert "Enlace listo - Continuar en MetaMask" in screen
     assert '@router.get("/business/credits/purchases/pending-contract")' in routes

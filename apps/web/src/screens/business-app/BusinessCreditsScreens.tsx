@@ -149,21 +149,9 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
               <Text>
                 {packageLabel(pendingCreditPurchase.package_code, packages)?.name || pendingCreditPurchase.package_code}: {pendingCreditPurchase.price_usd} USDC
               </Text>
-              <small>Continualo para revisar la autorizacion preparada.</small>
+              <small>Continualo desde el boton principal de pago.</small>
             </div>
           </div>
-          <button
-            className="mini-action-button"
-            type="button"
-            disabled={loadingPendingPurchase || preparingCreditHandoff || generatingCreditPayment}
-            onClick={() => void continuePendingBaseUsdcPayment()}
-          >
-            {loadingPendingPurchase || preparingCreditHandoff
-              ? "Preparando..."
-              : creditHandoffLaunchReady
-                ? "Abrir MetaMask"
-                : "Continuar pago pendiente"}
-          </button>
         </div>
       ) : loadingPendingPurchase ? (
         <div className="business-status-panel" role="status">
