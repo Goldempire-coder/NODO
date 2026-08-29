@@ -7,7 +7,7 @@ import { BusinessAdAmount } from "./BusinessAdAmount";
 import { BusinessAdCurrencyLabel } from "./BusinessAdCurrencyLabel";
 import { adAmountCurrencyPresentation, adAmountPresentation, canDeleteAd, canRepublishAd, displayAdDate, displayRate, humanizeAdStatus, paymentMethodCanReceive, paymentMethodDisplayName, paymentMethodLabel } from "./businessAdViewHelpers";
 
-export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: BusinessMiniAppModel }) {
+export function BusinessAdDetailPanel({ ad, mode = "detail", model }: { ad: AdSummary; mode?: "detail" | "list"; model: BusinessMiniAppModel }) {
   const {
     adEditForm,
     cancelEditingAd,
@@ -22,6 +22,7 @@ export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: Bus
     republishAd,
     republishingAdId,
     savingAdId,
+    selectedAdId,
     setAdEditForm,
     startAddingPaymentMethod,
     startEditingAd,
@@ -45,18 +46,22 @@ export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: Bus
   const isReactivating = reactivatingAdId === ad.id;
   const isRepublishing = republishingAdId === ad.id;
   const isSaving = savingAdId === ad.id;
+  const isListMode = mode === "list";
+  const isEditingThisAd = isEditingSelectedAd && selectedAdId === ad.id;
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
-    <section className="business-ad-detail">
+    <section className={isListMode ? "business-ad-detail business-ad-detail--list-item" : "business-ad-detail"}>
       <div className="business-ad-detail__header">
         <div>
           <Text className="business-card__label">Anuncio abierto</Text>
           <Title level="3" className="business-shell__title"><BusinessAdAmount ad={ad} paymentMethods={paymentMethods} /></Title>
         </div>
-        <button className="icon-button" type="button" aria-label="Cerrar detalle" onClick={closeAdDetail}>
-          x
-        </button>
+        {isListMode ? null : (
+          <button className="icon-button" type="button" aria-label="Cerrar detalle" onClick={closeAdDetail}>
+            x
+          </button>
+        )}
       </div>
 
       <div className="business-ad-detail__grid">
@@ -99,7 +104,7 @@ export function BusinessAdDetailPanel({ ad, model }: { ad: AdSummary; model: Bus
             {isRepublishing ? "Republicando..." : "Republicar"}
           </Button>
         </div>
-      ) : isEditingSelectedAd ? (
+      ) : isEditingThisAd ? (
         <div className="business-ad-edit">
           {activePaymentMethods.length ? (
             <label className="business-field">

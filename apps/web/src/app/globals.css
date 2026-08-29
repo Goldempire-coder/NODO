@@ -254,6 +254,12 @@ textarea {
   scrollbar-width: thin;
 }
 
+.business-list--published-ads {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
 .surface-support {
   height: min(68dvh, calc(var(--nodo-viewport-height, 100dvh) - 174px), 620px);
   max-height: calc(var(--nodo-viewport-height, 100dvh) - 174px);

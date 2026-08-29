@@ -100,9 +100,7 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
 }
 
 export function MyAdsScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { business, deleteAd, deletingAdId, loadArchivedAds, mutateAd, ownAds, pausingAdId, paymentMethods, reactivatingAdId, selectAd, selectedAdId, setView } = model;
-  const [confirmDeleteAdId, setConfirmDeleteAdId] = useState<string | null>(null);
-  const selectedAd = ownAds.find((ad) => ad.id === selectedAdId) || null;
+  const { business, loadArchivedAds, ownAds, paymentMethods, setView } = model;
   const isAcceptingOrders = business?.is_accepting_orders !== false;
   const activeCount = isAcceptingOrders
     ? ownAds.filter((ad) => (ad.effective_status || ad.status) === "active" && paymentMethodCanReceive(ad, paymentMethods)).length
@@ -132,37 +130,11 @@ export function MyAdsScreen({ model }: { model: BusinessMiniAppModel }) {
         <Button mode="outline" size="s" onClick={() => void loadArchivedAds()}>Archivados</Button>
         <Button mode="outline" size="s" onClick={() => setView("payment-methods")}>Zelle / USDT</Button>
       </div>
-      <div className="business-list business-list--scrollable">
-        {selectedAd ? (
-          <BusinessAdDetailPanel ad={selectedAd} model={model} />
-        ) : (
-          <>
-            {ownAds.length === 0 ? <Text>Aun no tienes anuncios activos.</Text> : null}
-            {ownAds.map((ad) => (
-              <BusinessAdCard
-                ad={ad}
-                isDeleting={deletingAdId === ad.id}
-                isDeleteConfirming={confirmDeleteAdId === ad.id}
-                isPausing={pausingAdId === ad.id}
-                isReactivating={reactivatingAdId === ad.id}
-                isSelected={false}
-                key={ad.id}
-                onDelete={() => {
-                  if (confirmDeleteAdId !== ad.id) {
-                    setConfirmDeleteAdId(ad.id);
-                    return;
-                  }
-                  setConfirmDeleteAdId(null);
-                  void deleteAd(ad);
-                }}
-                onOpen={() => selectAd(ad)}
-                onPause={() => void mutateAd(ad.id, "pause")}
-                onReactivate={() => void mutateAd(ad.id, "reactivate")}
-                paymentMethods={paymentMethods}
-              />
-            ))}
-          </>
-        )}
+      <div className="business-list business-list--scrollable business-list--published-ads">
+        {ownAds.length === 0 ? <Text>Aun no tienes anuncios activos.</Text> : null}
+        {ownAds.map((ad) => (
+          <BusinessAdDetailPanel ad={ad} key={ad.id} mode="list" model={model} />
+        ))}
       </div>
     </div>
   );
