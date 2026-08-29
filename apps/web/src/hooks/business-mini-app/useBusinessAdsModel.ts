@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { listArchivedBusinessAds, listBusinessAds } from "../../api/businessAds";
 import type { AuthenticatedRequest } from "../../api/client";
@@ -7,6 +7,13 @@ import type { AdFormState, AdSummary, AdUpdatePayload } from "../../types/ads";
 import type { BusinessSummary } from "../../types/business";
 import { handleBusinessPinError as routeBusinessPinError, requireUnlockedBusinessPin } from "./businessPinGuards";
 import { useBusinessAdActionsModel } from "./useBusinessAdActionsModel";
+
+type BusinessAdsPage = {
+  items: AdSummary[];
+  next_cursor?: string | null;
+};
+
+const BUSINESS_AD_PAGE_SIZE = 20;
 
 export function useBusinessAdsModel({
   adForm,
@@ -26,6 +33,8 @@ export function useBusinessAdsModel({
   setView: (view: BusinessMiniAppView) => void;
 }) {
   const [ownAds, setOwnAds] = useState<AdSummary[]>([]);
+  const [ownAdsNextCursor, setOwnAdsNextCursor] = useState<string | null>(null);
+  const [ownAdsLoadingMore, setOwnAdsLoadingMore] = useState(false);
   const [archivedAds, setArchivedAds] = useState<AdSummary[]>([]);
   const [selectedAdId, setSelectedAdId] = useState<string | null>(null);
   const [isEditingSelectedAd, setIsEditingSelectedAd] = useState(false);
@@ -36,6 +45,7 @@ export function useBusinessAdsModel({
     amount_min_usd: "",
     rate_bs_per_usd: ""
   });
+  const ownAdsRequestIdRef = useRef(0);
 
   const fillAdEditForm = useCallback((ad: AdSummary) => {
     setAdEditForm({
@@ -91,29 +101,78 @@ export function useBusinessAdsModel({
   }, [fillAdEditForm, requireBusinessPinFor]);
 
   const loadMyAds = useCallback(async () => {
+    const requestId = ownAdsRequestIdRef.current + 1;
+    ownAdsRequestIdRef.current = requestId;
     setView("my-ads");
     setLoadingScreen("my-ads");
     try {
-      const data = await listBusinessAds<{ items: AdSummary[] }>(request);
+      const data = await listBusinessAds<BusinessAdsPage>(request, BUSINESS_AD_PAGE_SIZE);
+      if (ownAdsRequestIdRef.current !== requestId) {
+        return;
+      }
       setOwnAds(data.items);
+      setOwnAdsNextCursor(data.next_cursor ?? null);
       setNotice(data.items.length ? "Anuncios cargados." : "Aun no tienes anuncios activos o pausados.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos cargar tus anuncios.");
+      if (ownAdsRequestIdRef.current === requestId) {
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar tus anuncios.");
+      }
     } finally {
-      setLoadingScreen(null);
+      if (ownAdsRequestIdRef.current === requestId) {
+        setLoadingScreen(null);
+      }
     }
   }, [request, setNotice, setView]);
 
   const refreshMyAds = useCallback(async () => {
+    const requestId = ownAdsRequestIdRef.current + 1;
+    ownAdsRequestIdRef.current = requestId;
     try {
-      const data = await listBusinessAds<{ items: AdSummary[] }>(request);
+      const data = await listBusinessAds<BusinessAdsPage>(request, BUSINESS_AD_PAGE_SIZE);
+      if (ownAdsRequestIdRef.current !== requestId) {
+        return false;
+      }
       setOwnAds(data.items);
+      setOwnAdsNextCursor(data.next_cursor ?? null);
       return true;
     } catch {
-      setNotice("No pudimos actualizar anuncios; dejamos la ultima lista cargada.");
+      if (ownAdsRequestIdRef.current === requestId) {
+        setNotice("No pudimos actualizar anuncios; dejamos la ultima lista cargada.");
+      }
       return false;
     }
   }, [request, setNotice]);
+
+  const loadMoreOwnAds = useCallback(async () => {
+    const cursor = ownAdsNextCursor;
+    const requestId = ownAdsRequestIdRef.current;
+    if (!cursor || ownAdsLoadingMore) {
+      return false;
+    }
+    setOwnAdsLoadingMore(true);
+    try {
+      const data = await listBusinessAds<BusinessAdsPage>(request, BUSINESS_AD_PAGE_SIZE, cursor);
+      if (ownAdsRequestIdRef.current !== requestId) {
+        return false;
+      }
+      setOwnAds((current) => {
+        const knownIds = new Set(current.map((item) => item.id));
+        return [
+          ...current,
+          ...data.items.filter((item) => !knownIds.has(item.id))
+        ];
+      });
+      setOwnAdsNextCursor(data.next_cursor ?? null);
+      return true;
+    } catch (error) {
+      if (ownAdsRequestIdRef.current === requestId) {
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar mas anuncios.");
+      }
+      return false;
+    } finally {
+      setOwnAdsLoadingMore(false);
+    }
+  }, [ownAdsLoadingMore, ownAdsNextCursor, request, setNotice]);
 
   const loadArchivedAds = useCallback(async () => {
     setView("archived-ads");
@@ -161,9 +220,12 @@ export function useBusinessAdsModel({
     isEditingSelectedAd,
     loadArchivedAds,
     loadingScreen,
+    loadMoreOwnAds,
     loadMyAds,
     mutateAd: actions.mutateAd,
     ownAds,
+    ownAdsLoadingMore,
+    ownAdsNextCursor,
     pausingAdId: actions.pausingAdId,
     reactivatingAdId: actions.reactivatingAdId,
     republishingAdId: actions.republishingAdId,

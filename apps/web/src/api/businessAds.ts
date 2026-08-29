@@ -1,8 +1,12 @@
 import type { AuthenticatedRequest } from "./client";
 import type { AdFormState, AdUpdatePayload } from "../types/ads";
 
-export function listBusinessAds<T>(request: AuthenticatedRequest, limit = 20) {
-  return request<T>(`/api/v1/business/ads?limit=${limit}`);
+export function listBusinessAds<T>(request: AuthenticatedRequest, limit = 20, cursor?: string | null) {
+  const searchParams = new URLSearchParams({ limit: String(limit) });
+  if (cursor) {
+    searchParams.set("cursor", cursor);
+  }
+  return request<T>(`/api/v1/business/ads?${searchParams.toString()}`);
 }
 
 export function listArchivedBusinessAds<T>(request: AuthenticatedRequest, limit = 20) {

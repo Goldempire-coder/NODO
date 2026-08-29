@@ -336,6 +336,7 @@ def test_order_chat_actions_refresh_in_place_without_abbreviated_identifiers() -
     client_support = _read("apps/web/src/screens/client/ClientSupportScreen.tsx")
     client_payment = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
     business_credits = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    business_credit_presentation = _read("apps/web/src/screens/business-app/businessCreditPresentation.ts")
     business_settings = _read("apps/web/src/screens/business-app/BusinessSettingsScreen.tsx")
     global_css = _read("apps/web/src/app/globals.css")
 
@@ -362,7 +363,9 @@ def test_order_chat_actions_refresh_in_place_without_abbreviated_identifiers() -
     for source in [client_payment, business_credits]:
         assert "Tx hash" not in source
     assert "Identificador de transaccion" not in client_payment
-    assert "Identificador de transaccion" in business_credits
+    assert "Identificador de transaccion" not in business_credits
+    assert "Pago exitoso" in business_credits
+    assert "Estamos acreditando" in business_credit_presentation
     assert "Copiar ID" not in business_settings
     assert "Copiar identificacion" in business_settings
     back_css = global_css.split(".topbar-back.native-chat-back", 1)[1].split("}", 1)[0]

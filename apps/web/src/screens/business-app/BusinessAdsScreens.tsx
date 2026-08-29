@@ -100,7 +100,7 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
 }
 
 export function MyAdsScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { business, loadArchivedAds, ownAds, paymentMethods, setView } = model;
+  const { business, loadArchivedAds, loadMoreOwnAds, ownAds, ownAdsLoadingMore, ownAdsNextCursor, paymentMethods, setView } = model;
   const isAcceptingOrders = business?.is_accepting_orders !== false;
   const activeCount = isAcceptingOrders
     ? ownAds.filter((ad) => (ad.effective_status || ad.status) === "active" && paymentMethodCanReceive(ad, paymentMethods)).length
@@ -135,6 +135,16 @@ export function MyAdsScreen({ model }: { model: BusinessMiniAppModel }) {
         {ownAds.map((ad) => (
           <BusinessAdDetailPanel ad={ad} key={ad.id} mode="list" model={model} />
         ))}
+        {ownAdsNextCursor ? (
+          <button
+            className="mini-action-button mini-action-button--full"
+            type="button"
+            disabled={ownAdsLoadingMore}
+            onClick={() => void loadMoreOwnAds()}
+          >
+            {ownAdsLoadingMore ? "Cargando..." : "Cargar mas anuncios"}
+          </button>
+        ) : null}
       </div>
     </div>
   );
