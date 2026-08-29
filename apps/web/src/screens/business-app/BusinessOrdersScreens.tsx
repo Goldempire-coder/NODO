@@ -230,6 +230,10 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
             ) : null}
           </div>
         </>
+      ) : busy ? (
+        <div className="business-order-empty" role="status">
+          <Text>Cargando orden...</Text>
+        </div>
       ) : <Text>Selecciona una orden para ver el detalle.</Text>}
     </div>
   );

@@ -258,7 +258,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           </div>
         </div>
       ) : null}
-      <div className="business-status-panel" role="region" aria-label="Wallet pagadora: Pago de prueba con MetaMask">
+      <div className="business-status-panel" role="region" aria-label="Wallet pagadora: Pago con MetaMask">
         <div>
           <span className="status-dot" aria-hidden="true" />
           <div>
@@ -347,10 +347,10 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           {pendingCreditPurchase
             ? "Continua este intento o descartalo solo si no enviaste el pago."
             : displayedSelection
-              ? `Pagaras ${displayedSelection.priceUsdc} USDC de prueba.`
+              ? `Pagaras ${displayedSelection.priceUsdc} USDC.`
               : "Elige un paquete para ver el monto."}
         </Text>
-        <Text>Necesitas saldo USDC y gas de prueba.</Text>
+        <Text>Necesitas saldo USDC y fondos para la comision de red.</Text>
         <Text>La wallet mostrara el permiso exacto y el pago antes de enviarlos.</Text>
         <small>NODO revisa el pago automaticamente.</small>
       </div>

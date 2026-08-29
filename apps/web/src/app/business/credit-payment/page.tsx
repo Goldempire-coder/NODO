@@ -75,7 +75,7 @@ export default function BusinessCreditPaymentHandoffPage() {
       .then((data) => {
         const network = resolveWalletNetworkProfile(data.network, data.chain_id);
         if (!network || !data.is_testnet || data.network !== "base_sepolia") {
-          throw new Error("La red de prueba no esta configurada correctamente.");
+          throw new Error("La red de pago no esta configurada correctamente.");
         }
         setChallenge(data);
       })

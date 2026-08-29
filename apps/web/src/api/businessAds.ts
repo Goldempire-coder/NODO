@@ -9,8 +9,12 @@ export function listBusinessAds<T>(request: AuthenticatedRequest, limit = 20, cu
   return request<T>(`/api/v1/business/ads?${searchParams.toString()}`);
 }
 
-export function listArchivedBusinessAds<T>(request: AuthenticatedRequest, limit = 20) {
-  return request<T>(`/api/v1/business/ads/archived?limit=${limit}`);
+export function listArchivedBusinessAds<T>(request: AuthenticatedRequest, limit = 20, cursor?: string | null) {
+  const searchParams = new URLSearchParams({ limit: String(limit) });
+  if (cursor) {
+    searchParams.set("cursor", cursor);
+  }
+  return request<T>(`/api/v1/business/ads/archived?${searchParams.toString()}`);
 }
 
 export function createBusinessAd<T>(request: AuthenticatedRequest, payload: AdFormState & { business_id: string }, idempotencyKey: string) {

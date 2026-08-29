@@ -3300,18 +3300,18 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     model_source = Path("apps/web/src/hooks/useBusinessMiniAppModel.ts").read_text(encoding="utf-8")
     assert "Paga con MetaMask." in source
     assert "Abrir MetaMask" in source
-    assert "Pago de prueba con MetaMask" in source
+    assert "Pago con MetaMask" in source
     assert "void connectWallet()" not in source
     assert "Preparar autorizacion" not in source
     assert "NODO no ve ni guarda tu clave privada." in source
-    assert "Necesitas saldo USDC y gas de prueba." in source
+    assert "Necesitas saldo USDC y fondos para la comision de red." in source
     assert "priceUsdc" in source
     assert "{item.priceUsdc} USDC" in source
     assert 'priceUsdc: "10"' in presentation_source
     assert 'priceUsdc: "25"' in presentation_source
     assert 'priceUsdc: "75"' in presentation_source
     assert 'priceUsdc: "250"' in presentation_source
-    assert "Pagaras ${displayedSelection.priceUsdc} USDC de prueba." in source
+    assert "Pagaras ${displayedSelection.priceUsdc} USDC." in source
     assert "La autorizacion final confirma el monto antes de pagar." in source
     assert "NODO calcula el monto y prepara la autorizacion." not in source
     assert "NODO revisa el pago automaticamente." in source

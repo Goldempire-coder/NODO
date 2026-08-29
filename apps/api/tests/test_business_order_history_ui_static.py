@@ -86,3 +86,14 @@ def test_business_order_filter_requests_keep_late_response_guard() -> None:
     assert "businessOrderListRequestIdRef" in model
     assert "businessOrderListRequestIdRef.current !== targetListRequestId" in model
     assert "businessOrderFilterRef.current !== status" in model
+
+
+def test_business_order_detail_shows_loading_state_before_detail_arrives() -> None:
+    screen = _read("apps/web/src/screens/business-app/BusinessOrdersScreens.tsx")
+
+    detail_screen = screen.split("export function BusinessOrderDetailScreen", 1)[1]
+    assert "businessOrderDetail ? (" in detail_screen
+    assert "busy ? (" in detail_screen
+    assert "Cargando orden..." in detail_screen
+    assert 'role="status"' in detail_screen
+    assert "Selecciona una orden para ver el detalle." in detail_screen

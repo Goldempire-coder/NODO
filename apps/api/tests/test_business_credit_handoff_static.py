@@ -395,6 +395,26 @@ def test_pending_credit_payment_waits_for_auto_accreditation_without_user_refres
     assert "Actualizando..." not in pending_screen
 
 
+def test_business_credit_copy_is_production_ready_without_testnet_customer_language() -> None:
+    screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
+
+    assert "NODO prepara compras de creditos en USDC." in model
+    assert "Completa la autorizacion en MetaMask." in model
+    assert "Cambia tu wallet a la red indicada para continuar." in model
+    assert "La red de pago no coincide con la configuracion del backend." in model
+    assert 'aria-label="Wallet pagadora: Pago con MetaMask"' in screen
+    assert "Pagaras ${displayedSelection.priceUsdc} USDC." in screen
+    assert "Necesitas saldo USDC y fondos para la comision de red." in screen
+
+    customer_copy = "\n".join((screen, model))
+    assert "Modo de prueba" not in customer_copy
+    assert "USDC de prueba" not in customer_copy
+    assert "gas de prueba" not in customer_copy
+    assert "Pago de prueba con MetaMask" not in customer_copy
+    assert "preparar la prueba" not in customer_copy
+
+
 def test_pending_credit_purchase_hides_package_picker_and_uses_one_primary_path() -> None:
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
 

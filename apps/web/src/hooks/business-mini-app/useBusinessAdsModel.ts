@@ -36,6 +36,8 @@ export function useBusinessAdsModel({
   const [ownAdsNextCursor, setOwnAdsNextCursor] = useState<string | null>(null);
   const [ownAdsLoadingMore, setOwnAdsLoadingMore] = useState(false);
   const [archivedAds, setArchivedAds] = useState<AdSummary[]>([]);
+  const [archivedAdsNextCursor, setArchivedAdsNextCursor] = useState<string | null>(null);
+  const [archivedAdsLoadingMore, setArchivedAdsLoadingMore] = useState(false);
   const [selectedAdId, setSelectedAdId] = useState<string | null>(null);
   const [isEditingSelectedAd, setIsEditingSelectedAd] = useState(false);
   const [loadingScreen, setLoadingScreen] = useState<BusinessMiniAppView | null>(null);
@@ -46,6 +48,7 @@ export function useBusinessAdsModel({
     rate_bs_per_usd: ""
   });
   const ownAdsRequestIdRef = useRef(0);
+  const archivedAdsRequestIdRef = useRef(0);
 
   const fillAdEditForm = useCallback((ad: AdSummary) => {
     setAdEditForm({
@@ -175,18 +178,59 @@ export function useBusinessAdsModel({
   }, [ownAdsLoadingMore, ownAdsNextCursor, request, setNotice]);
 
   const loadArchivedAds = useCallback(async () => {
+    const requestId = archivedAdsRequestIdRef.current + 1;
+    archivedAdsRequestIdRef.current = requestId;
     setView("archived-ads");
     setLoadingScreen("archived-ads");
     try {
-      const data = await listArchivedBusinessAds<{ items: AdSummary[] }>(request);
+      const data = await listArchivedBusinessAds<BusinessAdsPage>(request, BUSINESS_AD_PAGE_SIZE);
+      if (archivedAdsRequestIdRef.current !== requestId) {
+        return;
+      }
       setArchivedAds(data.items);
+      setArchivedAdsNextCursor(data.next_cursor ?? null);
       setNotice(data.items.length ? "Historial de anuncios cargado." : "Aun no hay anuncios archivados.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No pudimos cargar el historial.");
+      if (archivedAdsRequestIdRef.current === requestId) {
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar el historial.");
+      }
     } finally {
-      setLoadingScreen(null);
+      if (archivedAdsRequestIdRef.current === requestId) {
+        setLoadingScreen(null);
+      }
     }
   }, [request, setNotice, setView]);
+
+  const loadMoreArchivedAds = useCallback(async () => {
+    const cursor = archivedAdsNextCursor;
+    const requestId = archivedAdsRequestIdRef.current;
+    if (!cursor || archivedAdsLoadingMore) {
+      return false;
+    }
+    setArchivedAdsLoadingMore(true);
+    try {
+      const data = await listArchivedBusinessAds<BusinessAdsPage>(request, BUSINESS_AD_PAGE_SIZE, cursor);
+      if (archivedAdsRequestIdRef.current !== requestId) {
+        return false;
+      }
+      setArchivedAds((current) => {
+        const knownIds = new Set(current.map((item) => item.id));
+        return [
+          ...current,
+          ...data.items.filter((item) => !knownIds.has(item.id))
+        ];
+      });
+      setArchivedAdsNextCursor(data.next_cursor ?? null);
+      return true;
+    } catch (error) {
+      if (archivedAdsRequestIdRef.current === requestId) {
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar mas archivados.");
+      }
+      return false;
+    } finally {
+      setArchivedAdsLoadingMore(false);
+    }
+  }, [archivedAdsLoadingMore, archivedAdsNextCursor, request, setNotice]);
 
   const actions = useBusinessAdActionsModel({
     adEditForm,
@@ -212,6 +256,8 @@ export function useBusinessAdsModel({
   return {
     adEditForm,
     archivedAds,
+    archivedAdsLoadingMore,
+    archivedAdsNextCursor,
     cancelEditingAd,
     closeAdDetail,
     createAd: actions.createAd,
@@ -219,6 +265,7 @@ export function useBusinessAdsModel({
     deletingAdId: actions.deletingAdId,
     isEditingSelectedAd,
     loadArchivedAds,
+    loadMoreArchivedAds,
     loadingScreen,
     loadMoreOwnAds,
     loadMyAds,

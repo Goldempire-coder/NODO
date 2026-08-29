@@ -36,7 +36,7 @@ import {
   rememberPendingBaseUsdcPurchase,
 } from "./businessCreditPaymentStorage";
 
-const BASE_USDC_CREDIT_NOTICE = "Modo de prueba: NODO prepara compras de creditos en USDC sobre Base Sepolia.";
+const BASE_USDC_CREDIT_NOTICE = "NODO prepara compras de creditos en USDC.";
 const BASE_USDC_PAYMENT_UNAVAILABLE_MESSAGE = "La compra de creditos no esta disponible en este momento.";
 
 type OpenBuyCreditsOptions = {
@@ -526,7 +526,7 @@ export function useBusinessCreditsModel({
       setCreditHandoffId(handoffId);
       setCreditHandoffLaunchToken(null);
       setCreditHandoffOpened(true);
-      setNotice("La wallet aun no esta confirmada. Completa la prueba en MetaMask.");
+      setNotice("La wallet aun no esta confirmada. Completa la autorizacion en MetaMask.");
     } catch (error) {
       if (
         error instanceof ApiClientError &&
@@ -557,7 +557,7 @@ export function useBusinessCreditsModel({
       return;
     }
     if (!walletIsExpectedNetwork) {
-      setNotice("Cambia tu wallet a Base Sepolia para preparar la prueba.");
+      setNotice("Cambia tu wallet a la red indicada para continuar.");
       return;
     }
     const preparedWallet = getConnectedWalletSnapshot();
@@ -588,7 +588,7 @@ export function useBusinessCreditsModel({
         || data.payment.chain_id !== BASE_SEPOLIA_WALLET_NETWORK.chainId
         || data.payment.is_testnet !== true
       ) {
-        setNotice("La red de prueba no coincide con la configuracion del backend.");
+        setNotice("La red de pago no coincide con la configuracion del backend.");
         return;
       }
       clearIdempotencyKey(idempotencyScope);

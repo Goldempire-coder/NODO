@@ -14,7 +14,7 @@ def test_business_credits_offers_metamask_handoff_as_the_single_payment_cta() ->
     model = _read("apps/web/src/hooks/business-mini-app/useBusinessCreditsModel.ts")
 
     assert "Abrir MetaMask" in screen
-    assert "Abrir MetaMask para pagar en prueba" in screen
+    assert "Paga con MetaMask." in screen
     assert "void connectWallet()" not in screen
     assert "openMetaMaskCreditHandoff" in model
 

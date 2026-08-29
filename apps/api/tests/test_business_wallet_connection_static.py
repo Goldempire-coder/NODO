@@ -12,11 +12,11 @@ def _read(path: str) -> str:
 def test_business_credit_purchase_uses_connected_wallet_without_manual_input() -> None:
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
 
-    assert "Abrir MetaMask para pagar en prueba" in screen
+    assert "Paga con MetaMask." in screen
     assert "void connectWallet()" not in screen
     assert "Preparar autorizacion" not in screen
     assert "NODO no ve ni guarda tu clave privada." in screen
-    assert "MetaMask mostrara Conectar wallet, validara Base Sepolia" in screen
+    assert "MetaMask mostrara cada paso antes de enviarlo." in screen
     assert "Esta wallet será la que firma y paga." in screen
     assert "value={payerWalletAddress}" not in screen
     assert "setPayerWalletAddress" not in screen

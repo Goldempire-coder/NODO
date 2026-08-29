@@ -100,7 +100,8 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
 }
 
 export function MyAdsScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { business, loadArchivedAds, loadMoreOwnAds, ownAds, ownAdsLoadingMore, ownAdsNextCursor, paymentMethods, setView } = model;
+  const { business, loadArchivedAds, loadingScreen, loadMoreOwnAds, ownAds, ownAdsLoadingMore, ownAdsNextCursor, paymentMethods, setView } = model;
+  const isLoadingOwnAds = loadingScreen === "my-ads";
   const isAcceptingOrders = business?.is_accepting_orders !== false;
   const activeCount = isAcceptingOrders
     ? ownAds.filter((ad) => (ad.effective_status || ad.status) === "active" && paymentMethodCanReceive(ad, paymentMethods)).length
@@ -131,7 +132,12 @@ export function MyAdsScreen({ model }: { model: BusinessMiniAppModel }) {
         <Button mode="outline" size="s" onClick={() => setView("payment-methods")}>Zelle / USDT</Button>
       </div>
       <div className="business-list business-list--scrollable business-list--published-ads">
-        {ownAds.length === 0 ? <Text>Aun no tienes anuncios activos.</Text> : null}
+        {isLoadingOwnAds && ownAds.length === 0 ? (
+          <div className="business-order-empty" role="status">
+            <Text>Cargando anuncios...</Text>
+          </div>
+        ) : null}
+        {!isLoadingOwnAds && ownAds.length === 0 ? <Text>Aun no tienes anuncios activos.</Text> : null}
         {ownAds.map((ad) => (
           <BusinessAdDetailPanel ad={ad} key={ad.id} mode="list" model={model} />
         ))}
@@ -151,8 +157,9 @@ export function MyAdsScreen({ model }: { model: BusinessMiniAppModel }) {
 }
 
 export function ArchivedAdsScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { archivedAds, deletingAdId, pausingAdId, paymentMethods, reactivatingAdId, republishAd, republishingAdId, selectAd, selectedAdId } = model;
+  const { archivedAds, archivedAdsLoadingMore, archivedAdsNextCursor, deletingAdId, loadMoreArchivedAds, loadingScreen, pausingAdId, paymentMethods, reactivatingAdId, republishAd, republishingAdId, selectAd, selectedAdId } = model;
   const selectedAd = archivedAds.find((ad) => ad.id === selectedAdId) || null;
+  const isLoadingArchivedAds = loadingScreen === "archived-ads";
   return (
     <div className="business-card">
       <Text className="business-card__label">Archivados</Text>
@@ -161,7 +168,12 @@ export function ArchivedAdsScreen({ model }: { model: BusinessMiniAppModel }) {
           <BusinessAdDetailPanel ad={selectedAd} model={model} />
         ) : (
           <>
-            {archivedAds.length === 0 ? <Text>No hay anuncios archivados.</Text> : null}
+            {isLoadingArchivedAds && archivedAds.length === 0 ? (
+              <div className="business-order-empty" role="status">
+                <Text>Cargando archivados...</Text>
+              </div>
+            ) : null}
+            {!isLoadingArchivedAds && archivedAds.length === 0 ? <Text>No hay anuncios archivados.</Text> : null}
             {archivedAds.map((ad) => (
               <BusinessAdCard
                 ad={ad}
@@ -179,6 +191,16 @@ export function ArchivedAdsScreen({ model }: { model: BusinessMiniAppModel }) {
                 paymentMethods={paymentMethods}
               />
             ))}
+            {archivedAdsNextCursor ? (
+              <button
+                className="mini-action-button mini-action-button--full"
+                type="button"
+                disabled={archivedAdsLoadingMore}
+                onClick={() => void loadMoreArchivedAds()}
+              >
+                {archivedAdsLoadingMore ? "Cargando..." : "Cargar mas archivados"}
+              </button>
+            ) : null}
           </>
         )}
       </div>

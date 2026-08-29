@@ -48,3 +48,42 @@ def test_business_ads_model_uses_backend_cursor_for_incremental_published_ads() 
 
     assert "cursor?: string | null" in ads_api
     assert "searchParams.set(\"cursor\", cursor)" in ads_api
+
+
+def test_business_ads_screens_show_loading_without_false_empty_copy() -> None:
+    ads_screen = _read("apps/web/src/screens/business-app/BusinessAdsScreens.tsx")
+
+    my_ads_block = ads_screen.split("export function MyAdsScreen", 1)[1].split("export function ArchivedAdsScreen", 1)[0]
+    archived_block = ads_screen.split("export function ArchivedAdsScreen", 1)[1].split("export function PaymentMethodsScreen", 1)[0]
+
+    assert "loadingScreen" in my_ads_block
+    assert 'loadingScreen === "my-ads"' in my_ads_block
+    assert "Cargando anuncios..." in my_ads_block
+    assert "!isLoadingOwnAds && ownAds.length === 0" in my_ads_block
+
+    assert "loadingScreen" in archived_block
+    assert 'loadingScreen === "archived-ads"' in archived_block
+    assert "Cargando archivados..." in archived_block
+    assert "!isLoadingArchivedAds && archivedAds.length === 0" in archived_block
+
+
+def test_archived_ads_use_backend_cursor_pagination() -> None:
+    ads_model = _read("apps/web/src/hooks/business-mini-app/useBusinessAdsModel.ts")
+    ads_api = _read("apps/web/src/api/businessAds.ts")
+    ads_screen = _read("apps/web/src/screens/business-app/BusinessAdsScreens.tsx")
+
+    assert "archivedAdsNextCursor" in ads_model
+    assert "archivedAdsLoadingMore" in ads_model
+    assert "archivedAdsRequestIdRef" in ads_model
+    assert "loadMoreArchivedAds" in ads_model
+    assert "setArchivedAdsNextCursor(data.next_cursor ?? null)" in ads_model
+    assert "listArchivedBusinessAds<BusinessAdsPage>(request, BUSINESS_AD_PAGE_SIZE, cursor)" in ads_model
+
+    assert "listArchivedBusinessAds<T>(request: AuthenticatedRequest, limit = 20, cursor?: string | null)" in ads_api
+    assert 'request<T>(`/api/v1/business/ads/archived?${searchParams.toString()}`)' in ads_api
+
+    archived_block = ads_screen.split("export function ArchivedAdsScreen", 1)[1].split("export function PaymentMethodsScreen", 1)[0]
+    assert "archivedAdsNextCursor" in archived_block
+    assert "archivedAdsLoadingMore" in archived_block
+    assert "loadMoreArchivedAds" in archived_block
+    assert "Cargar mas archivados" in archived_block
