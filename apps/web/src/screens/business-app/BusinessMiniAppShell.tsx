@@ -23,6 +23,7 @@ const TITLE_BY_VIEW: Partial<Record<BusinessMiniAppView, string>> = {
   referrals: "Referidos",
   "payment-methods": "Zelle / USDT",
   "business-settings": "Perfil negocio",
+  "business-legal-documents": "Terminos",
   "business-terms": "Terminos",
   "business-credit-terms": "Terminos de creditos",
   "business-pin": "PIN de seguridad",
@@ -191,7 +192,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
       setActiveNav("orders");
       return;
     }
-    if (view === "business-settings" || view === "business-pin" || view === "business-rules" || view === "business-terms") {
+    if (view === "business-settings" || view === "business-pin" || view === "business-rules" || view === "business-legal-documents" || view === "business-terms") {
       setActiveNav("profile");
       return;
     }

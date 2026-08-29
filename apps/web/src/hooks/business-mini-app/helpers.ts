@@ -34,7 +34,7 @@ export function fallbackForBusinessMiniAppView(view: BusinessMiniAppView): Busin
   if (view === "buy-credits" || view === "credit-payment-pending" || view === "referrals" || view === "business-credit-terms") {
     return "credits-dashboard";
   }
-  if (view === "business-rules") {
+  if (view === "business-rules" || view === "business-legal-documents") {
     return "business-settings";
   }
   if (view === "business-terms") {

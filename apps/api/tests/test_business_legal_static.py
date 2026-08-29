@@ -41,6 +41,8 @@ def test_business_legal_terms_are_gated_in_frontend_without_checkout_copy_sprawl
     api = _read("apps/web/src/api/legal.ts")
 
     assert "business-credit-terms" in views
+    assert "business-legal-documents" in views
+    assert "BusinessLegalDocumentsScreen" in screens
     assert "BusinessCreditTermsScreen" in screens
     assert "ensureBusinessCreditTermsAccepted" in model
     assert "acceptBusinessCreditTerms" in model
@@ -51,3 +53,5 @@ def test_business_legal_terms_are_gated_in_frontend_without_checkout_copy_sprawl
     assert "skipLegalCheck" in credits_model
     assert "NODO nunca pide frase secreta ni clave privada." in settings
     assert "No se canjean, retiran ni transfieren." in settings
+    assert "Terminos y condiciones" in settings
+    assert "Documentos aplicables al negocio y a la compra de creditos." in settings

@@ -107,6 +107,7 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
         <Button mode="outline" size="s" onClick={() => void loadReferrals()}>Referidos</Button>
         <Button mode="outline" size="s" onClick={() => setView("business-rules")}>Reglas</Button>
       </div>
+      <Button mode="outline" size="s" onClick={() => setView("business-legal-documents")}>Terminos y condiciones</Button>
       <Button mode="outline" size="s" onClick={() => setView("business-pin")}>{pinConfigured ? "Desbloquear PIN" : "Crear PIN"}</Button>
       {pinConfigured && pinUnlocked ? (
         <Button mode="outline" size="s" onClick={() => void lockBusinessPinSession()}>Bloquear acciones sensibles</Button>
@@ -168,6 +169,28 @@ export function BusinessRulesScreen() {
   );
 }
 
+function ReadOnlyTermsList({
+  label,
+  terms,
+}: {
+  label: string;
+  terms: { title: string; body: string }[];
+}) {
+  return (
+    <>
+      <Text className="business-card__label">{label}</Text>
+      <div className="business-list">
+        {terms.map((rule) => (
+          <div className="business-rule-item" key={`${label}-${rule.title}`}>
+            <strong>{rule.title}</strong>
+            <Text>{rule.body}</Text>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 const BUSINESS_TERMS = [
   {
     title: "Cuenta de negocio",
@@ -205,6 +228,21 @@ const BUSINESS_CREDIT_TERMS = [
     body: "NODO puede revisar pagos, rechazar intentos invalidos o retener la acreditacion si detecta riesgo."
   }
 ];
+
+export function BusinessLegalDocumentsScreen({ model }: { model: BusinessMiniAppModel }) {
+  return (
+    <div className="business-card">
+      <Text className="business-card__label">NODO Negocio</Text>
+      <Title level="3" className="business-shell__title">Terminos y condiciones</Title>
+      <Text className="auth-entry__session-meta">Documentos aplicables al negocio y a la compra de creditos.</Text>
+      <ReadOnlyTermsList label="Terminos de NODO Negocio" terms={BUSINESS_TERMS} />
+      <ReadOnlyTermsList label="Terminos de compra de creditos" terms={BUSINESS_CREDIT_TERMS} />
+      <Button mode="outline" stretched size="s" onClick={() => model.setView("business-settings")}>
+        Volver al perfil
+      </Button>
+    </div>
+  );
+}
 
 function TermsConfirmation({
   checked,

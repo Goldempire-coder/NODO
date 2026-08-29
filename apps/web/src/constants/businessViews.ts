@@ -12,6 +12,7 @@ export const BUSINESS_MINI_APP_VIEWS = [
   "referrals",
   "payment-methods",
   "business-settings",
+  "business-legal-documents",
   "business-terms",
   "business-credit-terms",
   "business-pin",
