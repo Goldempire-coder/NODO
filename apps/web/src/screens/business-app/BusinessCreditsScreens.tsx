@@ -48,17 +48,15 @@ function CreditPaymentSuccessHeroIcon() {
   return (
     <span className="credit-payment-success-burst" aria-hidden="true">
       <svg viewBox="0 0 92 64" focusable="false">
-        <path className="credit-payment-success-burst__confetti credit-payment-success-burst__confetti--green" d="M6 15h7" />
-        <path className="credit-payment-success-burst__confetti credit-payment-success-burst__confetti--yellow" d="M18 31h7" />
-        <path className="credit-payment-success-burst__confetti credit-payment-success-burst__confetti--blue" d="M28 8h8" />
-        <path className="credit-payment-success-burst__confetti credit-payment-success-burst__confetti--pink" d="M61 10h8" />
-        <path className="credit-payment-success-burst__confetti credit-payment-success-burst__confetti--orange" d="M73 31h8" />
-        <path className="credit-payment-success-burst__ribbon credit-payment-success-burst__ribbon--blue" d="M17 13c12 5 2 13 13 18" />
-        <path className="credit-payment-success-burst__ribbon credit-payment-success-burst__ribbon--pink" d="M45 5c-8 9 8 14 0 23" />
-        <path className="credit-payment-success-burst__ribbon credit-payment-success-burst__ribbon--orange" d="M55 39c10-8 16 2 26-7" />
-        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--yellow" cx="12" cy="45" r="3" />
-        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--green" cx="34" cy="48" r="2.5" />
-        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--blue" cx="84" cy="15" r="2.5" />
+        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--green" cx="34" cy="32" r="22" opacity="0.18" />
+        <circle className="credit-payment-success-burst__ribbon" cx="34" cy="32" r="18" style={{ stroke: "var(--nodo-success)" }} />
+        <path className="credit-payment-success-burst__ribbon" d="M24 32.5 31 39l14-16" style={{ stroke: "var(--nodo-text)" }} />
+        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--green" cx="9" cy="19" r="3" />
+        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--blue" cx="19" cy="49" r="2.5" />
+        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--green" cx="58" cy="18" r="2" opacity="0.72" />
+        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--blue" cx="61" cy="45" r="3" opacity="0.88" />
+        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--green" cx="70" cy="30" r="1.8" opacity="0.52" />
+        <path className="credit-payment-success-burst__ribbon credit-payment-success-burst__ribbon--blue" d="M84 10v44" opacity="0.28" />
       </svg>
     </span>
   );
