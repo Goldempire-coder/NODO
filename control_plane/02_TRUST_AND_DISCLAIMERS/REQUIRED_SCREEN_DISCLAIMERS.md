@@ -52,19 +52,21 @@ Texto obligatorio:
 
 Texto obligatorio:
 
-`Los creditos son para publicar y operar anuncios dentro de NODO. No son saldo de clientes ni fondos de remesas.`
+`Los creditos son para publicar y operar anuncios dentro de NODO. No son dinero, no son saldo custodiado, no son retirables ni transferibles.`
 
-## Pago manual de creditos Zelle/USDT
-
-Texto obligatorio:
-
-`Tu comprobante quedara pendiente de revision admin. Los creditos se acreditan solo despues de aprobacion.`
-
-## Stripe checkout
+## Pago digital de creditos
 
 Texto obligatorio:
 
-`El pago se procesa por Stripe. Los creditos se acreditan despues de confirmacion del pago.`
+`NODO verificara el pago y acreditara los creditos automaticamente cuando la transaccion sea confirmada. No repitas el pago mientras se verifica.`
+
+## Metodos de creditos no activos
+
+Texto obligatorio si una pantalla o documento menciona metodos no activos:
+
+`Este metodo de pago no esta disponible para comprar creditos en NODO. Usa solo los metodos mostrados en el checkout vigente.`
+
+Nota para builders: no mostrar Stripe, Zelle manual, USDT manual ni otro metodo de creditos como activo salvo aprobacion owner y actualizacion documental separada.
 
 ## Admin
 

@@ -8,7 +8,7 @@ Este documento es una propuesta para que el cliente/remitente acepte riesgos ant
 
 ## 1. Reconocimiento del rol de NODO
 
-Acepto que NODO es una plataforma tecnologica que conecta clientes con negocios aprobados y registra evidencia operativa.
+Acepto que NODO es una plataforma tecnologica que conecta clientes con negocios registrados y registra evidencia operativa.
 
 Acepto que NODO no recibe, custodia, retiene, administra, controla, mueve, transmite, envia ni libera mis fondos. NODO no procesa mi pago al negocio ni el pago del negocio hacia mi o hacia mi receptor.
 
@@ -75,4 +75,3 @@ Acepto que NODO no me da asesoria financiera, legal, fiscal, cambiaria ni de inv
 ## 10. Aceptacion
 
 Al marcar la casilla o presionar el boton de aceptacion en NODO, declaro que lei y acepto este acuerdo de riesgo del cliente, junto con los terminos vigentes de NODO.
-

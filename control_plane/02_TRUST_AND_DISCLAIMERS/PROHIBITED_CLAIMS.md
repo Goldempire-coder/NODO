@@ -20,6 +20,7 @@ Prohibido usar en UI, marketing, emails, notificaciones, admin o documentacion p
 - negocio verificado, sin describir que dato concreto fue revisado
 - verificado por NODO, sin describir el alcance de la revision
 - negocio seguro, confiable, recomendado, certificado, respaldado o avalado
+- creditos como dinero, deposito, saldo custodiado, inversion, retiro disponible o valor transferible
 
 ## Frases permitidas
 
@@ -29,7 +30,9 @@ Prohibido usar en UI, marketing, emails, notificaciones, admin o documentacion p
 - NODO registra ordenes, evidencia, chat y reputacion.
 - NODO facilita la conexion entre remitente y negocio.
 - El pago se realiza directamente entre usuario y negocio.
-- NODO no recibe, retiene ni transfiere fondos de usuarios.
+- NODO no recibe, retiene ni transfiere fondos entre cliente y negocio.
+- NODO vende creditos internos para usar servicios propios de la plataforma.
+- Los creditos NODO no son dinero, saldo custodiado, deposito, retiro disponible ni valor transferible.
 - La responsabilidad de pago y entrega es entre las partes.
 
 ## Regla de bloqueo

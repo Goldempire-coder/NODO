@@ -2,7 +2,7 @@
 
 Estado: `DRAFT LEGAL_REVIEW_REQUIRED`
 
-Fecha de borrador: 2026-07-21
+Fecha de borrador: 2026-08-29
 
 Estas notas son para revision de abogado. No son asesoria legal, no autorizan produccion y no declaran `READY_FOR_REAL_USE`.
 
@@ -14,17 +14,21 @@ Estas notas son para revision de abogado. No son asesoria legal, no autorizan pr
 - `ACCEPTANCE_COPY.md`
 - `LEGAL_REVIEW_NOTES.md`
 
+`BUSINESS_PARTICIPATION_AGREEMENT_DRAFT.md` fue actualizado el 2026-08-29 para consolidar en un solo documento los Terminos de Negocio NODO, incluyendo cuenta de negocio, anuncios, creditos internos, pagos digitales, reembolsos, seguridad, datos, impuestos, soporte y aceptacion.
+
 ## 2. Postura operacional que debe validar abogado
 
 NODO debe permanecer como plataforma tecnologica sin custodia ni transmision de fondos:
 
-- NODO conecta clientes con negocios aprobados.
+- NODO conecta clientes con negocios registrados.
 - NODO publica anuncios, reputacion, limites y disponibilidad.
 - NODO registra ordenes, estados, chat, evidencia y acciones administrativas.
 - NODO ofrece soporte y herramientas de disputa.
 - Las partes pagan y cumplen directamente entre ellas.
-- NODO no recibe, retiene, transfiere, administra, controla, mueve ni libera fondos de clientes o negocios.
+- NODO no recibe, retiene, transfiere, administra, controla, mueve ni libera fondos de clientes o negocios entre si.
 - NODO no actua como banco, exchange, casa de cambio, money transmitter, escrow ni fiduciario.
+
+Separacion importante para revision legal: NODO puede vender creditos internos al negocio como servicio propio de la plataforma. Ese pago negocio-NODO no debe confundirse con pagos, remesas, entregas o fondos entre cliente final y negocio. Los creditos no deben ser retirables, transferibles, revendibles, convertibles a efectivo ni presentados como saldo custodiado.
 
 ## 3. Referencias externas consideradas
 
@@ -33,12 +37,16 @@ Estas referencias deben ser revisadas por abogado contra la jurisdiccion final y
 - OFAC Venezuela FAQ 519: la poblacion venezolana no esta sujeta a sanciones comprehensivas, pero no deben involucrarse personas o entidades sancionadas ni actividades prohibidas.
 - OFAC Sanctions List Search: la herramienta ayuda a identificar posibles coincidencias, pero no sustituye debida diligencia ni programa de cumplimiento.
 - FinCEN: money transmission se relaciona con aceptar y transmitir moneda, fondos u otro valor que sustituya moneda; el diseno de NODO debe evitar aceptar y transmitir valor entre partes.
+- IRS: pagos o transacciones con activos digitales pueden generar obligaciones fiscales y de reporte para las partes responsables.
+- OFAC: las obligaciones de sanciones tambien pueden aplicar a transacciones que involucren virtual currency.
 - Zelle: recomienda enviar dinero solo a personas o negocios conocidos y confiables; pagos a usuarios enrolados pueden no ser cancelables.
 
 Fuentes oficiales para refresh legal:
 
 - https://ofac.treasury.gov/faqs/topic/1581
 - https://ofac.treasury.gov/faqs/topic/1636
+- https://ofac.treasury.gov/recent-actions/20211015
+- https://www.irs.gov/filing/digital-assets
 - https://www.fincen.gov/resources/statutes-regulations/guidance/application-fincens-regulations-persons-administering
 - https://www.zellepay.com/faq/using-zelle
 - https://www.zellepay.com/faq/small-business-using-zelle
@@ -47,7 +55,9 @@ Fuentes oficiales para refresh legal:
 
 ### 4.1 Clasificacion regulatoria
 
-Validar si el modelo exacto de NODO, incluyendo Telegram Mini App, anuncios, ordenes, evidencia, chat, soporte, disputas y metodos externos, podria activar obligaciones de money services business, money transmitter, payment processor, exchange, remittance, escrow, broker, marketplace regulado o figura similar en alguna jurisdiccion relevante.
+Validar si el modelo exacto de NODO, incluyendo Telegram Mini App, anuncios, ordenes, evidencia, chat, soporte, disputas, venta de creditos internos y metodos externos, podria activar obligaciones de money services business, money transmitter, payment processor, exchange, remittance, escrow, broker, marketplace regulado o figura similar en alguna jurisdiccion relevante.
+
+Validar especificamente que los creditos NODO, al no ser retirables, transferibles ni convertibles a efectivo, se mantengan como creditos internos para servicios propios de la plataforma y no como saldo custodiado o valor transmisible entre terceros.
 
 ### 4.2 Jurisdiccion y ley aplicable
 
@@ -65,9 +75,9 @@ Validar obligaciones de identificacion, verificacion de negocios, verificacion d
 
 Validar si los textos sobre Zelle, USDT TRC20, bancos, wallets, exchanges y redes externas requieren disclaimers especificos, restricciones de marca, terminos adicionales o prohibiciones.
 
-### 4.6 Criptoactivos y USDT TRC20
+### 4.6 Criptoactivos, USDT TRC20 y pagos digitales de creditos
 
-Validar riesgos de blockchain, irreversibilidad, wallet screening, travel rule si aplica, sanciones de direcciones, uso de exchanges, propiedad de wallets, comisiones, confirmaciones y restricciones por jurisdiccion.
+Validar riesgos de blockchain, irreversibilidad, wallet screening, travel rule si aplica, sanciones de direcciones, uso de exchanges, propiedad de wallets, comisiones, confirmaciones, pagos incorrectos, pagos duplicados, reembolsos y restricciones por jurisdiccion.
 
 ### 4.7 Consumidor, comercio y publicidad
 
@@ -111,6 +121,7 @@ NODO no debe decir ni sugerir:
 - que OFAC screening elimina todo riesgo.
 - que un negocio verificado es regulatoriamente aprobado.
 - que una operacion es segura por estar dentro de NODO.
+- que los creditos NODO son dinero, saldo, deposito, inversion, retiro disponible o valor transferible.
 
 ## 6. Recomendacion de implementacion posterior
 
@@ -118,7 +129,7 @@ No implementar hasta aprobacion legal y owner review.
 
 Cuando se apruebe, implementar en una slice separada con contrato previo:
 
-1. Crear versionado documental: `terms_version`, `client_risk_agreement_version`, `business_participation_agreement_version`.
+1. Crear versionado documental: `terms_version`, `client_risk_agreement_version`, `business_participation_agreement_version`, `business_credit_terms_version` si se separa luego.
 2. Crear aceptacion obligatoria por superficie antes de acciones sensibles.
 3. Guardar evidencia de aceptacion con `user_id`, `business_id` si aplica, version, `accepted_at`, `ip_hash` si existe, `user_agent_hash` si existe, `surface` y `locale`.
 4. Bloquear uso si la version vigente no fue aceptada.
@@ -126,5 +137,6 @@ Cuando se apruebe, implementar en una slice separada con contrato previo:
 6. Agregar auditoria admin para cambios de version y activacion.
 7. Agregar pruebas de contrato/API antes de tocar UI.
 8. Verificar que ninguna pantalla use copy prohibido.
+9. Verificar que los flujos de compra de creditos usen texto de aceptacion negocio-NODO y no textos de cliente final.
 
 Estado recomendado de esta entrega documental: `AGREEMENT_DRAFT_READY_FOR_OWNER_REVIEW`.

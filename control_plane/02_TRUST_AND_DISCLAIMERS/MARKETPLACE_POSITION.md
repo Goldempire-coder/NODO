@@ -10,11 +10,11 @@ NODO:
 - conserva evidencia.
 - habilita chat por orden.
 - ayuda a auditar disputas.
-- administra creditos publicitarios de negocios.
+- vende y administra creditos internos de negocio para servicios propios de la plataforma.
 
 NODO no:
 
-- recibe fondos de usuarios.
+- recibe fondos de usuarios para moverlos entre cliente y negocio.
 - retiene fondos.
 - transfiere fondos.
 - procesa remesas.
@@ -26,3 +26,7 @@ NODO no:
 ## Posicion en una frase
 
 `NODO conecta usuarios con negocios registrados y deja evidencia de la operacion; el pago y la entrega ocurren directamente entre las partes.`
+
+## Creditos de negocio
+
+`NODO vende creditos internos a negocios para publicar y operar anuncios dentro de la plataforma. Esos creditos no son dinero, saldo custodiado, deposito, retiro disponible ni valor transferible.`
