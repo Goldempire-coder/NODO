@@ -2135,6 +2135,35 @@ div.ad-row {
   background: currentColor;
 }
 
+.status-dot--waiting {
+  border-color: color-mix(in srgb, var(--nodo-button), transparent 34%);
+  color: #7cc7ff;
+}
+
+.status-dot--waiting::before {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  background:
+    linear-gradient(currentColor, currentColor) 50% 28% / 2px 6px no-repeat,
+    linear-gradient(currentColor, currentColor) 62% 54% / 6px 2px no-repeat;
+  transform: none;
+}
+
+.status-dot--large {
+  width: 56px;
+  height: 56px;
+  border-width: 2px;
+}
+
+.status-dot--large::before {
+  width: 17px;
+  height: 10px;
+  border-left-width: 3px;
+  border-bottom-width: 3px;
+}
+
 .marketplace-toolbar {
   display: grid;
   gap: 10px;
@@ -2254,6 +2283,40 @@ div.ad-row {
   gap: 10px;
 }
 
+.business-status-panel--payment-waiting {
+  padding: 14px;
+}
+
+.business-status-panel--payment-waiting > div {
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.business-status-panel--payment-waiting .status-dot {
+  width: 68px;
+  height: 68px;
+  border-width: 2px;
+  background: rgb(19 152 255 / 10%);
+  box-shadow: inset 0 0 0 8px rgb(19 152 255 / 8%);
+}
+
+.business-status-panel--payment-waiting .status-dot--waiting::before {
+  width: 30px;
+  height: 30px;
+  background:
+    linear-gradient(currentColor, currentColor) 50% 25% / 3px 12px no-repeat,
+    linear-gradient(currentColor, currentColor) 62% 54% / 12px 3px no-repeat;
+}
+
+.business-status-panel--payment-waiting strong {
+  font-size: 20px;
+}
+
+.business-status-panel--payment-success {
+  border-color: color-mix(in srgb, var(--nodo-success), transparent 48%);
+  background: rgb(0 230 118 / 6%);
+}
+
 .business-status-panel strong,
 .payment-instruction-box strong {
   display: block;
@@ -2310,6 +2373,86 @@ div.ad-row {
   gap: 12px;
 }
 
+.business-card--credit-success {
+  gap: 12px;
+}
+
+.credit-payment-success-hero {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--nodo-success), transparent 52%);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgb(0 230 118 / 13%), rgb(19 152 255 / 9%));
+}
+
+.credit-payment-success-hero [class*="tgui"] {
+  color: var(--nodo-muted);
+  line-height: 1.35;
+}
+
+.credit-payment-success-title-accent {
+  color: var(--nodo-success);
+}
+
+.credit-payment-success-burst {
+  position: relative;
+  width: 78px;
+  height: 58px;
+}
+
+.credit-payment-success-burst span {
+  position: absolute;
+  width: 5px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--nodo-button);
+}
+
+.credit-payment-success-burst span:nth-child(1) {
+  top: 8px;
+  left: 8px;
+  background: #00e676;
+  transform: rotate(38deg);
+}
+
+.credit-payment-success-burst span:nth-child(2) {
+  top: 28px;
+  left: 18px;
+  background: #ffb020;
+  transform: rotate(-28deg);
+}
+
+.credit-payment-success-burst span:nth-child(3) {
+  top: 4px;
+  left: 35px;
+  background: #2ca0ff;
+  transform: rotate(-12deg);
+}
+
+.credit-payment-success-burst span:nth-child(4) {
+  top: 28px;
+  left: 46px;
+  background: #ef5cff;
+  transform: rotate(24deg);
+}
+
+.credit-payment-success-burst span:nth-child(5) {
+  top: 14px;
+  right: 8px;
+  background: #00e676;
+  transform: rotate(-44deg);
+}
+
+.credit-payment-success-burst span:nth-child(6) {
+  right: 22px;
+  bottom: 4px;
+  background: #ff7a18;
+  transform: rotate(72deg);
+}
+
 .payment-copy-box.is-copied {
   border-color: color-mix(in srgb, var(--nodo-success), transparent 38%);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--nodo-success), transparent 72%);
@@ -2356,6 +2499,38 @@ div.ad-row {
   line-height: 1.45;
   overflow-wrap: anywhere;
   user-select: text;
+}
+
+.payment-copy-box--credit-package,
+.payment-copy-box--credit-total {
+  background: rgb(3 12 24 / 48%);
+}
+
+.payment-copy-box--credit-total {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.credit-accredited-pill {
+  justify-self: start;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--nodo-success), transparent 76%);
+  color: var(--nodo-success);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.credit-total-icon {
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--nodo-success);
+  border-radius: 999px;
+  opacity: 0.95;
+  background:
+    linear-gradient(var(--nodo-success), var(--nodo-success)) 50% 32% / 24px 2px no-repeat,
+    linear-gradient(var(--nodo-success), var(--nodo-success)) 50% 50% / 24px 2px no-repeat,
+    linear-gradient(var(--nodo-success), var(--nodo-success)) 50% 68% / 24px 2px no-repeat;
 }
 
 .payment-step-grid {
@@ -2430,6 +2605,10 @@ div.ad-row {
   color: var(--nodo-green);
 }
 
+.payment-copy-box .credit-accredited-pill {
+  color: var(--nodo-success);
+}
+
 .payment-instruction-box strong,
 .payment-instruction-box small {
   overflow-wrap: anywhere;
@@ -2437,6 +2616,11 @@ div.ad-row {
 
 @media (max-width: 420px) {
   .payment-copy-box--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .credit-payment-success-hero,
+  .business-status-panel--payment-waiting > div {
     grid-template-columns: 1fr;
   }
 

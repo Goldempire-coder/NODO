@@ -69,7 +69,7 @@ export function paymentProgressCopy(status: string | null | undefined, canPay: b
   if (status === "pending_onchain_confirmation" || status === "detected") {
     return {
       title: "Estamos acreditando",
-      body: "Ya vimos el pago. Normalmente termina en menos de un minuto. Esta pantalla se actualiza sola.",
+      body: "Estamos verificando la transaccion en la red. Normalmente tarda menos de 1 minuto.",
     };
   }
   if (status === "under_review") {
@@ -80,8 +80,8 @@ export function paymentProgressCopy(status: string | null | undefined, canPay: b
   }
   if (canPay) {
     return {
-      title: "Falta enviar el pago final",
-      body: "La wallet ya esta preparada. Abre MetaMask y confirma el pago final.",
+      title: "NODO esta confirmando tu pago",
+      body: "Estamos verificando la transaccion en la red. Normalmente tarda menos de 1 minuto.",
     };
   }
   return {
@@ -90,8 +90,27 @@ export function paymentProgressCopy(status: string | null | undefined, canPay: b
   };
 }
 
-export function shouldContinueCreditPayment(status: string | null | undefined, canPay: boolean) {
-  return status === "pending_payment" && canPay;
+export function paymentProgressIconClass(status: string | null | undefined, canPay: boolean) {
+  if (status === "credited") {
+    return "status-dot";
+  }
+  if (status === "pending_payment" && canPay) {
+    return "status-dot status-dot--waiting";
+  }
+  if (["pending_onchain_confirmation", "detected", "under_review"].includes(status || "")) {
+    return "status-dot status-dot--waiting";
+  }
+  return "status-dot status-dot--muted";
+}
+
+export function paymentProgressPanelClass(status: string | null | undefined, canPay: boolean) {
+  if (status === "pending_payment" && canPay) {
+    return "business-status-panel business-status-panel--payment-waiting";
+  }
+  if (status === "pending_onchain_confirmation" || status === "detected") {
+    return "business-status-panel business-status-panel--payment-waiting";
+  }
+  return "business-status-panel";
 }
 
 export function shouldOfferNewCreditPurchase(status: string | null | undefined, canPay: boolean) {

@@ -237,7 +237,8 @@ def test_telegram_credit_flow_creates_handoff_and_refreshes_automatically() -> N
     assert "openMetaMaskCreditHandoff" in model
     assert "refreshCreditHandoff" in model
     assert "Abrir MetaMask" in screen
-    assert "NODO esta revisando el pago automaticamente." in screen
+    assert "NODO esta confirmando tu pago" in presentation
+    assert "business-status-panel--payment-waiting" in presentation
     assert "AUTO_REFRESH_PENDING_CREDIT_PAYMENT_LIMIT = 18" in presentation
     assert "refreshSelectedCreditPurchase({ silent: true })" in screen
     assert "pulsa Actualizar" not in model
@@ -268,9 +269,16 @@ def test_business_credit_success_state_uses_clear_business_copy_without_contract
     assert "Se acreditaron" in screen
     assert "Ver mis creditos" in screen
     assert "loadCreditDashboard" in screen
+    assert "business-card--credit-success" in screen
+    assert "credit-payment-success-hero" in screen
+    assert "credit-payment-success-title-accent" in screen
+    assert "business-status-panel--payment-success" in screen
+    assert "status-dot--large" in screen
+    assert "credit-accredited-pill" in screen
+    assert "payment-copy-box--credit-total" in screen
 
-    success_branch = screen.split('selectedCreditPurchase?.status === "credited"', 1)[1].split(
-        "const statusCopy",
+    success_branch = screen.split("if (purchaseCredited && selectedCreditPurchase)", 1)[1].split(
+        "\n  }\n\n  return (",
         1,
     )[0]
     assert "Contrato:" not in success_branch
@@ -349,19 +357,33 @@ def test_pending_credit_payment_waits_for_auto_accreditation_without_user_refres
     screen = _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     presentation = _read("apps/web/src/screens/business-app/businessCreditPresentation.ts")
     handoff_page_state = _read("apps/web/src/app/business/credit-payment/creditPaymentHandoffPageState.ts")
+    styles = _read("apps/web/src/app/globals.css")
 
     pending_screen = screen.split("export function CreditPaymentPendingScreen", 1)[1].split(
         "export function ReferralProgramScreen",
         1,
     )[0]
     assert "Estamos acreditando" in presentation
-    assert "Falta enviar el pago final" in presentation
-    assert "menos de un minuto" in presentation
-    assert "Esta pantalla se actualiza sola" in presentation
+    assert "NODO esta confirmando tu pago" in presentation
+    assert "Falta enviar el pago final" not in presentation
+    assert "Si ya confirmaste en MetaMask" not in presentation
+    assert "Estamos verificando la transaccion en la red" in presentation
+    assert "Normalmente tarda menos de 1 minuto" in presentation
+    assert "00:" not in presentation
+    assert "Puedes salir" not in pending_screen
+    assert "Te notificaremos" not in pending_screen
     assert "se acreditan automaticamente" in handoff_page_state
     assert "refreshSelectedCreditPurchase({ silent: true })" in pending_screen
-    assert "shouldContinueCreditPayment" in screen
-    assert "Continuar en MetaMask" in pending_screen
+    assert "shouldContinueCreditPayment" not in screen
+    assert "Continuar en MetaMask" not in pending_screen
+    assert "paymentProgressIconClass" in screen
+    assert "paymentProgressPanelClass" in screen
+    assert "status-dot--waiting" in presentation
+    assert "business-status-panel--payment-waiting" in presentation
+    assert "business-status-panel--payment-waiting" in styles
+    assert ".status-dot--waiting" in styles
+    waiting_styles = styles.split(".status-dot--waiting", 1)[1].split(".marketplace-toolbar", 1)[0]
+    assert "animation" not in waiting_styles
     assert "Preparar nueva compra" in pending_screen
     assert "Actualizar estado" not in pending_screen
     assert "Actualizando..." not in pending_screen

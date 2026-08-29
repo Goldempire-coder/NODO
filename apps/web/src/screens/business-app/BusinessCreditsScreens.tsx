@@ -13,7 +13,8 @@ import {
   isAutoRefreshableCreditPaymentStatus,
   packageLabel,
   paymentProgressCopy,
-  shouldContinueCreditPayment,
+  paymentProgressIconClass,
+  paymentProgressPanelClass,
   shouldOfferNewCreditPurchase,
 } from "./businessCreditPresentation";
 
@@ -309,7 +310,6 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
 export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
     creditWallet,
-    continuePendingBaseUsdcPayment,
     loadCreditDashboard,
     openBuyCredits,
     refreshingCreditPurchase,
@@ -327,11 +327,12 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
     body: `Se acreditaron ${creditedCreditsLabel(selectedCreditPurchase?.credits_amount)} a tu negocio.`
   } : null;
   const statusCopy = paymentProgressCopy(selectedCreditPurchase?.status, canPay);
+  const statusIconClass = paymentProgressIconClass(selectedCreditPurchase?.status, canPay);
+  const statusPanelClass = paymentProgressPanelClass(selectedCreditPurchase?.status, canPay);
   const selectedPurchaseId = selectedCreditPurchase?.id ?? null;
   const selectedPurchaseStatus = selectedCreditPurchase?.status ?? null;
   const availableCredits = availableCreditsLabel(creditWallet?.available_credits);
   const offerNewPurchase = shouldOfferNewCreditPurchase(selectedCreditPurchase?.status, canPay);
-  const continuePayment = shouldContinueCreditPayment(selectedCreditPurchase?.status, canPay);
 
   useEffect(() => {
     autoRefreshAttemptsRef.current = 0;
@@ -355,26 +356,49 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
 
   if (purchaseCredited && selectedCreditPurchase) {
     return (
-      <div className="business-card">
+      <div className="business-card business-card--credit-success">
         <Text className="business-card__label">Compra finalizada</Text>
-        <Title level="3" className="business-shell__title">{successCopy?.title}</Title>
-        <div className="business-status-panel" role="status">
+        <div className="credit-payment-success-hero" role="status">
+          <div className="credit-payment-success-burst" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
           <div>
-            <span className="status-dot" aria-hidden="true" />
+            <Title level="3" className="business-shell__title">
+              Pago <span className="credit-payment-success-title-accent">exitoso</span>
+            </Title>
+            <Text>Tus creditos ya estan disponibles.</Text>
+          </div>
+        </div>
+        <div className="business-status-panel business-status-panel--payment-success" role="status">
+          <div>
+            <span className="status-dot status-dot--large" aria-hidden="true" />
             <div>
               <strong>{successCopy?.body}</strong>
               <Text>Ya puedes usar estos creditos para publicar anuncios.</Text>
             </div>
           </div>
         </div>
-        <div className="payment-copy-box">
+        <div className="payment-copy-box payment-copy-box--credit-package">
           <div className="payment-copy-box__header">
             <span>Paquete</span>
             <strong>{selected?.name || selectedCreditPurchase.package_code}</strong>
           </div>
-          <Text>{selectedCreditPurchase.credits_amount} creditos acreditados</Text>
-          {availableCredits ? <Text>{availableCredits.label}: {availableCredits.value}</Text> : null}
+          <span className="credit-accredited-pill">{selectedCreditPurchase.credits_amount} creditos acreditados</span>
         </div>
+        {availableCredits ? (
+          <div className="payment-copy-box payment-copy-box--credit-total">
+            <span className="credit-total-icon" aria-hidden="true" />
+            <div className="payment-copy-box__header">
+              <span>{availableCredits.label}</span>
+              <strong>{availableCredits.value}</strong>
+            </div>
+          </div>
+        ) : null}
         <button
           className="mini-action-button mini-action-button--filled mini-action-button--full"
           type="button"
@@ -394,9 +418,9 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
           <Title level="3" className="business-shell__title">
             Estado del pago
           </Title>
-          <div className="business-status-panel" role="status">
+          <div className={statusPanelClass} role="status">
             <div>
-              <span className="status-dot" aria-hidden="true" />
+              <span className={statusIconClass} aria-hidden="true" />
               <div>
                 <strong>{statusCopy.title}</strong>
                 <Text>{statusCopy.body}</Text>
@@ -413,19 +437,13 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
               Monto esperado: {selectedCreditPayment?.expected_amount_display || selectedCreditPurchase.price_usd} {selectedCreditPayment?.token_symbol || "USDC"}
             </Text>
           </div>
-          <div className="business-shell__tabs">
-            {continuePayment ? (
-              <button className="mini-action-button mini-action-button--filled" type="button" onClick={() => void continuePendingBaseUsdcPayment()}>
-                Continuar en MetaMask
-              </button>
-            ) : offerNewPurchase ? (
+          {offerNewPurchase ? (
+            <div className="business-shell__tabs">
               <button className="mini-action-button mini-action-button--filled" type="button" onClick={() => void openBuyCredits()}>
                 Preparar nueva compra
               </button>
-            ) : (
-              <Text role="status">NODO esta revisando el pago automaticamente. Esto suele tardar menos de un minuto.</Text>
-            )}
-          </div>
+            </div>
+          ) : null}
         </>
       ) : <Text>No hay compra seleccionada.</Text>}
     </div>
