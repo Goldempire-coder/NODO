@@ -39,6 +39,10 @@ import {
 const BASE_USDC_CREDIT_NOTICE = "Modo de prueba: NODO prepara compras de creditos en USDC sobre Base Sepolia.";
 const BASE_USDC_PAYMENT_UNAVAILABLE_MESSAGE = "La compra de creditos no esta disponible en este momento.";
 
+type OpenBuyCreditsOptions = {
+  skipLegalCheck?: boolean;
+};
+
 type PrepareCreditHandoffOptions = {
   silent?: boolean;
 };
@@ -62,6 +66,9 @@ function baseUsdcPaymentErrorMessage(error: unknown) {
     if (error.code === "CRYPTO_PAYMENT_PENDING_PURCHASE_EXISTS") {
       return "Tienes un pago Base USDC pendiente. Continua ese pago antes de abrir otro.";
     }
+    if (error.code === "BUSINESS_CREDIT_TERMS_ACCEPTANCE_REQUIRED") {
+      return "Acepta los terminos de creditos antes de comprar.";
+    }
     return error.message;
   }
   return "No logramos iniciar el pago en red Base.";
@@ -70,12 +77,14 @@ function baseUsdcPaymentErrorMessage(error: unknown) {
 export function useBusinessCreditsModel({
   business,
   request,
+  ensureBusinessCreditTermsAccepted,
   setBusy,
   setNotice,
   setView
 }: {
   business: BusinessSummary | null;
   request: AuthenticatedRequest;
+  ensureBusinessCreditTermsAccepted?: () => Promise<boolean>;
   setBusy: (busy: boolean) => void;
   setNotice: (notice: string) => void;
   setView: (view: BusinessMiniAppView) => void;
@@ -182,7 +191,13 @@ export function useBusinessCreditsModel({
     return null;
   }, [business?.id, pendingPurchaseStorageKey, request]);
 
-  const openBuyCredits = useCallback(async () => {
+  const openBuyCredits = useCallback(async (options: OpenBuyCreditsOptions = {}) => {
+    if (!options.skipLegalCheck && ensureBusinessCreditTermsAccepted) {
+      const accepted = await ensureBusinessCreditTermsAccepted();
+      if (!accepted) {
+        return;
+      }
+    }
     setNotice(BASE_USDC_CREDIT_NOTICE);
     setView("buy-credits");
     setSelectedCreditPurchase(null);
@@ -230,7 +245,7 @@ export function useBusinessCreditsModel({
     } finally {
       setLoadingPendingPurchase(false);
     }
-  }, [business?.id, creditHandoffLaunchToken, handoffStorageKey, loadBackendPendingBaseUsdcPurchase, pendingPurchaseStorageKey, request, setNotice, setView]);
+  }, [business?.id, creditHandoffLaunchToken, ensureBusinessCreditTermsAccepted, handoffStorageKey, loadBackendPendingBaseUsdcPurchase, pendingPurchaseStorageKey, request, setNotice, setView]);
 
   const selectCreditPackage = useCallback((packageCode: string) => {
     if (packageCode !== creditPackage) {

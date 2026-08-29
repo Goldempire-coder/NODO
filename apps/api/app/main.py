@@ -45,6 +45,8 @@ from app.modules.jobs.lock import InMemoryJobLockManager, RedisJobLockManager
 from app.modules.jobs.repository import InMemoryJobRepository, PostgresJobRepository
 from app.modules.jobs.routes import router as jobs_router
 from app.modules.jobs.worker import ExpireAndEscalateOrdersWorker
+from app.modules.legal import InMemoryBusinessLegalAcceptanceRepository, PostgresBusinessLegalAcceptanceRepository
+from app.modules.legal.routes import router as legal_router
 from app.modules.notifications.telegram_sender import NotificationSenderWorker
 from app.modules.notifications.attention_read_repository import (
     InMemorySurfaceAttentionReadRepository,
@@ -240,6 +242,7 @@ def _configure_test_state(app: FastAPI) -> None:
     app.state.audit_writer = InMemoryAuditWriter()
     app.state.user_repository = InMemoryUserRepository()
     app.state.business_repository = InMemoryBusinessRepository()
+    app.state.business_legal_acceptance_repository = InMemoryBusinessLegalAcceptanceRepository()
     ad_capacity_lock = RLock()
     app.state.ad_repository = InMemoryAdRepository(lock=ad_capacity_lock)
     app.state.capacity_repository = InMemoryBusinessCapacityRepository(
@@ -322,6 +325,7 @@ def _configure_runtime_state(app: FastAPI, *, settings: Settings, logger) -> Non
     app.state.audit_writer = PostgresAuditWriter(settings.database_url)
     app.state.user_repository = PostgresUserRepository(settings.database_url)
     app.state.business_repository = PostgresBusinessRepository(settings.database_url)
+    app.state.business_legal_acceptance_repository = PostgresBusinessLegalAcceptanceRepository(settings.database_url)
     app.state.capacity_repository = PostgresBusinessCapacityRepository(settings.database_url)
     app.state.business_intake_repository = PostgresBusinessIntakeRepository(settings.database_url)
     app.state.ad_repository = PostgresAdRepository(settings.database_url)
@@ -448,6 +452,7 @@ def _include_routes(app: FastAPI) -> None:
     app.include_router(users_router, prefix="/api/v1")
     app.include_router(surface_router, prefix="/api/v1")
     app.include_router(businesses_router, prefix="/api/v1")
+    app.include_router(legal_router, prefix="/api/v1")
     app.include_router(business_intake_router, prefix="/api/v1")
     app.include_router(ads_router, prefix="/api/v1")
     app.include_router(orders_router, prefix="/api/v1")

@@ -170,24 +170,65 @@ export function BusinessRulesScreen() {
 
 const BUSINESS_TERMS = [
   {
-    title: "Pagos directos",
-    body: "NODO no custodia el dinero del cambio. Cliente y negocio pagan directamente entre ellos."
+    title: "Cuenta de negocio",
+    body: "La cuenta y los accesos autorizados representan al negocio dentro de NODO."
   },
   {
-    title: "Verificacion obligatoria",
-    body: "Antes de entregar bolivares o cripto, confirma que el dinero llego a tu banco o billetera."
+    title: "Creditos NODO",
+    body: "Los creditos son para publicar y operar anuncios dentro de NODO. No son dinero, no se retiran ni se transfieren."
   },
   {
-    title: "Datos correctos",
-    body: "Manten tus Zelle y wallets actualizados. Si usas datos viejos, pausa o corrige tus anuncios."
+    title: "Pagos entre cliente y negocio",
+    body: "En operaciones P2P, el cliente y el negocio pagan directamente entre ellos. NODO no custodia ni libera esos fondos."
   },
   {
     title: "Uso responsable",
-    body: "NODO puede pausar, revisar o bloquear operaciones si detecta abuso, riesgo o informacion falsa."
+    body: "NODO puede pausar, revisar o bloquear accesos, anuncios u operaciones si detecta abuso, riesgo, fraude o datos incorrectos."
   }
 ];
 
+const BUSINESS_CREDIT_TERMS = [
+  {
+    title: "Compra de creditos",
+    body: "Los creditos comprados se acreditan al negocio cuando NODO verifica el pago."
+  },
+  {
+    title: "Pago digital",
+    body: "La wallet muestra el monto, la red y el contrato antes de confirmar. NODO nunca pide frase secreta ni clave privada."
+  },
+  {
+    title: "Sin retiros",
+    body: "Los creditos solo sirven dentro de NODO para publicar anuncios. No se canjean, retiran ni transfieren."
+  },
+  {
+    title: "Revision",
+    body: "NODO puede revisar pagos, rechazar intentos invalidos o retener la acreditacion si detecta riesgo."
+  }
+];
+
+function TermsConfirmation({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="terms-confirmation">
+      <input
+        checked={checked}
+        type="checkbox"
+        onChange={(event) => onChange(event.currentTarget.checked)}
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
 export function BusinessTermsScreen({ model }: { model: BusinessMiniAppModel }) {
+  const [confirmed, setConfirmed] = useState(false);
   return (
     <div className="business-card">
       <Text className="business-card__label">NODO Negocio</Text>
@@ -200,8 +241,39 @@ export function BusinessTermsScreen({ model }: { model: BusinessMiniAppModel }) 
           </div>
         ))}
       </div>
-      <Button mode="filled" stretched disabled={model.busy} onClick={() => void model.acceptBusinessTerms()}>
-        {model.busy ? "Guardando..." : "Aceptar terminos"}
+      <TermsConfirmation
+        checked={confirmed}
+        label="Confirmo que acepto estos terminos como representante autorizado del negocio."
+        onChange={setConfirmed}
+      />
+      <Button mode="filled" stretched disabled={model.busy || !confirmed} onClick={() => void model.acceptBusinessTerms()}>
+        {model.busy ? "Guardando..." : "Aceptar y continuar"}
+      </Button>
+    </div>
+  );
+}
+
+export function BusinessCreditTermsScreen({ model }: { model: BusinessMiniAppModel }) {
+  const [confirmed, setConfirmed] = useState(false);
+  return (
+    <div className="business-card">
+      <Text className="business-card__label">Creditos NODO</Text>
+      <Title level="3" className="business-shell__title">Terminos de compra de creditos</Title>
+      <div className="business-list">
+        {BUSINESS_CREDIT_TERMS.map((rule) => (
+          <div className="business-rule-item" key={rule.title}>
+            <strong>{rule.title}</strong>
+            <Text>{rule.body}</Text>
+          </div>
+        ))}
+      </div>
+      <TermsConfirmation
+        checked={confirmed}
+        label="Confirmo que entiendo y acepto las condiciones para comprar creditos NODO."
+        onChange={setConfirmed}
+      />
+      <Button mode="filled" stretched disabled={model.busy || !confirmed} onClick={() => void model.acceptBusinessCreditTerms()}>
+        {model.busy ? "Guardando..." : "Aceptar y comprar creditos"}
       </Button>
     </div>
   );

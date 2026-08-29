@@ -95,6 +95,13 @@ _set_env()
 from app.main import create_app  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.legal.models import (  # noqa: E402
+    BUSINESS_CREDIT_TERMS_DOCUMENT_SET,
+    BUSINESS_TERMS_DOCUMENT_SET,
+    BUSINESS_LEGAL_CONFIRMATION,
+    CURRENT_BUSINESS_CREDIT_TERMS_VERSION,
+    CURRENT_BUSINESS_TERMS_VERSION,
+)
 from app.modules.credits import (  # noqa: E402
     business_purchases as business_purchases_module,
 )
@@ -295,7 +302,30 @@ def _create_business(client: TestClient, login: dict, key: str, *, approved: boo
         )
         client.app.state.business_repository.set_access_link_pin_hash(link_id=link.id, pin_hash=hash_pin("1234"))
         client.app.state.business_repository.mark_access_link_pin_verified(link_id=link.id, unlocked_until=utc_now() + timedelta(minutes=15))
+        _accept_business_credit_terms(client, login)
     return business
+
+
+def _accept_business_credit_terms(client: TestClient, login: dict) -> None:
+    headers = {
+        "Authorization": f"Bearer {login['access_token']}",
+        "X-Request-Id": f"req_business_legal_{login['user']['id']}",
+        "X-NODO-Surface": "business_mini_app",
+    }
+    for document_set, document_version in (
+        (BUSINESS_TERMS_DOCUMENT_SET, CURRENT_BUSINESS_TERMS_VERSION),
+        (BUSINESS_CREDIT_TERMS_DOCUMENT_SET, CURRENT_BUSINESS_CREDIT_TERMS_VERSION),
+    ):
+        response = client.post(
+            "/api/v1/business/legal/acceptances",
+            headers={**headers, "Content-Type": "application/json"},
+            json={
+                "document_set": document_set,
+                "document_version": document_version,
+                "confirmation": BUSINESS_LEGAL_CONFIRMATION,
+            },
+        )
+        assert response.status_code == 200, response.text
 
 
 def test_onchain_credit_watcher_requires_explicit_enablement() -> None:
@@ -3268,28 +3298,29 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     types_source = Path("apps/web/src/types/credits.ts").read_text(encoding="utf-8")
     settings_source = Path("apps/web/src/screens/business-app/BusinessSettingsScreen.tsx").read_text(encoding="utf-8")
     model_source = Path("apps/web/src/hooks/useBusinessMiniAppModel.ts").read_text(encoding="utf-8")
-    assert "Abrir MetaMask para pagar en prueba" in source
+    assert "Paga con MetaMask." in source
+    assert "Abrir MetaMask" in source
     assert "Pago de prueba con MetaMask" in source
     assert "void connectWallet()" not in source
     assert "Preparar autorizacion" not in source
     assert "NODO no ve ni guarda tu clave privada." in source
-    assert "Necesitas USDC de prueba y un poco de ETH de prueba en Base Sepolia." in source
+    assert "Necesitas saldo USDC y gas de prueba." in source
     assert "priceUsdc" in source
     assert "{item.priceUsdc} USDC" in source
     assert 'priceUsdc: "10"' in presentation_source
     assert 'priceUsdc: "25"' in presentation_source
     assert 'priceUsdc: "75"' in presentation_source
     assert 'priceUsdc: "250"' in presentation_source
-    assert "Pagaras ${displayedSelection.priceUsdc} USDC de prueba en red Base Sepolia." in source
+    assert "Pagaras ${displayedSelection.priceUsdc} USDC de prueba." in source
     assert "La autorizacion final confirma el monto antes de pagar." in source
     assert "NODO calcula el monto y prepara la autorizacion." not in source
-    assert "No pegues hashes en este flujo." in source
+    assert "NODO revisa el pago automaticamente." in source
     assert "capabilities.can_pay" in source
     assert "expected_amount_display" in source
     assert "authorization_status" in types_source
-    assert "NODO esta revisando el pago automaticamente." in source
+    assert "NODO revisa el pago automaticamente." in source
     assert "Estamos acreditando" in presentation_source
-    assert "menos de un minuto" in presentation_source
+    assert "menos de 1 minuto" in presentation_source
     assert "payer_wallet_address: payerWalletAddress" in api_source
     assert "token_symbol" not in api_source
     assert "submitBusinessBaseUsdcTxHash" not in api_source
@@ -3308,7 +3339,9 @@ def test_base_usdc_business_buy_screen_hides_legacy_fallback_controls() -> None:
     assert "createBusinessCreditHandoff" in hook_source
     assert "launchMetaMaskCreditHandoff" in hook_source
     assert "setPayerWalletAddress" not in hook_source
-    assert "useBusinessCreditsModel({ business: access.business" in model_source
+    assert "useBusinessCreditsModel({" in model_source
+    assert "business: access.business" in model_source
+    assert "ensureBusinessCreditTermsAccepted" in model_source
     assert "localStorage.setItem(storageKey, purchase.id)" in storage_source
     assert "Fallback tarjeta" not in source
     assert "Metodo manual" not in source
@@ -3330,13 +3363,14 @@ def test_base_usdc_buy_screen_requires_explicit_pending_continue_and_package_cho
     assert "BASE_USDC_PENDING_PURCHASE_LEGACY_KEY" in storage_source
     assert 'setView("credit-payment-pending")' not in open_buy_source
     assert "Tienes un pago pendiente" in source
-    assert "Continuar pago pendiente" in source
+    assert "Continua tu pago" in source
+    assert "Continuar pago" in source
     assert "Elige un paquete para generar el pago." in source
     assert "Boolean(pendingCreditPurchase)" not in source
     assert "pendingCreditPurchase && pendingDismissConfirmationRequested" in source
     assert "continuePendingBaseUsdcPayment()" in source
     assert "openMetaMaskCreditHandoff()" in source
-    assert "Enlace listo - Continuar en MetaMask" in source
+    assert "Enlace listo - Abrir MetaMask" in source
     assert "Confirmar descarte" in source
     assert "createBusinessCreditHandoff(request, data.purchase.package_code)" in hook_source
 

@@ -20,6 +20,7 @@ from app.modules.credits.schemas import (
     StripeCheckoutRequest,
 )
 from app.modules.credits.service import CreditService
+from app.modules.legal.service import BusinessLegalService
 from app.modules.operations import require_platform_operational
 from app.modules.users.models import UserRecord
 from app.shared.validation import read_limited_upload
@@ -45,6 +46,14 @@ def _service(request: Request) -> CreditService:
         user_repository=request.app.state.user_repository,
         handoff_store=request.app.state.credit_handoff_store,
         require_business_pin=lambda user: _require_business_pin(request, user),
+    )
+
+
+def _legal_service(request: Request) -> BusinessLegalService:
+    return BusinessLegalService(
+        business_repository=request.app.state.business_repository,
+        legal_acceptance_repository=request.app.state.business_legal_acceptance_repository,
+        audit_writer=request.app.state.audit_writer,
     )
 
 
@@ -128,6 +137,7 @@ def create_base_usdc_credit_payment(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict:
     require_platform_operational(request.app.state.emergency_mode_repository, operation="credit_base_payment_create")
+    _legal_service(request).require_business_credit_terms(user=user)
     _require_business_pin(request, user)
     return {
         "data": _service(request).create_base_usdc_payment(user=user, payload=payload, request_id=_request_id(request), idempotency_key=idempotency_key),
@@ -181,6 +191,7 @@ def create_credit_handoff(
     user: UserRecord = Depends(require_current_user_with_terms),
 ) -> dict:
     require_platform_operational(request.app.state.emergency_mode_repository, operation="credit_wallet_handoff_create")
+    _legal_service(request).require_business_credit_terms(user=user)
     _require_business_pin(request, user)
     return {
         "data": _service(request).create_credit_handoff(

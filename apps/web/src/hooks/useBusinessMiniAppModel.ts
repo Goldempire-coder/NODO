@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  acceptBusinessLegalTerms,
+  BUSINESS_CREDIT_TERMS_DOCUMENT_SET,
+  BUSINESS_TERMS_DOCUMENT_SET,
+  getBusinessLegalRequirements
+} from "../api/legal";
 import { acceptTerms as acceptUserTerms } from "../api/users";
 import { ApiClientError, apiRequest } from "../api/client";
 import { isBusinessMiniAppView, type BusinessMiniAppView } from "../constants/businessViews";
 import { CURRENT_CLIENT_TERMS_VERSION, hasAcceptedCurrentClientTerms } from "../constants/legal";
 import type { PublicUser } from "../types/auth";
+import type { BusinessLegalDocumentSet, BusinessLegalRequirement, BusinessLegalRequirements } from "../types/legal";
 import { configureTelemetryContext } from "../observability/clientTelemetry";
 import { actionStartedAt } from "./actionTelemetry";
 import { fallbackForBusinessMiniAppView, ROOT_BUSINESS_VIEWS } from "./business-mini-app/helpers";
@@ -19,9 +26,17 @@ import { useBusinessTelegramControls } from "./business-mini-app/useBusinessTele
 import { useSurfaceSupportModel } from "./useSurfaceSupportModel";
 import { useSurfaceAttentionModel } from "./useSurfaceAttentionModel";
 
+function businessLegalRequirement(
+  requirements: BusinessLegalRequirements | null,
+  documentSet: BusinessLegalDocumentSet
+): BusinessLegalRequirement | null {
+  return requirements?.requirements.find((item) => item.document_set === documentSet) || null;
+}
+
 export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; token: string }) {
   const [view, setCurrentView] = useState<BusinessMiniAppView>("business-dashboard");
   const [currentUser, setCurrentUser] = useState(user);
+  const [businessLegalRequirements, setBusinessLegalRequirements] = useState<BusinessLegalRequirements | null>(null);
   const viewHistoryRef = useRef<BusinessMiniAppView[]>([]);
   const pendingViewTransitionRef = useRef<{ from: BusinessMiniAppView; to: BusinessMiniAppView; startedAt: number } | null>(null);
   const [notice, setNotice] = useState("");
@@ -39,6 +54,14 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
         if (error instanceof ApiClientError && error.code === "TERMS_ACCEPTANCE_REQUIRED") {
           setNotice("Acepta los terminos de NODO Negocio para continuar.");
           setCurrentView("business-terms");
+        }
+        if (error instanceof ApiClientError && error.code === "BUSINESS_TERMS_ACCEPTANCE_REQUIRED") {
+          setNotice("Acepta los terminos de NODO Negocio para continuar.");
+          setCurrentView("business-terms");
+        }
+        if (error instanceof ApiClientError && error.code === "BUSINESS_CREDIT_TERMS_ACCEPTANCE_REQUIRED") {
+          setNotice("Acepta los terminos de creditos antes de comprar.");
+          setCurrentView("business-credit-terms");
         }
         throw error;
       }
@@ -83,20 +106,6 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
 
   const canGoBack = useMemo(() => !ROOT_BUSINESS_VIEWS.has(view), [view]);
 
-  const acceptBusinessTerms = useCallback(async () => {
-    setBusy(true);
-    try {
-      const acceptedUser = await acceptUserTerms<PublicUser>(request, CURRENT_CLIENT_TERMS_VERSION);
-      setCurrentUser(acceptedUser);
-      setNotice("Terminos aceptados. Ya puedes preparar tu negocio.");
-      setView("business-dashboard");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No se pudieron aceptar los terminos.");
-    } finally {
-      setBusy(false);
-    }
-  }, [request, setView]);
-
   const resumePendingOrderPinAction = useCallback(async () => {
     return pendingOrderPinResumeRef.current
       ? pendingOrderPinResumeRef.current()
@@ -109,7 +118,108 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     setNotice,
     setView
   });
-  const credits = useBusinessCreditsModel({ business: access.business, request, setBusy, setNotice, setView });
+
+  const currentBusinessLegalRequirements = useMemo(() => {
+    return businessLegalRequirements?.business_id === access.business?.id ? businessLegalRequirements : null;
+  }, [access.business?.id, businessLegalRequirements]);
+
+  const loadBusinessLegalRequirements = useCallback(async () => {
+    if (!access.business?.id) {
+      return null;
+    }
+    const requirements = await getBusinessLegalRequirements(request);
+    setBusinessLegalRequirements(requirements);
+    return requirements;
+  }, [access.business?.id, request]);
+
+  const ensureBusinessCreditTermsAccepted = useCallback(async () => {
+    if (!hasAcceptedCurrentClientTerms(currentUser)) {
+      setNotice("Acepta los terminos de NODO Negocio para continuar.");
+      setView("business-terms");
+      return false;
+    }
+    try {
+      const requirements = currentBusinessLegalRequirements || await loadBusinessLegalRequirements();
+      if (!requirements) {
+        setNotice("No pudimos validar los terminos del negocio.");
+        return false;
+      }
+      if (!businessLegalRequirement(requirements, BUSINESS_TERMS_DOCUMENT_SET)?.accepted) {
+        setNotice("Acepta los terminos de NODO Negocio para continuar.");
+        setView("business-terms");
+        return false;
+      }
+      if (!businessLegalRequirement(requirements, BUSINESS_CREDIT_TERMS_DOCUMENT_SET)?.accepted) {
+        setNotice("Acepta los terminos de creditos antes de comprar.");
+        setView("business-credit-terms");
+        return false;
+      }
+      return true;
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos validar los terminos de creditos.");
+      return false;
+    }
+  }, [currentBusinessLegalRequirements, currentUser, loadBusinessLegalRequirements, setView]);
+
+  const acceptBusinessTerms = useCallback(async () => {
+    setBusy(true);
+    try {
+      if (!hasAcceptedCurrentClientTerms(currentUser)) {
+        const acceptedUser = await acceptUserTerms<PublicUser>(request, CURRENT_CLIENT_TERMS_VERSION);
+        setCurrentUser(acceptedUser);
+      }
+      const requirements = currentBusinessLegalRequirements || await loadBusinessLegalRequirements();
+      const requirement = businessLegalRequirement(requirements, BUSINESS_TERMS_DOCUMENT_SET);
+      if (!requirement) {
+        throw new Error("No pudimos validar los terminos del negocio.");
+      }
+      await acceptBusinessLegalTerms(request, BUSINESS_TERMS_DOCUMENT_SET, requirement.document_version);
+      await loadBusinessLegalRequirements();
+      setNotice("Terminos aceptados. Ya puedes preparar tu negocio.");
+      setView("business-dashboard");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudieron aceptar los terminos.");
+    } finally {
+      setBusy(false);
+    }
+  }, [currentBusinessLegalRequirements, currentUser, loadBusinessLegalRequirements, request, setView]);
+
+  const credits = useBusinessCreditsModel({
+    business: access.business,
+    request,
+    ensureBusinessCreditTermsAccepted,
+    setBusy,
+    setNotice,
+    setView
+  });
+
+  const acceptBusinessCreditTerms = useCallback(async () => {
+    setBusy(true);
+    try {
+      const requirements = currentBusinessLegalRequirements || await loadBusinessLegalRequirements();
+      if (!requirements) {
+        throw new Error("No pudimos validar los terminos de creditos.");
+      }
+      if (!businessLegalRequirement(requirements, BUSINESS_TERMS_DOCUMENT_SET)?.accepted) {
+        setNotice("Acepta primero los terminos de NODO Negocio.");
+        setView("business-terms");
+        return;
+      }
+      const requirement = businessLegalRequirement(requirements, BUSINESS_CREDIT_TERMS_DOCUMENT_SET);
+      if (!requirement) {
+        throw new Error("No pudimos validar los terminos de creditos.");
+      }
+      await acceptBusinessLegalTerms(request, BUSINESS_CREDIT_TERMS_DOCUMENT_SET, requirement.document_version);
+      await loadBusinessLegalRequirements();
+      setNotice("Terminos de creditos aceptados. Ya puedes comprar creditos.");
+      await credits.openBuyCredits({ skipLegalCheck: true });
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudieron aceptar los terminos de creditos.");
+    } finally {
+      setBusy(false);
+    }
+  }, [credits.openBuyCredits, currentBusinessLegalRequirements, loadBusinessLegalRequirements, request, setView]);
+
   const ads = useBusinessAdsModel({
     adForm: access.adForm,
     business: access.business,
@@ -295,6 +405,45 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
     }
   }, [access.accessState, currentUser]);
 
+  useEffect(() => {
+    if (access.accessState !== "ready" || !access.business?.id || !hasAcceptedCurrentClientTerms(currentUser)) {
+      return;
+    }
+    if (currentBusinessLegalRequirements) {
+      if (!businessLegalRequirement(currentBusinessLegalRequirements, BUSINESS_TERMS_DOCUMENT_SET)?.accepted) {
+        setCurrentView("business-terms");
+      }
+      return;
+    }
+    let cancelled = false;
+    async function loadLegalState() {
+      try {
+        const requirements = await loadBusinessLegalRequirements();
+        if (
+          !cancelled
+          && requirements
+          && !businessLegalRequirement(requirements, BUSINESS_TERMS_DOCUMENT_SET)?.accepted
+        ) {
+          setCurrentView("business-terms");
+        }
+      } catch {
+        if (!cancelled) {
+          setNotice("No pudimos validar los terminos del negocio.");
+        }
+      }
+    }
+    void loadLegalState();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    access.accessState,
+    access.business?.id,
+    currentBusinessLegalRequirements,
+    currentUser,
+    loadBusinessLegalRequirements
+  ]);
+
   useBusinessTelegramControls({
     adForm: access.adForm,
     busy: busy || ads.savingAdId === "new",
@@ -307,6 +456,8 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   return {
     user: currentUser,
     acceptBusinessTerms,
+    acceptBusinessCreditTerms,
+    businessLegalRequirements: currentBusinessLegalRequirements,
     view,
     setView,
     consumeViewTransition,

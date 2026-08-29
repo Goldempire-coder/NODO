@@ -24,6 +24,7 @@ const TITLE_BY_VIEW: Partial<Record<BusinessMiniAppView, string>> = {
   "payment-methods": "Zelle / USDT",
   "business-settings": "Perfil negocio",
   "business-terms": "Terminos",
+  "business-credit-terms": "Terminos de creditos",
   "business-pin": "PIN de seguridad",
   "business-rules": "Reglas"
 };
@@ -104,7 +105,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
   const [activeNav, setActiveNav] = useState<"home" | "ads" | "orders" | "credits" | "profile">("home");
   const keyboardActive = useMobileKeyboardViewport();
   const previousViewRef = useRef<BusinessMiniAppView | null>(null);
-  const termsRequired = view === "business-terms";
+  const termsRequired = view === "business-terms" || view === "business-credit-terms";
   const canUseBusinessNav = accessState === "ready" && !termsRequired;
   const isNativeChatSurface = view === "business-chat" || (view === "business-support" && Boolean(selectedSupportTicket));
   const isViewingAttentionResource = Boolean(
@@ -178,7 +179,7 @@ export function BusinessMiniAppShell({ model }: { model: BusinessMiniAppModel })
   }, [consumeViewTransition, view]);
 
   useEffect(() => {
-    if (view === "credits-dashboard" || view === "buy-credits" || view === "credit-payment-pending" || view === "referrals") {
+    if (view === "credits-dashboard" || view === "buy-credits" || view === "credit-payment-pending" || view === "referrals" || view === "business-credit-terms") {
       setActiveNav("credits");
       return;
     }

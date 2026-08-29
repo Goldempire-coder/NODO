@@ -1973,6 +1973,27 @@ div.ad-row {
   align-self: center;
 }
 
+.terms-confirmation {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid rgb(148 163 184 / 24%);
+  border-radius: 8px;
+  background: rgb(2 8 23 / 38%);
+  color: var(--nodo-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.terms-confirmation input {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--nodo-green);
+}
+
 .exchange-card {
   display: grid;
   gap: 14px;

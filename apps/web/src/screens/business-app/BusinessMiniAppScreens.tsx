@@ -6,7 +6,7 @@ import { BusinessDashboardScreen } from "./BusinessDashboardScreen";
 import { BuyCreditsScreen, CreditPaymentPendingScreen, CreditsDashboardScreen, ReferralProgramScreen } from "./BusinessCreditsScreens";
 import { BusinessOrderDetailScreen, IncomingOrdersScreen } from "./BusinessOrdersScreens";
 import { BusinessPinScreen } from "./BusinessPinScreen";
-import { BusinessRulesScreen, BusinessSettingsScreen, BusinessTermsScreen } from "./BusinessSettingsScreen";
+import { BusinessCreditTermsScreen, BusinessRulesScreen, BusinessSettingsScreen, BusinessTermsScreen } from "./BusinessSettingsScreen";
 import { BusinessSupportScreen } from "./BusinessSupportScreen";
 
 export function BusinessMiniAppScreens({ model }: { model: BusinessMiniAppModel }) {
@@ -43,6 +43,8 @@ export function BusinessMiniAppScreens({ model }: { model: BusinessMiniAppModel 
       return <BusinessSettingsScreen model={model} />;
     case "business-terms":
       return <BusinessTermsScreen model={model} />;
+    case "business-credit-terms":
+      return <BusinessCreditTermsScreen model={model} />;
     case "business-rules":
       return <BusinessRulesScreen />;
     case "business-support":
