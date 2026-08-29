@@ -270,10 +270,12 @@ def test_business_credit_success_state_uses_clear_business_copy_without_contract
     assert "Ver mis creditos" in screen
     assert "loadCreditDashboard" in screen
     assert "business-card--credit-success" in screen
+    assert "CreditPaymentSuccessIcon" in screen
+    assert "CreditPaymentSuccessHeroIcon" in screen
     assert "credit-payment-success-hero" in screen
     assert "credit-payment-success-title-accent" in screen
+    assert "credit-payment-svg-icon--success" in screen
     assert "business-status-panel--payment-success" in screen
-    assert "status-dot--large" in screen
     assert "credit-accredited-pill" in screen
     assert "payment-copy-box--credit-total" in screen
 
@@ -378,6 +380,10 @@ def test_pending_credit_payment_waits_for_auto_accreditation_without_user_refres
     assert "Continuar en MetaMask" not in pending_screen
     assert "paymentProgressIconClass" in screen
     assert "paymentProgressPanelClass" in screen
+    assert "CreditPaymentWaitIcon" in screen
+    assert "CreditPaymentProgressIcon" in screen
+    assert "credit-payment-svg-icon--wait" in styles
+    assert "credit-payment-svg-icon__hand" in styles
     assert "status-dot--waiting" in presentation
     assert "business-status-panel--payment-waiting" in presentation
     assert "business-status-panel--payment-waiting" in styles

@@ -18,6 +18,59 @@ import {
   shouldOfferNewCreditPurchase,
 } from "./businessCreditPresentation";
 
+function CreditPaymentWaitIcon() {
+  return (
+    <span className="credit-payment-svg-icon credit-payment-svg-icon--wait" aria-hidden="true">
+      <svg viewBox="0 0 64 64" focusable="false">
+        <circle className="credit-payment-svg-icon__halo" cx="32" cy="32" r="30" />
+        <circle className="credit-payment-svg-icon__face" cx="32" cy="32" r="21" />
+        <path className="credit-payment-svg-icon__orbit" d="M32 7a25 25 0 0 1 24.5 20" />
+        <path className="credit-payment-svg-icon__hand" d="M32 20v14h12" />
+        <circle className="credit-payment-svg-icon__pin" cx="32" cy="34" r="3" />
+      </svg>
+    </span>
+  );
+}
+
+function CreditPaymentSuccessIcon() {
+  return (
+    <span className="credit-payment-svg-icon credit-payment-svg-icon--success" aria-hidden="true">
+      <svg viewBox="0 0 64 64" focusable="false">
+        <circle className="credit-payment-svg-icon__success-halo" cx="32" cy="32" r="29" />
+        <circle className="credit-payment-svg-icon__success-face" cx="32" cy="32" r="22" />
+        <path className="credit-payment-svg-icon__check" d="M20 33.5 28 41l16-18" />
+      </svg>
+    </span>
+  );
+}
+
+function CreditPaymentSuccessHeroIcon() {
+  return (
+    <span className="credit-payment-success-burst" aria-hidden="true">
+      <svg viewBox="0 0 92 64" focusable="false">
+        <path className="credit-payment-success-burst__confetti credit-payment-success-burst__confetti--green" d="M6 15h7" />
+        <path className="credit-payment-success-burst__confetti credit-payment-success-burst__confetti--yellow" d="M18 31h7" />
+        <path className="credit-payment-success-burst__confetti credit-payment-success-burst__confetti--blue" d="M28 8h8" />
+        <path className="credit-payment-success-burst__confetti credit-payment-success-burst__confetti--pink" d="M61 10h8" />
+        <path className="credit-payment-success-burst__confetti credit-payment-success-burst__confetti--orange" d="M73 31h8" />
+        <path className="credit-payment-success-burst__ribbon credit-payment-success-burst__ribbon--blue" d="M17 13c12 5 2 13 13 18" />
+        <path className="credit-payment-success-burst__ribbon credit-payment-success-burst__ribbon--pink" d="M45 5c-8 9 8 14 0 23" />
+        <path className="credit-payment-success-burst__ribbon credit-payment-success-burst__ribbon--orange" d="M55 39c10-8 16 2 26-7" />
+        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--yellow" cx="12" cy="45" r="3" />
+        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--green" cx="34" cy="48" r="2.5" />
+        <circle className="credit-payment-success-burst__spark credit-payment-success-burst__spark--blue" cx="84" cy="15" r="2.5" />
+      </svg>
+    </span>
+  );
+}
+
+function CreditPaymentProgressIcon({ className }: { className: string }) {
+  if (className.split(/\s+/).includes("status-dot--waiting")) {
+    return <CreditPaymentWaitIcon />;
+  }
+  return <span className={className} aria-hidden="true" />;
+}
+
 export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel }) {
   const { busy, creditWallet, creditWalletRefreshState, openBuyCredits, refreshCreditWallet } = model;
   return (
@@ -359,14 +412,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
       <div className="business-card business-card--credit-success">
         <Text className="business-card__label">Compra finalizada</Text>
         <div className="credit-payment-success-hero" role="status">
-          <div className="credit-payment-success-burst" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
+          <CreditPaymentSuccessHeroIcon />
           <div>
             <Title level="3" className="business-shell__title">
               Pago <span className="credit-payment-success-title-accent">exitoso</span>
@@ -376,7 +422,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
         </div>
         <div className="business-status-panel business-status-panel--payment-success" role="status">
           <div>
-            <span className="status-dot status-dot--large" aria-hidden="true" />
+            <CreditPaymentSuccessIcon />
             <div>
               <strong>{successCopy?.body}</strong>
               <Text>Ya puedes usar estos creditos para publicar anuncios.</Text>
@@ -420,7 +466,7 @@ export function CreditPaymentPendingScreen({ model }: { model: BusinessMiniAppMo
           </Title>
           <div className={statusPanelClass} role="status">
             <div>
-              <span className={statusIconClass} aria-hidden="true" />
+              <CreditPaymentProgressIcon className={statusIconClass} />
               <div>
                 <strong>{statusCopy.title}</strong>
                 <Text>{statusCopy.body}</Text>

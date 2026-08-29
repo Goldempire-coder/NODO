@@ -2164,6 +2164,87 @@ div.ad-row {
   border-bottom-width: 3px;
 }
 
+.credit-payment-svg-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.credit-payment-svg-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.credit-payment-svg-icon--wait {
+  width: 68px;
+  height: 68px;
+  color: #9dd8ff;
+  filter: drop-shadow(0 0 12px rgb(19 152 255 / 30%));
+}
+
+.credit-payment-svg-icon__halo {
+  fill: rgb(19 152 255 / 10%);
+  stroke: rgb(19 152 255 / 38%);
+  stroke-width: 2;
+}
+
+.credit-payment-svg-icon__face {
+  fill: rgb(6 18 34 / 84%);
+  stroke: currentColor;
+  stroke-width: 3;
+}
+
+.credit-payment-svg-icon__orbit {
+  fill: none;
+  stroke: #2ca0ff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transform-origin: 32px 32px;
+}
+
+.credit-payment-svg-icon__hand {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.credit-payment-svg-icon__pin {
+  fill: currentColor;
+}
+
+.credit-payment-svg-icon--success {
+  width: 56px;
+  height: 56px;
+  color: var(--nodo-success);
+  filter: drop-shadow(0 0 14px rgb(0 230 118 / 22%));
+}
+
+.credit-payment-svg-icon__success-halo {
+  fill: rgb(0 230 118 / 9%);
+  stroke: rgb(0 230 118 / 30%);
+  stroke-width: 2;
+}
+
+.credit-payment-svg-icon__success-face {
+  fill: rgb(0 230 118 / 10%);
+  stroke: currentColor;
+  stroke-width: 3;
+}
+
+.credit-payment-svg-icon__check {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .marketplace-toolbar {
   display: grid;
   gap: 10px;
@@ -2401,56 +2482,54 @@ div.ad-row {
   position: relative;
   width: 78px;
   height: 58px;
+  display: block;
 }
 
-.credit-payment-success-burst span {
-  position: absolute;
-  width: 5px;
-  height: 12px;
-  border-radius: 999px;
-  background: var(--nodo-button);
+.credit-payment-success-burst svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
 }
 
-.credit-payment-success-burst span:nth-child(1) {
-  top: 8px;
-  left: 8px;
-  background: #00e676;
-  transform: rotate(38deg);
+.credit-payment-success-burst__confetti,
+.credit-payment-success-burst__ribbon {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.credit-payment-success-burst span:nth-child(2) {
-  top: 28px;
-  left: 18px;
-  background: #ffb020;
-  transform: rotate(-28deg);
+.credit-payment-success-burst__confetti--green,
+.credit-payment-success-burst__spark--green {
+  stroke: var(--nodo-success);
+  fill: var(--nodo-success);
 }
 
-.credit-payment-success-burst span:nth-child(3) {
-  top: 4px;
-  left: 35px;
-  background: #2ca0ff;
-  transform: rotate(-12deg);
+.credit-payment-success-burst__confetti--yellow,
+.credit-payment-success-burst__spark--yellow {
+  stroke: #ffcf38;
+  fill: #ffcf38;
 }
 
-.credit-payment-success-burst span:nth-child(4) {
-  top: 28px;
-  left: 46px;
-  background: #ef5cff;
-  transform: rotate(24deg);
+.credit-payment-success-burst__confetti--blue,
+.credit-payment-success-burst__spark--blue {
+  stroke: #2ca0ff;
+  fill: #2ca0ff;
 }
 
-.credit-payment-success-burst span:nth-child(5) {
-  top: 14px;
-  right: 8px;
-  background: #00e676;
-  transform: rotate(-44deg);
+.credit-payment-success-burst__confetti--pink,
+.credit-payment-success-burst__ribbon--pink {
+  stroke: #ef5cff;
 }
 
-.credit-payment-success-burst span:nth-child(6) {
-  right: 22px;
-  bottom: 4px;
-  background: #ff7a18;
-  transform: rotate(72deg);
+.credit-payment-success-burst__confetti--orange,
+.credit-payment-success-burst__ribbon--orange {
+  stroke: #ff8a24;
+}
+
+.credit-payment-success-burst__ribbon--blue {
+  stroke: #2ca0ff;
 }
 
 .payment-copy-box.is-copied {
