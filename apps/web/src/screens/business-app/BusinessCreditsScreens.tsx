@@ -94,7 +94,11 @@ export function CreditsDashboardScreen({ model }: { model: BusinessMiniAppModel 
             <strong>{creditWallet.lifetime_purchased_credits}</strong>
           </div>
         </div>
-      ) : <Text>{creditWalletRefreshState === "stale" ? "No pudimos cargar tu saldo. Reintenta." : "Carga tu balance para ver el resumen."}</Text>}
+      ) : (
+        <div className="business-status-panel" role="status">
+          <Text>{creditWalletRefreshState === "stale" ? "No pudimos cargar tu saldo. Reintenta." : "Carga tu saldo para ver el resumen."}</Text>
+        </div>
+      )}
       {creditWalletRefreshState === "stale" ? (
         <div className="business-shell__tabs">
           <Text className="business-card__label" role="status">

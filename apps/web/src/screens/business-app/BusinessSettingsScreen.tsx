@@ -93,7 +93,7 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
       </div>
       {businessIdCopied ? <Text className="business-identity-box__feedback" role="status">Identificacion copiada para soporte.</Text> : null}
       {businessIdCopyError ? <Text className="business-identity-box__feedback" role="alert">No pudimos copiar la identificacion. Puedes seleccionarla manualmente.</Text> : null}
-      <Text className="auth-entry__session-meta">Puedes guardar Zelle y USDT antes de comprar creditos.</Text>
+      <Text className="auth-entry__session-meta">Configura tus metodos de cobro para publicar anuncios y recibir operaciones.</Text>
       <Button
         mode={isAcceptingOrders ? "outline" : "filled"}
         size="s"

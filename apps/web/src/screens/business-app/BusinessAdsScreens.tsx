@@ -131,13 +131,17 @@ export function MyAdsScreen({ model }: { model: BusinessMiniAppModel }) {
         <Button mode="outline" size="s" onClick={() => void loadArchivedAds()}>Archivados</Button>
         <Button mode="outline" size="s" onClick={() => setView("payment-methods")}>Zelle / USDT</Button>
       </div>
-      <div className="business-list business-list--scrollable business-list--published-ads">
+      <div className="business-list business-list--scrollable business-list--published-ads" aria-busy={isLoadingOwnAds || ownAdsLoadingMore}>
         {isLoadingOwnAds && ownAds.length === 0 ? (
           <div className="business-order-empty" role="status">
             <Text>Cargando anuncios...</Text>
           </div>
         ) : null}
-        {!isLoadingOwnAds && ownAds.length === 0 ? <Text>Aun no tienes anuncios activos.</Text> : null}
+        {!isLoadingOwnAds && ownAds.length === 0 ? (
+          <div className="business-order-empty" role="status">
+            <Text>Aun no tienes anuncios publicados. Crea uno para empezar.</Text>
+          </div>
+        ) : null}
         {ownAds.map((ad) => (
           <BusinessAdDetailPanel ad={ad} key={ad.id} mode="list" model={model} />
         ))}
@@ -163,7 +167,7 @@ export function ArchivedAdsScreen({ model }: { model: BusinessMiniAppModel }) {
   return (
     <div className="business-card">
       <Text className="business-card__label">Archivados</Text>
-      <div className="business-list business-list--scrollable">
+      <div className="business-list business-list--scrollable" aria-busy={isLoadingArchivedAds || archivedAdsLoadingMore}>
         {selectedAd ? (
           <BusinessAdDetailPanel ad={selectedAd} model={model} />
         ) : (
@@ -173,7 +177,11 @@ export function ArchivedAdsScreen({ model }: { model: BusinessMiniAppModel }) {
                 <Text>Cargando archivados...</Text>
               </div>
             ) : null}
-            {!isLoadingArchivedAds && archivedAds.length === 0 ? <Text>No hay anuncios archivados.</Text> : null}
+            {!isLoadingArchivedAds && archivedAds.length === 0 ? (
+              <div className="business-order-empty" role="status">
+                <Text>No hay anuncios archivados.</Text>
+              </div>
+            ) : null}
             {archivedAds.map((ad) => (
               <BusinessAdCard
                 ad={ad}

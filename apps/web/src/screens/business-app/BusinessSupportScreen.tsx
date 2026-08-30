@@ -4,7 +4,8 @@ import type { BusinessMiniAppModel } from "../../hooks/useBusinessMiniAppModel";
 import { useVisibleSurfacePolling } from "../../hooks/useVisibleSurfacePolling";
 import { SurfaceSupportInbox, SurfaceSupportThread } from "../support/SurfaceSupportPrimitives";
 
-const BUSINESS_SUPPORT_REFRESH_MS = 5000;
+const BUSINESS_SUPPORT_THREAD_REFRESH_MS = 5000;
+const BUSINESS_SUPPORT_INBOX_REFRESH_MS = 30000;
 
 export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }) {
   const {
@@ -48,8 +49,8 @@ export function BusinessSupportScreen({ model }: { model: BusinessMiniAppModel }
   }, [loadSupportTickets]);
 
   useVisibleSurfacePolling({
-    enabled: true,
-    intervalMs: BUSINESS_SUPPORT_REFRESH_MS,
+    enabled: !showNewConversation,
+    intervalMs: selectedSupportTicket ? BUSINESS_SUPPORT_THREAD_REFRESH_MS : BUSINESS_SUPPORT_INBOX_REFRESH_MS,
     poll: refreshSupportWorkspace
   });
 

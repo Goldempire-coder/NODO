@@ -411,10 +411,10 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert 'onClick={() => void loadReferrals()}>Referidos</Button>' not in credits_screen
     assert "Wallet pagadora" in credits_screen
     assert "Esta wallet será la que firma y paga." in credits_screen
-    assert "Conectar wallet" in credits_screen
+    assert "Wallet pagadora" in credits_screen
     assert "useInjectedWallet" in credits_model
-    assert "No pegues hashes en este flujo." in credits_screen
-    assert "red Base" in credits_screen
+    assert "NODO revisara esta compra automaticamente." in credits_screen
+    assert "MetaMask mostrara cada paso antes de enviarlo." in credits_screen
     assert "red BASE" not in credits_screen
     assert "red BASE" not in credits_model
     assert 'recordBusinessActionStarted("credit_payment_create"' in credits_model
@@ -456,7 +456,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "baseUsdcTxHash" not in credits_screen
     assert "verifyingCreditTx" not in credits_screen
     assert "Verificando..." not in credits_screen
-    assert "Actualizando..." in credits_screen
+    assert "Revisando pago pendiente..." in credits_screen
     assert "shouldHandleInChat" in orders_screen
     assert "Abrir chat" in orders_screen
     assert "Confirmando..." not in orders_screen
@@ -825,7 +825,7 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert 'disabled={busy || !canReactivate}' not in ad_view_sources
     assert 'disabled={busy || status !== "active"}' not in ad_view_sources
     assert "generatingCreditPayment" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
-    assert "connectedWalletAddress" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
+    assert "creditHandoffLaunchReady" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     assert "refreshingCreditPurchase" in _read("apps/web/src/screens/business-app/BusinessCreditsScreens.tsx")
     assert "savingPaymentMethodId" in ads_screen
     assert "deletingPaymentMethodId" in ads_screen

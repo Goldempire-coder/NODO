@@ -25,6 +25,15 @@ def test_surface_support_polling_is_visible_only_non_overlapping_and_cleans_up()
         assert 'notice.startsWith("No ")' not in screen
 
 
+def test_business_support_uses_light_inbox_polling_and_fast_thread_polling() -> None:
+    business = _read("apps/web/src/screens/business-app/BusinessSupportScreen.tsx")
+
+    assert "BUSINESS_SUPPORT_THREAD_REFRESH_MS = 5000" in business
+    assert "BUSINESS_SUPPORT_INBOX_REFRESH_MS = 30000" in business
+    assert "selectedSupportTicket ? BUSINESS_SUPPORT_THREAD_REFRESH_MS : BUSINESS_SUPPORT_INBOX_REFRESH_MS" in business
+    assert "enabled: !showNewConversation" in business
+
+
 def test_surface_support_refresh_discards_late_results_without_touching_composer() -> None:
     model = _read("apps/web/src/hooks/useSurfaceSupportModel.ts")
 
