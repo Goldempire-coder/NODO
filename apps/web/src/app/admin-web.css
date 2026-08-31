@@ -147,7 +147,21 @@
 
 .admin-web-nav {
   display: grid;
+  gap: 13px;
+}
+
+.admin-web-nav-group {
+  display: grid;
   gap: 7px;
+}
+
+.admin-web-nav-group-label {
+  padding: 0 8px;
+  color: rgb(166 173 189 / 76%);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .admin-web-nav button,
@@ -1108,15 +1122,21 @@
 }
 
 .admin-web-order-timeline-scroll {
-  max-height: 320px;
+  max-height: min(236px, 32dvh);
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding-right: 6px;
   scrollbar-gutter: stable;
 }
 
 .admin-web-order-timeline-scroll:focus-visible {
   outline: 2px solid var(--admin-blue);
   outline-offset: 3px;
+}
+
+.admin-web-order-timeline-scroll .admin-web-row {
+  gap: 3px;
+  padding: 9px 10px;
 }
 
 .admin-web-sensitive-action {
@@ -1332,11 +1352,16 @@
 }
 
 .admin-order-detail-summary {
-  grid-template-columns: minmax(0, 0.95fr) minmax(300px, 0.85fr);
+  grid-template-columns: minmax(340px, 0.8fr) minmax(360px, 1fr);
+  align-items: start;
 }
 
 .admin-order-detail-summary .admin-web-panel {
   padding: 13px 14px;
+}
+
+.admin-order-detail-layout .admin-web-panel {
+  min-height: 0;
 }
 
 .admin-order-detail-summary .admin-web-panel h2,
@@ -1350,6 +1375,20 @@
   grid-template-columns: 118px minmax(0, 1fr);
   gap: 6px 10px;
   font-size: 13px;
+}
+
+.admin-order-detail-summary .admin-order-detail-facts {
+  grid-template-columns: max-content minmax(124px, 1fr) max-content minmax(124px, 1fr);
+  align-items: baseline;
+}
+
+.admin-order-detail-facts dd,
+.admin-order-report-facts dd {
+  overflow-wrap: anywhere;
+}
+
+.admin-order-detail-summary .admin-order-report-facts {
+  margin-bottom: 9px;
 }
 
 .admin-web-order-resolution {
@@ -1393,7 +1432,8 @@
 
 .admin-order-chat-evidence {
   min-height: 0;
-  gap: 12px;
+  gap: 10px;
+  padding: 14px;
 }
 
 .admin-order-chat-evidence__header,
@@ -1423,10 +1463,11 @@
 }
 
 .admin-order-chat-evidence__messages {
-  max-height: 480px;
+  max-height: clamp(280px, 42dvh, 520px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 6px 8px 6px 2px;
+  scrollbar-gutter: stable;
 }
 
 .admin-order-chat-evidence__message-log {
@@ -2593,6 +2634,14 @@
     scrollbar-width: thin;
   }
 
+  .admin-web-nav-group {
+    display: contents;
+  }
+
+  .admin-web-nav-group-label {
+    display: none;
+  }
+
   .admin-web-nav button {
     width: auto;
     flex: 0 0 auto;
@@ -2633,6 +2682,19 @@
 
   .admin-web-order-resolution {
     max-height: min(360px, 46dvh);
+  }
+
+  .admin-order-detail-summary .admin-order-detail-facts,
+  .admin-order-detail-summary .admin-order-report-facts {
+    grid-template-columns: 118px minmax(0, 1fr);
+  }
+
+  .admin-web-order-timeline-scroll {
+    max-height: min(260px, 38dvh);
+  }
+
+  .admin-order-chat-evidence__messages {
+    max-height: min(520px, 56dvh);
   }
 
   .admin-web-order-resolution__header,

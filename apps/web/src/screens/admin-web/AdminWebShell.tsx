@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
 import { AdminWebScreens } from "./AdminWebScreens";
 
+type AdminNavigationItem = AdminWebModel["navigation"][number];
+
 function priorityLabel(priority: string) {
   const labels: Record<string, string> = {
     info: "Info",
@@ -18,6 +20,15 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
   const confirmCancelRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const confirmationOpenRef = useRef(false);
+  const navigationGroups = model.navigation.reduce<Array<{ label: string; items: AdminNavigationItem[] }>>((groups, item) => {
+    const existing = groups.find((group) => group.label === item.group);
+    if (existing) {
+      existing.items.push(item);
+      return groups;
+    }
+    groups.push({ label: item.group, items: [item] });
+    return groups;
+  }, []);
 
   useEffect(() => {
     const isOpen = Boolean(model.pendingAction);
@@ -39,16 +50,21 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
           <small>Admin Web</small>
         </div>
         <nav className="admin-web-nav">
-          {model.navigation.map((item) => (
-            <button
-              className={model.view === item.view ? "is-active" : ""}
-              key={item.view}
-              type="button"
-              onClick={() => void item.action()}
-            >
-              <span>{item.label}</span>
-              {item.badge ? <strong className="admin-web-nav-badge">{item.badge}</strong> : null}
-            </button>
+          {navigationGroups.map((group) => (
+            <div className="admin-web-nav-group" key={group.label}>
+              <span className="admin-web-nav-group-label">{group.label}</span>
+              {group.items.map((item) => (
+                <button
+                  className={model.view === item.view ? "is-active" : ""}
+                  key={item.view}
+                  type="button"
+                  onClick={() => void item.action()}
+                >
+                  <span>{item.label}</span>
+                  {item.badge ? <strong className="admin-web-nav-badge">{item.badge}</strong> : null}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
       </aside>

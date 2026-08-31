@@ -21,6 +21,7 @@ def test_admin_credit_transactions_register_has_dedicated_view_scroll_and_pagina
     assert '"credit-transactions"' in credit_types
     assert "loadCreditTransactions" in model
     assert "Registro NODO" in model
+    assert '"Dinero y creditos"' in model
     assert "listAdminCreditTransactions" in api
     assert "/api/v1/admin/credit-transactions" in api
     assert "dateTimeLocalToIso" in api
@@ -28,6 +29,8 @@ def test_admin_credit_transactions_register_has_dedicated_view_scroll_and_pagina
     assert "CreditTransactions" in screen
     assert "admin-web-credit-transactions-panel" in screen
     assert "admin-web-credit-transactions-list-scroll" in screen
+    assert '"credit-transactions")' in screen
+    assert "model.creditDetailReturnView" in screen
     assert 'aria-label="Registro de transacciones de creditos admin"' in screen
     assert "creditTransactionsNextCursor" in screen
     assert "loadMoreCreditTransactions" in screen
@@ -35,7 +38,24 @@ def test_admin_credit_transactions_register_has_dedicated_view_scroll_and_pagina
     assert ".admin-web-credit-transactions-list-scroll" in css
     assert ".admin-web-credit-transactions-list-scroll:focus-visible" in css
     assert ".admin-web-credit-transactions-list-scroll .admin-web-table th" in css
+    assert ".admin-web-nav-group" in css
+    assert ".admin-web-nav-group-label" in css
     assert "setInterval" not in _read("apps/web/src/hooks/admin-web/useAdminCreditTransactionsModel.ts")
+
+
+def test_admin_credit_detail_returns_to_originating_credit_register_view() -> None:
+    credit_types = _read("apps/web/src/hooks/admin-web/adminCreditsTypes.ts")
+    purchases_model = _read("apps/web/src/hooks/admin-web/useAdminCreditPurchasesModel.ts")
+    shell_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
+    screen = _read("apps/web/src/screens/admin-web/AdminCreditScreens.tsx")
+
+    assert "CreditDetailReturnView" in credit_types
+    assert 'export type CreditDetailReturnView = "credit-purchases" | "credit-transactions";' in credit_types
+    assert "creditDetailReturnView" in purchases_model
+    assert "setCreditDetailReturnView(returnView)" in purchases_model
+    assert "creditDetailReturnView: credits.creditDetailReturnView" in shell_model
+    assert 'model.setSelectedCreditPurchase(purchaseSummaryFromTransaction(item), "credit-transactions")' in screen
+    assert "model.setView(model.creditDetailReturnView)" in screen
 
 
 def test_admin_credit_transactions_ui_uses_summary_filters_and_masked_evidence() -> None:

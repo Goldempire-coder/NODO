@@ -28,6 +28,25 @@ def test_admin_orders_screen_has_code_filter_and_internal_scroll() -> None:
     assert ".admin-web-orders-panel" in css
 
 
+def test_admin_order_detail_keeps_chat_visible_with_bounded_panels() -> None:
+    screen = _read("apps/web/src/screens/admin-web/AdminOrderDisputeScreens.tsx")
+    css = _read("apps/web/src/app/admin-web.css")
+
+    assert "admin-order-detail-layout" in screen
+    assert "admin-order-detail-facts" in screen
+    assert "admin-order-report-facts" in screen
+    assert "AdminOrderChatEvidencePanel" in screen
+    assert ".admin-order-detail-layout .admin-web-panel" in css
+    assert ".admin-order-detail-summary .admin-order-detail-facts" in css
+    assert ".admin-order-detail-summary .admin-order-report-facts" in css
+    assert ".admin-web-order-timeline-scroll" in css
+    assert "max-height: min(236px, 32dvh)" in css
+    assert ".admin-web-order-timeline-scroll .admin-web-row" in css
+    assert ".admin-order-chat-evidence__messages" in css
+    assert "max-height: clamp(280px, 42dvh, 520px)" in css
+    assert "scrollbar-gutter: stable" in css
+
+
 def test_admin_disputes_screen_has_internal_scroll() -> None:
     screen = _read("apps/web/src/screens/admin-web/AdminOrderDisputeScreens.tsx")
     css = _read("apps/web/src/app/admin-web.css")

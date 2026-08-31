@@ -90,6 +90,7 @@ function AdminDashboardQuickActions({ model }: { model: AdminWebModel }) {
         </div>
       </div>
       <div className="admin-dashboard-action-grid">
+        <button type="button" onClick={() => void model.loadCreditTransactions()}>Registro NODO</button>
         <button type="button" onClick={() => void model.loadAuditLogs()}>Audit logs</button>
         <button type="button" onClick={() => void model.loadMetrics()}>Metricas</button>
         <button type="button" onClick={() => void model.loadIncidentConsole()}>Incidentes</button>

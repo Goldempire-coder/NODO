@@ -269,27 +269,28 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
 
   const navigation = useMemo(
     () => [
-      { view: "dashboard" as const, label: "Dashboard", action: overview.loadDashboard },
-      { view: "incidents" as const, label: "Incidentes", action: overview.loadIncidentConsole },
-      { view: "ux-friction" as const, label: "UX", action: overview.loadUXFriction },
-      { view: "businesses" as const, label: "Negocios", action: () => businessIntake.loadBusinesses("", "") },
-      { view: "users" as const, label: "Clientes", action: () => users.loadUsers() },
-      { view: "orders" as const, label: "Ordenes", action: () => ordersDisputes.loadOrders("", "") },
-      { view: "disputes" as const, label: "Disputas", action: () => ordersDisputes.loadDisputes("open") },
-      { view: "credit-transactions" as const, label: "Registro NODO", action: () => credits.loadCreditTransactions() },
-      { view: "credit-purchases" as const, label: "Revision creditos", action: () => credits.loadCreditPurchases("pending_manual_review") },
-      { view: "audit-logs" as const, label: "Audit", action: audit.loadAuditLogs },
-      { view: "metrics" as const, label: "Metricas", action: overview.loadMetrics },
-      { view: "investigation" as const, label: "Buscar", action: () => investigation.searchInvestigation() },
-      { view: "jobs" as const, label: "Jobs", action: overview.loadJobs },
+      { group: "Operacion", view: "dashboard" as const, label: "Dashboard", action: overview.loadDashboard },
+      { group: "Operacion", view: "businesses" as const, label: "Negocios", action: () => businessIntake.loadBusinesses("", "") },
+      { group: "Operacion", view: "users" as const, label: "Clientes", action: () => users.loadUsers() },
+      { group: "Operacion", view: "orders" as const, label: "Ordenes", action: () => ordersDisputes.loadOrders("", "") },
+      { group: "Operacion", view: "disputes" as const, label: "Disputas", action: () => ordersDisputes.loadDisputes("open") },
       {
+        group: "Operacion",
         view: "intake" as const,
         label: "Intake",
         badge: overview.dashboard?.queues.pending_business_intakes || 0,
         action: () => businessIntake.loadBusinessIntakes("submitted")
       },
-      { view: "support" as const, label: "Soporte", badge: notifications.supportUnreadCount, action: () => support.loadSupportTickets("active") },
-      { view: "staff" as const, label: "Staff", action: () => staff.loadStaff("") }
+      { group: "Dinero y creditos", view: "credit-transactions" as const, label: "Registro NODO", action: () => credits.loadCreditTransactions() },
+      { group: "Dinero y creditos", view: "credit-purchases" as const, label: "Revision creditos", action: () => credits.loadCreditPurchases("pending_manual_review") },
+      { group: "Seguridad y soporte", view: "support" as const, label: "Soporte", badge: notifications.supportUnreadCount, action: () => support.loadSupportTickets("active") },
+      { group: "Seguridad y soporte", view: "investigation" as const, label: "Buscar", action: () => investigation.searchInvestigation() },
+      { group: "Seguridad y soporte", view: "audit-logs" as const, label: "Audit", action: audit.loadAuditLogs },
+      { group: "Seguridad y soporte", view: "staff" as const, label: "Staff", action: () => staff.loadStaff("") },
+      { group: "Sistema", view: "incidents" as const, label: "Incidentes", action: overview.loadIncidentConsole },
+      { group: "Sistema", view: "ux-friction" as const, label: "UX", action: overview.loadUXFriction },
+      { group: "Sistema", view: "metrics" as const, label: "Metricas", action: overview.loadMetrics },
+      { group: "Sistema", view: "jobs" as const, label: "Jobs", action: overview.loadJobs }
     ],
     [audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, credits.loadCreditTransactions, investigation.searchInvestigation, notifications.supportUnreadCount, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
   );
@@ -359,6 +360,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     creditTransactionsLoadingMore: credits.creditTransactionsLoadingMore,
     creditTransactionsNextCursor: credits.creditTransactionsNextCursor,
     creditTransactionsSummary: credits.creditTransactionsSummary,
+    creditDetailReturnView: credits.creditDetailReturnView,
     selectedCreditPurchase: credits.selectedCreditPurchase,
     setSelectedCreditPurchase: credits.setSelectedCreditPurchase,
     jobRuns: overview.jobRuns,

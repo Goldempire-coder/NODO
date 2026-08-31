@@ -4,7 +4,7 @@ import type { AuthenticatedRequest } from "../../api/client";
 import type { AdminCreditPurchaseDetail, AdminCreditPurchaseSummary } from "../../types/credits";
 import { appendUniqueById } from "../pagination";
 import { idempotencyKey } from "./helpers";
-import type { CreditsView, QueueCriticalAction } from "./adminCreditsTypes";
+import type { CreditDetailReturnView, CreditsView, QueueCriticalAction } from "./adminCreditsTypes";
 
 function purchaseMatchesStatusFilter(status: string, filter: string) {
   const normalizedFilter = filter.trim().toLowerCase();
@@ -34,6 +34,7 @@ export function useAdminCreditPurchasesModel({
   const [creditPurchasesNextCursor, setCreditPurchasesNextCursor] = useState<string | null>(null);
   const [creditPurchasesLoadingMore, setCreditPurchasesLoadingMore] = useState(false);
   const [selectedCreditPurchase, setSelectedCreditPurchaseDetail] = useState<AdminCreditPurchaseDetail | null>(null);
+  const [creditDetailReturnView, setCreditDetailReturnView] = useState<CreditDetailReturnView>("credit-purchases");
   const [creditFilter, setCreditFilter] = useState("pending_manual_review");
   const creditPurchasesRequestEpoch = useRef(0);
   const creditPurchaseDetailRequestEpoch = useRef(0);
@@ -93,7 +94,7 @@ export function useAdminCreditPurchasesModel({
     }
   }, [creditPurchasesLoadingMore, creditPurchasesNextCursor, request, setNotice]);
 
-  const setSelectedCreditPurchase = useCallback(async (purchase: AdminCreditPurchaseSummary | null) => {
+  const setSelectedCreditPurchase = useCallback(async (purchase: AdminCreditPurchaseSummary | null, returnView: CreditDetailReturnView = "credit-purchases") => {
     const requestEpoch = ++creditPurchaseDetailRequestEpoch.current;
     if (purchase === null) {
       setSelectedCreditPurchaseDetail(null);
@@ -105,6 +106,7 @@ export function useAdminCreditPurchasesModel({
       if (requestEpoch !== creditPurchaseDetailRequestEpoch.current) {
         return;
       }
+      setCreditDetailReturnView(returnView);
       setSelectedCreditPurchaseDetail(detail);
       setView("credit-detail");
       setNotice("Detalle de compra cargado.");
@@ -156,6 +158,7 @@ export function useAdminCreditPurchasesModel({
   }, [adminMutable, queueCriticalAction, reason, request, selectedCreditPurchase, setNotice, setReason]);
 
   return {
+    creditDetailReturnView,
     creditFilter,
     creditPurchases,
     creditPurchasesLoadingMore,

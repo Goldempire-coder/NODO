@@ -89,11 +89,11 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
           <p className="admin-web-muted">{model.stuckOrderResolutionPreview}</p>
         </section>
       ) : null}
-      <section className="admin-web-split admin-order-detail-summary">
+      <section className="admin-web-split admin-order-detail-summary admin-order-detail-layout">
         <div className="admin-web-panel">
           <h2>Detalle de orden</h2>
           {order ? (
-            <dl className="admin-web-dl">
+            <dl className="admin-web-dl admin-order-detail-facts">
             <dt>Codigo</dt><dd>{order.public_order_code}</dd>
             <dt>Status</dt><dd>{order.status}</dd>
             <dt>Negocio</dt><dd>{order.business_id}</dd>
@@ -110,7 +110,7 @@ export function OrderDetail({ model }: { model: AdminWebModel }) {
         <div className="admin-web-panel">
           <h3>Reporte y timeline</h3>
           {paymentReport ? (
-            <dl className="admin-web-dl">
+            <dl className="admin-web-dl admin-order-report-facts">
             <dt>Reporte</dt><dd>{paymentReport.status || "-"}</dd>
             <dt>Tipo</dt><dd>{paymentReport.payment_type || "-"}</dd>
             <dt>Monto</dt><dd>{paymentReport.payment_amount || "-"}</dd>

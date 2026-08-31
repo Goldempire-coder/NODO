@@ -59,3 +59,16 @@ def test_admin_credit_review_reason_copy_is_explicitly_required() -> None:
 
     assert 'label="Razon obligatoria para revisar compra de creditos"' in screen
     assert 'placeholder="Indica el motivo operativo antes de aprobar o rechazar"' in screen
+
+
+def test_admin_credit_review_status_filter_uses_known_select_options() -> None:
+    screen = _read("apps/web/src/screens/admin-web/AdminCreditScreens.tsx")
+
+    assert "CREDIT_PURCHASE_STATUS_OPTIONS" in screen
+    assert "<select value={model.creditFilter}" in screen
+    assert '<span>Estado</span>' in screen
+    assert 'value: "pending_manual_review"' in screen
+    assert 'value: "pending_payment"' in screen
+    assert 'value: "pending_onchain_confirmation"' in screen
+    assert 'value: "credited"' in screen
+    assert '<input value={model.creditFilter}' not in screen

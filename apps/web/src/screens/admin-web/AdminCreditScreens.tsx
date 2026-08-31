@@ -26,6 +26,22 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   zelle_manual_admin_approved: "Zelle manual"
 };
 
+const CREDIT_PURCHASE_STATUS_OPTIONS = [
+  { value: "", label: "Todos" },
+  { value: "pending_manual_review", label: "Revision manual" },
+  { value: "pending_payment", label: "Pago pendiente" },
+  { value: "pending_onchain_confirmation", label: "Confirmacion on-chain" },
+  { value: "detected", label: "Pago detectado" },
+  { value: "under_review", label: "En revision" },
+  { value: "paid", label: "Pagada" },
+  { value: "approved", label: "Aprobada manual" },
+  { value: "credited", label: "Acreditada" },
+  { value: "rejected", label: "Rechazada" },
+  { value: "failed", label: "Fallida" },
+  { value: "expired", label: "Expirada" },
+  { value: "verification_failed", label: "Verificacion fallida" }
+];
+
 function matchLabel(value: boolean | null) {
   if (value === null) {
     return "Sin evidencia";
@@ -153,7 +169,7 @@ export function CreditTransactions({ model }: { model: AdminWebModel }) {
               <td>{transactionStatusLabel(item.financial_status)}</td>
               <td>{item.ledger_matched ? "Si" : "No"}</td>
               <td>{transactionEvidence(item)}</td>
-              <td><button type="button" onClick={() => void model.setSelectedCreditPurchase(purchaseSummaryFromTransaction(item))}>Detalle</button></td>
+              <td><button type="button" onClick={() => void model.setSelectedCreditPurchase(purchaseSummaryFromTransaction(item), "credit-transactions")}>Detalle</button></td>
             </tr>
           ))}
         </Table>
@@ -175,7 +191,14 @@ export function CreditPurchases({ model }: { model: AdminWebModel }) {
     <section className="admin-web-panel admin-web-credit-purchases-panel">
       <Header title="A-04 Pagos de creditos" action={<button onClick={() => void model.loadCreditPurchases(model.creditFilter)} type="button">Aplicar filtro</button>} />
       <div className="admin-web-toolbar">
-        <label><span>Status</span><input value={model.creditFilter} onChange={(event) => model.setCreditFilter(event.target.value)} /></label>
+        <label>
+          <span>Estado</span>
+          <select value={model.creditFilter} onChange={(event) => model.setCreditFilter(event.target.value)}>
+            {CREDIT_PURCHASE_STATUS_OPTIONS.map((option) => (
+              <option key={option.value || "all"} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
         <button type="button" onClick={() => model.setView("credit-adjustments")}>Ajuste manual</button>
       </div>
       <div className="admin-web-credit-purchases-list-scroll" role="region" aria-label="Lista de compras de creditos admin" tabIndex={0}>
@@ -220,7 +243,7 @@ export function CreditDetail({ model }: { model: AdminWebModel }) {
           <p>Admin Creditos</p>
           <h2>Detalle y reconciliacion</h2>
         </div>
-        <button type="button" onClick={() => { void model.setSelectedCreditPurchase(null); model.setView("credit-purchases"); }}>Volver</button>
+        <button type="button" onClick={() => { void model.setSelectedCreditPurchase(null); model.setView(model.creditDetailReturnView); }}>Volver</button>
       </div>
       <div className="admin-web-credit-detail-grid">
         <section className="admin-web-credit-detail-section">

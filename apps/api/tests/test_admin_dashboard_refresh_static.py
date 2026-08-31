@@ -15,6 +15,7 @@ def test_admin_dashboard_preserves_operational_actions_without_mock_metrics() ->
         'model.loadBusinessIntakes("submitted")',
         "model.loadPendingBusinesses()",
         'model.loadCreditPurchases("pending_manual_review")',
+        "model.loadCreditTransactions()",
         'model.loadDisputes("open")',
         "model.loadAuditLogs()",
     ):
