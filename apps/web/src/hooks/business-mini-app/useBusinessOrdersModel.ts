@@ -12,7 +12,7 @@ import { handleBusinessPinError as routeBusinessPinError, isBusinessPinError, re
 type BusinessOrderAction = "confirm-payment" | "report-payment-problem" | "mark-delivered" | "cannot-attend";
 type PendingBusinessOrderPinAction = {
   orderId: string;
-  action: "cannot-attend";
+  action: "confirm-payment" | "cannot-attend";
 };
 type BusinessOrdersPage = {
   items: BusinessOrderSummary[];
@@ -20,7 +20,13 @@ type BusinessOrdersPage = {
   disclaimer?: string;
 };
 
-const BUSINESS_ORDER_PAGE_SIZE = 50;
+const BUSINESS_ORDER_PAGE_SIZE = 20;
+
+function businessOrderPinActionLabel(action: PendingBusinessOrderPinAction["action"]) {
+  return action === "confirm-payment"
+    ? "confirmar pago recibido"
+    : "cancelar esta orden antes del pago";
+}
 
 function businessOrderActionSuccessMessage(action: BusinessOrderAction) {
   if (action === "confirm-payment") {
@@ -392,17 +398,17 @@ export function useBusinessOrdersModel({
       }
       return true;
     } catch (error) {
-      if (action === "cannot-attend" && isBusinessPinError(error)) {
+      if ((action === "confirm-payment" || action === "cannot-attend") && isBusinessPinError(error)) {
         const isStillCurrentTarget = isCurrentTarget
           && isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch);
         if (isStillCurrentTarget) {
           routeBusinessPinError({
-            action: "cancelar esta orden antes del pago",
+            action: businessOrderPinActionLabel(action),
             error,
             setNotice,
             setView
           });
-          queuePendingBusinessOrderPinAction({ orderId: targetOrderId, action: "cannot-attend" });
+          queuePendingBusinessOrderPinAction({ orderId: targetOrderId, action });
           setBusinessOrderInlineNotice("Desbloquea tu PIN para completar esta accion.");
         }
         recordBusinessActionFailed(telemetryAction, "business-order-detail", startedAt, error instanceof ApiClientError ? error.code : undefined);
@@ -457,13 +463,13 @@ export function useBusinessOrdersModel({
       setBusinessOrderInlineNotice("Describe brevemente el problema con el pago antes de reportarlo.");
       return;
     }
-    if (action === "cannot-attend" && !requireUnlockedBusinessPin({
-      action: "cancelar esta orden antes del pago",
+    if ((action === "confirm-payment" || action === "cannot-attend") && !requireUnlockedBusinessPin({
+      action: businessOrderPinActionLabel(action),
       business,
       setNotice,
       setView
     })) {
-      queuePendingBusinessOrderPinAction({ orderId: targetOrderId, action: "cannot-attend" });
+      queuePendingBusinessOrderPinAction({ orderId: targetOrderId, action });
       setBusinessOrderInlineNotice("Desbloquea tu PIN para completar esta accion.");
       return;
     }
@@ -496,9 +502,14 @@ export function useBusinessOrdersModel({
       if (targetRequestEpoch !== null && isCurrentBusinessOrderDetail(pending.orderId, targetRequestEpoch)) {
         setBusinessOrderDetail(data);
       }
+      const canResume = pending.action === "confirm-payment"
+        ? data.order.capabilities.can_confirm_payment
+        : data.order.capabilities.can_decline_before_payment;
       // Capabilities are UX guidance only; the backend still owns the conditional transition.
-      if (!data.order.capabilities.can_decline_before_payment) {
-        const stateMessage = "La orden cambio y ya no se puede cancelar antes del pago.";
+      if (!canResume) {
+        const stateMessage = pending.action === "confirm-payment"
+          ? "La orden cambio y ya no se puede confirmar este pago."
+          : "La orden cambio y ya no se puede cancelar antes del pago.";
         if (targetRequestEpoch !== null && isCurrentBusinessOrderDetail(pending.orderId, targetRequestEpoch)) {
           setBusinessOrderInlineNotice(stateMessage);
           setView("business-order-detail");

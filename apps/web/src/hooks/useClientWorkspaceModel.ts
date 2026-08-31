@@ -20,11 +20,15 @@ import { useSurfaceSupportModel } from "./useSurfaceSupportModel";
 import { useSurfaceAttentionModel } from "./useSurfaceAttentionModel";
 
 export function useClientWorkspaceModel({
+  loggingOut = false,
+  onLogout,
   user,
   token
 }: {
   user: PublicUser;
   token: string;
+  loggingOut?: boolean;
+  onLogout: () => Promise<void> | void;
 }) {
   const [currentUser, setCurrentUser] = useState(user);
   const state = useClientWorkspaceState(user);
@@ -32,6 +36,12 @@ export function useClientWorkspaceModel({
   const setNotice = state.setNotice;
   const setClientView = state.setView;
   const setView = useCallback((nextView: ClientView) => setClientView(nextView), [setClientView]);
+  const logoutClientSession = useCallback(async () => {
+    if (loggingOut) {
+      return;
+    }
+    await onLogout();
+  }, [loggingOut, onLogout]);
   const request = useCallback(
     async (path: string, options: RequestInit = {}) => {
       const headers = new Headers(options.headers || {});
@@ -208,6 +218,8 @@ export function useClientWorkspaceModel({
 
   return {
     user: currentUser,
+    loggingOut,
+    logout: logoutClientSession,
     view,
     setView,
     goBack: state.goBack,

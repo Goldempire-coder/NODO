@@ -33,7 +33,17 @@ function businessLegalRequirement(
   return requirements?.requirements.find((item) => item.document_set === documentSet) || null;
 }
 
-export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; token: string }) {
+export function useBusinessMiniAppModel({
+  loggingOut = false,
+  onLogout,
+  user,
+  token
+}: {
+  user: PublicUser;
+  token: string;
+  loggingOut?: boolean;
+  onLogout: () => Promise<void> | void;
+}) {
   const [view, setCurrentView] = useState<BusinessMiniAppView>("business-dashboard");
   const [currentUser, setCurrentUser] = useState(user);
   const [businessLegalRequirements, setBusinessLegalRequirements] = useState<BusinessLegalRequirements | null>(null);
@@ -105,6 +115,12 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
   }, []);
 
   const canGoBack = useMemo(() => !ROOT_BUSINESS_VIEWS.has(view), [view]);
+  const logoutBusinessSession = useCallback(async () => {
+    if (loggingOut) {
+      return;
+    }
+    await onLogout();
+  }, [loggingOut, onLogout]);
 
   const resumePendingOrderPinAction = useCallback(async () => {
     return pendingOrderPinResumeRef.current
@@ -455,6 +471,8 @@ export function useBusinessMiniAppModel({ user, token }: { user: PublicUser; tok
 
   return {
     user: currentUser,
+    loggingOut,
+    logout: logoutBusinessSession,
     acceptBusinessTerms,
     acceptBusinessCreditTerms,
     businessLegalRequirements: currentBusinessLegalRequirements,

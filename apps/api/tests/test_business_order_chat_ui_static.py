@@ -372,11 +372,13 @@ def test_order_chat_actions_refresh_in_place_without_abbreviated_identifiers() -
     assert "0 8px 24px" not in back_css
 
 
-def test_confirm_payment_in_chat_does_not_require_business_pin_unlock() -> None:
+def test_confirm_payment_in_chat_requires_business_pin_unlock() -> None:
     actions = _read(
         "apps/web/src/hooks/business-mini-app/chat/useBusinessChatOrderActions.ts"
     )
 
+    assert 'action === "confirm-payment"' in actions
     assert 'action === "mark-delivered"' in actions
-    assert 'action === "mark-delivered"\n      && !requireUnlockedBusinessPin' in actions
-    assert 'action === "confirm-payment"\n      && !requireUnlockedBusinessPin' not in actions
+    assert '(action === "confirm-payment" || action === "mark-delivered")' in actions
+    assert "&& !requireUnlockedBusinessPin" in actions
+    assert "routeBusinessPinError({ action: actionLabel, error, setNotice, setView })" in actions

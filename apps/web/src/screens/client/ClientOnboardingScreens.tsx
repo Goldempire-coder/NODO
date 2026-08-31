@@ -8,6 +8,8 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
     acceptTerms,
     busy,
     clientProfileForm,
+    loggingOut,
+    logout,
     setClientProfileForm,
     setView,
     submitClientProfile,
@@ -114,6 +116,9 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
           </Button>
           <Button mode="outline" stretched onClick={() => setView("support")}>
             Soporte NODO
+          </Button>
+          <Button mode="outline" stretched disabled={loggingOut} onClick={() => void logout()}>
+            {loggingOut ? "Cerrando..." : "Cerrar sesion en este dispositivo"}
           </Button>
         </div>
       ) : null}

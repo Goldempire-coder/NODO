@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from app.core.errors import ApiError
-from app.modules.admin.policy import require_admin_read
+from app.modules.admin.policy import require_admin_operations_read
 from app.modules.users.models import UserRecord
 
 
@@ -62,7 +62,7 @@ class AdminOrderChatEvidenceService:
         highlight_message_id: str | None,
         request_id: str,
     ) -> dict[str, Any]:
-        require_admin_read(user)
+        require_admin_operations_read(user)
         order_id = _require_uuid(order_id, "ORDER_NOT_FOUND")
         self._rate_limit(user=user, order_id=order_id)
         if self._orders.get_by_id(order_id) is None:

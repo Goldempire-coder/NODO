@@ -13,14 +13,16 @@ const ClientWorkspace = dynamic(() => import("../client/ClientWorkspace").then((
 type WorkspaceProps = {
   user: PublicUser;
   token: string;
+  loggingOut?: boolean;
+  onLogout: () => Promise<void> | void;
 };
 
 export function TelegramEntryPage({ surface }: { surface: string }) {
   const authSurface = surface === "business" ? "business_mini_app" : "client_mini_app";
-  const { accessToken, authenticate, displayName, message, state, user } = useTelegramAuth(authSurface);
+  const { accessToken, authenticate, displayName, loggingOut, logout, message, state, user } = useTelegramAuth(authSurface);
 
   if (state === "authenticated" && user && accessToken) {
-    const workspaceProps: WorkspaceProps = { user, token: accessToken };
+    const workspaceProps: WorkspaceProps = { user, token: accessToken, loggingOut, onLogout: logout };
     return (
       <AppRoot appearance="dark">
         <main className="app-shell">

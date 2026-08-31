@@ -61,7 +61,7 @@ export function useBusinessChatOrderActions({
       ? "confirmar Zelle recibido"
       : "marcar Pago Movil enviado";
     if (
-      action === "mark-delivered"
+      (action === "confirm-payment" || action === "mark-delivered")
       && !requireUnlockedBusinessPin({ action: actionLabel, business, setNotice, setView })
     ) {
       return;
@@ -104,7 +104,7 @@ export function useBusinessChatOrderActions({
         return;
       }
       if (
-        action === "mark-delivered"
+        (action === "confirm-payment" || action === "mark-delivered")
         && routeBusinessPinError({ action: actionLabel, error, setNotice, setView })
       ) {
         return;

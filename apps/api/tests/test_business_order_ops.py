@@ -444,7 +444,7 @@ def test_confirm_payment_consumes_once_accepts_report_archives_ad_and_sets_deadl
     assert JWT_REFRESH_SECRET not in combined
 
 
-def test_confirm_payment_does_not_require_an_unlocked_business_pin() -> None:
+def test_confirm_payment_requires_an_unlocked_business_pin() -> None:
     client = _client()
     owner, business, _, _, order = _seed_reported_order(
         client, owner_id=714, remitter_id=715
@@ -462,8 +462,9 @@ def test_confirm_payment_does_not_require_an_unlocked_business_pin() -> None:
         json={"reason": "Pago recibido"},
     )
 
-    assert response.status_code == 200, response.text
-    assert response.json()["data"]["order"]["status"] == "payment_confirmed"
+    assert response.status_code == 423, response.text
+    assert response.json()["error"]["code"] == "BUSINESS_PIN_REQUIRED"
+    assert client.app.state.order_repository.get_by_id(order["id"]).status == "payment_reported"
 
 
 def test_stale_per_process_auth_cache_cannot_confirm_payment_after_user_block() -> None:

@@ -18,6 +18,8 @@ import type {
 
 export type RemitterScreensModel = {
   user: PublicUser;
+  loggingOut: boolean;
+  logout: () => void | Promise<void>;
   view: ClientView;
   setView: (view: ClientView) => void;
   acceptTerms: () => void | Promise<void>;

@@ -14,12 +14,13 @@ def test_business_order_history_uses_cursor_pagination_and_neutral_empty_copy() 
     api = _read("apps/web/src/api/businessOrders.ts")
 
     assert "BusinessOrdersPage" in model
-    assert "BUSINESS_ORDER_PAGE_SIZE" in model
+    assert "const BUSINESS_ORDER_PAGE_SIZE = 20;" in model
     assert "businessOrderNextCursor" in model
     assert "businessOrderLoadingMore" in model
     assert "loadMoreBusinessOrders" in model
     assert "append: true" in model
     assert "next_cursor" in model
+    assert "limit = 20" in api
     assert "cursor?: string" in api
     assert "params.set(\"cursor\", cursor)" in api
 
@@ -97,3 +98,21 @@ def test_business_order_detail_shows_loading_state_before_detail_arrives() -> No
     assert "Cargando orden..." in detail_screen
     assert 'role="status"' in detail_screen
     assert "Selecciona una orden para ver el detalle." in detail_screen
+
+
+def test_business_confirm_payment_uses_pin_gate_in_detail_and_chat() -> None:
+    route = _read("apps/api/app/modules/orders/business_routes.py")
+    orders_model = _read("apps/web/src/hooks/business-mini-app/useBusinessOrdersModel.ts")
+    chat_actions = _read("apps/web/src/hooks/business-mini-app/chat/useBusinessChatOrderActions.ts")
+    pin_screen = _read("apps/web/src/screens/business-app/BusinessPinScreen.tsx")
+
+    confirm_route = route.split("def confirm_business_payment", 1)[1].split("@router.post", 1)[0]
+    assert "_require_business_pin(request, user)" in confirm_route
+    assert '"confirm-payment" | "cannot-attend"' in orders_model
+    assert 'businessOrderPinActionLabel(action)' in orders_model
+    assert 'queuePendingBusinessOrderPinAction({ orderId: targetOrderId, action })' in orders_model
+    assert 'data.order.capabilities.can_confirm_payment' in orders_model
+    assert '(action === "confirm-payment" || action === "mark-delivered")' in chat_actions
+    assert "routeBusinessPinError({ action: actionLabel, error, setNotice, setView })" in chat_actions
+    assert "PIN para confirmar pago" in pin_screen
+    assert "Activar PIN y confirmar" in pin_screen

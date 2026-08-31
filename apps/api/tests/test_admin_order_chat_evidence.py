@@ -233,6 +233,7 @@ def test_admin_chat_evidence_rejects_non_admin_actors_and_foreign_highlight() ->
     owner, remitter, order = _seed_reported_order(client, owner_id=4511, remitter_id=4512)
     message = _create_message(client, owner, order["id"], "Contexto visible solo en evidencia autorizada.", "business_message")
     admin = _login(client, 4513, "admin_4513", role="admin")
+    support = _login(client, 4514, "support_4514", role="support")
     foreign_message = client.app.state.chat_repository.create_message(
         order_id=str(uuid4()),
         sender_user_id=owner["user"]["id"],
@@ -249,6 +250,18 @@ def test_admin_chat_evidence_rejects_non_admin_actors_and_foreign_highlight() ->
         f"/api/v1/admin/orders/{order['id']}/chat-evidence",
         headers=_bearer(remitter, "req_remitter_admin_chat"),
     )
+    support_orders = client.get(
+        "/api/v1/admin/orders?limit=20",
+        headers=_bearer(support, "req_support_admin_orders"),
+    )
+    support_detail = client.get(
+        f"/api/v1/admin/orders/{order['id']}",
+        headers=_bearer(support, "req_support_admin_order_detail"),
+    )
+    support_response = client.get(
+        f"/api/v1/admin/orders/{order['id']}/chat-evidence",
+        headers=_bearer(support, "req_support_admin_chat"),
+    )
     foreign_highlight = client.get(
         f"/api/v1/admin/orders/{order['id']}/chat-evidence?highlight_message_id={foreign_message.id}",
         headers=_bearer(admin, "req_foreign_highlight"),
@@ -260,6 +273,9 @@ def test_admin_chat_evidence_rejects_non_admin_actors_and_foreign_highlight() ->
 
     assert owner_response.status_code == 403
     assert remitter_response.status_code == 403
+    assert support_orders.status_code == 403
+    assert support_detail.status_code == 403
+    assert support_response.status_code == 403
     assert foreign_highlight.status_code == 404
     assert foreign_highlight.json()["error"]["code"] == "MESSAGE_NOT_FOUND"
     assert valid_highlight.status_code == 200
@@ -305,13 +321,19 @@ def test_admin_chat_evidence_frontend_contract_is_read_only_and_preserves_highli
     assert "/chat-evidence" in admin_api
     assert "notification.metadata.message_id" in notifications_hook
     assert "highlightMessageId" in notifications_hook
-    assert "loadOrderChatEvidence" in orders_hook
-    assert "void chatEvidence.loadOrderChatEvidence" in orders_hook
+    assert "prepareOrderChatEvidence" in orders_hook
+    assert "prepareOrderChatEvidence(orderId, highlightMessageId)" in orders_hook
+    assert "void chatEvidence.loadOrderChatEvidence" not in orders_hook
+    assert "showOrderChatEvidence" in evidence_hook
+    assert "orderChatEvidenceRequested: requested" in evidence_hook
+    assert "initialLoadInFlight" in evidence_hook
     assert "admin_order_chat_evidence_load" in evidence_hook
     assert "activeOrder.current?.orderId !== orderId" in evidence_hook
     assert "current?.order_id === active.orderId" in evidence_hook
     assert "currentRequest.current !== requestSequence" in evidence_hook
     assert "AdminOrderChatEvidencePanel" in panel
+    assert "Ver conversacion" in panel
+    assert "model.showOrderChatEvidence()" in panel
     assert "textarea" not in panel
     assert "Enviar" not in panel
     assert "dangerouslySetInnerHTML" not in panel

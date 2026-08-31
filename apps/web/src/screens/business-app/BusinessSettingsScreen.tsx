@@ -39,7 +39,7 @@ function shortBusinessId(value: string | null | undefined) {
 }
 
 export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel }) {
-  const { business, lockBusinessPinSession, loadReferrals, paymentMethods, setBusinessAvailability, setView, updatingAvailability } = model;
+  const { business, lockBusinessPinSession, loadReferrals, loggingOut, logout, paymentMethods, setBusinessAvailability, setView, updatingAvailability } = model;
   const [businessIdCopied, setBusinessIdCopied] = useState(false);
   const [businessIdCopyError, setBusinessIdCopyError] = useState(false);
   const canOperate = business?.verification_status === "approved";
@@ -113,6 +113,9 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
         <Button mode="outline" size="s" onClick={() => void lockBusinessPinSession()}>Bloquear acciones sensibles</Button>
       ) : null}
       <Button mode="outline" size="s" onClick={() => setView("business-support")}>Soporte NODO</Button>
+      <Button mode="outline" size="s" stretched disabled={loggingOut} onClick={() => void logout()}>
+        {loggingOut ? "Cerrando..." : "Cerrar sesion en este dispositivo"}
+      </Button>
     </div>
   );
 }

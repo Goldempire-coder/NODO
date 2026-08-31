@@ -13,6 +13,7 @@ function messageClass(message: AdminOrderChatEvidenceMessage) {
 export function AdminOrderChatEvidencePanel({ model }: { model: AdminWebModel }) {
   const highlightedMessage = useRef<HTMLElement | null>(null);
   const evidence = model.orderChatEvidence;
+  const conversationRequested = model.orderChatEvidenceRequested;
 
   useEffect(() => {
     if (evidence?.highlight_found) {
@@ -21,7 +22,10 @@ export function AdminOrderChatEvidencePanel({ model }: { model: AdminWebModel })
   }, [evidence?.highlight_found, evidence?.highlight_message_id]);
 
   return (
-    <section className="admin-web-panel admin-order-chat-evidence" aria-label="Evidencia del chat de la orden">
+    <section
+      className={`admin-web-panel admin-order-chat-evidence${conversationRequested ? " is-open" : " is-collapsed"}`}
+      aria-label="Evidencia del chat de la orden"
+    >
       <div className="admin-order-chat-evidence__header">
         <div>
           <h3>Conversacion de la orden</h3>
@@ -30,7 +34,14 @@ export function AdminOrderChatEvidencePanel({ model }: { model: AdminWebModel })
         {evidence?.highlight_found ? <span className="admin-order-chat-evidence__flag">Mensaje señalado</span> : null}
       </div>
 
-      {model.orderChatEvidenceLoading ? <p className="admin-web-muted" role="status">Cargando conversacion...</p> : null}
+      {!conversationRequested ? (
+        <div className="admin-order-chat-evidence__lazy">
+          <p className="admin-web-muted">La conversacion no se carga al abrir la orden. Puedes verla solo cuando necesites revisar mensajes o adjuntos.</p>
+          <button type="button" onClick={() => void model.showOrderChatEvidence()}>Ver conversacion</button>
+        </div>
+      ) : null}
+
+      {conversationRequested && model.orderChatEvidenceLoading ? <p className="admin-web-muted" role="status">Cargando conversacion...</p> : null}
       {model.orderChatEvidenceError ? (
         <div className="admin-order-chat-evidence__error" role="alert">
           <span>{model.orderChatEvidenceError}</span>
@@ -38,17 +49,17 @@ export function AdminOrderChatEvidencePanel({ model }: { model: AdminWebModel })
         </div>
       ) : null}
 
-      {evidence?.older_cursor ? (
+      {conversationRequested && evidence?.older_cursor ? (
         <button className="admin-order-chat-evidence__page" type="button" disabled={model.orderChatEvidenceLoadingMore !== null} onClick={() => void model.loadOlderOrderChatEvidence()}>
           {model.orderChatEvidenceLoadingMore === "older" ? "Cargando..." : "Cargar mensajes anteriores"}
         </button>
       ) : null}
 
-      {!model.orderChatEvidenceLoading && !model.orderChatEvidenceError && evidence?.items.length === 0 ? (
+      {conversationRequested && !model.orderChatEvidenceLoading && !model.orderChatEvidenceError && evidence?.items.length === 0 ? (
         <p className="admin-web-muted">Esta orden no tiene mensajes registrados.</p>
       ) : null}
 
-      {evidence?.items.length ? (
+      {conversationRequested && evidence?.items.length ? (
         <div className="admin-order-chat-evidence__messages" role="region" aria-label="Historial del chat de la orden" tabIndex={0}>
           <div className="admin-order-chat-evidence__message-log" role="log" aria-live="polite">
             {evidence.items.map((message) => (
@@ -78,7 +89,7 @@ export function AdminOrderChatEvidencePanel({ model }: { model: AdminWebModel })
         </div>
       ) : null}
 
-      {evidence?.newer_cursor ? (
+      {conversationRequested && evidence?.newer_cursor ? (
         <button className="admin-order-chat-evidence__page" type="button" disabled={model.orderChatEvidenceLoadingMore !== null} onClick={() => void model.loadNewerOrderChatEvidence()}>
           {model.orderChatEvidenceLoadingMore === "newer" ? "Cargando..." : "Cargar mensajes posteriores"}
         </button>

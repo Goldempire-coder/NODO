@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createAdminTelegramAlertLinkCode } from "../api/admin";
 import { apiRequest } from "../api/client";
-import { canMutateAdmin, canReadAdmin } from "./admin-web/adminWebAccess";
+import { canMutateAdmin, canReadAdmin, canReadAdminOperations } from "./admin-web/adminWebAccess";
 import type { AdminWebView, RequestFn } from "./admin-web/adminWebTypes";
 import { useAdminCriticalAction } from "./admin-web/useAdminCriticalAction";
 import { useAdminAuditLogsModel } from "./admin-web/useAdminAuditLogsModel";
@@ -33,8 +33,21 @@ const ADMIN_DETAIL_BACK_VIEWS: AdminWebView[] = [
   "user-detail"
 ];
 
-export function useAdminWebModel({ token, user }: { user: PublicUser; token: string }) {
-  const [view, setView] = useState<AdminWebView>("dashboard");
+export function useAdminWebModel({
+  loggingOut = false,
+  onLogout,
+  token,
+  user
+}: {
+  user: PublicUser;
+  token: string;
+  loggingOut?: boolean;
+  onLogout: () => Promise<void> | void;
+}) {
+  const adminReadable = canReadAdmin(user);
+  const adminOperationsReadable = canReadAdminOperations(user);
+  const adminMutable = canMutateAdmin(user);
+  const [view, setView] = useState<AdminWebView>(() => adminOperationsReadable ? "dashboard" : "support");
   const [adminBackStack, setAdminBackStack] = useState<AdminWebView[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("Admin Web separado. Backend RBAC valida cada accion.");
@@ -42,9 +55,12 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
   const clearNoticeIf = useCallback((expected: string) => {
     setNotice((current) => current === expected ? "" : current);
   }, []);
-
-  const adminReadable = canReadAdmin(user);
-  const adminMutable = canMutateAdmin(user);
+  const logoutAdminSession = useCallback(async () => {
+    if (loggingOut) {
+      return;
+    }
+    await onLogout();
+  }, [loggingOut, onLogout]);
 
   const request = useCallback<RequestFn>(
     async (path, options = {}) =>
@@ -238,8 +254,15 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
   });
 
   useEffect(() => {
+    if (!adminReadable) {
+      return;
+    }
+    if (!adminOperationsReadable) {
+      void support.loadSupportTickets("active");
+      return;
+    }
     void overview.loadDashboard();
-  }, [overview.loadDashboard]);
+  }, [adminOperationsReadable, adminReadable, overview.loadDashboard, support.loadSupportTickets]);
 
   useVisibleAdminPolling({
     enabled: adminReadable,
@@ -268,7 +291,14 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
   }, [adminReadable, notifications.loadUnreadCount]);
 
   const navigation = useMemo(
-    () => [
+    () => {
+      const supportNavigation = [
+        { group: "Seguridad y soporte", view: "support" as const, label: "Soporte", badge: notifications.supportUnreadCount, action: () => support.loadSupportTickets("active") }
+      ];
+      if (!adminOperationsReadable) {
+        return supportNavigation;
+      }
+      return [
       { group: "Operacion", view: "dashboard" as const, label: "Dashboard", action: overview.loadDashboard },
       { group: "Operacion", view: "businesses" as const, label: "Negocios", action: () => businessIntake.loadBusinesses("", "") },
       { group: "Operacion", view: "users" as const, label: "Clientes", action: () => users.loadUsers() },
@@ -291,17 +321,21 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { group: "Sistema", view: "ux-friction" as const, label: "UX", action: overview.loadUXFriction },
       { group: "Sistema", view: "metrics" as const, label: "Metricas", action: overview.loadMetrics },
       { group: "Sistema", view: "jobs" as const, label: "Jobs", action: overview.loadJobs }
-    ],
-    [audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, credits.loadCreditTransactions, investigation.searchInvestigation, notifications.supportUnreadCount, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
+    ];
+    },
+    [adminOperationsReadable, audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, credits.loadCreditTransactions, investigation.searchInvestigation, notifications.supportUnreadCount, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
   );
 
   return {
     user,
+    loggingOut,
+    logout: logoutAdminSession,
     view,
     setView,
     busy,
     notice,
     adminReadable,
+    adminOperationsReadable,
     adminMutable,
     adminTelegramAlertLinkCode,
     dashboard: overview.dashboard,
@@ -345,6 +379,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     orderChatEvidenceError: ordersDisputes.error,
     orderChatEvidenceLoading: ordersDisputes.loading,
     orderChatEvidenceLoadingMore: ordersDisputes.loadingMore,
+    orderChatEvidenceRequested: ordersDisputes.orderChatEvidenceRequested,
     disputes: ordersDisputes.disputes,
     disputesLoadingMore: ordersDisputes.disputesLoadingMore,
     disputesNextCursor: ordersDisputes.disputesNextCursor,
@@ -494,6 +529,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     loadOlderOrderChatEvidence: ordersDisputes.loadOlderOrderChatEvidence,
     loadNewerOrderChatEvidence: ordersDisputes.loadNewerOrderChatEvidence,
     retryOrderChatEvidence: ordersDisputes.retryOrderChatEvidence,
+    showOrderChatEvidence: ordersDisputes.showOrderChatEvidence,
     loadDisputes: ordersDisputes.loadDisputes,
     loadMoreDisputes: ordersDisputes.loadMoreDisputes,
     openDispute: ordersDisputes.openDispute,

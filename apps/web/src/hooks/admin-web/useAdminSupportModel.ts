@@ -34,10 +34,12 @@ type SupportAttachmentLink = {
 const ACTIVE_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["open", "waiting_support", "waiting_user", "escalated"]);
 const ARCHIVED_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["resolved", "closed"]);
 const ASSIGNABLE_STAFF_ROLES = new Set(["support_agent", "support_lead", "admin", "super_admin"]);
+const ADMIN_SUPPORT_TICKET_PAGE_SIZE = 20;
+const ADMIN_SUPPORT_ASSIGNEE_LIMIT = 20;
 
 function supportTicketsQuery(filter: string, cursor?: string | null): string {
   const normalized = filter.trim().toLowerCase();
-  const params = new URLSearchParams({ limit: "50" });
+  const params = new URLSearchParams({ limit: String(ADMIN_SUPPORT_TICKET_PAGE_SIZE) });
   if (normalized === "active" || normalized === "archived") {
     params.set("status_group", normalized);
   } else if (normalized && normalized !== "all") {
@@ -238,7 +240,7 @@ export function useAdminSupportModel({
       const firstPage = filterSupportTickets(payload.items, normalizedFilter);
       setSupportTickets((current) => (
         supportLoadedPageCountRef.current > 1
-          ? appendUniqueById(firstPage, current.slice(50))
+          ? appendUniqueById(firstPage, current.slice(ADMIN_SUPPORT_TICKET_PAGE_SIZE))
           : firstPage
       ));
       if (supportLoadedPageCountRef.current === 1) {
@@ -357,7 +359,7 @@ export function useAdminSupportModel({
     supportAssigneesLoadingRef.current = true;
     setSupportAssigneesLoading(true);
     try {
-      const response = await listAdminStaff(request, { status: "active", limit: 50 });
+      const response = await listAdminStaff(request, { status: "active", limit: ADMIN_SUPPORT_ASSIGNEE_LIMIT });
       const candidates = response.items.filter(
         (item) => item.status === "active" && ASSIGNABLE_STAFF_ROLES.has(item.staff_role)
       );

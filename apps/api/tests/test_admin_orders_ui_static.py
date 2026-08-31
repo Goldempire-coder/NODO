@@ -44,12 +44,33 @@ def test_admin_order_detail_keeps_chat_visible_with_bounded_panels() -> None:
     assert ".admin-web-order-timeline-scroll .admin-web-row" in css
     assert ".admin-order-chat-evidence__messages" in css
     assert ".admin-order-chat-evidence {\n  display: flex;" in css
+    assert ".admin-order-chat-evidence.is-collapsed" in css
+    assert "height: auto;" in css
+    assert ".admin-order-chat-evidence__lazy" in css
     assert "flex-direction: column;" in css
     assert "height: clamp(300px, 40dvh, 460px)" in css
     assert "flex: 1 1 auto" in css
     assert "overflow-y: scroll" in css
     assert "-webkit-overflow-scrolling: touch" in css
     assert "scrollbar-gutter: stable" in css
+
+
+def test_support_admin_navigation_stays_limited_to_support_queue() -> None:
+    access = _read("apps/web/src/hooks/admin-web/adminWebAccess.ts")
+    web_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
+    policy = _read("apps/api/app/modules/admin/policy.py")
+    admin_service = _read("apps/api/app/modules/admin/service.py")
+    chat_evidence_service = _read("apps/api/app/modules/admin/order_chat_evidence.py")
+
+    assert "canReadAdminOperations" in access
+    assert 'user.role === "admin" || user.role === "super_admin"' in access
+    assert "const supportNavigation" in web_model
+    assert "if (!adminOperationsReadable)" in web_model
+    assert 'view: "support" as const' in web_model
+    assert "void support.loadSupportTickets(\"active\")" in web_model
+    assert "require_admin_operations_read" in policy
+    assert "require_admin_operations_read(user)" in admin_service
+    assert "require_admin_operations_read(user)" in chat_evidence_service
 
 
 def test_admin_disputes_screen_has_internal_scroll() -> None:

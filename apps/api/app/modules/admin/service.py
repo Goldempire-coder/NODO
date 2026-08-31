@@ -7,7 +7,7 @@ from app.core.config import Settings
 from app.core.errors import ApiError
 from app.modules.admin.investigation import query_fingerprint
 from app.modules.jobs.serializers import job_run_summary
-from app.modules.admin.policy import require_admin_mutation, require_admin_read
+from app.modules.admin.policy import require_admin_mutation, require_admin_operations_read, require_admin_read
 from app.modules.admin.user_presenters import mask_phone
 from app.modules.notifications.user_status_notifications import NoopUserStatusNotificationService, UserStatusNotificationService
 from app.modules.users.models import UserRecord
@@ -612,7 +612,7 @@ class AdminService:
         return user.role in {"admin", "super_admin"}
 
     def list_orders(self, *, user: UserRecord, status: str | None, business_id: str | None, remitter_user_id: str | None, public_order_code: str | None, cursor: str | None, limit: int, request_id: str) -> dict[str, Any]:
-        require_admin_read(user)
+        require_admin_operations_read(user)
         self._rate_limit("orders", user)
         if business_id:
             business_id = _require_uuid(business_id, "BUSINESS_NOT_FOUND")
@@ -623,7 +623,7 @@ class AdminService:
         return {"items": items, "next_cursor": next_cursor, "disclaimer": ADMIN_DISCLAIMER}
 
     def order_detail(self, *, user: UserRecord, order_id: str, request_id: str) -> dict[str, Any]:
-        require_admin_read(user)
+        require_admin_operations_read(user)
         order_id = _require_uuid(order_id, "ORDER_NOT_FOUND")
         self._rate_limit("order_detail", user)
         order = self._repository.get_order(order_id)

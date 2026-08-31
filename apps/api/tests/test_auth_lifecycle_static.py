@@ -110,8 +110,12 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
     assert "const validatedSession = readAuthSession(\"admin\")" in admin_entry
     assert "setSession({ token: validatedSession.accessToken, user })" in admin_entry
     assert '"X-NODO-Surface": "admin_web"' in admin_model
-    assert '{ view: "businesses" as const, label: "Negocios", action: () => businessIntake.loadBusinesses("", "") }' in admin_model
-    assert '{ view: "users" as const, label: "Clientes", action: () => users.loadUsers() }' in admin_model
+    assert 'view: "businesses" as const' in admin_model
+    assert 'label: "Negocios"' in admin_model
+    assert 'action: () => businessIntake.loadBusinesses("", "")' in admin_model
+    assert 'view: "users" as const' in admin_model
+    assert 'label: "Clientes"' in admin_model
+    assert "action: () => users.loadUsers()" in admin_model
     assert 'const [businessFilter, setBusinessFilter] = useState("")' in admin_businesses_model
     assert 'role: "remitter"' in admin_users_model
     assert "A-10 Clientes" in admin_users_screen
@@ -132,6 +136,43 @@ def test_admin_web_does_not_import_telegram_runtime_and_can_use_refresh_payload(
     assert "Estado operativo del negocio" in admin_businesses_screen
     assert "Desbloquear negocio" in admin_businesses_screen
     assert "reviewBusiness(" not in admin_businesses_screen
+
+
+def test_frontend_surfaces_logout_without_backend_changes() -> None:
+    auth_api = _read("apps/web/src/api/auth.ts")
+    telegram_hook = _read("apps/web/src/hooks/useTelegramAuth.ts")
+    telegram_entry = _read("apps/web/src/screens/auth/TelegramEntryPage.tsx")
+    admin_entry = _read("apps/web/src/screens/auth/AdminWebEntryPage.tsx")
+    admin_workspace = _read("apps/web/src/screens/admin-web/AdminWebWorkspace.tsx")
+    admin_model = _read("apps/web/src/hooks/useAdminWebModel.ts")
+    admin_shell = _read("apps/web/src/screens/admin-web/AdminWebShell.tsx")
+    business_workspace = _read("apps/web/src/screens/business-app/BusinessMiniAppWorkspace.tsx")
+    business_model = _read("apps/web/src/hooks/useBusinessMiniAppModel.ts")
+    business_settings = _read("apps/web/src/screens/business-app/BusinessSettingsScreen.tsx")
+    client_workspace = _read("apps/web/src/screens/client/ClientWorkspace.tsx")
+    client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
+    client_profile = _read("apps/web/src/screens/client/ClientOnboardingScreens.tsx")
+    client_types = _read("apps/web/src/screens/client/RemitterScreens.types.ts")
+
+    assert "/api/v1/auth/logout" in auth_api
+    assert "clearAuthSession(surface)" in auth_api
+    assert 'logoutSession("telegram"' in telegram_hook
+    assert "loggingOut" in telegram_hook
+    assert "onLogout: logout" in telegram_entry
+    assert 'logoutSession("admin"' in admin_entry
+    assert "onLogout={handleLogout}" in admin_entry
+    assert "onLogout" in admin_workspace
+    assert "logout: logoutAdminSession" in admin_model
+    assert "admin-web-session-logout" in admin_shell
+    assert "Cerrar sesion" in admin_shell
+    assert "onLogout" in business_workspace
+    assert "logout: logoutBusinessSession" in business_model
+    assert "Cerrar sesion en este dispositivo" in business_settings
+    assert "onLogout" in client_workspace
+    assert "logout: logoutClientSession" in client_model
+    assert "logout: () => void | Promise<void>" in client_types
+    assert "Cerrar sesion en este dispositivo" in client_profile
+    assert "clearAllAuthSessions" not in "\n".join((telegram_hook, admin_entry, business_model, client_model))
 
 
 def test_admin_business_intake_defaults_to_active_submissions_for_real_flow_review() -> None:

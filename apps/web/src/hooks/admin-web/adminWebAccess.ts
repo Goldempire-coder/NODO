@@ -7,3 +7,7 @@ export function canMutateAdmin(user: PublicUser) {
 export function canReadAdmin(user: PublicUser) {
   return user.status === "active" && (user.role === "admin" || user.role === "super_admin" || user.role === "support");
 }
+
+export function canReadAdminOperations(user: PublicUser) {
+  return user.status === "active" && (user.role === "admin" || user.role === "super_admin");
+}

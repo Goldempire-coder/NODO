@@ -1275,7 +1275,11 @@ def test_admin_support_assignment_ui_uses_existing_active_staff_contract() -> No
 
     assert "adminAssignSupportTicket" in support_model
     assert "listAdminStaff" in support_model
-    assert 'status: "active", limit: 50' in support_model
+    assert "ADMIN_SUPPORT_TICKET_PAGE_SIZE = 20" in support_model
+    assert "ADMIN_SUPPORT_ASSIGNEE_LIMIT = 20" in support_model
+    assert 'limit: ADMIN_SUPPORT_ASSIGNEE_LIMIT' in support_model
+    assert "current.slice(ADMIN_SUPPORT_TICKET_PAGE_SIZE)" in support_model
+    assert 'limit: "50"' not in support_model
     assert 'new Set(["support_agent", "support_lead", "admin", "super_admin"])' in support_model
     assert "operations_readonly" not in support_model.split("ASSIGNABLE_STAFF_ROLES", 1)[1].split(");", 1)[0]
     assert "supportAssignmentReason" in support_model

@@ -154,6 +154,14 @@ export function AdminWebShell({ model }: { model: AdminWebModel }) {
             <div className="admin-web-session">
               <span>{model.user.first_name || model.user.username || "Admin"}</span>
               <strong>{model.user.role}</strong>
+              <button
+                className="admin-web-session-logout"
+                disabled={model.loggingOut}
+                type="button"
+                onClick={() => void model.logout()}
+              >
+                {model.loggingOut ? "Cerrando..." : "Cerrar sesion"}
+              </button>
             </div>
           </div>
         </header>

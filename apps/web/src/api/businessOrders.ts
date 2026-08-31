@@ -1,6 +1,6 @@
 import type { AuthenticatedRequest } from "./client";
 
-export function listBusinessOrders<T>(request: AuthenticatedRequest, status?: string, cursor?: string | null, limit = 50) {
+export function listBusinessOrders<T>(request: AuthenticatedRequest, status?: string, cursor?: string | null, limit = 20) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (status) {
     params.set("status", status);

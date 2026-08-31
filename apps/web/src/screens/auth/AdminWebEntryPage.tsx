@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { authenticateAdminCredentials } from "../../api/auth";
+import { authenticateAdminCredentials, logoutSession } from "../../api/auth";
 import { apiRequest, ApiClientError } from "../../api/client";
 import { clearAuthSession, readAuthSession, writeAuthSession } from "../../api/session";
 import { canReadAdmin } from "../../hooks/admin-web/adminWebAccess";
@@ -24,6 +24,7 @@ export function AdminWebEntryPage() {
   const [session, setSession] = useState<{ token: string; user: PublicUser } | null>(null);
   const [message, setMessage] = useState("Entra con tu usuario admin.");
   const [busy, setBusy] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const validateToken = useCallback(async (submittedSession: SubmittedAdminSession) => {
     setBusy(true);
@@ -114,8 +115,25 @@ export function AdminWebEntryPage() {
       .finally(() => setBusy(false));
   };
 
+  const handleLogout = useCallback(async () => {
+    const storedSession = readStoredAdminSession();
+    setLoggingOut(true);
+    setMessage("Cerrando sesion admin...");
+    try {
+      await logoutSession("admin", storedSession?.refreshToken ?? null, storedSession?.accessToken ?? session?.token ?? null);
+      setMessage("Sesion admin cerrada.");
+    } catch {
+      setMessage("Sesion admin cerrada en este navegador.");
+    } finally {
+      setPassword("");
+      setSession(null);
+      setBusy(false);
+      setLoggingOut(false);
+    }
+  }, [session?.token]);
+
   if (session) {
-    return <AdminWebWorkspace user={session.user} token={session.token} />;
+    return <AdminWebWorkspace user={session.user} token={session.token} loggingOut={loggingOut} onLogout={handleLogout} />;
   }
 
   return (

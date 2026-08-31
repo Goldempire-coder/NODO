@@ -9,6 +9,11 @@ def require_admin_read(user: UserRecord) -> None:
         raise ApiError("FORBIDDEN", status_code=403)
 
 
+def require_admin_operations_read(user: UserRecord) -> None:
+    if user.status != "active" or user.role not in {"admin", "super_admin"}:
+        raise ApiError("FORBIDDEN", status_code=403)
+
+
 def require_admin_mutation(user: UserRecord) -> None:
     if user.status != "active" or user.role not in {"admin", "super_admin"}:
         raise ApiError("FORBIDDEN", status_code=403)

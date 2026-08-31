@@ -18,20 +18,38 @@ export function useAdminOrderChatEvidenceModel({
   request: AuthenticatedRequest;
 }) {
   const [evidence, setEvidence] = useState<AdminOrderChatEvidence | null>(null);
+  const [requested, setRequested] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState<"older" | "newer" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const currentRequest = useRef(0);
   const activeOrder = useRef<{ orderId: string; highlightMessageId?: string } | null>(null);
+  const initialLoadInFlight = useRef(false);
+
+  const prepareOrderChatEvidence = useCallback((orderId: string, highlightMessageId?: string) => {
+    currentRequest.current += 1;
+    activeOrder.current = { orderId, highlightMessageId };
+    initialLoadInFlight.current = false;
+    setEvidence(null);
+    setRequested(false);
+    setLoading(false);
+    setLoadingMore(null);
+    setError(null);
+  }, []);
 
   const loadOrderChatEvidence = useCallback(async (orderId: string, highlightMessageId?: string) => {
+    if (initialLoadInFlight.current && activeOrder.current?.orderId === orderId) {
+      return;
+    }
     const orderChanged = activeOrder.current?.orderId !== orderId;
     const requestSequence = currentRequest.current + 1;
     currentRequest.current = requestSequence;
     activeOrder.current = { orderId, highlightMessageId };
+    initialLoadInFlight.current = true;
     if (orderChanged) {
       setEvidence(null);
     }
+    setRequested(true);
     setLoadingMore(null);
     setLoading(true);
     setError(null);
@@ -53,6 +71,7 @@ export function useAdminOrderChatEvidenceModel({
       recordActionFailed("admin_order_chat_evidence_load", "order-detail", startedAt, errorCode);
     } finally {
       if (currentRequest.current === requestSequence) {
+        initialLoadInFlight.current = false;
         setLoading(false);
       }
     }
@@ -96,14 +115,26 @@ export function useAdminOrderChatEvidenceModel({
     }
   }, [loadOrderChatEvidence]);
 
+  const showOrderChatEvidence = useCallback(async () => {
+    const active = activeOrder.current;
+    if (!active) {
+      setError("Selecciona una orden antes de cargar la conversacion.");
+      return;
+    }
+    await loadOrderChatEvidence(active.orderId, active.highlightMessageId);
+  }, [loadOrderChatEvidence]);
+
   return {
     evidence,
     error,
     loading,
     loadingMore,
+    orderChatEvidenceRequested: requested,
     loadNewerOrderChatEvidence: () => loadPage("newer"),
     loadOlderOrderChatEvidence: () => loadPage("older"),
     loadOrderChatEvidence,
+    prepareOrderChatEvidence,
+    showOrderChatEvidence,
     retryOrderChatEvidence
   };
 }

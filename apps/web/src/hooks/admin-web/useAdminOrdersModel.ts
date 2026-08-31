@@ -87,15 +87,15 @@ export function useAdminOrdersModel({
     try {
       const data = await getAdminOrder(request, orderId);
       setSelectedOrder(data);
+      chatEvidence.prepareOrderChatEvidence(orderId, highlightMessageId);
       setView("order-detail");
       setNotice("Detalle de orden cargado con masking.");
-      void chatEvidence.loadOrderChatEvidence(orderId, highlightMessageId);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No se pudo cargar orden.");
     } finally {
       setBusy(false);
     }
-  }, [chatEvidence.loadOrderChatEvidence, request, setBusy, setNotice, setView]);
+  }, [chatEvidence.prepareOrderChatEvidence, request, setBusy, setNotice, setView]);
 
   return {
     ...chatEvidence,

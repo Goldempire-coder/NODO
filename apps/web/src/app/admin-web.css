@@ -279,6 +279,29 @@
   background: rgb(7 9 17 / 56%);
 }
 
+.admin-web-session-logout {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 4%);
+  color: var(--admin-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-web-session-logout:not(:disabled):hover {
+  border-color: rgb(56 189 248 / 42%);
+  color: var(--admin-text);
+}
+
+.admin-web-session-logout:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .admin-web-topbar-actions {
   position: relative;
   display: flex;
@@ -1439,6 +1462,10 @@
   padding: 14px;
 }
 
+.admin-order-chat-evidence.is-collapsed {
+  height: auto;
+}
+
 .admin-order-chat-evidence__header,
 .admin-order-chat-evidence__message header,
 .admin-order-chat-evidence__error {
@@ -1463,6 +1490,19 @@
   color: var(--admin-amber);
   font-size: 11px;
   font-weight: 800;
+}
+
+.admin-order-chat-evidence__lazy {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: rgb(7 9 17 / 46%);
+}
+
+.admin-order-chat-evidence__lazy button {
+  justify-self: start;
 }
 
 .admin-order-chat-evidence__messages {

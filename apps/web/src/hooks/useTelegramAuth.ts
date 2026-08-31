@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { authenticateWithTelegram } from "../api/auth";
+import { authenticateWithTelegram, logoutSession } from "../api/auth";
 import { readAuthSession, refreshAuthSession, type StoredAuthSession, writeAuthSession } from "../api/session";
 import { notifyTelegram, readTelegramInitData, setupTelegramViewport } from "../theme/telegramTheme";
 import type { PublicUser, SessionState } from "../types/auth";
@@ -21,6 +21,7 @@ export function useTelegramAuth(surface?: string) {
   const [message, setMessage] = useState("Preparando NODO en Telegram");
   const [user, setUser] = useState<PublicUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const applyStoredSession = useCallback((session: StoredAuthSession, messageText = "Listo para usar NODO") => {
     if (!session.user) {
@@ -122,6 +123,24 @@ export function useTelegramAuth(surface?: string) {
     void authenticate();
   }, [authenticate]);
 
+  const logout = useCallback(async () => {
+    const storedSession = readAuthSession("telegram");
+    setLoggingOut(true);
+    setMessage("Cerrando sesion en este dispositivo...");
+    try {
+      await logoutSession("telegram", storedSession?.refreshToken ?? null, storedSession?.accessToken ?? accessToken);
+      notifyTelegram("success");
+    } catch {
+      notifyTelegram("warning");
+    } finally {
+      setUser(null);
+      setAccessToken(null);
+      setState("error");
+      setMessage("Sesion cerrada en este dispositivo. Abre NODO desde Telegram para entrar de nuevo.");
+      setLoggingOut(false);
+    }
+  }, [accessToken]);
+
   const displayName = useMemo(() => {
     if (!user) {
       return "Usuario";
@@ -129,5 +148,5 @@ export function useTelegramAuth(surface?: string) {
     return user.first_name || user.username || "Usuario";
   }, [user]);
 
-  return { accessToken, authenticate, displayName, message, state, user };
+  return { accessToken, authenticate, displayName, loggingOut, logout, message, state, user };
 }

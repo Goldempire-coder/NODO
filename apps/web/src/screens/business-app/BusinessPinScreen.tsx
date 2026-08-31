@@ -14,9 +14,14 @@ export function BusinessPinScreen({ model }: { model: BusinessMiniAppModel }) {
   const isDeletingPaymentMethod = Boolean(pendingPaymentMethodDeleteId);
   const isSavingPaymentMethod = Boolean(pendingPaymentMethodSave);
   const isDecliningOrder = pendingBusinessOrderPinAction?.action === "cannot-attend";
+  const isConfirmingPayment = pendingBusinessOrderPinAction?.action === "confirm-payment";
   const canSubmitSetup = pinForm.pin.length >= 4 && pinForm.pin === pinForm.confirm_pin;
   const canSubmitVerify = pinForm.pin.length >= 4;
-  const title = isDecliningOrder
+  const title = isConfirmingPayment
+    ? isConfigured
+      ? "PIN para confirmar pago"
+      : "Crear PIN para confirmar pago"
+    : isDecliningOrder
     ? isConfigured
       ? "PIN para cancelar orden"
       : "Crear PIN para cancelar orden"
@@ -31,7 +36,7 @@ export function BusinessPinScreen({ model }: { model: BusinessMiniAppModel }) {
     : isConfigured
       ? isUnlocked ? "PIN activo" : "Desbloquear"
       : "Crear PIN";
-  const submitLabel = isDecliningOrder ? "Continuar cancelacion" : isDeletingPaymentMethod ? "Borrar metodo" : isSavingPaymentMethod ? "Guardar metodo" : "Entrar";
+  const submitLabel = isConfirmingPayment ? "Confirmar pago" : isDecliningOrder ? "Continuar cancelacion" : isDeletingPaymentMethod ? "Borrar metodo" : isSavingPaymentMethod ? "Guardar metodo" : "Entrar";
 
   return (
     <div className="business-card">
@@ -72,7 +77,7 @@ export function BusinessPinScreen({ model }: { model: BusinessMiniAppModel }) {
             />
           </label>
           <Button mode="filled" stretched disabled={busy || isLocked || !canSubmitSetup} onClick={() => void submitBusinessPinSetup()}>
-            {isDecliningOrder ? "Activar PIN y continuar" : isDeletingPaymentMethod ? "Activar PIN y borrar metodo" : isSavingPaymentMethod ? "Activar PIN y guardar metodo" : "Activar PIN"}
+            {isConfirmingPayment ? "Activar PIN y confirmar" : isDecliningOrder ? "Activar PIN y continuar" : isDeletingPaymentMethod ? "Activar PIN y borrar metodo" : isSavingPaymentMethod ? "Activar PIN y guardar metodo" : "Activar PIN"}
           </Button>
         </>
       ) : (
