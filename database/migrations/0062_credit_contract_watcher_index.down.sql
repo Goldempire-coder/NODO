@@ -1,0 +1,1 @@
+drop index if exists credit_purchases_contract_pending_watcher_idx;
