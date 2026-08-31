@@ -7,12 +7,17 @@ from pydantic import Field
 
 from app.auth.dependencies import require_current_user
 from app.core.errors import ApiError
-from app.modules.admin.investigation_candidates import AdminInvestigationCandidatesService
+from app.modules.admin.investigation_candidates import (
+    AdminInvestigationCandidatesService,
+)
 from app.modules.admin.investigation_case_file import AdminInvestigationCaseFileService
 from app.modules.admin.order_chat_evidence import AdminOrderChatEvidenceService
 from app.modules.admin.policy import require_admin_mutation
 from app.modules.admin.service import AdminService
-from app.modules.users.admin_telegram_links import generate_admin_telegram_link_code, hash_admin_telegram_link_code
+from app.modules.users.admin_telegram_links import (
+    generate_admin_telegram_link_code,
+    hash_admin_telegram_link_code,
+)
 from app.modules.users.models import UserRecord
 from app.shared.validation import StrictRequestModel
 
@@ -43,6 +48,7 @@ def _service(request: Request) -> AdminService:
         emergency_mode_repository=request.app.state.emergency_mode_repository,
         job_repository=request.app.state.job_repository,
         observability_repository=getattr(request.app.state, "observability_repository", None),
+        admin_notifications=getattr(request.app.state, "admin_notification_service", None),
     )
 
 

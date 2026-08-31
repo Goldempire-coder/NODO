@@ -12,7 +12,10 @@ from app.modules.admin_notifications.models import (
     AdminNotificationRecord,
     utc_now,
 )
-from app.modules.admin_notifications.redaction import safe_text, sanitize_admin_notification_metadata
+from app.modules.admin_notifications.redaction import (
+    safe_text,
+    sanitize_admin_notification_metadata,
+)
 from app.modules.admin_notifications.serializers import admin_notification_public
 from app.modules.jobs.models import mask_metadata
 from app.modules.users.models import UserRecord
@@ -28,6 +31,8 @@ ADMIN_TELEGRAM_ALERT_TYPES = {
     "base_usdc_credit_purchase_failed": "admin_alert_credit_purchase_attention",
     "base_usdc_credit_purchase_expired": "admin_alert_credit_purchase_attention",
     "base_usdc_credit_purchase_stuck": "admin_alert_credit_purchase_attention",
+    "platform_emergency_mode_activated": "admin_alert_platform_emergency_mode",
+    "platform_emergency_mode_deactivated": "admin_alert_platform_emergency_mode",
 }
 
 
@@ -337,6 +342,29 @@ class AdminNotificationService:
             request_id=request_id,
         )
 
+    def platform_emergency_mode_changed(self, *, enabled: bool, actor: UserRecord, request_id: str) -> None:
+        action = "activated" if enabled else "deactivated"
+        title = "Modo emergencia activado" if enabled else "Modo emergencia desactivado"
+        summary = (
+            "El modo emergencia fue activado desde Admin Web."
+            if enabled
+            else "El modo emergencia fue desactivado desde Admin Web."
+        )
+        self.enqueue(
+            notification_type=f"platform_emergency_mode_{action}",
+            priority="critical" if enabled else "attention",
+            source_surface="admin_web",
+            resource_type="platform_emergency_mode",
+            resource_id=None,
+            actor_user_id=actor.id,
+            title=title,
+            summary=summary,
+            action_route="admin://dashboard",
+            dedupe_key=f"platform_emergency_mode:{action}:{request_id}",
+            metadata={"enabled": enabled, "actor_role": actor.role},
+            request_id=request_id,
+        )
+
     def admin_telegram_alert_test(self, *, user: UserRecord, request_id: str) -> dict[str, Any]:
         require_admin_mutation(user)
         notification, _created = self.enqueue(
@@ -438,6 +466,18 @@ class AdminNotificationService:
                 "NODO alerta Admin\n\n"
                 "Prueba recibida. El canal esta activo.\n\n"
                 "No tienes que hacer nada."
+            )
+        if notification.notification_type == "platform_emergency_mode_activated":
+            return (
+                "NODO alerta Admin\n\n"
+                "Modo emergencia ACTIVADO.\n\n"
+                "Accion sugerida: abre Admin > Dashboard y revisa el bloque de emergencia."
+            )
+        if notification.notification_type == "platform_emergency_mode_deactivated":
+            return (
+                "NODO alerta Admin\n\n"
+                "Modo emergencia desactivado.\n\n"
+                "Accion sugerida: abre Admin > Dashboard y confirma que la operacion esta normal."
             )
         if notification.notification_type.startswith("base_usdc_credit_purchase_"):
             return (

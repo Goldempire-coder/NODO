@@ -5,16 +5,24 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.errors import ApiError
+from app.core.logging import get_logger
 from app.modules.admin.investigation import query_fingerprint
-from app.modules.jobs.serializers import job_run_summary
-from app.modules.admin.policy import require_admin_mutation, require_admin_operations_read, require_admin_read
+from app.modules.admin.policy import (
+    require_admin_mutation,
+    require_admin_operations_read,
+    require_admin_read,
+)
 from app.modules.admin.user_presenters import mask_phone
-from app.modules.notifications.user_status_notifications import NoopUserStatusNotificationService, UserStatusNotificationService
+from app.modules.jobs.serializers import job_run_summary
+from app.modules.notifications.user_status_notifications import (
+    NoopUserStatusNotificationService,
+    UserStatusNotificationService,
+)
 from app.modules.users.models import UserRecord
 from app.services.health_service import HealthService
 
-
 ADMIN_DISCLAIMER = "Consola admin: revisa negocios, ordenes y actividad con datos limitados y trazabilidad."
+logger = get_logger(__name__)
 
 
 def _require_uuid(value: str, code: str = "NOT_FOUND") -> str:
@@ -59,6 +67,7 @@ class AdminService:
         job_repository=None,
         observability_repository=None,
         user_status_notifications=None,
+        admin_notifications=None,
     ) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._repository = repository
@@ -70,6 +79,7 @@ class AdminService:
         self._emergency_mode = emergency_mode_repository
         self._job_repository = job_repository
         self._observability_repository = observability_repository
+        self._admin_notifications = admin_notifications
         self._user_status_notifications = user_status_notifications or (
             UserStatusNotificationService(settings=settings, job_repository=job_repository)
             if job_repository is not None
@@ -183,6 +193,23 @@ class AdminService:
                 request_id=request_id,
                 metadata_json={"reason": reason, "message": message, "enabled": enabled},
             )
+            if self._admin_notifications is not None:
+                try:
+                    self._admin_notifications.platform_emergency_mode_changed(
+                        enabled=enabled,
+                        actor=user,
+                        request_id=request_id,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "admin_emergency_mode_alert_enqueue_failed",
+                        extra={
+                            "event": "admin_emergency_mode_alert_enqueue_failed",
+                            "enabled": enabled,
+                            "request_id": request_id,
+                            "error_code": getattr(exc, "code", "ADMIN_ALERT_ENQUEUE_FAILED"),
+                        },
+                    )
             return {"emergency_mode": record.to_payload(), "disclaimer": ADMIN_DISCLAIMER}
 
         if self._idempotency is None:

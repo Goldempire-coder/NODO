@@ -4,15 +4,13 @@ import hashlib
 import hmac
 import json
 import os
-from datetime import timedelta
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-
 
 BOT_TOKEN = "123456:test-client-bot-token"
 BUSINESS_INTAKE_BOT_TOKEN = "123456:test-business-intake-bot-token"
@@ -53,12 +51,22 @@ _set_env()
 
 from app.core.config import load_settings, redact_env_value  # noqa: E402
 from app.main import create_app  # noqa: E402
-from app.modules.admin_notifications.memory_repository import InMemoryAdminNotificationRepository  # noqa: E402
-from app.modules.admin_notifications.service import AdminNotificationService  # noqa: E402
+from app.modules.admin_notifications.memory_repository import (
+    InMemoryAdminNotificationRepository,  # noqa: E402
+)
+from app.modules.admin_notifications.service import (
+    AdminNotificationService,  # noqa: E402
+)
 from app.modules.jobs.memory_repository import InMemoryJobRepository  # noqa: E402
-from app.modules.notifications.order_notifications import OrderNotificationService  # noqa: E402
-from app.modules.notifications.telegram_sender import NotificationSenderWorker  # noqa: E402
-from app.modules.users.admin_telegram_links import hash_admin_telegram_link_code  # noqa: E402
+from app.modules.notifications.order_notifications import (
+    OrderNotificationService,  # noqa: E402
+)
+from app.modules.notifications.telegram_sender import (
+    NotificationSenderWorker,  # noqa: E402
+)
+from app.modules.users.admin_telegram_links import (
+    hash_admin_telegram_link_code,  # noqa: E402
+)
 from app.modules.users.memory_repository import InMemoryUserRepository  # noqa: E402
 
 
@@ -199,6 +207,25 @@ def test_admin_telegram_credit_alert_type_migration_is_reversible() -> None:
     assert "drop constraint if exists notification_jobs_type_check" in down
 
 
+def test_admin_telegram_emergency_alert_type_migration_is_reversible() -> None:
+    root = Path(__file__).resolve().parents[3]
+    up = (root / "database" / "migrations" / "0064_admin_telegram_emergency_alerts.up.sql").read_text(
+        encoding="utf-8"
+    )
+    down = (root / "database" / "migrations" / "0064_admin_telegram_emergency_alerts.down.sql").read_text(
+        encoding="utf-8"
+    )
+    notification_types = (
+        root / "apps" / "api" / "app" / "modules" / "notifications" / "notification_types.py"
+    ).read_text(encoding="utf-8")
+
+    assert "admin_alert_platform_emergency_mode" in up
+    assert "admin_alert_platform_emergency_mode" not in down
+    assert "admin_alert_platform_emergency_mode" in notification_types
+    assert "drop constraint if exists notification_jobs_type_check" in up
+    assert "drop constraint if exists notification_jobs_type_check" in down
+
+
 def test_admin_telegram_alert_test_endpoint_sends_safe_message_to_linked_admin() -> None:
     client = _client()
     admin_login = _login(client, 700888, "admin_alert_test")
@@ -263,6 +290,87 @@ def test_admin_telegram_alert_test_endpoint_rejects_support() -> None:
     )
 
     assert response.status_code == 403
+
+
+def test_emergency_mode_changes_enqueue_admin_telegram_alerts_without_sensitive_details() -> None:
+    client = _client()
+    admin_login = _login(client, 700890, "admin_emergency_alert")
+    admin_id = admin_login["user"]["id"]
+    client.app.state.user_repository.set_user_role(admin_id, "super_admin")
+    admin = client.app.state.user_repository.get_user_by_id(admin_id)
+    assert admin is not None
+    admin.admin_alert_telegram_id = 700990
+    adapter = FakeTelegramAdapter()
+    client.app.state.notification_sender_worker = NotificationSenderWorker(
+        settings=client.app.state.settings,
+        job_repository=client.app.state.job_repository,
+        user_repository=client.app.state.user_repository,
+        adapter=adapter,
+        admin_notifications=client.app.state.admin_notification_service,
+    )
+
+    activated = client.post(
+        "/api/v1/admin/emergency-mode/activate",
+        headers={
+            **_bearer(admin_login, "req_admin_emergency_activate"),
+            "Idempotency-Key": "admin-emergency-alert-activate",
+        },
+        json={
+            "reason": "Incidente con private_key 0x3333333333333333333333333333333333333333",
+            "message": "Estamos revisando NODO.",
+        },
+    )
+    sent_activate = client.app.state.notification_sender_worker.run(request_id="req_admin_emergency_activate_sender")
+    deactivated = client.post(
+        "/api/v1/admin/emergency-mode/deactivate",
+        headers={
+            **_bearer(admin_login, "req_admin_emergency_deactivate"),
+            "Idempotency-Key": "admin-emergency-alert-deactivate",
+        },
+        json={"reason": "Incidente resuelto"},
+    )
+    sent_deactivate = client.app.state.notification_sender_worker.run(
+        request_id="req_admin_emergency_deactivate_sender"
+    )
+
+    assert activated.status_code == 200, activated.text
+    assert deactivated.status_code == 200, deactivated.text
+    assert sent_activate["counters"]["sent"] == 1
+    assert sent_deactivate["counters"]["sent"] == 1
+    assert [call["chat_id"] for call in adapter.calls] == [700990, 700990]
+    assert "Modo emergencia ACTIVADO" in adapter.calls[0]["text"]
+    assert "Modo emergencia desactivado" in adapter.calls[1]["text"]
+    assert "Admin > Dashboard" in adapter.calls[0]["text"]
+    assert "private_key" not in json.dumps(adapter.calls).lower()
+    assert "0x3333333333333333333333333333333333333333" not in json.dumps(adapter.calls)
+    assert ADMIN_BOT_TOKEN.lower() not in json.dumps(activated.json()).lower()
+    assert ADMIN_BOT_TOKEN.lower() not in json.dumps(deactivated.json()).lower()
+
+
+def test_emergency_mode_change_does_not_fail_when_admin_telegram_alert_enqueue_fails() -> None:
+    client = _client()
+    admin_login = _login(client, 700891, "admin_emergency_alert_fallback")
+    admin_id = admin_login["user"]["id"]
+    client.app.state.user_repository.set_user_role(admin_id, "super_admin")
+
+    class FailingAdminNotifications:
+        def platform_emergency_mode_changed(self, **_: object) -> None:
+            raise RuntimeError("notification job unavailable")
+
+    client.app.state.admin_notification_service = FailingAdminNotifications()
+
+    response = client.post(
+        "/api/v1/admin/emergency-mode/activate",
+        headers={
+            **_bearer(admin_login, "req_admin_emergency_activate_no_alert"),
+            "Idempotency-Key": "admin-emergency-alert-fallback",
+        },
+        json={"reason": "Incidente operativo", "message": "Estamos revisando NODO."},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["emergency_mode"]["enabled"] is True
+    assert "notification job unavailable" not in response.text
 
 
 def test_business_intake_notification_enqueues_admin_telegram_alerts_only_for_active_admins() -> None:

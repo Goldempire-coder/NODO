@@ -48,6 +48,7 @@ ADMIN_ALERT_NOTIFICATION_TYPES = {
     "admin_alert_business_intake_submitted",
     "admin_alert_credit_purchase_attention",
     "admin_alert_dispute_opened",
+    "admin_alert_platform_emergency_mode",
 }
 
 TELEGRAM_NOTIFICATION_TYPES = (
