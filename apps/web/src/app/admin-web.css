@@ -1431,7 +1431,10 @@
 }
 
 .admin-order-chat-evidence {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
+  height: clamp(300px, 40dvh, 460px);
   gap: 10px;
   padding: 14px;
 }
@@ -1463,11 +1466,15 @@
 }
 
 .admin-order-chat-evidence__messages {
-  max-height: clamp(280px, 42dvh, 520px);
-  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 6px 8px 6px 2px;
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(47 155 255 / 55%) rgb(255 255 255 / 6%);
 }
 
 .admin-order-chat-evidence__message-log {
@@ -2694,7 +2701,7 @@
   }
 
   .admin-order-chat-evidence__messages {
-    max-height: min(520px, 56dvh);
+    height: min(420px, 56dvh);
   }
 
   .admin-web-order-resolution__header,

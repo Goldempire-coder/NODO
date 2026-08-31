@@ -43,7 +43,12 @@ def test_admin_order_detail_keeps_chat_visible_with_bounded_panels() -> None:
     assert "max-height: min(236px, 32dvh)" in css
     assert ".admin-web-order-timeline-scroll .admin-web-row" in css
     assert ".admin-order-chat-evidence__messages" in css
-    assert "max-height: clamp(280px, 42dvh, 520px)" in css
+    assert ".admin-order-chat-evidence {\n  display: flex;" in css
+    assert "flex-direction: column;" in css
+    assert "height: clamp(300px, 40dvh, 460px)" in css
+    assert "flex: 1 1 auto" in css
+    assert "overflow-y: scroll" in css
+    assert "-webkit-overflow-scrolling: touch" in css
     assert "scrollbar-gutter: stable" in css
 
 
