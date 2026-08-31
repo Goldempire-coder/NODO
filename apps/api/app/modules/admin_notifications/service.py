@@ -23,6 +23,11 @@ ADMIN_TELEGRAM_TARGET_SURFACE = "admin_alerts"
 ADMIN_TELEGRAM_ALERT_TYPES = {
     "admin_telegram_alert_test": "admin_alert_test",
     "business_intake_submitted": "admin_alert_business_intake_submitted",
+    "base_usdc_credit_purchase_under_review": "admin_alert_credit_purchase_attention",
+    "base_usdc_credit_purchase_verification_failed": "admin_alert_credit_purchase_attention",
+    "base_usdc_credit_purchase_failed": "admin_alert_credit_purchase_attention",
+    "base_usdc_credit_purchase_expired": "admin_alert_credit_purchase_attention",
+    "base_usdc_credit_purchase_stuck": "admin_alert_credit_purchase_attention",
 }
 
 
@@ -433,5 +438,12 @@ class AdminNotificationService:
                 "NODO alerta Admin\n\n"
                 "Prueba recibida. El canal esta activo.\n\n"
                 "No tienes que hacer nada."
+            )
+        if notification.notification_type.startswith("base_usdc_credit_purchase_"):
+            return (
+                "NODO alerta Admin\n\n"
+                f"{notification.title}: {notification.summary}\n\n"
+                "Accion sugerida: abre Admin > Revision creditos y revisa el caso "
+                "antes de mover fondos o cerrar soporte."
             )
         return f"NODO: {notification.title}. {notification.summary}"

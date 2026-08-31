@@ -44,6 +44,13 @@ export function createAdminTelegramAlertLinkCode(request: AuthenticatedRequest) 
   });
 }
 
+export function sendAdminTelegramAlertTest<T>(request: AuthenticatedRequest) {
+  return request<T>("/api/v1/admin/telegram-alerts/test", {
+    method: "POST",
+    cache: "no-store"
+  });
+}
+
 export function getAdminEmergencyMode<T>(request: AuthenticatedRequest) {
   return request<T>("/api/v1/admin/emergency-mode");
 }

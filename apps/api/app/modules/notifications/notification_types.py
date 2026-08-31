@@ -46,6 +46,7 @@ SUPPORT_NOTIFICATION_TYPES = {
 ADMIN_ALERT_NOTIFICATION_TYPES = {
     "admin_alert_test",
     "admin_alert_business_intake_submitted",
+    "admin_alert_credit_purchase_attention",
     "admin_alert_dispute_opened",
 }
 

@@ -2524,6 +2524,17 @@
   line-height: 1.35;
 }
 
+.admin-dashboard-telegram-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-dashboard-telegram-buttons button {
+  width: 100%;
+  min-width: 0;
+}
+
 .admin-dashboard-telegram-alerts p {
   padding: 9px 10px;
   border: 1px solid rgb(36 209 143 / 28%);
@@ -2924,6 +2935,7 @@
   }
 
   .admin-dashboard-action-grid,
+  .admin-dashboard-telegram-buttons,
   .admin-dashboard-emergency-facts {
     grid-template-columns: 1fr;
   }

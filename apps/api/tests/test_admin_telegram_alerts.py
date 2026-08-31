@@ -179,10 +179,24 @@ def test_admin_dashboard_exposes_temporary_telegram_alert_link_code_action() -> 
     assert "adminTelegramAlertLinkCode" in dashboard
     assert "createAdminTelegramAlertLinkCode" in model
     assert "/api/v1/admin/telegram-alerts/link-code" in api
-    assert "Enviar prueba" not in dashboard
-    assert "requestAdminTelegramAlertTest" not in dashboard
-    assert "requestAdminTelegramAlertTest" not in model
-    assert "sendAdminTelegramAlertTest" not in api
+    assert "Enviar prueba" in dashboard
+    assert "requestAdminTelegramAlertTest" in dashboard
+    assert "requestAdminTelegramAlertTest" in model
+    assert "sendAdminTelegramAlertTest" in api
+    assert "/api/v1/admin/telegram-alerts/test" in api
+
+
+def test_admin_telegram_credit_alert_type_migration_is_reversible() -> None:
+    root = Path(__file__).resolve().parents[3]
+    up = (root / "database" / "migrations" / "0063_admin_telegram_credit_alerts.up.sql").read_text(encoding="utf-8")
+    down = (root / "database" / "migrations" / "0063_admin_telegram_credit_alerts.down.sql").read_text(encoding="utf-8")
+    notification_types = (root / "apps" / "api" / "app" / "modules" / "notifications" / "notification_types.py").read_text(encoding="utf-8")
+
+    assert "admin_alert_credit_purchase_attention" in up
+    assert "admin_alert_credit_purchase_attention" not in down
+    assert "admin_alert_credit_purchase_attention" in notification_types
+    assert "drop constraint if exists notification_jobs_type_check" in up
+    assert "drop constraint if exists notification_jobs_type_check" in down
 
 
 def test_admin_telegram_alert_test_endpoint_sends_safe_message_to_linked_admin() -> None:
@@ -289,6 +303,53 @@ def test_business_intake_notification_enqueues_admin_telegram_alerts_only_for_ac
         assert "token" not in str(metadata).lower()
         assert "101" not in str(metadata)
         assert "202" not in str(metadata)
+
+
+def test_credit_purchase_attention_enqueues_admin_telegram_alert_without_sensitive_details() -> None:
+    users = InMemoryUserRepository()
+    admin = _admin_user(users, telegram_id=501, role="super_admin")
+    admin.admin_alert_telegram_id = 1501
+    jobs = InMemoryJobRepository()
+    service = AdminNotificationService(
+        repository=InMemoryAdminNotificationRepository(),
+        job_repository=jobs,
+        user_repository=users,
+        admin_telegram_alerts_enabled=True,
+        admin_app_url="https://nodo-staging.pages.dev",
+    )
+
+    purchase = SimpleNamespace(
+        id=str(uuid4()),
+        business_id=str(uuid4()),
+        status="under_review",
+        package_code="starter",
+    )
+    service.credit_purchase_attention(
+        purchase=purchase,
+        reason="under_review",
+        request_id="req_admin_telegram_credit_attention",
+        error_code="TX_REQUIRES_REVIEW",
+    )
+
+    alert_jobs = [
+        job
+        for job in jobs.notification_jobs.values()
+        if job.notification_type == "admin_alert_credit_purchase_attention"
+    ]
+    assert {job.recipient_user_id for job in alert_jobs} == {admin.id}
+    metadata = alert_jobs[0].metadata_json or {}
+    assert metadata["channel"] == "telegram"
+    assert metadata["target_surface"] == "admin_alerts"
+    assert metadata["action_url"] == "https://nodo-staging.pages.dev/?surface=admin"
+    assert "Compra USDC requiere revision" in metadata["message_text"]
+    assert "Revision creditos" in metadata["message_text"]
+    assert metadata["action_text"] == "Abrir panel Admin"
+    message_text = metadata["message_text"].lower()
+    assert "tx_hash" not in message_text
+    assert "private" not in message_text
+    assert "secret" not in message_text
+    assert purchase.id.lower() not in message_text
+    assert purchase.business_id.lower() not in message_text
 
 
 def test_admin_telegram_alerts_do_not_enqueue_primary_telegram_fallbacks() -> None:

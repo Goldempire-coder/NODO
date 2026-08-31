@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createAdminTelegramAlertLinkCode } from "../api/admin";
+import { createAdminTelegramAlertLinkCode, sendAdminTelegramAlertTest } from "../api/admin";
 import { apiRequest } from "../api/client";
 import { canMutateAdmin, canReadAdmin, canReadAdminOperations } from "./admin-web/adminWebAccess";
 import type { AdminWebView, RequestFn } from "./admin-web/adminWebTypes";
@@ -86,6 +86,29 @@ export function useAdminWebModel({
       setNotice("Codigo temporal creado para vincular Telegram Admin.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No pudimos crear el codigo de Telegram Admin.");
+    } finally {
+      setBusy(false);
+    }
+  }, [adminMutable, request]);
+
+  const requestAdminTelegramAlertTest = useCallback(async () => {
+    if (!adminMutable) {
+      setNotice("No tienes permiso para probar alertas Admin.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const response = await sendAdminTelegramAlertTest<{
+        sender_result?: { counters?: { sent?: number; failed_permanent?: number; failed_retryable?: number } };
+      }>(request);
+      const counters = response.sender_result?.counters;
+      if ((counters?.sent || 0) > 0) {
+        setNotice("Alerta de prueba enviada a Telegram Admin.");
+        return;
+      }
+      setNotice("Prueba creada, pero no se envio a Telegram. Revisa que el Admin este vinculado al bot.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No pudimos enviar la prueba de Telegram Admin.");
     } finally {
       setBusy(false);
     }
@@ -489,6 +512,7 @@ export function useAdminWebModel({
     navigation,
     loadDashboard: overview.loadDashboard,
     requestAdminTelegramAlertLinkCode,
+    requestAdminTelegramAlertTest,
     loadIncidentConsole: overview.loadIncidentConsole,
     loadUXFriction: overview.loadUXFriction,
     activateEmergencyMode: overview.activateEmergencyMode,

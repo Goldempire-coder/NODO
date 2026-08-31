@@ -45,6 +45,7 @@ def _set_env(**overrides: str) -> None:
         "BUSINESS_RATE_LIMIT_MAX_ATTEMPTS": "100",
         "BUSINESS_RATE_LIMIT_WINDOW_SECONDS": "60",
         "NODO_CREDIT_RECEIVING_WALLET_BASE": BASE_WALLET,
+        "LEGACY_CREDIT_PAYMENT_METHODS_ENABLED": "1",
         "ONCHAIN_CREDIT_MIN_CONFIRMATIONS": "3",
         "ONCHAIN_CREDIT_PURCHASE_TTL_MINUTES": "30",
     }
@@ -60,6 +61,13 @@ from app.modules.admin_notifications.memory_repository import InMemoryAdminNotif
 from app.modules.admin_notifications.service import AdminNotificationService  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.modules.legal.models import (  # noqa: E402
+    BUSINESS_CREDIT_TERMS_DOCUMENT_SET,
+    BUSINESS_LEGAL_CONFIRMATION,
+    BUSINESS_TERMS_DOCUMENT_SET,
+    CURRENT_BUSINESS_CREDIT_TERMS_VERSION,
+    CURRENT_BUSINESS_TERMS_VERSION,
+)
 from app.modules.support.postgres_repository import PostgresSupportRepository  # noqa: E402
 from app.routes.telegram_bot import telegram_webhook_secret  # noqa: E402
 
@@ -240,7 +248,30 @@ def _create_business(client: TestClient, login: dict, key: str, *, approved: boo
         )
         client.app.state.business_repository.set_access_link_pin_hash(link_id=link.id, pin_hash=hash_pin("1234"))
         client.app.state.business_repository.mark_access_link_pin_verified(link_id=link.id, unlocked_until=utc_now() + timedelta(minutes=15))
+        _accept_business_credit_terms(client, login)
     return business
+
+
+def _accept_business_credit_terms(client: TestClient, login: dict) -> None:
+    headers = {
+        "Authorization": f"Bearer {login['access_token']}",
+        "X-Request-Id": f"req_business_legal_{login['user']['id']}",
+        "X-NODO-Surface": "business_mini_app",
+    }
+    for document_set, document_version in (
+        (BUSINESS_TERMS_DOCUMENT_SET, CURRENT_BUSINESS_TERMS_VERSION),
+        (BUSINESS_CREDIT_TERMS_DOCUMENT_SET, CURRENT_BUSINESS_CREDIT_TERMS_VERSION),
+    ):
+        response = client.post(
+            "/api/v1/business/legal/acceptances",
+            headers={**headers, "Content-Type": "application/json"},
+            json={
+                "document_set": document_set,
+                "document_version": document_version,
+                "confirmation": BUSINESS_LEGAL_CONFIRMATION,
+            },
+        )
+        assert response.status_code == 200, response.text
 
 
 def _bot_headers(key: str = "bot") -> dict[str, str]:

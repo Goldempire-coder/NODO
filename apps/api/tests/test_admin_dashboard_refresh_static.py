@@ -44,6 +44,7 @@ def test_admin_dashboard_keeps_emergency_permissions_reason_and_confirmation_flo
     assert "model.deactivateEmergencyMode()" in dashboard
     assert "model.loadEmergencyMode()" in dashboard
     assert "model.setEmergencyMessage" in dashboard
+    assert dashboard.index("<AdminEmergencyModePanel") < dashboard.index("<AdminDashboardKpiGrid")
 
 
 def test_admin_dashboard_uses_isolated_compact_layout_and_bounded_queue_scroll() -> None:

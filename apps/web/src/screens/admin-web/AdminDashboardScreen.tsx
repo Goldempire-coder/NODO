@@ -99,11 +99,16 @@ function AdminDashboardQuickActions({ model }: { model: AdminWebModel }) {
       <div className="admin-dashboard-telegram-alerts">
         <div>
           <strong>Alertas Telegram Admin</strong>
-          <span>Genera un codigo temporal y envialo al bot Admin con /start CODIGO.</span>
+          <span>Vincula el bot y envia una prueba antes de depender de este canal en emergencia.</span>
         </div>
-        <button disabled={!model.adminMutable || model.busy} type="button" onClick={() => void model.requestAdminTelegramAlertLinkCode()}>
-          Generar codigo
-        </button>
+        <div className="admin-dashboard-telegram-buttons">
+          <button disabled={!model.adminMutable || model.busy} type="button" onClick={() => void model.requestAdminTelegramAlertLinkCode()}>
+            Generar codigo
+          </button>
+          <button disabled={!model.adminMutable || model.busy} type="button" onClick={() => void model.requestAdminTelegramAlertTest()}>
+            Enviar prueba
+          </button>
+        </div>
         {model.adminTelegramAlertLinkCode ? (
           <p role="status">
             Codigo: <strong>{model.adminTelegramAlertLinkCode.code}</strong>
@@ -210,12 +215,12 @@ export function Dashboard({ model }: { model: AdminWebModel }) {
         </div>
         <button className="admin-dashboard-refresh" type="button" onClick={() => void model.loadDashboard()}>Recargar dashboard</button>
       </header>
+      <AdminEmergencyModePanel data={data} model={model} />
       <AdminDashboardKpiGrid data={data} />
       <div className="admin-dashboard-body">
         <AdminDashboardQueueList data={data} model={model} />
         <AdminDashboardQuickActions model={model} />
       </div>
-      <AdminEmergencyModePanel data={data} model={model} />
     </section>
   );
 }
