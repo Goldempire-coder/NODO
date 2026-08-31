@@ -134,6 +134,46 @@ export type AdminCreditPurchaseSummary = {
   updated_at: string;
 };
 
+export type AdminCreditTransactionFinancialStatus = "pending" | "confirmed" | "review" | "failed" | "dismissed";
+
+export type AdminCreditTransactionSummary = {
+  total_count: number;
+  confirmed_count: number;
+  pending_count: number;
+  review_count: number;
+  failed_count: number;
+  dismissed_count: number;
+  confirmed_amount_usd: string;
+  confirmed_credits: number;
+};
+
+export type AdminCreditTransactionItem = {
+  purchase_id: string;
+  business_id: string;
+  business_name: string | null;
+  package_code: string;
+  credits_amount: number;
+  price_usd: string;
+  payment_method: string;
+  financial_status: AdminCreditTransactionFinancialStatus;
+  purchase_status: string;
+  verification_status: string | null;
+  ledger_matched: boolean;
+  ledger_id: string | null;
+  ledger_amount: number | null;
+  owner_dismissed: boolean;
+  created_at: string;
+  updated_at: string;
+  paid_at: string | null;
+  credited_at: string | null;
+  transaction_at: string;
+  network: string | null;
+  token_symbol: string | null;
+  tx_hash_masked: string | null;
+  payer_wallet_masked: string | null;
+  payment_contract_masked: string | null;
+};
+
 export type AdminCreditPurchaseRecord = {
   id: string;
   business_id: string;

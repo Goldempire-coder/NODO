@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -18,6 +17,12 @@ def test_admin_operational_lists_consume_cursors_without_stale_replacement() -> 
             "creditPurchasesLoadingMore",
             "loadMoreCreditPurchases",
         ),
+        (
+            "useAdminCreditTransactionsModel.ts",
+            "creditTransactionsNextCursor",
+            "creditTransactionsLoadingMore",
+            "loadMoreCreditTransactions",
+        ),
         ("useAdminAuditLogsModel.ts", "auditLogsNextCursor", "auditLogsLoadingMore", "loadMoreAuditLogs"),
         ("useAdminJobsModel.ts", "jobRunsNextCursor", "jobRunsLoadingMore", "loadMoreJobs"),
         (
@@ -33,7 +38,11 @@ def test_admin_operational_lists_consume_cursors_without_stale_replacement() -> 
         assert cursor_state in source
         assert loading_state in source
         assert load_more in source
-        assert "appendUniqueById" in source
+        if filename == "useAdminCreditTransactionsModel.ts":
+            assert "appendUniqueTransactions" in source
+            assert "purchase_id" in source
+        else:
+            assert "appendUniqueById" in source
         assert "RequestEpoch" in source or "requestEpoch" in source
 
 
@@ -46,6 +55,12 @@ def test_admin_operational_screens_offer_guarded_load_more_actions() -> None:
             "creditPurchasesNextCursor",
             "creditPurchasesLoadingMore",
             "loadMoreCreditPurchases",
+        ),
+        (
+            "AdminCreditScreens.tsx",
+            "creditTransactionsNextCursor",
+            "creditTransactionsLoadingMore",
+            "loadMoreCreditTransactions",
         ),
         ("AdminAuditScreens.tsx", "auditLogsNextCursor", "auditLogsLoadingMore", "loadMoreAuditLogs"),
         ("AdminOverviewScreens.tsx", "jobRunsNextCursor", "jobRunsLoadingMore", "loadMoreJobs"),
@@ -85,6 +100,7 @@ def test_touched_admin_list_apis_use_concrete_dtos_and_forward_cursor() -> None:
         "listAdminUsers",
         "listAdminAuditLogs",
         "listAdminCreditPurchases",
+        "listAdminCreditTransactions",
         "listAdminJobRuns",
         "listAdminBusinessIntakes",
         "listAdminNotifications",
@@ -95,12 +111,13 @@ def test_touched_admin_list_apis_use_concrete_dtos_and_forward_cursor() -> None:
         "AdminUserListResponse",
         "AdminAuditLogListResponse",
         "AdminCreditPurchaseListResponse",
+        "AdminCreditTransactionListResponse",
         "AdminJobRunListResponse",
         "AdminBusinessIntakeListResponse",
         "AdminNotificationsList",
     ):
         assert f"export type {dto}" in types
-    assert api.count('params.set("cursor", cursor)') >= 7
+    assert api.count('params.set("cursor", cursor)') >= 8
     assert "listPendingAdminBusinesses" not in api
     assert "businesses/pending" not in api
 

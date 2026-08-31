@@ -1,6 +1,6 @@
 import type { AdminWebModel } from "../../hooks/useAdminWebModel";
-import type { AdminCreditPurchaseSummary } from "../../types/credits";
-import { Empty, Header, ReasonBox, Table } from "./AdminWebPrimitives";
+import type { AdminCreditPurchaseSummary, AdminCreditTransactionItem } from "../../types/credits";
+import { dateText, Empty, Header, ReasonBox, Table } from "./AdminWebPrimitives";
 
 const WARNING_LABELS: Record<string, string> = {
   CREDITED_WITHOUT_LEDGER: "La compra figura acreditada, pero no tiene ledger relacionado.",
@@ -10,11 +10,164 @@ const WARNING_LABELS: Record<string, string> = {
   PAYMENT_REQUIRES_REVIEW: "La evidencia requiere revision Admin."
 };
 
+const TRANSACTION_STATUS_LABELS: Record<string, string> = {
+  confirmed: "Confirmada",
+  dismissed: "Descartada",
+  failed: "Fallida",
+  pending: "Pendiente",
+  review: "En revision"
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  base_usdc_contract: "Base USDC",
+  base_usdc_onchain: "Base USDC legacy",
+  stripe_checkout: "Stripe",
+  usdt_manual_admin_approved: "USDT manual",
+  zelle_manual_admin_approved: "Zelle manual"
+};
+
 function matchLabel(value: boolean | null) {
   if (value === null) {
     return "Sin evidencia";
   }
   return value ? "Coincide" : "No coincide";
+}
+
+function methodLabel(value: string) {
+  return PAYMENT_METHOD_LABELS[value] || value;
+}
+
+function transactionStatusLabel(value: string) {
+  return TRANSACTION_STATUS_LABELS[value] || value;
+}
+
+function transactionEvidence(item: AdminCreditTransactionItem) {
+  return item.tx_hash_masked || item.payer_wallet_masked || item.payment_contract_masked || "-";
+}
+
+function purchaseSummaryFromTransaction(item: AdminCreditTransactionItem): AdminCreditPurchaseSummary {
+  return {
+    id: item.purchase_id,
+    business_id: item.business_id,
+    package_code: item.package_code,
+    credits_amount: item.credits_amount,
+    price_usd: item.price_usd,
+    payment_method: item.payment_method,
+    status: item.purchase_status,
+    verification_status: item.verification_status,
+    has_reported_tx: Boolean(item.tx_hash_masked),
+    created_at: item.created_at,
+    updated_at: item.updated_at
+  };
+}
+
+export function CreditTransactions({ model }: { model: AdminWebModel }) {
+  const filters = model.creditTransactionFilters;
+  return (
+    <section className="admin-web-panel admin-web-credit-transactions-panel">
+      <Header title="A-04 Registro NODO" action={<button type="button" onClick={() => void model.loadCreditTransactions(filters)}>Aplicar filtros</button>} />
+      <div className="admin-web-credit-transactions-summary">
+        <div><span>Ingresos confirmados</span><strong>${model.creditTransactionsSummary.confirmed_amount_usd}</strong></div>
+        <div><span>Creditos confirmados</span><strong>{model.creditTransactionsSummary.confirmed_credits}</strong></div>
+        <div><span>Confirmadas</span><strong>{model.creditTransactionsSummary.confirmed_count}</strong></div>
+        <div><span>Pendientes</span><strong>{model.creditTransactionsSummary.pending_count}</strong></div>
+        <div><span>En revision</span><strong>{model.creditTransactionsSummary.review_count}</strong></div>
+        <div><span>Descartados</span><strong>{model.creditTransactionsSummary.dismissed_count}</strong></div>
+      </div>
+      <div className="admin-web-toolbar admin-web-toolbar--credit-transactions">
+        <label>
+          <span>Estado financiero</span>
+          <select
+            value={filters.financial_status}
+            onChange={(event) => model.setCreditTransactionFilters({ ...filters, financial_status: event.target.value })}
+          >
+            <option value="">Todos</option>
+            <option value="confirmed">Confirmadas</option>
+            <option value="pending">Pendientes</option>
+            <option value="review">En revision</option>
+            <option value="failed">Fallidas</option>
+            <option value="dismissed">Descartadas</option>
+          </select>
+        </label>
+        <label>
+          <span>Metodo</span>
+          <select
+            value={filters.payment_method}
+            onChange={(event) => model.setCreditTransactionFilters({ ...filters, payment_method: event.target.value })}
+          >
+            <option value="">Todos</option>
+            <option value="base_usdc_contract">Base USDC</option>
+            <option value="zelle_manual_admin_approved">Zelle manual</option>
+            <option value="usdt_manual_admin_approved">USDT manual</option>
+            <option value="stripe_checkout">Stripe</option>
+          </select>
+        </label>
+        <label>
+          <span>Paquete</span>
+          <select
+            value={filters.package_code}
+            onChange={(event) => model.setCreditTransactionFilters({ ...filters, package_code: event.target.value })}
+          >
+            <option value="">Todos</option>
+            <option value="starter">Starter</option>
+            <option value="pro">Pro</option>
+            <option value="business">Business</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+        </label>
+        <label>
+          <span>Business ID</span>
+          <input
+            value={filters.business_id}
+            onChange={(event) => model.setCreditTransactionFilters({ ...filters, business_id: event.target.value })}
+            placeholder="UUID del negocio"
+          />
+        </label>
+        <label>
+          <span>Desde</span>
+          <input
+            type="datetime-local"
+            value={filters.created_from}
+            onChange={(event) => model.setCreditTransactionFilters({ ...filters, created_from: event.target.value })}
+          />
+        </label>
+        <label>
+          <span>Hasta</span>
+          <input
+            type="datetime-local"
+            value={filters.created_to}
+            onChange={(event) => model.setCreditTransactionFilters({ ...filters, created_to: event.target.value })}
+          />
+        </label>
+      </div>
+      <div className="admin-web-credit-transactions-list-scroll" role="region" aria-label="Registro de transacciones de creditos admin" tabIndex={0}>
+        <Table headers={["Fecha", "Negocio", "Paquete", "Creditos", "Monto", "Metodo", "Estado", "Ledger", "Evidencia", ""]}>
+          {model.creditTransactions.map((item: AdminCreditTransactionItem) => (
+            <tr key={item.purchase_id}>
+              <td>{dateText(item.transaction_at)}</td>
+              <td>{item.business_name || item.business_id}</td>
+              <td>{item.package_code}</td>
+              <td>{item.credits_amount}</td>
+              <td>${item.price_usd}</td>
+              <td>{methodLabel(item.payment_method)}</td>
+              <td>{transactionStatusLabel(item.financial_status)}</td>
+              <td>{item.ledger_matched ? "Si" : "No"}</td>
+              <td>{transactionEvidence(item)}</td>
+              <td><button type="button" onClick={() => void model.setSelectedCreditPurchase(purchaseSummaryFromTransaction(item))}>Detalle</button></td>
+            </tr>
+          ))}
+        </Table>
+      </div>
+      {model.creditTransactionsNextCursor ? (
+        <div className="admin-web-orders-list-actions">
+          <button disabled={model.creditTransactionsLoadingMore} type="button" onClick={() => void model.loadMoreCreditTransactions()}>
+            {model.creditTransactionsLoadingMore ? "Cargando..." : "Cargar mas"}
+          </button>
+        </div>
+      ) : null}
+      {model.creditTransactions.length === 0 ? <Empty text="Sin transacciones de creditos para esos filtros." /> : null}
+    </section>
+  );
 }
 
 export function CreditPurchases({ model }: { model: AdminWebModel }) {

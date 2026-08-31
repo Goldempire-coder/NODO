@@ -5,6 +5,7 @@ import type {
   AdminCreditPurchaseDetailResponse,
   AdminCreditPurchaseListResponse,
   AdminCreditPurchaseMutationResponse,
+  AdminCreditTransactionListResponse,
   AdminDisputeDetailResponse,
   AdminDisputeListResponse,
   AdminDisputeResolveResponse,
@@ -379,6 +380,35 @@ export function listAdminAuditLogs(request: AuthenticatedRequest, eventType?: st
 
 export function listAdminCreditPurchases(request: AuthenticatedRequest, status?: string, cursor?: string | null) {
   return request<AdminCreditPurchaseListResponse>(`/api/v1/admin/credit-purchases?${listParams(20, "status", status, cursor)}`);
+}
+
+export function listAdminCreditTransactions(
+  request: AuthenticatedRequest,
+  filters: {
+    financial_status?: string;
+    payment_method?: string;
+    business_id?: string;
+    package_code?: string;
+    created_from?: string;
+    created_to?: string;
+  },
+  cursor?: string | null
+) {
+  const params = new URLSearchParams({ limit: "20" });
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value?.trim()) {
+      params.set(key, key === "created_from" || key === "created_to" ? dateTimeLocalToIso(value.trim()) : value.trim());
+    }
+  });
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return request<AdminCreditTransactionListResponse>(`/api/v1/admin/credit-transactions?${params.toString()}`);
+}
+
+function dateTimeLocalToIso(value: string) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
 }
 
 export function getAdminCreditPurchaseDetail(request: AuthenticatedRequest, purchaseId: string) {

@@ -3064,6 +3064,103 @@ def test_admin_credit_purchase_detail_reconciles_masked_contract_payment() -> No
         assert sensitive_value not in serialized_detail
 
 
+def test_admin_credit_transactions_register_summarizes_revenue_without_private_evidence() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 2010, "credit_transactions_owner")
+    business = _create_business(client, owner, "credit_transactions_owner")
+    admin = _login(client, 2011, "credit_transactions_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
+
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "credit_transactions_purchase"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+    purchase = client.app.state.credit_repository.get_purchase(purchase_id)
+    assert purchase is not None
+    tx_hash = _tx_hash("credit-transactions-valid")
+    client.app.state.onchain_credit_verifier.set_contract_result(
+        purchase.onchain_purchase_ref,
+        _contract_verification(tx_hash, log_index=72),
+    )
+    watcher_result = client.app.state.verify_base_usdc_credit_purchases_worker.run_once(
+        request_id="req_credit_transactions_watcher"
+    )
+
+    listed = client.get(
+        "/api/v1/admin/credit-transactions?financial_status=confirmed&payment_method=base_usdc_contract&limit=20",
+        headers=_bearer(admin, "req_credit_transactions_list"),
+    )
+    forbidden = client.get(
+        "/api/v1/admin/credit-transactions?limit=20",
+        headers=_bearer(owner, "req_credit_transactions_forbidden"),
+    )
+
+    assert watcher_result["contract_credited"] == 1
+    assert listed.status_code == 200, listed.text
+    data = listed.json()["data"]
+    item = next(row for row in data["items"] if row["purchase_id"] == purchase_id)
+    assert item["business_id"] == business["id"]
+    assert item["business_name"] == business["business_name"]
+    assert item["package_code"] == "starter"
+    assert item["credits_amount"] == 5
+    assert item["price_usd"] == "0.10"
+    assert item["payment_method"] == "base_usdc_contract"
+    assert item["financial_status"] == "confirmed"
+    assert item["purchase_status"] == "credited"
+    assert item["ledger_matched"] is True
+    assert item["ledger_amount"] == 5
+    assert item["tx_hash_masked"].endswith(tx_hash[-8:])
+    assert item["payer_wallet_masked"].endswith(PAYER_WALLET[-4:])
+    assert data["summary"]["confirmed_count"] >= 1
+    assert data["summary"]["confirmed_credits"] >= 5
+    assert Decimal(data["summary"]["confirmed_amount_usd"]) >= Decimal("0.10")
+    assert forbidden.status_code == 403
+    serialized = json.dumps(data)
+    for sensitive_value in (tx_hash, PAYER_WALLET, PAYMENT_CONTRACT, BASE_WALLET, purchase.onchain_purchase_ref):
+        assert sensitive_value not in serialized
+
+
+def test_admin_credit_transactions_register_distinguishes_owner_dismissed_pending_payment() -> None:
+    client, _ = _contract_client()
+    owner = _login(client, 2012, "credit_transactions_dismiss_owner")
+    business = _create_business(client, owner, "credit_transactions_dismiss_owner")
+    admin = _login(client, 2013, "credit_transactions_dismiss_admin")
+    client.app.state.user_repository.set_user_role(admin["user"]["id"], "support")
+
+    prepared = client.post(
+        "/api/v1/business/credits/base-payment",
+        headers={**_headers(owner, "credit_transactions_dismiss_purchase"), "Content-Type": "application/json"},
+        json={"package_code": "starter", "payer_wallet_address": PAYER_WALLET},
+    )
+    assert prepared.status_code == 201, prepared.text
+    purchase_id = prepared.json()["data"]["purchase"]["id"]
+    dismissed = client.post(
+        f"/api/v1/business/credits/purchases/{purchase_id}/dismiss",
+        headers={**_bearer(owner, "req_credit_transactions_dismiss"), "Content-Type": "application/json"},
+        json={"confirmation": "NO_PAYMENT_SENT"},
+    )
+
+    listed = client.get(
+        f"/api/v1/admin/credit-transactions?financial_status=dismissed&business_id={business['id']}&limit=20",
+        headers=_bearer(admin, "req_credit_transactions_dismiss_list"),
+    )
+
+    assert dismissed.status_code == 200, dismissed.text
+    assert listed.status_code == 200, listed.text
+    data = listed.json()["data"]
+    assert data["items"]
+    item = next(row for row in data["items"] if row["purchase_id"] == purchase_id)
+    assert item["financial_status"] == "dismissed"
+    assert item["purchase_status"] == "pending_payment"
+    assert item["owner_dismissed"] is True
+    assert item["ledger_matched"] is False
+    assert item["ledger_id"] is None
+    assert data["summary"]["dismissed_count"] >= 1
+
+
 def test_admin_contract_purchase_detail_reports_missing_ledger_and_non_terminal_diagnostics() -> None:
     client, _ = _contract_client()
     owner = _login(client, 2000, "contract_diagnostics_owner")

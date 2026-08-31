@@ -276,7 +276,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { view: "users" as const, label: "Clientes", action: () => users.loadUsers() },
       { view: "orders" as const, label: "Ordenes", action: () => ordersDisputes.loadOrders("", "") },
       { view: "disputes" as const, label: "Disputas", action: () => ordersDisputes.loadDisputes("open") },
-      { view: "credit-purchases" as const, label: "Creditos", action: () => credits.loadCreditPurchases("pending_manual_review") },
+      { view: "credit-transactions" as const, label: "Registro NODO", action: () => credits.loadCreditTransactions() },
+      { view: "credit-purchases" as const, label: "Revision creditos", action: () => credits.loadCreditPurchases("pending_manual_review") },
       { view: "audit-logs" as const, label: "Audit", action: audit.loadAuditLogs },
       { view: "metrics" as const, label: "Metricas", action: overview.loadMetrics },
       { view: "investigation" as const, label: "Buscar", action: () => investigation.searchInvestigation() },
@@ -290,7 +291,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
       { view: "support" as const, label: "Soporte", badge: notifications.supportUnreadCount, action: () => support.loadSupportTickets("active") },
       { view: "staff" as const, label: "Staff", action: () => staff.loadStaff("") }
     ],
-    [audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, investigation.searchInvestigation, notifications.supportUnreadCount, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
+    [audit.loadAuditLogs, businessIntake.loadBusinesses, businessIntake.loadBusinessIntakes, credits.loadCreditPurchases, credits.loadCreditTransactions, investigation.searchInvestigation, notifications.supportUnreadCount, ordersDisputes.loadDisputes, ordersDisputes.loadOrders, overview.dashboard?.queues.pending_business_intakes, overview.loadDashboard, overview.loadIncidentConsole, overview.loadJobs, overview.loadMetrics, overview.loadUXFriction, staff.loadStaff, support.loadSupportTickets, users.loadUsers]
   );
 
   return {
@@ -353,6 +354,11 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     creditPurchases: credits.creditPurchases,
     creditPurchasesLoadingMore: credits.creditPurchasesLoadingMore,
     creditPurchasesNextCursor: credits.creditPurchasesNextCursor,
+    creditTransactionFilters: credits.creditTransactionFilters,
+    creditTransactions: credits.creditTransactions,
+    creditTransactionsLoadingMore: credits.creditTransactionsLoadingMore,
+    creditTransactionsNextCursor: credits.creditTransactionsNextCursor,
+    creditTransactionsSummary: credits.creditTransactionsSummary,
     selectedCreditPurchase: credits.selectedCreditPurchase,
     setSelectedCreditPurchase: credits.setSelectedCreditPurchase,
     jobRuns: overview.jobRuns,
@@ -426,6 +432,7 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     setAuditFilter: audit.setAuditFilter,
     creditFilter: credits.creditFilter,
     setCreditFilter: credits.setCreditFilter,
+    setCreditTransactionFilters: credits.setCreditTransactionFilters,
     reason: criticalAction.reason,
     setReason: criticalAction.setReason,
     intakePublicBusinessName: businessIntake.intakePublicBusinessName,
@@ -494,6 +501,8 @@ export function useAdminWebModel({ token, user }: { user: PublicUser; token: str
     loadMoreAuditLogs: audit.loadMoreAuditLogs,
     loadCreditPurchases: credits.loadCreditPurchases,
     loadMoreCreditPurchases: credits.loadMoreCreditPurchases,
+    loadCreditTransactions: credits.loadCreditTransactions,
+    loadMoreCreditTransactions: credits.loadMoreCreditTransactions,
     reviewCreditPurchase: credits.reviewCreditPurchase,
     submitAdjustment: credits.submitAdjustment,
     loadJobs: overview.loadJobs,

@@ -18,6 +18,7 @@ export type AdminWebView =
   | "credit-purchases"
   | "credit-detail"
   | "credit-adjustments"
+  | "credit-transactions"
   | "jobs"
   | "intake"
   | "intake-detail"

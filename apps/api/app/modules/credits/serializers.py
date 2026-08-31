@@ -4,6 +4,12 @@ from typing import Any
 
 from app.modules.ads.models import CreditLedgerRecord
 from app.modules.businesses.models import FileAssetRecord
+from app.modules.credits.credit_transactions import (
+    CreditTransactionRecord,
+    CreditTransactionSummary,
+    credit_transaction_status,
+    credit_transaction_time,
+)
 from app.modules.credits.models import CreditPurchaseRecord, ReferralEventRecord
 from app.modules.credits.schemas import decimal_text
 
@@ -78,6 +84,51 @@ def admin_purchase_summary(purchase: CreditPurchaseRecord) -> dict[str, Any]:
         "has_reported_tx": bool(purchase.tx_hash or purchase.manual_tx_hash),
         "created_at": purchase.created_at.isoformat(),
         "updated_at": purchase.updated_at.isoformat(),
+    }
+
+
+def admin_credit_transaction_item(record: CreditTransactionRecord) -> dict[str, Any]:
+    purchase = record.purchase
+    ledger = record.ledger
+    financial_status = credit_transaction_status(purchase, ledger)
+    return {
+        "purchase_id": purchase.id,
+        "business_id": purchase.business_id,
+        "business_name": record.business_name,
+        "package_code": purchase.package_code,
+        "credits_amount": purchase.credits_amount,
+        "price_usd": decimal_text(purchase.price_usd),
+        "payment_method": purchase.payment_method,
+        "financial_status": financial_status,
+        "purchase_status": purchase.status,
+        "verification_status": purchase.verification_status,
+        "ledger_matched": ledger is not None and financial_status == "confirmed",
+        "ledger_id": ledger.id if ledger else None,
+        "ledger_amount": ledger.amount if ledger else None,
+        "owner_dismissed": purchase.owner_dismissed_at is not None,
+        "created_at": purchase.created_at.isoformat(),
+        "updated_at": purchase.updated_at.isoformat(),
+        "paid_at": purchase.paid_at.isoformat() if purchase.paid_at else None,
+        "credited_at": purchase.credited_at.isoformat() if purchase.credited_at else None,
+        "transaction_at": credit_transaction_time(purchase).isoformat(),
+        "network": purchase.network,
+        "token_symbol": purchase.token_symbol,
+        "tx_hash_masked": mask_tail(purchase.tx_hash or purchase.manual_tx_hash, keep=8),
+        "payer_wallet_masked": mask_tail(purchase.onchain_payer_address or purchase.tx_from_address),
+        "payment_contract_masked": mask_tail(purchase.payment_contract_address),
+    }
+
+
+def admin_credit_transaction_summary(summary: CreditTransactionSummary) -> dict[str, Any]:
+    return {
+        "total_count": summary.total_count,
+        "confirmed_count": summary.confirmed_count,
+        "pending_count": summary.pending_count,
+        "review_count": summary.review_count,
+        "failed_count": summary.failed_count,
+        "dismissed_count": summary.dismissed_count,
+        "confirmed_amount_usd": decimal_text(summary.confirmed_amount_usd),
+        "confirmed_credits": summary.confirmed_credits,
     }
 
 

@@ -4,7 +4,7 @@ import type { AdminWebModel } from "../../hooks/useAdminWebModel";
 import { AuditLogs } from "./AdminAuditScreens";
 import { Businesses, BusinessDetail } from "./AdminBusinessScreens";
 import { BusinessIntake, BusinessIntakeDetail } from "./AdminBusinessIntakeScreens";
-import { CreditAdjustments, CreditDetail, CreditPurchases } from "./AdminCreditScreens";
+import { CreditAdjustments, CreditDetail, CreditPurchases, CreditTransactions } from "./AdminCreditScreens";
 import { Dashboard } from "./AdminDashboardScreen";
 import { DisputeDetail, Disputes, OrderDetail, Orders } from "./AdminOrderDisputeScreens";
 import { IncidentConsole, Jobs, Metrics, UXFriction } from "./AdminOverviewScreens";
@@ -43,6 +43,7 @@ export function AdminWebScreens({ model }: { model: AdminWebModel }) {
       {model.view === "disputes" ? <Disputes model={model} /> : null}
       {model.view === "dispute-detail" ? <DisputeDetail model={model} /> : null}
       {model.view === "audit-logs" ? <AuditLogs model={model} /> : null}
+      {model.view === "credit-transactions" ? <CreditTransactions model={model} /> : null}
       {model.view === "credit-purchases" ? <CreditPurchases model={model} /> : null}
       {model.view === "credit-detail" ? <CreditDetail model={model} /> : null}
       {model.view === "credit-adjustments" ? <CreditAdjustments model={model} /> : null}

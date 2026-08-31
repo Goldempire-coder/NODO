@@ -1,4 +1,4 @@
-export type CreditsView = "credit-purchases" | "credit-detail" | "credit-adjustments";
+export type CreditsView = "credit-purchases" | "credit-detail" | "credit-adjustments" | "credit-transactions";
 
 export type ListResponse<T> = {
   items: T[];

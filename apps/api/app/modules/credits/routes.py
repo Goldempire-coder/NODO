@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Request, UploadFile
 
 from app.auth.dependencies import require_current_user, require_current_user_with_terms
@@ -301,6 +303,35 @@ def admin_credit_purchases(
 ) -> dict:
     return {
         "data": _service(request).admin_list_purchases(user=user, status=status, business_id=business_id, cursor=cursor, limit=limit),
+        "request_id": _request_id(request),
+    }
+
+
+@router.get("/admin/credit-transactions")
+def admin_credit_transactions(
+    request: Request,
+    financial_status: str | None = Query(default=None, max_length=32),
+    payment_method: str | None = Query(default=None, max_length=64),
+    business_id: str | None = Query(default=None, pattern=r"^[0-9a-fA-F-]{36}$"),
+    package_code: str | None = Query(default=None, max_length=32),
+    created_from: datetime | None = Query(default=None),
+    created_to: datetime | None = Query(default=None),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=50),
+    user: UserRecord = Depends(require_current_user),
+) -> dict:
+    return {
+        "data": _service(request).admin_list_credit_transactions(
+            user=user,
+            financial_status=financial_status,
+            payment_method=payment_method,
+            business_id=business_id,
+            package_code=package_code,
+            created_from=created_from,
+            created_to=created_to,
+            cursor=cursor,
+            limit=limit,
+        ),
         "request_id": _request_id(request),
     }
 

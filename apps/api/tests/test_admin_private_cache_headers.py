@@ -57,6 +57,7 @@ def test_all_private_admin_surfaces_disable_response_caching() -> None:
         "/api/v1/admin/jobs/runs",
         "/api/v1/admin/business-intake",
         "/api/v1/admin/credit-purchases?status=pending_manual_review",
+        "/api/v1/admin/credit-transactions?limit=20",
         "/api/v1/admin/staff",
         "/api/v1/admin/incident-console",
         "/api/v1/admin/ux-friction",

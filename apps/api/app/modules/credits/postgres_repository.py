@@ -15,6 +15,7 @@ from app.modules.credits.postgres_contract_purchase import (
     find_pending_contract_purchase_pg,
     get_contract_purchase_by_idempotency_pg,
 )
+from app.modules.credits.postgres_credit_transactions import list_credit_transactions_pg
 from app.modules.credits.postgres_purchases import (
     apply_onchain_verification_pg,
     approve_purchase_pg,
@@ -215,6 +216,30 @@ class PostgresCreditRepository:
 
     def list_purchases(self, *, status: str | None, business_id: str | None, cursor: str | None, limit: int) -> tuple[list[CreditPurchaseRecord], str | None]:
         return list_purchases_pg(self._connect, status=status, business_id=business_id, cursor=cursor, limit=limit)
+
+    def list_credit_transactions(
+        self,
+        *,
+        financial_status: str | None,
+        payment_method: str | None,
+        business_id: str | None,
+        package_code: str | None,
+        created_from,
+        created_to,
+        cursor: str | None,
+        limit: int,
+    ):
+        return list_credit_transactions_pg(
+            self._connect,
+            financial_status=financial_status,
+            payment_method=payment_method,
+            business_id=business_id,
+            package_code=package_code,
+            created_from=created_from,
+            created_to=created_to,
+            cursor=cursor,
+            limit=limit,
+        )
 
     def list_onchain_pending_purchases(self, *, limit: int) -> list[CreditPurchaseRecord]:
         return list_onchain_pending_purchases_pg(self._connect, limit=limit)

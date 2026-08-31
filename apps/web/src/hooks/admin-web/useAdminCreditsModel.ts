@@ -1,6 +1,7 @@
 import type { AuthenticatedRequest } from "../../api/client";
 import { useAdminCreditAdjustmentsModel } from "./useAdminCreditAdjustmentsModel";
 import { useAdminCreditPurchasesModel } from "./useAdminCreditPurchasesModel";
+import { useAdminCreditTransactionsModel } from "./useAdminCreditTransactionsModel";
 import type { CreditsView, QueueCriticalAction } from "./adminCreditsTypes";
 
 export function useAdminCreditsModel({
@@ -40,9 +41,16 @@ export function useAdminCreditsModel({
     setNotice,
     setReason
   });
+  const transactions = useAdminCreditTransactionsModel({
+    request,
+    setBusy,
+    setNotice,
+    setView
+  });
 
   return {
     ...purchases,
-    ...adjustments
+    ...adjustments,
+    ...transactions
   };
 }

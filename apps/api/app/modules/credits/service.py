@@ -406,6 +406,31 @@ class CreditService:
     def admin_list_purchases(self, *, user: UserRecord, status: str | None, business_id: str | None, cursor: str | None, limit: int) -> dict[str, Any]:
         return self._admin_actions.list_purchases(user=user, status=status, business_id=business_id, cursor=cursor, limit=limit)
 
+    def admin_list_credit_transactions(
+        self,
+        *,
+        user: UserRecord,
+        financial_status: str | None,
+        payment_method: str | None,
+        business_id: str | None,
+        package_code: str | None,
+        created_from,
+        created_to,
+        cursor: str | None,
+        limit: int,
+    ) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+        return self._admin_actions.list_transactions(
+            user=user,
+            financial_status=financial_status,
+            payment_method=payment_method,
+            business_id=business_id,
+            package_code=package_code,
+            created_from=created_from,
+            created_to=created_to,
+            cursor=cursor,
+            limit=limit,
+        )
+
     def admin_purchase_detail(self, *, user: UserRecord, purchase_id: str) -> dict[str, Any]:
         return self._admin_actions.purchase_detail(user=user, purchase_id=purchase_id)
 

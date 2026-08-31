@@ -875,6 +875,7 @@
 .admin-web-orders-panel,
 .admin-web-disputes-panel,
 .admin-web-credit-purchases-panel,
+.admin-web-credit-transactions-panel,
 .admin-web-audit-logs-panel,
 .admin-web-business-intake-panel,
 .admin-web-businesses-panel,
@@ -886,12 +887,14 @@
 
 .admin-web-toolbar--orders,
 .admin-web-toolbar--businesses,
+.admin-web-toolbar--credit-transactions,
 .admin-web-toolbar--users {
   align-items: end;
 }
 
 .admin-web-toolbar--orders label,
 .admin-web-toolbar--businesses label,
+.admin-web-toolbar--credit-transactions label,
 .admin-web-toolbar--users label {
   min-width: min(240px, 100%);
 }
@@ -899,6 +902,7 @@
 .admin-web-orders-list-scroll,
 .admin-web-disputes-list-scroll,
 .admin-web-credit-purchases-list-scroll,
+.admin-web-credit-transactions-list-scroll,
 .admin-web-audit-logs-list-scroll,
 .admin-web-business-intake-list-scroll,
 .admin-web-businesses-list-scroll,
@@ -918,6 +922,7 @@
 .admin-web-orders-list-scroll:focus-visible,
 .admin-web-disputes-list-scroll:focus-visible,
 .admin-web-credit-purchases-list-scroll:focus-visible,
+.admin-web-credit-transactions-list-scroll:focus-visible,
 .admin-web-audit-logs-list-scroll:focus-visible,
 .admin-web-business-intake-list-scroll:focus-visible,
 .admin-web-businesses-list-scroll:focus-visible,
@@ -929,6 +934,7 @@
 .admin-web-orders-list-scroll .admin-web-table-wrap,
 .admin-web-disputes-list-scroll .admin-web-table-wrap,
 .admin-web-credit-purchases-list-scroll .admin-web-table-wrap,
+.admin-web-credit-transactions-list-scroll .admin-web-table-wrap,
 .admin-web-audit-logs-list-scroll .admin-web-table-wrap,
 .admin-web-business-intake-list-scroll .admin-web-table-wrap,
 .admin-web-businesses-list-scroll .admin-web-table-wrap,
@@ -939,6 +945,7 @@
 .admin-web-orders-list-scroll .admin-web-table th,
 .admin-web-disputes-list-scroll .admin-web-table th,
 .admin-web-credit-purchases-list-scroll .admin-web-table th,
+.admin-web-credit-transactions-list-scroll .admin-web-table th,
 .admin-web-audit-logs-list-scroll .admin-web-table th,
 .admin-web-business-intake-list-scroll .admin-web-table th,
 .admin-web-businesses-list-scroll .admin-web-table th,
@@ -946,6 +953,39 @@
   position: sticky;
   z-index: 1;
   top: 0;
+}
+
+.admin-web-credit-transactions-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.admin-web-credit-transactions-summary > div {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 10px 11px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: rgb(7 12 26 / 60%);
+}
+
+.admin-web-credit-transactions-summary span {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-web-credit-transactions-summary strong {
+  overflow: hidden;
+  font-size: 20px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-web-credit-detail-scroll {
@@ -2501,6 +2541,10 @@
   .admin-dashboard-kpi-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .admin-web-credit-transactions-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -2526,6 +2570,7 @@
   .admin-web-nav,
   .admin-web-grid,
   .admin-web-detail-grid,
+  .admin-web-credit-transactions-summary,
   .admin-web-intake-hero,
   .admin-web-checklist,
   .admin-web-split,

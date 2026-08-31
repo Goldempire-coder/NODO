@@ -1,5 +1,10 @@
 import type { BusinessOperationalCapacity, BusinessSummary } from "./business";
-import type { AdminCreditPurchaseDetail, AdminCreditPurchaseSummary } from "./credits";
+import type {
+  AdminCreditPurchaseDetail,
+  AdminCreditPurchaseSummary,
+  AdminCreditTransactionItem,
+  AdminCreditTransactionSummary
+} from "./credits";
 import type { SupportTicket } from "./support";
 
 export type AdminBusinessPublicationHold = {
@@ -747,6 +752,12 @@ export type AdminCreditPurchaseListResponse = {
   items: AdminCreditPurchaseSummary[];
   next_cursor: string | null;
   disclaimer?: string;
+};
+
+export type AdminCreditTransactionListResponse = {
+  items: AdminCreditTransactionItem[];
+  next_cursor: string | null;
+  summary: AdminCreditTransactionSummary;
 };
 
 export type AdminCreditPurchaseDetailResponse = AdminCreditPurchaseDetail;

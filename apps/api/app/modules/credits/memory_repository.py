@@ -4,6 +4,11 @@ from threading import RLock
 
 from app.modules.ads.models import CreditLedgerRecord, CreditWalletRecord
 from app.modules.businesses.models import FileAssetRecord
+from app.modules.credits.credit_transactions import (
+    CreditTransactionRecord,
+    credit_transaction_status,
+    summarize_credit_transactions,
+)
 from app.modules.credits.memory_purchases import InMemoryCreditPurchaseStore
 from app.modules.credits.memory_referrals import InMemoryReferralStore
 from app.modules.credits.memory_wallet import InMemoryCreditWalletStore
@@ -12,6 +17,7 @@ from app.modules.credits.models import (
     ReferralCodeRecord,
     ReferralEventRecord,
 )
+from app.shared.keyset_pagination import paginate_descending
 
 
 class InMemoryCreditRepository:
@@ -161,6 +167,53 @@ class InMemoryCreditRepository:
 
     def list_purchases(self, *, status: str | None, business_id: str | None, cursor: str | None, limit: int) -> tuple[list[CreditPurchaseRecord], str | None]:
         return self._purchase_store.list_purchases(status=status, business_id=business_id, cursor=cursor, limit=limit)
+
+    def list_credit_transactions(
+        self,
+        *,
+        financial_status: str | None,
+        payment_method: str | None,
+        business_id: str | None,
+        package_code: str | None,
+        created_from,
+        created_to,
+        cursor: str | None,
+        limit: int,
+    ):
+        with self._lock:
+            business_ids = {purchase.business_id for purchase in self.purchases.values()}
+            businesses = self._businesses.get_businesses_by_ids(business_ids)
+            records: list[CreditTransactionRecord] = []
+            for purchase in self.purchases.values():
+                if payment_method and purchase.payment_method != payment_method:
+                    continue
+                if business_id and purchase.business_id != business_id:
+                    continue
+                if package_code and purchase.package_code != package_code:
+                    continue
+                if created_from and purchase.created_at < created_from:
+                    continue
+                if created_to and purchase.created_at > created_to:
+                    continue
+                ledger = self._wallet_store.ledger_for_purchase(purchase.id)
+                business = businesses.get(purchase.business_id)
+                record = CreditTransactionRecord(
+                    purchase=purchase,
+                    business_name=business.business_name if business else None,
+                    ledger=ledger,
+                )
+                if financial_status and credit_transaction_status(purchase, ledger) != financial_status:
+                    continue
+                records.append(record)
+            summary = summarize_credit_transactions(records)
+            page, next_cursor = paginate_descending(
+                records,
+                timestamp_of=lambda record: record.purchase.created_at,
+                id_of=lambda record: record.purchase.id,
+                cursor=cursor,
+                limit=limit,
+            )
+            return page, next_cursor, summary
 
     def list_onchain_pending_purchases(self, *, limit: int) -> list[CreditPurchaseRecord]:
         return self._purchase_store.list_onchain_pending_purchases(limit=limit)

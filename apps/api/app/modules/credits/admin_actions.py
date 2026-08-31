@@ -1,12 +1,24 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
+from uuid import UUID
 
 from app.core.errors import ApiError
-from app.modules.credits.models import CreditPurchaseRecord
+from app.modules.credits.credit_transactions import CREDIT_TRANSACTION_STATUSES
+from app.modules.credits.models import (
+    CREDIT_PACKAGES,
+    PURCHASE_METHODS,
+    CreditPurchaseRecord,
+)
 from app.modules.credits.policy import require_admin_mutation, require_admin_view
-from app.modules.credits.schemas import AdminCreditAdjustmentRequest, AdminReviewCreditPurchaseRequest
+from app.modules.credits.schemas import (
+    AdminCreditAdjustmentRequest,
+    AdminReviewCreditPurchaseRequest,
+)
 from app.modules.credits.serializers import (
+    admin_credit_transaction_item,
+    admin_credit_transaction_summary,
     admin_onchain_evidence,
     admin_purchase_detail,
     admin_purchase_reconciliation,
@@ -39,6 +51,49 @@ class CreditAdminActions:
         self._rate_limit("admin_list_purchases", user.id)
         items, next_cursor = self._repository.list_purchases(status=status, business_id=business_id, cursor=cursor, limit=limit)
         return {"items": [admin_purchase_summary(item) for item in items], "next_cursor": next_cursor}
+
+    def list_transactions(
+        self,
+        *,
+        user: UserRecord,
+        financial_status: str | None,
+        payment_method: str | None,
+        business_id: str | None,
+        package_code: str | None,
+        created_from,
+        created_to,
+        cursor: str | None,
+        limit: int,
+    ) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+        require_admin_view(user)
+        self._rate_limit("admin_list_credit_transactions", user.id)
+        normalized_status = financial_status.strip().lower() if financial_status else None
+        normalized_method = payment_method.strip().lower() if payment_method else None
+        normalized_package = package_code.strip().lower() if package_code else None
+        normalized_business_id = _uuid_filter(business_id)
+        if normalized_status and normalized_status not in CREDIT_TRANSACTION_STATUSES:
+            raise ApiError("CREDIT_TRANSACTION_STATUS_INVALID", status_code=422)
+        if normalized_method and normalized_method not in PURCHASE_METHODS:
+            raise ApiError("CREDIT_PAYMENT_METHOD_INVALID", status_code=422)
+        if normalized_package and normalized_package not in CREDIT_PACKAGES:
+            raise ApiError("CREDIT_PACKAGE_INVALID", status_code=422)
+        if created_from and created_to and created_from > created_to:
+            raise ApiError("CREDIT_TRANSACTION_DATE_RANGE_INVALID", status_code=422)
+        items, next_cursor, summary = self._repository.list_credit_transactions(
+            financial_status=normalized_status,
+            payment_method=normalized_method,
+            business_id=normalized_business_id,
+            package_code=normalized_package,
+            created_from=created_from,
+            created_to=created_to,
+            cursor=cursor,
+            limit=limit,
+        )
+        return {
+            "items": [admin_credit_transaction_item(item) for item in items],
+            "next_cursor": next_cursor,
+            "summary": admin_credit_transaction_summary(summary),
+        }
 
     def purchase_detail(self, *, user: UserRecord, purchase_id: str) -> dict[str, Any]:
         require_admin_view(user)
@@ -125,3 +180,12 @@ class CreditAdminActions:
             "ledger": ledger_public(ledger) if ledger else None,
             "reconciliation": admin_purchase_reconciliation(purchase, ledger),
         }
+
+
+def _uuid_filter(value: str | None) -> str | None:
+    if value is None:
+        return None
+    try:
+        return str(UUID(value.strip()))
+    except ValueError as exc:
+        raise ApiError("BUSINESS_ID_INVALID", status_code=422) from exc
