@@ -9,7 +9,11 @@ from app.modules.chat.payment_sharing import (
     contains_configured_payment_account,
     official_payment_details_idempotency_key,
 )
-from app.modules.chat.row_mappers import attachment_from_row, file_from_row, message_from_row
+from app.modules.chat.row_mappers import (
+    attachment_from_row,
+    file_from_row,
+    message_from_row,
+)
 from app.shared.db.connection import pooled_connect
 from app.shared.keyset_pagination import decode_keyset_cursor, encode_keyset_cursor
 
@@ -77,17 +81,19 @@ class PostgresChatRepository:
         direction: str,
         limit: int,
         anchor_created_at=None,  # type: ignore[no-untyped-def]
+        anchor_message_id: str | None = None,
     ) -> tuple[list[MessageRecord], str | None, str | None]:
         sql = "select * from messages where order_id = %s and deleted_at is null"
         params: list[Any] = [order_id]
         descending = direction != "newer"
         if cursor:
-            sql += " and created_at > %s" if direction == "newer" else " and created_at < %s"
-            params.append(cursor)
-        elif anchor_created_at is not None:
-            sql += " and created_at <= %s"
-            params.append(anchor_created_at)
-        sql += " order by created_at desc" if descending else " order by created_at asc"
+            position = decode_keyset_cursor(cursor)
+            sql += " and (created_at, id) > (%s, %s::uuid)" if direction == "newer" else " and (created_at, id) < (%s, %s::uuid)"
+            params.extend([position.timestamp, position.item_id])
+        elif anchor_created_at is not None and anchor_message_id is not None:
+            sql += " and (created_at, id) <= (%s, %s::uuid)"
+            params.extend([anchor_created_at, anchor_message_id])
+        sql += " order by created_at desc, id desc" if descending else " order by created_at asc, id asc"
         sql += " limit %s"
         params.append(limit)
         with self._connect() as conn:
@@ -99,14 +105,21 @@ class PostgresChatRepository:
             bounds = conn.execute(
                 """
                 select
-                    exists(select 1 from messages where order_id = %s and deleted_at is null and created_at < %s) as has_older,
-                    exists(select 1 from messages where order_id = %s and deleted_at is null and created_at > %s) as has_newer
+                    exists(select 1 from messages where order_id = %s and deleted_at is null and (created_at, id) < (%s, %s::uuid)) as has_older,
+                    exists(select 1 from messages where order_id = %s and deleted_at is null and (created_at, id) > (%s, %s::uuid)) as has_newer
                 """,
-                (order_id, rows[0]["created_at"], order_id, rows[-1]["created_at"]),
+                (
+                    order_id,
+                    rows[0]["created_at"],
+                    str(rows[0]["id"]),
+                    order_id,
+                    rows[-1]["created_at"],
+                    str(rows[-1]["id"]),
+                ),
             ).fetchone()
         items = [message_from_row(row) for row in rows]
-        older_cursor = items[0].created_at.isoformat() if bounds["has_older"] else None
-        newer_cursor = items[-1].created_at.isoformat() if bounds["has_newer"] else None
+        older_cursor = encode_keyset_cursor(items[0].created_at, items[0].id) if bounds["has_older"] else None
+        newer_cursor = encode_keyset_cursor(items[-1].created_at, items[-1].id) if bounds["has_newer"] else None
         return items, older_cursor, newer_cursor
 
     def get_message_by_idempotency_key(self, *, sender_user_id: str, idempotency_key: str) -> MessageRecord | None:

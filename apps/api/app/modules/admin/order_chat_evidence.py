@@ -81,6 +81,7 @@ class AdminOrderChatEvidenceService:
             direction=page_direction,
             limit=limit,
             anchor_created_at=anchor_created_at,
+            anchor_message_id=highlighted_message.id if highlighted_message is not None else None,
         )
         attachments = self._chat.list_attachments_for_messages([message.id for message in items])
         highlight_found = bool(highlight_message_id and any(message.id == highlight_message_id for message in items))

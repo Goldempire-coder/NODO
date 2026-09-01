@@ -3,13 +3,22 @@ from __future__ import annotations
 from threading import RLock
 
 from app.modules.businesses.models import FileAssetRecord
-from app.modules.chat.models import MessageAttachmentRecord, MessageRecord, new_id, utc_now
+from app.modules.chat.models import (
+    MessageAttachmentRecord,
+    MessageRecord,
+    new_id,
+    utc_now,
+)
 from app.modules.chat.payment_sharing import (
     contains_configured_payment_account,
     is_official_payment_details_idempotency_key,
     official_payment_details_idempotency_key,
 )
-from app.shared.keyset_pagination import paginate_descending
+from app.shared.keyset_pagination import (
+    decode_keyset_cursor,
+    encode_keyset_cursor,
+    paginate_descending,
+)
 
 
 class InMemoryChatRepository:
@@ -72,25 +81,47 @@ class InMemoryChatRepository:
         direction: str,
         limit: int,
         anchor_created_at=None,  # type: ignore[no-untyped-def]
+        anchor_message_id: str | None = None,
     ) -> tuple[list[MessageRecord], str | None, str | None]:
         all_items = [message for message in self.messages.values() if message.order_id == order_id and message.deleted_at is None]
-        all_items.sort(key=lambda message: message.created_at)
+        all_items.sort(key=lambda message: (message.created_at, message.id))
         if cursor:
+            position = decode_keyset_cursor(cursor)
             if direction == "newer":
-                candidates = [message for message in all_items if message.created_at.isoformat() > cursor]
+                candidates = [
+                    message
+                    for message in all_items
+                    if (message.created_at, message.id) > (position.timestamp, position.item_id)
+                ]
                 page = candidates[:limit]
             else:
-                candidates = [message for message in all_items if message.created_at.isoformat() < cursor]
+                candidates = [
+                    message
+                    for message in all_items
+                    if (message.created_at, message.id) < (position.timestamp, position.item_id)
+                ]
                 page = candidates[-limit:]
-        elif anchor_created_at is not None:
-            candidates = [message for message in all_items if message.created_at <= anchor_created_at]
+        elif anchor_created_at is not None and anchor_message_id is not None:
+            candidates = [
+                message
+                for message in all_items
+                if (message.created_at, message.id) <= (anchor_created_at, anchor_message_id)
+            ]
             page = candidates[-limit:]
         else:
             page = all_items[-limit:]
         if not page:
             return [], None, None
-        older_cursor = page[0].created_at.isoformat() if any(message.created_at < page[0].created_at for message in all_items) else None
-        newer_cursor = page[-1].created_at.isoformat() if any(message.created_at > page[-1].created_at for message in all_items) else None
+        older_cursor = (
+            encode_keyset_cursor(page[0].created_at, page[0].id)
+            if any((message.created_at, message.id) < (page[0].created_at, page[0].id) for message in all_items)
+            else None
+        )
+        newer_cursor = (
+            encode_keyset_cursor(page[-1].created_at, page[-1].id)
+            if any((message.created_at, message.id) > (page[-1].created_at, page[-1].id) for message in all_items)
+            else None
+        )
         return page, older_cursor, newer_cursor
 
     def get_message_by_idempotency_key(self, *, sender_user_id: str, idempotency_key: str) -> MessageRecord | None:

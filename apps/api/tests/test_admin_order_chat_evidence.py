@@ -13,7 +13,6 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-
 TEST_BOT_CREDENTIAL = "123456:test-bot-credential"
 
 
@@ -43,9 +42,9 @@ def _set_env() -> None:
 
 _set_env()
 
-from app.main import create_app  # noqa: E402
-from app.modules.businesses.models import utc_now  # noqa: E402
-from app.modules.businesses.pin_security import hash_pin  # noqa: E402
+from app.main import create_app
+from app.modules.businesses.models import utc_now
+from app.modules.businesses.pin_security import hash_pin
 
 
 def _client() -> TestClient:
@@ -307,6 +306,50 @@ def test_admin_chat_evidence_includes_highlight_outside_latest_page() -> None:
     assert payload["highlight_found"] is True
     assert any(item["message_id"] == messages[0].id and item["highlighted"] for item in payload["items"])
     assert payload["newer_cursor"] is not None
+
+
+def test_admin_chat_evidence_cursor_does_not_lose_messages_with_tied_created_at() -> None:
+    client = _client()
+    owner, _, order = _seed_reported_order(client, owner_id=4531, remitter_id=4532)
+    repository = client.app.state.chat_repository
+    tied_at = utc_now() - timedelta(minutes=10)
+    created_ids: set[str] = set()
+    for index in range(55):
+        message = repository.create_message(
+            order_id=order["id"],
+            sender_user_id=owner["user"]["id"],
+            sender_role="business_owner",
+            body=f"Mensaje empatado {index + 1}",
+            idempotency_key=f"admin_tied_evidence_{index + 1}",
+        )
+        message.created_at = tied_at
+        message.updated_at = tied_at
+        created_ids.add(message.id)
+    admin = _login(client, 4533, "admin_4533", role="admin")
+
+    seen: list[str] = []
+    cursor: str | None = None
+    for page_number in range(10):
+        params: dict[str, str | int] = {"limit": 20}
+        if cursor:
+            params["cursor"] = cursor
+            params["direction"] = "older"
+        response = client.get(
+            f"/api/v1/admin/orders/{order['id']}/chat-evidence",
+            params=params,
+            headers=_bearer(admin, f"req_tied_admin_evidence_{page_number}"),
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()["data"]
+        page_ids = [item["message_id"] for item in payload["items"]]
+        assert not set(page_ids).intersection(seen)
+        seen.extend(page_ids)
+        cursor = payload["older_cursor"]
+        if cursor is None:
+            break
+
+    assert set(seen) == created_ids
+    assert len(seen) == 55
 
 
 def test_admin_chat_evidence_frontend_contract_is_read_only_and_preserves_highlight() -> None:
