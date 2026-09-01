@@ -66,6 +66,9 @@ def test_slice_50a_client_confirms_minimal_quote_before_post_and_opens_chat() ->
     assert "Confirmar negociacion" in orders_screen
     assert "Monto que entregas" in orders_screen
     assert "Monto que recibe" in orders_screen
+    assert "notice" in orders_screen
+    assert 'className="auth-entry__message"' in orders_screen
+    assert 'role={notice === "Preparando tu orden" ? "status" : "alert"}' in orders_screen
     assert "Banco receptor" not in orders_screen
     assert "Telefono receptor" not in orders_screen
     assert "Documento receptor" not in orders_screen

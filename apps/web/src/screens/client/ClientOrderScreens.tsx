@@ -36,6 +36,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
     loadMoreMyOrders,
     myOrders,
     myOrdersNextCursor,
+    notice,
     openingChatOrderId,
     openingOrderId,
     openOrderChat,
@@ -83,6 +84,11 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
                 <Text>Monto que recibe: {quotedAmountBs(orderForm.amount_usd, selectedAd.rate_bs_per_usd)} Bs</Text>
                 <Text>Metodo: {formatOrderMethodLine(selectedAd.payment_method, selectedAd.delivery_method)}</Text>
               </div>
+              {notice ? (
+                <Text className="auth-entry__message" role={notice === "Preparando tu orden" ? "status" : "alert"}>
+                  {notice}
+                </Text>
+              ) : null}
               <div className="business-shell__tabs">
                 <Button mode="outline" size="s" disabled={creatingOrder} onClick={() => setView("marketplace-detail")}>
                   Volver
