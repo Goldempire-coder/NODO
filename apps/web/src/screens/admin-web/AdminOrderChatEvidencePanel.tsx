@@ -41,7 +41,7 @@ export function AdminOrderChatEvidencePanel({ model }: { model: AdminWebModel })
         </div>
       ) : null}
 
-      {conversationRequested && model.orderChatEvidenceLoading ? <p className="admin-web-muted" role="status">Cargando conversacion...</p> : null}
+      {conversationRequested && model.orderChatEvidenceLoading ? <p className="admin-web-muted" role="status">Cargando conversacion completa...</p> : null}
       {model.orderChatEvidenceError ? (
         <div className="admin-order-chat-evidence__error" role="alert">
           <span>{model.orderChatEvidenceError}</span>
@@ -50,7 +50,7 @@ export function AdminOrderChatEvidencePanel({ model }: { model: AdminWebModel })
       ) : null}
 
       {conversationRequested && evidence?.older_cursor ? (
-        <button className="admin-order-chat-evidence__page" type="button" disabled={model.orderChatEvidenceLoadingMore !== null} onClick={() => void model.loadOlderOrderChatEvidence()}>
+        <button className="admin-order-chat-evidence__page" type="button" disabled={model.orderChatEvidenceLoading || model.orderChatEvidenceLoadingMore !== null} onClick={() => void model.loadOlderOrderChatEvidence()}>
           {model.orderChatEvidenceLoadingMore === "older" ? "Cargando..." : "Cargar mensajes anteriores"}
         </button>
       ) : null}
@@ -90,7 +90,7 @@ export function AdminOrderChatEvidencePanel({ model }: { model: AdminWebModel })
       ) : null}
 
       {conversationRequested && evidence?.newer_cursor ? (
-        <button className="admin-order-chat-evidence__page" type="button" disabled={model.orderChatEvidenceLoadingMore !== null} onClick={() => void model.loadNewerOrderChatEvidence()}>
+        <button className="admin-order-chat-evidence__page" type="button" disabled={model.orderChatEvidenceLoading || model.orderChatEvidenceLoadingMore !== null} onClick={() => void model.loadNewerOrderChatEvidence()}>
           {model.orderChatEvidenceLoadingMore === "newer" ? "Cargando..." : "Cargar mensajes posteriores"}
         </button>
       ) : null}

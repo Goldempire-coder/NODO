@@ -325,6 +325,10 @@ def test_admin_chat_evidence_frontend_contract_is_read_only_and_preserves_highli
     assert "prepareOrderChatEvidence(orderId, highlightMessageId)" in orders_hook
     assert "void chatEvidence.loadOrderChatEvidence" not in orders_hook
     assert "showOrderChatEvidence" in evidence_hook
+    assert "MAX_AUTO_CHAT_EVIDENCE_PAGES" in evidence_hook
+    assert "loadRemainingOrderChatEvidencePages" in evidence_hook
+    assert '{ cursor, direction }' in evidence_hook
+    assert "mergeMessages(combined.items, page.items)" in evidence_hook
     assert "orderChatEvidenceRequested: requested" in evidence_hook
     assert "initialLoadInFlight" in evidence_hook
     assert "admin_order_chat_evidence_load" in evidence_hook
@@ -334,6 +338,8 @@ def test_admin_chat_evidence_frontend_contract_is_read_only_and_preserves_highli
     assert "AdminOrderChatEvidencePanel" in panel
     assert "Ver conversacion" in panel
     assert "model.showOrderChatEvidence()" in panel
+    assert "Cargando conversacion completa" in panel
+    assert "model.orderChatEvidenceLoading || model.orderChatEvidenceLoadingMore !== null" in panel
     assert "textarea" not in panel
     assert "Enviar" not in panel
     assert "dangerouslySetInnerHTML" not in panel

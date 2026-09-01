@@ -4,6 +4,8 @@ import { ApiClientError, type AuthenticatedRequest } from "../../api/client";
 import type { AdminOrderChatEvidence, AdminOrderChatEvidenceMessage } from "../../types/admin";
 import { actionStartedAt, recordActionCompleted, recordActionFailed, recordActionStarted } from "../actionTelemetry";
 
+const MAX_AUTO_CHAT_EVIDENCE_PAGES = 4;
+
 function mergeMessages(current: AdminOrderChatEvidenceMessage[], incoming: AdminOrderChatEvidenceMessage[]) {
   const merged = new Map(current.map((message) => [message.message_id, message]));
   for (const message of incoming) {
@@ -25,6 +27,52 @@ export function useAdminOrderChatEvidenceModel({
   const currentRequest = useRef(0);
   const activeOrder = useRef<{ orderId: string; highlightMessageId?: string } | null>(null);
   const initialLoadInFlight = useRef(false);
+
+  const loadRemainingOrderChatEvidencePages = useCallback(async ({
+    orderId,
+    requestSequence,
+    initialPayload
+  }: {
+    orderId: string;
+    requestSequence: number;
+    initialPayload: AdminOrderChatEvidence;
+  }) => {
+    let combined = initialPayload;
+    let remainingPages = MAX_AUTO_CHAT_EVIDENCE_PAGES;
+    const seenPageRequests = new Set<string>();
+
+    while (remainingPages > 0 && (combined.older_cursor || combined.newer_cursor)) {
+      const direction = combined.older_cursor ? "older" : "newer";
+      const cursor = direction === "older" ? combined.older_cursor : combined.newer_cursor;
+      if (!cursor) {
+        break;
+      }
+
+      const pageKey = `${direction}:${cursor}`;
+      if (seenPageRequests.has(pageKey)) {
+        break;
+      }
+      seenPageRequests.add(pageKey);
+      remainingPages -= 1;
+      setLoadingMore(direction);
+
+      const page = await getAdminOrderChatEvidence<AdminOrderChatEvidence>(request, orderId, { cursor, direction });
+      if (currentRequest.current !== requestSequence || activeOrder.current?.orderId !== orderId) {
+        return null;
+      }
+
+      combined = {
+        ...combined,
+        items: mergeMessages(combined.items, page.items),
+        older_cursor: direction === "older" ? page.older_cursor : combined.older_cursor,
+        newer_cursor: direction === "newer" ? page.newer_cursor : combined.newer_cursor,
+        highlight_found: combined.highlight_found || page.highlight_found
+      };
+      setEvidence(combined);
+    }
+
+    return combined;
+  }, [request]);
 
   const prepareOrderChatEvidence = useCallback((orderId: string, highlightMessageId?: string) => {
     currentRequest.current += 1;
@@ -61,26 +109,32 @@ export function useAdminOrderChatEvidenceModel({
         return;
       }
       setEvidence(payload);
+      const completedPayload = await loadRemainingOrderChatEvidencePages({ orderId, requestSequence, initialPayload: payload });
+      if (completedPayload === null || currentRequest.current !== requestSequence) {
+        return;
+      }
+      setEvidence(completedPayload);
       recordActionCompleted("admin_order_chat_evidence_load", "order-detail", startedAt);
     } catch (loadError) {
       if (currentRequest.current !== requestSequence) {
         return;
       }
       const errorCode = loadError instanceof ApiClientError ? loadError.code : undefined;
-      setError(loadError instanceof Error ? loadError.message : "No pudimos cargar la conversacion.");
+      setError(loadError instanceof Error ? loadError.message : "No pudimos cargar toda la conversacion.");
       recordActionFailed("admin_order_chat_evidence_load", "order-detail", startedAt, errorCode);
     } finally {
       if (currentRequest.current === requestSequence) {
         initialLoadInFlight.current = false;
         setLoading(false);
+        setLoadingMore(null);
       }
     }
-  }, [request]);
+  }, [loadRemainingOrderChatEvidencePages, request]);
 
   const loadPage = useCallback(async (direction: "older" | "newer") => {
     const active = activeOrder.current;
     const cursor = direction === "older" ? evidence?.older_cursor : evidence?.newer_cursor;
-    if (!active || !cursor || loadingMore) {
+    if (!active || !cursor || loading || loadingMore) {
       return;
     }
     const requestSequence = currentRequest.current;
@@ -106,7 +160,7 @@ export function useAdminOrderChatEvidenceModel({
         setLoadingMore(null);
       }
     }
-  }, [evidence?.newer_cursor, evidence?.older_cursor, loadingMore, request]);
+  }, [evidence?.newer_cursor, evidence?.older_cursor, loading, loadingMore, request]);
 
   const retryOrderChatEvidence = useCallback(async () => {
     const active = activeOrder.current;
