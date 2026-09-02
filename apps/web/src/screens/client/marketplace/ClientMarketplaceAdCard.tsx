@@ -13,6 +13,17 @@ function businessAvailabilitySummary(ad: AdSummary): string {
     : "Online: recibiendo ofertas";
 }
 
+function businessRatingSummary(ad: AdSummary): string | null {
+  const ratingAvg = ad.business?.reputation?.rating_avg;
+  const ratingsCount = ad.business?.reputation?.ratings_count;
+  if (!ratingAvg || !ratingsCount) {
+    return null;
+  }
+  const parsedRating = Number(ratingAvg);
+  const displayRating = Number.isFinite(parsedRating) ? parsedRating.toFixed(1) : ratingAvg;
+  return `Calificación: ${displayRating}/5 (${ratingsCount})`;
+}
+
 export function ClientMarketplaceAdCard({
   ad,
   opening,
@@ -24,6 +35,7 @@ export function ClientMarketplaceAdCard({
 }) {
   const businessName = displayBusinessName(ad);
   const presentation = paymentMethodCurrencyPresentation(ad.payment_method);
+  const ratingSummary = businessRatingSummary(ad);
 
   return (
     <button
@@ -38,6 +50,7 @@ export function ClientMarketplaceAdCard({
         <strong>{businessName}</strong>
         <small className="client-marketplace-method">{presentation.offerLabel}</small>
         <small>{businessReputationSummary(ad)}</small>
+        {ratingSummary ? <small>{ratingSummary}</small> : null}
         <small>{businessAvailabilitySummary(ad)}</small>
         <small>
           Límites: {ad.amount_min_usd} - {ad.amount_max_usd}{" "}

@@ -139,7 +139,6 @@ export function useClientWorkspaceModel({
     }
     await openClientSupportTicketWithAttention(item.resource_id);
   }, [attentionAlert, openClientOrderWithAttention, openClientSupportTicketWithAttention]);
-  const didWarmClientDataRef = useRef(false);
   const handledDeepLinkRef = useRef(false);
   const prefetchActiveMarketplaceRef = useRef<() => Promise<void>>(async () => undefined);
   const prefetchMyOrdersRef = useRef<() => Promise<void>>(async () => undefined);
@@ -158,18 +157,6 @@ export function useClientWorkspaceModel({
     configureTelemetryContext(token, "client_mini_app");
     return () => configureTelemetryContext(null, null);
   }, [token]);
-
-  useEffect(() => {
-    if (didWarmClientDataRef.current || view === "welcome" || view === "terms" || view === "client-profile-setup") {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      didWarmClientDataRef.current = true;
-      void prefetchActiveMarketplaceRef.current();
-      void prefetchMyOrdersRef.current();
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [view]);
 
   useEffect(() => {
     if (
@@ -231,10 +218,12 @@ export function useClientWorkspaceModel({
     busy: state.busy,
     searchingMarketplace: state.searchingMarketplace,
     loadingMarketplace: state.loadingMarketplace,
+    loadingMoreMarketplace: state.loadingMoreMarketplace,
     openingMarketplaceAdId: state.openingMarketplaceAdId,
     searchForm: state.searchForm,
     setSearchForm: state.setSearchForm,
     searchResults: state.searchResults,
+    searchResultsNextCursor: state.searchResultsNextCursor,
     selectedAd: state.selectedAd,
     setSelectedAd: state.setSelectedAd,
     selectedOrder: state.selectedOrder,
@@ -258,6 +247,7 @@ export function useClientWorkspaceModel({
     chatAttachments: chatDisputes.chatAttachments,
     openingChatOrderId: state.openingChatOrderId,
     refreshingChat: state.refreshingChat,
+    loadingMoreChatMessages: state.loadingMoreChatMessages,
     uploadingChatAttachment: chatDisputes.uploadingChatAttachment,
     sendingChatMessage: chatDisputes.sendingChatMessage,
     orderForm: state.orderForm,
@@ -277,6 +267,7 @@ export function useClientWorkspaceModel({
     selectMarketplacePaymentMethod: marketplace.selectMarketplacePaymentMethod,
     searchFreshForAmount: marketplace.searchFreshForAmount,
     loadActiveMarketplace: marketplace.loadActiveMarketplace,
+    loadMoreActiveMarketplace: marketplace.loadMoreActiveMarketplace,
     openAdDetail: marketplace.openAdDetail,
     createOrder: remitterOrders.createOrder,
     loadMyOrders: remitterOrders.loadMyOrders,
@@ -292,6 +283,8 @@ export function useClientWorkspaceModel({
     submitOrderRating: remitterOrders.submitRating,
     openOrderChat: chatDisputes.openOrderChat,
     refreshChat: chatDisputes.refreshChat,
+    chatMessagesNextCursor: state.chatMessagesNextCursor,
+    loadMoreChatMessages: chatDisputes.loadMoreChatMessages,
     uploadChatAttachment: chatDisputes.uploadChatAttachment,
     chatAttachmentLink: chatDisputes.chatAttachmentLink,
     dismissChatAttachmentLink: chatDisputes.dismissChatAttachmentLink,

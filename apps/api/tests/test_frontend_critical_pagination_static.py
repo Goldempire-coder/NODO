@@ -73,3 +73,38 @@ def test_client_marketplace_treats_cursor_as_opaque_api_input() -> None:
     assert "cursor?: string" in ads_api
     assert "JSON.parse" not in marketplace_model
     assert "atob(" not in marketplace_model
+
+
+def test_client_marketplace_and_order_chat_load_more_only_on_tap() -> None:
+    client_model = _read("apps/web/src/hooks/useClientWorkspaceModel.ts")
+    workspace_state = _read("apps/web/src/hooks/workspace/useClientWorkspaceState.ts")
+    action_state = _read("apps/web/src/hooks/workspace/useClientActionState.ts")
+    marketplace_model = _read("apps/web/src/hooks/workspace/useClientMarketplaceModel.ts")
+    marketplace_screen = _read("apps/web/src/screens/client/ClientMarketplaceScreens.tsx")
+    marketplace_card = _read("apps/web/src/screens/client/marketplace/ClientMarketplaceAdCard.tsx")
+    chat_model = _read("apps/web/src/hooks/workspace/useClientChatDisputesModel.ts")
+    chat_screen = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
+
+    assert "searchResultsNextCursor" in workspace_state
+    assert "loadingMoreMarketplace" in action_state
+    assert "CLIENT_MARKETPLACE_PAGE_SIZE" in marketplace_model
+    assert "limit: CLIENT_MARKETPLACE_PAGE_SIZE" in marketplace_model
+    assert "loadMoreActiveMarketplace" in marketplace_model
+    assert "setSearchResultsNextCursor(data.next_cursor)" in marketplace_model
+    assert "appendUniqueById(current, data.items)" in marketplace_model
+    assert "Cargar más negocios" in marketplace_screen
+    assert "loadingMoreMarketplace" in marketplace_screen
+    assert "Calificación" in marketplace_card
+    assert "rating_avg" in marketplace_card
+    assert "ratings_count" in marketplace_card
+
+    assert "chatMessagesNextCursor" in workspace_state
+    assert "loadingMoreChatMessages" in action_state
+    assert "loadMoreChatMessages" in chat_model
+    assert "setChatMessagesNextCursor(data.next_cursor ?? null)" in chat_model
+    assert "mergeChatMessages" in chat_model
+    assert "Ver mensajes anteriores" in chat_screen
+    assert "loadingMoreChatMessages" in chat_screen
+
+    assert "prefetchActiveMarketplaceRef.current()" not in client_model
+    assert "prefetchMyOrdersRef.current()" not in client_model

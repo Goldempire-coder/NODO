@@ -865,6 +865,10 @@ textarea {
   color: var(--nodo-muted);
 }
 
+.business-order-chat-history {
+  align-self: center;
+}
+
 .business-order-chat-attachment-preview {
   min-width: 0;
   display: grid;

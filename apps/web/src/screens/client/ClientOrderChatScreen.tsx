@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Text } from "@telegram-apps/telegram-ui";
+import { Button, Text } from "@telegram-apps/telegram-ui";
 import { PaperclipIcon, SendIcon } from "../../components/nodo/ChatComposerIcons";
 import type { ClientWorkspaceModel } from "../../hooks/useClientWorkspaceModel";
 import { useClientOrderChatSync } from "../../hooks/workspace/useClientOrderChatSync";
@@ -22,7 +22,10 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
     chatBody,
     chatCapabilities,
     chatMessages,
+    chatMessagesNextCursor,
     chatOrderId,
+    loadMoreChatMessages,
+    loadingMoreChatMessages,
     loadingPaymentInstructions,
     openChatAttachment,
     openPaymentReport,
@@ -54,6 +57,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const paymentEvidenceInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const skipNextAutoScrollRef = useRef(false);
   const canSend = chatCapabilities.can_send_message && !sendingChatMessage && !uploadingChatAttachment;
   const canSubmitMessage = canSend && (chatBody.trim().length > 0 || chatAttachments.length > 0);
   const selectedChatOrder = model.selectedOrder?.id === chatOrderId ? model.selectedOrder : null;
@@ -84,6 +88,10 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
   }, [completedRating?.already_rated, completedRating?.stars, selectedChatOrder?.id, setSelectedRatingStars]);
 
   useEffect(() => {
+    if (skipNextAutoScrollRef.current) {
+      skipNextAutoScrollRef.current = false;
+      return;
+    }
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [chatOrderId, chatMessages.length, chatAttachments.length, currentPaymentInstructions?.order.id]);
 
@@ -100,6 +108,21 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
             <span className="business-order-chat-message__sender">NODO</span>
             <p>Confirma con el negocio la red exacta antes de enviar.</p>
           </article>
+        ) : null}
+        {chatMessagesNextCursor ? (
+          <div className="business-order-chat-history">
+            <Button
+              mode="outline"
+              size="s"
+              disabled={loadingMoreChatMessages}
+              onClick={() => {
+                skipNextAutoScrollRef.current = true;
+                void loadMoreChatMessages();
+              }}
+            >
+              {loadingMoreChatMessages ? "Cargando..." : "Ver mensajes anteriores"}
+            </Button>
+          </div>
         ) : null}
         <ClientChatMessageList
           messages={chatMessages}

@@ -16,7 +16,14 @@ function MarketplaceBusinessList({
   emptyMessage: string;
   model: RemitterScreensModel;
 }) {
-  const { openAdDetail, openingMarketplaceAdId, searchResults } = model;
+  const {
+    loadMoreActiveMarketplace,
+    loadingMoreMarketplace,
+    openAdDetail,
+    openingMarketplaceAdId,
+    searchResults,
+    searchResultsNextCursor
+  } = model;
   return (
     <div className="marketplace-list">
       {searchResults.length === 0 ? (
@@ -33,6 +40,11 @@ function MarketplaceBusinessList({
           onOpen={(adId) => void openAdDetail(adId)}
         />
       ))}
+      {searchResultsNextCursor ? (
+        <Button mode="outline" size="s" disabled={loadingMoreMarketplace} onClick={() => void loadMoreActiveMarketplace()}>
+          {loadingMoreMarketplace ? "Cargando..." : "Cargar más negocios"}
+        </Button>
+      ) : null}
     </div>
   );
 }

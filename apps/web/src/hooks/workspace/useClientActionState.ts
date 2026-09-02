@@ -6,6 +6,7 @@ export function useClientActionState() {
   const [busy, setBusy] = useState(false);
   const [searchingMarketplace, setSearchingMarketplace] = useState(false);
   const [loadingMarketplace, setLoadingMarketplace] = useState(false);
+  const [loadingMoreMarketplace, setLoadingMoreMarketplace] = useState(false);
   const [openingMarketplaceAdId, setOpeningMarketplaceAdId] = useState<string | null>(null);
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [loadingOrders, setLoadingOrders] = useState(false);
@@ -17,6 +18,7 @@ export function useClientActionState() {
   const [submittingPaymentReport, setSubmittingPaymentReport] = useState(false);
   const [openingChatOrderId, setOpeningChatOrderId] = useState<string | null>(null);
   const [refreshingChat, setRefreshingChat] = useState(false);
+  const [loadingMoreChatMessages, setLoadingMoreChatMessages] = useState(false);
   const [submittingRatingOrderId, setSubmittingRatingOrderId] = useState<string | null>(null);
 
   return {
@@ -26,6 +28,8 @@ export function useClientActionState() {
     setSearchingMarketplace,
     loadingMarketplace,
     setLoadingMarketplace,
+    loadingMoreMarketplace,
+    setLoadingMoreMarketplace,
     openingMarketplaceAdId,
     setOpeningMarketplaceAdId,
     creatingOrder,
@@ -48,6 +52,8 @@ export function useClientActionState() {
     setOpeningChatOrderId,
     refreshingChat,
     setRefreshingChat,
+    loadingMoreChatMessages,
+    setLoadingMoreChatMessages,
     submittingRatingOrderId,
     setSubmittingRatingOrderId
   };

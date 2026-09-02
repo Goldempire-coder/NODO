@@ -35,6 +35,7 @@ export function useClientWorkspaceState(user: PublicUser) {
     sort: "rate"
   });
   const [searchResults, setSearchResults] = useState<AdSummary[]>([]);
+  const [searchResultsNextCursor, setSearchResultsNextCursor] = useState<string | null>(null);
   const [selectedAd, setSelectedAd] = useState<AdSummary | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
   const [selectedRatingStars, setSelectedRatingStars] = useState(0);
@@ -42,6 +43,7 @@ export function useClientWorkspaceState(user: PublicUser) {
   const [chatOrderId, setChatOrderId] = useState<string | null>(null);
   const paymentOrderContextRef = useRef<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessagesNextCursor, setChatMessagesNextCursor] = useState<string | null>(null);
   const [chatCapabilities, setChatCapabilities] = useState<ChatCapabilities>({
     can_send_message: false,
     can_open_dispute: false,
@@ -80,6 +82,8 @@ export function useClientWorkspaceState(user: PublicUser) {
     setSearchingMarketplace: actions.setSearchingMarketplace,
     loadingMarketplace: actions.loadingMarketplace,
     setLoadingMarketplace: actions.setLoadingMarketplace,
+    loadingMoreMarketplace: actions.loadingMoreMarketplace,
+    setLoadingMoreMarketplace: actions.setLoadingMoreMarketplace,
     openingMarketplaceAdId: actions.openingMarketplaceAdId,
     setOpeningMarketplaceAdId: actions.setOpeningMarketplaceAdId,
     creatingOrder: actions.creatingOrder,
@@ -102,12 +106,16 @@ export function useClientWorkspaceState(user: PublicUser) {
     setOpeningChatOrderId: actions.setOpeningChatOrderId,
     refreshingChat: actions.refreshingChat,
     setRefreshingChat: actions.setRefreshingChat,
+    loadingMoreChatMessages: actions.loadingMoreChatMessages,
+    setLoadingMoreChatMessages: actions.setLoadingMoreChatMessages,
     submittingRatingOrderId: actions.submittingRatingOrderId,
     setSubmittingRatingOrderId: actions.setSubmittingRatingOrderId,
     searchForm,
     setSearchForm,
     searchResults,
     setSearchResults,
+    searchResultsNextCursor,
+    setSearchResultsNextCursor,
     selectedAd,
     setSelectedAd,
     selectedOrder,
@@ -121,6 +129,8 @@ export function useClientWorkspaceState(user: PublicUser) {
     paymentOrderContextRef,
     chatMessages,
     setChatMessages,
+    chatMessagesNextCursor,
+    setChatMessagesNextCursor,
     chatCapabilities,
     setChatCapabilities,
     orderForm,

@@ -34,10 +34,12 @@ export type RemitterScreensModel = {
   notice: string;
   searchingMarketplace: boolean;
   loadingMarketplace: boolean;
+  loadingMoreMarketplace: boolean;
   openingMarketplaceAdId: string | null;
   searchForm: SearchFormState;
   setSearchForm: Dispatch<SetStateAction<SearchFormState>>;
   searchResults: AdSummary[];
+  searchResultsNextCursor: string | null;
   selectedAd: AdSummary | null;
   setSelectedAd: Dispatch<SetStateAction<AdSummary | null>>;
   selectedOrder: OrderSummary | null;
@@ -69,6 +71,7 @@ export type RemitterScreensModel = {
   selectMarketplacePaymentMethod: (paymentMethod: SearchFormState["payment_method"]) => void;
   searchAds: () => void | Promise<void>;
   loadActiveMarketplace: (sort?: SearchFormState["sort"]) => void | Promise<void>;
+  loadMoreActiveMarketplace: () => void | Promise<void>;
   openAdDetail: (adId: string) => void | Promise<void>;
   createOrder: () => void | Promise<void>;
   loadMyOrders: (targetView?: "my-orders" | "messages") => void | Promise<void>;

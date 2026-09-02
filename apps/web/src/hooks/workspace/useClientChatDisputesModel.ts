@@ -46,16 +46,28 @@ function sortChatMessages(messages: ChatMessage[]) {
   });
 }
 
+function mergeChatMessages(current: ChatMessage[], incoming: ChatMessage[]) {
+  const byId = new Map(current.map((message) => [message.id, message]));
+  for (const message of incoming) {
+    byId.set(message.id, message);
+  }
+  return sortChatMessages(Array.from(byId.values()));
+}
+
 /** Coordinates active-order identity and backend-authoritative chat hydration. */
 export function useClientChatDisputesModel(state: ClientWorkspaceState & { request: AuthenticatedRequest }) {
   const {
     request,
     chatOrderId,
+    chatMessagesNextCursor,
+    loadingMoreChatMessages,
     selectedOrder,
     paymentOrderContextRef,
     setChatOrderId,
     setChatMessages,
+    setChatMessagesNextCursor,
     setChatCapabilities,
+    setLoadingMoreChatMessages,
     setNotice,
     setPaymentEvidence,
     setPaymentInstructions,
@@ -136,6 +148,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       setPaymentReportForm(emptyPaymentReportForm());
       setReceiverDetailsMasked(null);
       setChatMessages([]);
+      setChatMessagesNextCursor(null);
       setChatCapabilities(EMPTY_CHAT_CAPABILITIES);
       selectedOrderRef.current = null;
       setSelectedOrder(null);
@@ -154,6 +167,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       selectedOrderRef.current = hydrated.order;
       setSelectedOrder(hydrated.order);
       setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
+      setChatMessagesNextCursor(data.next_cursor ?? null);
       setChatCapabilities(data.capabilities);
       setReceiverDetailsMasked(null);
       setView("order-chat");
@@ -168,6 +182,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
         return false;
       }
       setChatMessages([]);
+      setChatMessagesNextCursor(null);
       setReceiverDetailsMasked(null);
       setChatCapabilities(EMPTY_CHAT_CAPABILITIES);
       setView("order-chat");
@@ -201,7 +216,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       }
       selectedOrderRef.current = hydrated.order;
       setSelectedOrder(hydrated.order);
-      setChatMessages(sortChatMessages([...data.system_messages, ...data.items]));
+      setChatMessages((current) => mergeChatMessages(current, [...data.system_messages, ...data.items]));
       setChatCapabilities(data.capabilities);
       if (hydrated.ratingLoadFailed && !options?.silent) {
         setNotice("No pudimos cargar el estado de la calificacion.");
@@ -223,7 +238,38 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
         setRefreshingChat(false);
       }
     }
-  }, [request, setChatCapabilities, setChatMessages, setNotice, setRefreshingChat, setSelectedOrder, withRatingState]);
+  }, [request, setChatCapabilities, setChatMessages, setChatMessagesNextCursor, setNotice, setRefreshingChat, setSelectedOrder, withRatingState]);
+
+  async function loadMoreChatMessages() {
+    const targetOrderId = chatOrderIdRef.current;
+    const cursor = chatMessagesNextCursor;
+    if (!targetOrderId || !cursor || loadingMoreChatMessages) {
+      return false;
+    }
+    const startedAt = actionStartedAt();
+    recordActionStarted("client_chat_history_load", "order-chat");
+    setLoadingMoreChatMessages(true);
+    try {
+      const data = await listOrderMessages<ChatThread<OrderSummary>>(request, targetOrderId, 25, cursor);
+      if (chatOrderIdRef.current !== targetOrderId) {
+        return false;
+      }
+      setChatMessages((current) => mergeChatMessages(current, data.items));
+      setChatMessagesNextCursor(data.next_cursor ?? null);
+      recordActionCompleted("client_chat_history_load", "order-chat", startedAt);
+      return true;
+    } catch (error) {
+      if (chatOrderIdRef.current === targetOrderId) {
+        setNotice(error instanceof Error ? error.message : "No pudimos cargar mensajes anteriores.");
+      }
+      recordActionFailed("client_chat_history_load", "order-chat", startedAt, error instanceof Error ? error.name : undefined);
+      return false;
+    } finally {
+      if (chatOrderIdRef.current === targetOrderId) {
+        setLoadingMoreChatMessages(false);
+      }
+    }
+  }
 
   const composer = useClientChatComposerModel({
     request,
@@ -317,6 +363,7 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
   return {
     openOrderChat,
     refreshChat,
+    loadMoreChatMessages,
     ...composer,
     receiverDetailsForm,
     setReceiverDetailsForm,
