@@ -268,7 +268,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
           <div>
             <strong>{pendingCreditPurchase ? "Termina este pago en MetaMask." : "Paga con MetaMask."}</strong>
             <Text>NODO no ve ni guarda tu clave privada.</Text>
-            <small>{pendingCreditPurchase ? "MetaMask abrira el paso que falta." : "MetaMask mostrara cada paso antes de enviarlo."}</small>
+            <small>{pendingCreditPurchase ? "MetaMask abrira el paso que falta." : "MetaMask mostrara cada paso antes de confirmarlo."}</small>
             <small>Esta wallet será la que firma y paga.</small>
           </div>
         </div>
@@ -355,7 +355,7 @@ export function BuyCreditsScreen({ model }: { model: BusinessMiniAppModel }) {
               : "Elige un paquete para ver el monto."}
         </Text>
         <Text>Necesitas saldo USDC y fondos para la comision de red.</Text>
-        <Text>La wallet mostrara el permiso exacto y el pago antes de enviarlos.</Text>
+        <Text>La wallet mostrara el permiso exacto y el pago antes de confirmarlos.</Text>
         <small>NODO revisa el pago automaticamente.</small>
       </div>
     </div>

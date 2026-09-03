@@ -106,7 +106,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         {paymentReportMethod === "usdt_trc20" ? (
           <article className="business-order-chat-message business-order-chat-message--system">
             <span className="business-order-chat-message__sender">NODO</span>
-            <p>Confirma con el negocio la red exacta antes de enviar.</p>
+            <p>Confirma con el negocio la red exacta antes de completar el pago.</p>
           </article>
         ) : null}
         {chatMessagesNextCursor ? (
@@ -173,7 +173,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         ) : null}
         {chatAttachments.length || uploadingChatAttachment ? (
           <small className="business-order-chat-attachment-ready">
-            {uploadingChatAttachment ? "Subiendo adjunto..." : `${chatAttachments.length} adjunto(s) listo(s) para enviar`}
+            {uploadingChatAttachment ? "Subiendo adjunto..." : `${chatAttachments.length} adjunto(s) listo(s)`}
           </small>
         ) : null}
         {paymentEvidence && canReportPayment ? (

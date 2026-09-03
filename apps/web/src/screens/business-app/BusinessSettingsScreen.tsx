@@ -93,7 +93,7 @@ export function BusinessSettingsScreen({ model }: { model: BusinessMiniAppModel 
       </div>
       {businessIdCopied ? <Text className="business-identity-box__feedback" role="status">Identificacion copiada para soporte.</Text> : null}
       {businessIdCopyError ? <Text className="business-identity-box__feedback" role="alert">No pudimos copiar la identificacion. Puedes seleccionarla manualmente.</Text> : null}
-      <Text className="auth-entry__session-meta">Configura tus metodos de cobro para publicar anuncios y recibir operaciones.</Text>
+      <Text className="auth-entry__session-meta">Configura tus metodos de cobro para publicar anuncios y recibir solicitudes.</Text>
       <Button
         mode={isAcceptingOrders ? "outline" : "filled"}
         size="s"
@@ -135,15 +135,15 @@ const BUSINESS_RULES = [
   },
   {
     title: "Creditos",
-    body: "Publicar asigna un credito. Abrir una operacion lo reserva. Completar o evadir consume. Cancelacion legitima puede devolver."
+    body: "Publicar asigna un credito. Abrir una orden lo reserva. Completar o evadir consume. Cancelacion legitima puede devolver."
   },
   {
-    title: "Pagos P2P",
-    body: "NODO no custodia ni libera el dinero del cambio. Cliente y negocio pagan directamente entre ellos."
+    title: "Pagos entre cliente y negocio",
+    body: "NODO no custodia ni libera fondos acordados entre cliente y negocio. Las partes completan sus pagos directamente."
   },
   {
     title: "Comprobantes",
-    body: "Un comprobante no confirma que el dinero llego. Verifica en tu banco o billetera antes de pagar al cliente."
+    body: "Un comprobante no confirma que el dinero llego. Verifica en tu banco o billetera antes de completar la entrega acordada."
   },
   {
     title: "USDC Base",
@@ -205,11 +205,11 @@ const BUSINESS_TERMS = [
   },
   {
     title: "Pagos entre cliente y negocio",
-    body: "En operaciones P2P, el cliente y el negocio pagan directamente entre ellos. NODO no custodia ni libera esos fondos."
+    body: "En ordenes entre cliente y negocio, las partes pagan directamente entre ellas. NODO no custodia ni libera esos fondos."
   },
   {
     title: "Uso responsable",
-    body: "NODO puede pausar, revisar o bloquear accesos, anuncios u operaciones si detecta abuso, riesgo, fraude o datos incorrectos."
+    body: "NODO puede pausar, revisar o bloquear accesos, anuncios u ordenes si detecta abuso, riesgo, fraude o datos incorrectos."
   }
 ];
 

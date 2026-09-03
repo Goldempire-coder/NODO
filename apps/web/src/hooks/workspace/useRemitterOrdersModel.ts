@@ -83,6 +83,17 @@ export function useRemitterOrdersModel(
     setMyOrders(ordersCacheRef.current.items);
   }
 
+  function emptyOrdersNotice() {
+    setNotice("");
+  }
+
+  function ordersLoadErrorMessage(error: unknown) {
+    if (error instanceof ApiClientError && error.statusCode === 403) {
+      return "No pudimos validar tu acceso a ordenes. Abre NODO desde Telegram e intenta de nuevo.";
+    }
+    return error instanceof Error ? error.message : "No logramos cargar tus ordenes.";
+  }
+
   async function createOrder() {
     if (!selectedAd) {
       setNotice("Selecciona un anuncio activo.");
@@ -142,7 +153,7 @@ export function useRemitterOrdersModel(
     if (cached && Date.now() - cached.loadedAt < CLIENT_ORDERS_CACHE_TTL_MS) {
       setMyOrders(cached.items);
       setMyOrdersNextCursor(cached.nextCursor);
-      setNotice(cached.items.length ? "" : targetView === "messages" ? "Todavia no tienes conversaciones." : "Todavia no tienes ordenes.");
+      emptyOrdersNotice();
       recordActionCompleted("client_orders_load", screen, startedAt);
       setLoadingOrders(false);
       return;
@@ -150,7 +161,7 @@ export function useRemitterOrdersModel(
     if (cached) {
       setMyOrders(cached.items);
       setMyOrdersNextCursor(cached.nextCursor);
-      setNotice(cached.items.length ? "" : targetView === "messages" ? "Todavia no tienes conversaciones." : "Todavia no tienes ordenes.");
+      emptyOrdersNotice();
       setLoadingOrders(false);
     } else {
       setLoadingOrders(true);
@@ -164,13 +175,13 @@ export function useRemitterOrdersModel(
       ordersLoadedPageCountRef.current = 1;
       setMyOrders(data.items);
       setMyOrdersNextCursor(data.next_cursor);
-      setNotice(data.items.length ? "" : targetView === "messages" ? "Todavia no tienes conversaciones." : "Todavia no tienes ordenes.");
+      emptyOrdersNotice();
       recordActionCompleted("client_orders_load", screen, startedAt);
     } catch (error) {
       if (orderListRequestIdRef.current !== requestId) {
         return;
       }
-      setNotice(error instanceof Error ? error.message : "No logramos cargar tus ordenes.");
+      setNotice(ordersLoadErrorMessage(error));
       recordActionFailed("client_orders_load", screen, startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       if (orderListRequestIdRef.current === requestId) {

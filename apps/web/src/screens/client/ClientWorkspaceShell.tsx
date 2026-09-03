@@ -105,6 +105,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
   const shouldShowPrimaryNav = !isOnboardingView && (!isNativeChatSurface || isTerminalOrderChat);
   const shouldShowNotice = Boolean(notice) && !isNativeChatSurface && !["welcome", "terms", "client-profile-setup", "marketplace-search", "create-order", "marketplace-detail"].includes(view);
   const attentionBannerItem = isNativeChatSurface ? null : attentionAlert;
+  const shouldShowAttentionStale = Boolean(attentionBannerItem) && attentionStale;
   const shellClassName = [
     "business-shell",
     keyboardActive ? "business-shell--keyboard-active" : "",
@@ -251,7 +252,7 @@ export function ClientWorkspaceShell({ model }: { model: ClientWorkspaceModel })
 
       <AttentionBanner
         item={attentionBannerItem}
-        stale={attentionStale}
+        stale={shouldShowAttentionStale}
         onDismiss={dismissAttention}
         onOpen={() => void openAttentionAlert()}
       />

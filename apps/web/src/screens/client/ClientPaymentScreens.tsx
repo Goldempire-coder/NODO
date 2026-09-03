@@ -31,7 +31,7 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
               <Text>{reportOrderCode} - {formatPaymentMethod(reportPaymentMethod)}</Text>
               <Text className="auth-entry__session-meta">{PAYMENT_COPY}</Text>
               <label className="business-field">
-                <span>Monto pagado</span>
+                <span>Monto reportado</span>
                 <input
                   aria-readonly="true"
                   readOnly
@@ -45,7 +45,7 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
                 {uploadingPaymentEvidence ? <small>Subiendo comprobante...</small> : paymentEvidence ? <small>{paymentEvidence.mime_type} - {paymentEvidence.size_bytes} bytes</small> : null}
               </label>
               <Button mode="filled" stretched disabled={submittingPaymentReport} onClick={() => void submitPaymentReport()}>
-                {submittingPaymentReport ? "Enviando reporte..." : "Confirmar y enviar"}
+                {submittingPaymentReport ? "Guardando reporte..." : "Confirmar reporte"}
               </Button>
               <Button mode="outline" stretched disabled={openingChatOrderId === reportOrderId} onClick={() => void openOrderChat(reportOrderId)}>
                 {openingChatOrderId === reportOrderId ? "Abriendo..." : "Volver al chat"}

@@ -42,7 +42,7 @@ function MarketplaceBusinessList({
       ))}
       {searchResultsNextCursor ? (
         <Button mode="outline" size="s" disabled={loadingMoreMarketplace} onClick={() => void loadMoreActiveMarketplace()}>
-          {loadingMoreMarketplace ? "Cargando..." : "Cargar más negocios"}
+          {loadingMoreMarketplace ? "Cargando..." : "Cargar más ofertas"}
         </Button>
       ) : null}
     </div>
@@ -73,7 +73,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
         <div className="marketplace-home">
           <div className="exchange-card">
             <Text className="exchange-card__eyebrow">Directorio de ofertas</Text>
-            <Title level="2" className="exchange-card__title">¿Cuánto vas a enviar?</Title>
+            <Title level="2" className="exchange-card__title">¿Qué monto buscas?</Title>
             <div className={searchCurrency.amountSymbol ? "amount-input" : "amount-input amount-input--without-symbol"}>
               {searchCurrency.amountSymbol ? <span aria-hidden="true">{searchCurrency.amountSymbol}</span> : null}
               <input
@@ -97,7 +97,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
             <Text className="auth-entry__session-meta">
               Monto mínimo: {searchCurrency.amountSymbol}20.00 {searchCurrency.currencyLabel}
             </Text>
-            <Text className="exchange-card__section-label">¿Cómo pagarás al negocio?</Text>
+            <Text className="exchange-card__section-label">Elige un método disponible</Text>
             <div className="payment-choice">
               <button
                 className={searchForm.payment_method === "zelle" ? "is-active" : ""}
@@ -117,7 +117,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
             </div>
             <div className="receiver-note">
               <span className="status-dot" aria-hidden="true" />
-              <Text>Entrega publicada en Venezuela por Pago Movil. Coordina los detalles directamente con el negocio.</Text>
+              <Text>Oferta publicada en Venezuela por Pago Movil. Coordina los detalles directamente con el negocio.</Text>
             </div>
             <Button mode="filled" stretched disabled={searchingMarketplace} onClick={() => void searchAds()}>
               {searchingMarketplace ? "Buscando..." : "Buscar ofertas"}
@@ -127,7 +127,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
           <div className="marketplace-toolbar">
             <Title level="3" className="business-shell__title">Ofertas publicadas</Title>
-            <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - ordenados por mejor tasa</Text>
+            <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - según tasa publicada</Text>
           </div>
 
           <MarketplaceBusinessList
@@ -137,7 +137,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
           <div className="trust-banner">
             <span className="status-dot" aria-hidden="true" />
-            <Text>Compara tasa, limites y disponibilidad. Los datos son publicados por cada negocio.</Text>
+            <Text>Revisa monto, tasa y disponibilidad. Cada negocio publica sus datos.</Text>
           </div>
         </div>
       ) : null}
@@ -149,7 +149,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               <Text className="exchange-card__eyebrow">Directorio</Text>
               <Title level="3" className="business-shell__title">Ofertas disponibles</Title>
             </div>
-            <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - ordenados por mejor tasa</Text>
+            <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - según tasa publicada</Text>
           </div>
 
           <MarketplaceBusinessList
@@ -159,7 +159,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
           <div className="trust-banner">
             <span className="status-dot" aria-hidden="true" />
-            <Text>Anuncios activos para {searchCurrency.offerLabel}. Elige el negocio y acuerda directamente con el.</Text>
+            <Text>Anuncios activos para {searchCurrency.offerLabel}. Elige una oferta y coordina directamente con el negocio.</Text>
           </div>
         </div>
       ) : null}

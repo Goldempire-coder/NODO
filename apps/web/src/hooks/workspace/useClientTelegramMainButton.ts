@@ -34,7 +34,7 @@ export function useClientTelegramMainButton({
       mainButton.hide?.();
       return;
     }
-    const text = view === "create-order" ? "Confirmar negociacion" : "Confirmar y enviar";
+    const text = view === "create-order" ? "Confirmar solicitud" : "Confirmar reporte";
     mainButton.setText?.(text);
     mainButton.setParams?.({ text, is_active: !busy, is_visible: true });
     if (busy) {

@@ -20,7 +20,7 @@ El producto se construye para uso masivo desde el inicio, no como demo. Capacida
 - Base de datos: PostgreSQL/Supabase con pooling, migraciones y RLS/claims donde aplique.
 - Cache/colas/locks: Redis.
 - Bot: Telegram webhook, no polling en produccion.
-- Pagos de creditos: Stripe automatico como principal; Zelle y USDT TRC20 manual con revision admin.
+- Pagos de creditos: Base USDC contractual es el flujo principal para creditos NODO; Stripe, Zelle y USDT TRC20 quedan como legacy/fallback solo si backend los habilita y con revision admin cuando aplique.
 - Deploy/staging aprobado: Cloudflare Pages para frontend, Railway para backend/workers, Supabase Pro para PostgreSQL, Upstash Redis para locks/rate limits/jobs y Cloudflare R2 o Supabase Storage para storage privado. Vercel queda legacy/no recomendado para NODO por costo de escala.
 
 ## Orden obligatorio de lectura

@@ -1,11 +1,11 @@
 export const ORDER_DISCLAIMER =
-  "NODO conecta usuarios con negocios registrados. El pago y la entrega se coordinan directamente entre las partes.";
+  "NODO organiza ofertas de negocios registrados. El pago y la entrega se coordinan directamente entre cliente y negocio.";
 export const PAYMENT_COPY =
-  "Paga solo a los datos mostrados en esta orden. NODO no recibe ni retiene fondos; el negocio revisara el pago reportado.";
+  "Usa solo los datos del negocio que aparecen en esta orden. NODO no recibe ni retiene fondos; el negocio revisara tu reporte.";
 export const BUSINESS_OPS_COPY =
-  "Confirma solo cuando el pago este visible en tu cuenta. Luego marca la entrega cuando hayas enviado el pago movil.";
+  "Confirma solo cuando el pago este visible en tu cuenta. Luego marca la entrega acordada cuando la completes.";
 export const CHAT_DISPUTE_COPY =
-  "Usa este chat para dejar registro de la operacion. No compartas datos sensibles fuera de lo necesario.";
+  "Usa este chat para dejar registro de la orden. No compartas datos sensibles fuera de lo necesario.";
 export const CREDITS_COPY =
   "Asegurate de usar la red Base para comprar tus creditos.";
 export const ADMIN_CONSOLE_COPY =

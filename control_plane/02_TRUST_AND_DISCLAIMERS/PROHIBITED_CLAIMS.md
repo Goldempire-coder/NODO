@@ -16,6 +16,8 @@ Prohibido usar en UI, marketing, emails, notificaciones, admin o documentacion p
 - somos banco
 - somos casa de cambio
 - procesamos remesas
+- operamos como exchange
+- cumplimos todas las regulaciones, salvo que haya revision legal aprobada para la jurisdiccion exacta
 - aseguramos tu dinero
 - negocio verificado, sin describir que dato concreto fue revisado
 - verificado por NODO, sin describir el alcance de la revision

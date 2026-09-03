@@ -10,7 +10,7 @@ export type BusinessCreditPackage = {
 
 // Display-only mirror; backend signs the authoritative amount before payment.
 const BASE_CREDIT_PACKAGES: BusinessCreditPackage[] = [
-  { code: "starter", name: "Starter", credits: 5, priceUsdc: "10", hint: "Para probar anuncios." },
+  { code: "starter", name: "Starter", credits: 5, priceUsdc: "10", hint: "Para comenzar con anuncios." },
   { code: "pro", name: "Pro", credits: 15, priceUsdc: "25", hint: "Para operar varios anuncios." },
   { code: "business", name: "Business", credits: 50, priceUsdc: "75", hint: "Mejor costo por credito." },
   { code: "enterprise", name: "Enterprise", credits: 200, priceUsdc: "250", hint: "Alto volumen." },

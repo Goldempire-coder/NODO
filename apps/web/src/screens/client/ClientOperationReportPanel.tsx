@@ -41,7 +41,7 @@ export function ClientOperationReportPanel({
     return (
       <div className="business-grid" role="status">
         <Text className="business-card__label">Reporte recibido</Text>
-        <Text>Soporte NODO revisara la operacion.</Text>
+        <Text>Soporte NODO revisara la orden.</Text>
       </div>
     );
   }
@@ -49,14 +49,14 @@ export function ClientOperationReportPanel({
   if (!showForm) {
     return (
       <Button mode="outline" size="s" onClick={() => setShowForm(true)}>
-        Reportar operacion
+        Reportar orden
       </Button>
     );
   }
 
   return (
-    <div className="business-grid" aria-label="Reportar operacion">
-      <Text className="business-card__label">Reportar operacion</Text>
+    <div className="business-grid" aria-label="Reportar orden">
+      <Text className="business-card__label">Reportar orden</Text>
       <Text>{order.public_order_code} · {order.amount_usd} {currency.currencyLabel}</Text>
       <Text>{formatOrderMethodLine(order.payment_method_snapshot, order.delivery_method_snapshot)} · {clientOrderStatusLabel(order)}</Text>
       <label className="business-field">
@@ -66,7 +66,7 @@ export function ClientOperationReportPanel({
           value={category}
           onChange={(event) => setCategory(event.target.value as OperationReportCategory)}
         >
-          <option value="order_help">Ayuda con la operacion</option>
+          <option value="order_help">Ayuda con la orden</option>
           <option value="payment_report_help">Revision del pago reportado</option>
           <option value="suspicious_activity">Actividad inusual</option>
           <option value="other">Otro</option>
@@ -84,8 +84,8 @@ export function ClientOperationReportPanel({
       </label>
       {error ? <Text role="alert">{error}</Text> : null}
       {confirming ? (
-        <div className="business-grid" aria-label="Confirmar reporte de operacion">
-          <Text>Confirma el envio del reporte para {order.public_order_code}. Soporte revisara la informacion sin cambiar automaticamente la orden o el pago.</Text>
+        <div className="business-grid" aria-label="Confirmar reporte de orden">
+          <Text>Confirma el reporte para {order.public_order_code}. Soporte revisara la informacion sin cambiar automaticamente la orden o el pago.</Text>
           <div className="business-shell__tabs">
             <Button mode="outline" size="s" disabled={creating} onClick={() => setConfirming(false)}>
               Volver

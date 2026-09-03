@@ -24,16 +24,14 @@ Referencias de token:
 
 ## Relacion con flujos previos
 
-Flujo principal nuevo para compra de creditos ya implementado por wallet directa:
-`base_usdc_onchain`.
-
-Flujo recomendado para fondos reales despues de 52A/52C:
+Flujo principal para fondos reales despues de 52A/52C:
 `base_usdc_contract`, con contrato NODO, `purchase_ref` y autorizacion EIP-712
 firmada. Este flujo reemplaza la confianza en un `tx_hash` publico como prueba
 de intencion comercial.
 
 Flujos legacy/fallback:
 
+- `base_usdc_onchain`: wallet directa con verificacion on-chain; no debe usarse como flujo normal si el contrato esta activo.
 - `stripe_checkout`: fallback permitido si sigue configurado.
 - `zelle_manual_admin_approved`: fallback manual permitido solo con revision admin.
 - `usdt_manual_admin_approved`: legacy manual TRC20. No se mezcla con Base. No puede acreditar automaticamente.

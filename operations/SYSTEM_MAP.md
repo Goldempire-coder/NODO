@@ -17,8 +17,8 @@ flowchart TD
   API --> Redis["Upstash Redis"]
   API --> Storage["Supabase Storage privado"]
   API --> BaseRPC["Base JSON-RPC"]
-  API --> Stripe["Stripe legacy/test webhook"]
-  API --> Jobs["Workers internos: expire/escalate, Base USDC verifier"]
+  API --> Stripe["Stripe legacy/fallback webhook"]
+  API --> Jobs["Workers internos: expire/escalate, Base USDC contractual verifier"]
   Jobs --> PG
   Jobs --> Redis
   Jobs --> BaseRPC
@@ -38,7 +38,7 @@ Sincronos:
 Asincronos o controlados:
 
 - Telegram webhooks.
-- Stripe webhook legacy.
+- Stripe webhook legacy/fallback si esta habilitado.
 - Job `expire_and_escalate_orders`.
 - Watcher `verify_base_usdc_credit_purchases`.
 - Staging stress/smoke scripts.
@@ -62,15 +62,17 @@ Primer componente a revisar si falla: API readiness, `BOT_TOKEN`, `/auth/telegra
 
 Primer componente a revisar si falla: `surface/session`, user status, business status, access links, Telegram initData.
 
-### Creditos Base USDC
+### Creditos Base USDC contractual
 
-1. Negocio inicia `POST /api/v1/business/credits/base-payment`.
-2. Backend crea compra `pending_payment` y muestra wallet destino publica.
-3. Negocio envia hash con `POST /api/v1/business/credits/purchases/{id}/tx-hash`.
-4. Watcher/verifier consulta Base RPC.
-5. Si coincide token, destino, monto y confirmaciones, acredita en `credits_ledger` exact-once.
+1. Negocio inicia el checkout de creditos desde Mini App Negocio.
+2. Backend crea un handoff efimero y prepara la compra contractual.
+3. MetaMask confirma la wallet del negocio y solicita autorizacion exacta de USDC.
+4. Backend firma una autorizacion limitada para el contrato NODO.
+5. MetaMask envia el pago final al contrato.
+6. Watcher/verifier consulta Base RPC y valida evento, token, monto, contrato, payer y confirmaciones.
+7. Si todo coincide, acredita en `credits_ledger` exact-once.
 
-Primer componente a revisar si falla: `credit_purchases`, `onchain_credit_*`, Base RPC, wallet destino env.
+Primer componente a revisar si falla: `credit_purchases`, `credit_purchase_onchain_payments`, handoff Redis, contrato Base USDC, Base RPC, signer backend y watcher.
 
 ### Orden cliente-negocio
 

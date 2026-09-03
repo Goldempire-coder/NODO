@@ -74,14 +74,14 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
     <>
       {view === "create-order" ? (
         <div className="business-card">
-          <Text className="business-card__label">Confirmar negociacion</Text>
+          <Text className="business-card__label">Confirmar solicitud</Text>
           {selectedAd ? (
             <>
               <Title level="3" className="business-shell__title">{displayBusinessName(selectedAd)}</Title>
               <div className="business-grid marketplace-confirmation">
                 <Text>Tasa: {selectedAd.rate_bs_per_usd} Bs. / {selectedAdCurrency.currencyLabel}</Text>
-                <Text>Monto que entregas: {orderForm.amount_usd} {selectedAdCurrency.currencyLabel}</Text>
-                <Text>Monto que recibe: {quotedAmountBs(orderForm.amount_usd, selectedAd.rate_bs_per_usd)} Bs</Text>
+                <Text>Monto solicitado: {orderForm.amount_usd} {selectedAdCurrency.currencyLabel}</Text>
+                <Text>Referencia publicada: {quotedAmountBs(orderForm.amount_usd, selectedAd.rate_bs_per_usd)} Bs</Text>
                 <Text>Metodo: {formatOrderMethodLine(selectedAd.payment_method, selectedAd.delivery_method)}</Text>
               </div>
               {notice ? (
@@ -94,12 +94,12 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
                   Volver
                 </Button>
                 <Button mode="filled" size="s" disabled={creatingOrder || !orderForm.amount_usd} onClick={() => void createOrder()}>
-                  {creatingOrder ? "Confirmando..." : "Confirmar negociacion"}
+                  {creatingOrder ? "Confirmando..." : "Confirmar solicitud"}
                 </Button>
               </div>
             </>
           ) : (
-            <Text>Selecciona un negocio disponible para crear una orden.</Text>
+            <Text>Selecciona una oferta disponible para crear una orden.</Text>
           )}
         </div>
       ) : null}
@@ -143,7 +143,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
               {cancelPromptOrderId === selectedOrder.id ? (
                 <div className="business-grid" aria-label="Confirmar cancelacion">
                   <Text>
-                    Cancela solo si no enviaste el pago. Esta orden quedara
+                    Cancela solo si no realizaste el pago directo al negocio. Esta orden quedara
                     registrada como cancelada antes de reportar pago.
                   </Text>
                   <label className="business-field">
@@ -244,7 +244,9 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
           <Text className="business-card__label">Mis órdenes</Text>
           <div className="business-list">
             {loadingOrders ? <Text>Cargando órdenes...</Text> : null}
-            {myOrders.length === 0 && !loadingOrders ? <Text>Todavía no tienes órdenes.</Text> : null}
+            {myOrders.length === 0 && !loadingOrders ? (
+              <Text>Todavía no tienes órdenes abiertas. Cuando elijas una oferta, aparecerá aquí.</Text>
+            ) : null}
             {myOrders.map((order) => {
               const orderCurrency = paymentMethodCurrencyPresentation(
                 order.payment_method_snapshot
@@ -259,7 +261,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
             })}
             {myOrdersNextCursor ? (
               <Button mode="outline" size="s" disabled={loadingMoreMyOrders} onClick={() => void loadMoreMyOrders()}>
-                {loadingMoreMyOrders ? "Cargando..." : "Cargar mas"}
+                {loadingMoreMyOrders ? "Cargando..." : "Cargar más órdenes"}
               </Button>
             ) : null}
           </div>
@@ -293,7 +295,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
             })}
             {myOrdersNextCursor ? (
               <Button mode="outline" size="s" disabled={loadingMoreMyOrders} onClick={() => void loadMoreMyOrders()}>
-                {loadingMoreMyOrders ? "Cargando..." : "Cargar mas"}
+                {loadingMoreMyOrders ? "Cargando..." : "Cargar más conversaciones"}
               </Button>
             ) : null}
           </div>

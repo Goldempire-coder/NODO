@@ -40,7 +40,7 @@ export function useClientOperationReportModel({
       );
       clearIdempotencyKey(idempotencyScope);
       setOperationReportSuccessOrderId(orderId);
-      setNotice("Reporte recibido. Soporte NODO revisara la operacion.");
+      setNotice("Reporte recibido. Soporte NODO revisara la orden.");
       return true;
     } catch (error) {
       const message = error instanceof Error

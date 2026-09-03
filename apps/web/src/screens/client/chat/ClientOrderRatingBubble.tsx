@@ -30,8 +30,8 @@ export function ClientOrderRatingBubble({
   return (
     <article className="business-order-chat-message business-order-chat-message--system business-order-chat-rating">
       <span className="business-order-chat-message__sender">NODO</span>
-      <p>¿Cómo fue esta operación?</p>
-      <div className="business-order-chat-rating__stars" role="radiogroup" aria-label="Calificacion de la operacion">
+      <p>¿Cómo fue esta orden?</p>
+      <div className="business-order-chat-rating__stars" role="radiogroup" aria-label="Calificacion de la orden">
         {[1, 2, 3, 4, 5].map((stars) => (
           <button key={stars} type="button" aria-label={`${stars} de 5 estrellas`} aria-pressed={selectedStars === stars} className={selectedStars >= stars ? "is-selected" : ""} disabled={submitting} onClick={() => setSelectedStars(stars)}>
             ★
