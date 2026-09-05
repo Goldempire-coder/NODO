@@ -1,11 +1,9 @@
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import { useEffect, useState } from "react";
 import { AttentionBadge } from "../../components/nodo/SurfaceAttention";
-import {
-  formatOrderMethodLine,
-  paymentMethodCurrencyPresentation
-} from "../../constants/paymentLabels";
+import { paymentMethodCurrencyPresentation } from "../../constants/paymentLabels";
 import type { OrderCancelReason } from "../../types/orders";
+import { formatClientMethodLine } from "./clientMethodCopy";
 import { clientOrderStatusLabel } from "./clientOrderPresentation";
 import { ClientOperationReportPanel } from "./ClientOperationReportPanel";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
@@ -79,10 +77,10 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
             <>
               <Title level="3" className="business-shell__title">{displayBusinessName(selectedAd)}</Title>
               <div className="business-grid marketplace-confirmation">
-                <Text>Tasa: {selectedAd.rate_bs_per_usd} Bs. / {selectedAdCurrency.currencyLabel}</Text>
+                <Text>Referencia publicada: {selectedAd.rate_bs_per_usd} Bs. / {selectedAdCurrency.currencyLabel}</Text>
                 <Text>Monto solicitado: {orderForm.amount_usd} {selectedAdCurrency.currencyLabel}</Text>
-                <Text>Referencia publicada: {quotedAmountBs(orderForm.amount_usd, selectedAd.rate_bs_per_usd)} Bs</Text>
-                <Text>Metodo: {formatOrderMethodLine(selectedAd.payment_method, selectedAd.delivery_method)}</Text>
+                <Text>Total referencial: {quotedAmountBs(orderForm.amount_usd, selectedAd.rate_bs_per_usd)} Bs</Text>
+                <Text>Condiciones: {formatClientMethodLine(selectedAd.payment_method, selectedAd.delivery_method)}</Text>
               </div>
               {notice ? (
                 <Text className="auth-entry__message" role={notice === "Preparando tu orden" ? "status" : "alert"}>
@@ -113,8 +111,8 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
               <Text>{selectedOrder.business_name}</Text>
               <Text>{clientOrderStatusLabel(selectedOrder)}</Text>
               <Text>{selectedOrder.amount_usd} {selectedOrderCurrency.currencyLabel} - {selectedOrder.amount_bs_calculated} Bs</Text>
-              <Text>Tasa {selectedOrder.rate_snapshot} Bs. / {selectedOrderCurrency.currencyLabel}</Text>
-              <Text>{formatOrderMethodLine(selectedOrder.payment_method_snapshot, selectedOrder.delivery_method_snapshot)}</Text>
+              <Text>Referencia publicada {selectedOrder.rate_snapshot} Bs. / {selectedOrderCurrency.currencyLabel}</Text>
+              <Text>{formatClientMethodLine(selectedOrder.payment_method_snapshot, selectedOrder.delivery_method_snapshot)}</Text>
               <Text>Límite: {new Date(selectedOrder.payment_report_deadline_at).toLocaleString()}</Text>
               <div className="business-shell__tabs">
                 <Button mode="outline" size="s" disabled={extendingOrderId === selectedOrder.id || selectedOrder.status !== "waiting_payment" || selectedOrder.extension_used} onClick={() => void extendOrder(selectedOrder.id)}>
@@ -299,7 +297,7 @@ export function ClientOrderScreens({ model }: { model: RemitterScreensModel }) {
               </Button>
             ) : null}
           </div>
-          <Text className="auth-entry__session-meta">El chat se abre desde que confirmas la negociacion.</Text>
+          <Text className="auth-entry__session-meta">El chat se abre cuando confirmas una solicitud.</Text>
         </div>
       ) : null}
     </>

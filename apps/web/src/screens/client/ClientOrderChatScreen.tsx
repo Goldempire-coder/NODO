@@ -100,13 +100,13 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
       <div className="business-order-chat-messages" aria-label="Mensajes de la orden" aria-live="polite">
         <article className="business-order-chat-message business-order-chat-message--system business-order-chat-system-bubble">
           <span className="business-order-chat-message__sender">NODO</span>
-          <p>Negociacion abierta con {selectedChatOrder?.business_name || "el negocio"}</p>
+          <p>Solicitud abierta con {selectedChatOrder?.business_name || "el negocio"}</p>
           <strong>{orderLabel(model)}</strong>
         </article>
         {paymentReportMethod === "usdt_trc20" ? (
           <article className="business-order-chat-message business-order-chat-message--system">
             <span className="business-order-chat-message__sender">NODO</span>
-            <p>Confirma con el negocio la red exacta antes de completar el pago.</p>
+            <p>Confirma con el negocio la red exacta antes de realizar cualquier pago directo.</p>
           </article>
         ) : null}
         {chatMessagesNextCursor ? (
@@ -149,7 +149,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         />
         {selectedChatOrder?.status === "waiting_payment" && !chatCapabilities.payment_details_shared ? (
             <Text className="auth-entry__session-meta business-order-chat-note">
-              No envies el pago hasta que el negocio comparta sus datos.
+              No realices ningun pago directo hasta que el negocio comparta sus datos.
             </Text>
           ) : null}
         {chatAttachmentLink ? (
@@ -191,7 +191,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         ) : null}
         {chatIsTerminal ? (
           <Text className="auth-entry__session-meta business-order-chat-note">
-            Esta negociación está cerrada. El historial queda disponible como registro de la conversación.
+            Esta orden esta cerrada. El historial queda disponible como registro de la conversacion.
           </Text>
         ) : null}
         {model.notice ? (
@@ -214,7 +214,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
             >
               {submittingPaymentReport || loadingPaymentInstructions
                 ? "Procesando..."
-                : paymentReportMethod === "usdt_trc20" ? "USDT enviado" : "Zelle enviado"}
+                : paymentReportMethod === "usdt_trc20" ? "Reportar USDT" : "Reportar Zelle"}
             </button>
           ) : null}
           {canConfirmReceived ? (
@@ -224,7 +224,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
               disabled={confirmingOrderReceived}
               onClick={() => void confirmOrderReceived()}
             >
-              {confirmingOrderReceived ? "Confirmando..." : "Recibi el pago"}
+              {confirmingOrderReceived ? "Confirmando..." : "Confirmar recepcion"}
             </button>
           ) : null}
         </div>

@@ -105,7 +105,7 @@ export function ClientSupportScreen({ model }: { model: ClientWorkspaceModel }) 
               <option value="technical_issue">Problema tecnico</option>
               <option value="account_access">Acceso a cuenta</option>
               <option value="order_help">Ayuda con orden</option>
-              <option value="payment_report_help">Reporte de pago</option>
+              <option value="payment_report_help">Ayuda con reporte de pago</option>
               <option value="other">Otro</option>
             </select>
           </label>

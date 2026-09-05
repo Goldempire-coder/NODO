@@ -25,7 +25,7 @@ export function ClientPaymentScreens({ model }: { model: RemitterScreensModel })
     <>
       {view === "report-payment" ? (
         <div className="business-card">
-          <Text className="business-card__label">Reportar pago</Text>
+          <Text className="business-card__label">Reportar pago directo</Text>
           {paymentInstructions && reportOrderId && reportAmount && reportPaymentMethod ? (
             <>
               <Text>{reportOrderCode} - {formatPaymentMethod(reportPaymentMethod)}</Text>

@@ -1,8 +1,9 @@
 import { Button, Text } from "@telegram-apps/telegram-ui";
 import { useState } from "react";
-import { formatOrderMethodLine, paymentMethodCurrencyPresentation } from "../../constants/paymentLabels";
+import { paymentMethodCurrencyPresentation } from "../../constants/paymentLabels";
 import type { OrderSummary } from "../../types/orders";
 import type { OperationReportCategory } from "../../types/support";
+import { formatClientMethodLine } from "./clientMethodCopy";
 import type { RemitterScreensModel } from "./RemitterScreens.types";
 import { clientOrderStatusLabel } from "./clientOrderPresentation";
 
@@ -58,7 +59,7 @@ export function ClientOperationReportPanel({
     <div className="business-grid" aria-label="Reportar orden">
       <Text className="business-card__label">Reportar orden</Text>
       <Text>{order.public_order_code} · {order.amount_usd} {currency.currencyLabel}</Text>
-      <Text>{formatOrderMethodLine(order.payment_method_snapshot, order.delivery_method_snapshot)} · {clientOrderStatusLabel(order)}</Text>
+      <Text>{formatClientMethodLine(order.payment_method_snapshot, order.delivery_method_snapshot)} · {clientOrderStatusLabel(order)}</Text>
       <label className="business-field">
         <span>Motivo</span>
         <select
@@ -67,7 +68,7 @@ export function ClientOperationReportPanel({
           onChange={(event) => setCategory(event.target.value as OperationReportCategory)}
         >
           <option value="order_help">Ayuda con la orden</option>
-          <option value="payment_report_help">Revision del pago reportado</option>
+          <option value="payment_report_help">Revision del reporte de pago</option>
           <option value="suspicious_activity">Actividad inusual</option>
           <option value="other">Otro</option>
         </select>

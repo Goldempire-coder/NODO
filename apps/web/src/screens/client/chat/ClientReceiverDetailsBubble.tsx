@@ -42,9 +42,9 @@ export function ClientReceiverDetailsBubble({
     <>
       {canShare ? (
         <article className="business-order-chat-message business-order-chat-message--mine business-order-chat-receiver-details">
-          <span className="business-order-chat-message__sender">Pago Movil</span>
+          <span className="business-order-chat-message__sender">Datos Pago Movil</span>
           <details>
-            <summary>Compartir Pago Movil</summary>
+            <summary>Compartir datos Pago Movil</summary>
             <form className="business-order-chat-receiver-form" onSubmit={submit}>
               <label>
                 Banco
@@ -73,7 +73,7 @@ export function ClientReceiverDetailsBubble({
       ) : null}
       {capabilities.receiver_details_shared ? (
         <article className="business-order-chat-message business-order-chat-message--mine">
-          <span className="business-order-chat-message__sender">Pago Movil compartido</span>
+          <span className="business-order-chat-message__sender">Datos Pago Movil compartidos</span>
           <p>{masked ? `${masked.bank} / ${masked.phone} / ${masked.document} / ${masked.holder}` : "Datos guardados para esta orden."}</p>
         </article>
       ) : null}

@@ -19,6 +19,29 @@ import { useClientWorkspaceState } from "./workspace/useClientWorkspaceState";
 import { useSurfaceSupportModel } from "./useSurfaceSupportModel";
 import { useSurfaceAttentionModel } from "./useSurfaceAttentionModel";
 
+const CLIENT_SESSION_NOTICE = "No pudimos validar tu sesion. Abre NODO desde Telegram e intenta de nuevo.";
+const CLIENT_ACCESS_NOTICE = "Tu acceso a NODO no esta disponible. Contacta a soporte si crees que es un error.";
+
+function clientApiErrorForSurface(error: ApiClientError): ApiClientError {
+  if (
+    error.code === "SESSION_EXPIRED"
+    || error.code === "UNAUTHENTICATED"
+    || error.code.startsWith("TELEGRAM_INIT_DATA_")
+    || error.statusCode === 401
+  ) {
+    return new ApiClientError(CLIENT_SESSION_NOTICE, error.code, error.statusCode);
+  }
+  if (
+    error.code === "FORBIDDEN"
+    || error.code === "SURFACE_ACCESS_DENIED"
+    || error.code === "USER_SUSPENDED"
+    || error.statusCode === 403
+  ) {
+    return new ApiClientError(CLIENT_ACCESS_NOTICE, error.code, error.statusCode);
+  }
+  return error;
+}
+
 export function useClientWorkspaceModel({
   loggingOut = false,
   onLogout,
@@ -50,8 +73,13 @@ export function useClientWorkspaceModel({
         return await apiRequest<any>(path, token, { ...options, headers });
       } catch (error) {
         if (error instanceof ApiClientError && error.code === "TERMS_ACCEPTANCE_REQUIRED") {
-          setNotice("Acepta los terminos vigentes para continuar.");
+          const termsNotice = "Acepta los terminos vigentes para continuar.";
+          setNotice(termsNotice);
           setClientView("terms");
+          throw new ApiClientError(termsNotice, error.code, error.statusCode);
+        }
+        if (error instanceof ApiClientError) {
+          throw clientApiErrorForSurface(error);
         }
         throw error;
       }

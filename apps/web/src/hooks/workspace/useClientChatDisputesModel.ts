@@ -310,10 +310,10 @@ export function useClientChatDisputesModel(state: ClientWorkspaceState & { reque
       if (chatOrderIdRef.current !== targetOrderId) {
         return;
       }
-      setNotice("Pago Movil compartido.");
+      setNotice("Datos Pago Movil compartidos.");
     } catch (error) {
       if (chatOrderIdRef.current === targetOrderId) {
-        setNotice(error instanceof Error ? error.message : "No pudimos compartir el Pago Movil.");
+        setNotice(error instanceof Error ? error.message : "No pudimos compartir los datos Pago Movil.");
       }
     } finally {
       receiverDetailsRequestsRef.current.delete(targetOrderId);

@@ -26,7 +26,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
             <Text className="exchange-card__eyebrow">NODO</Text>
             <Title level="1" className="welcome-hero__title">Bienvenido a NODO</Title>
             <Text className="welcome-hero__copy">
-              Compara negocios registrados, revisa sus condiciones publicadas y crea tu orden en pocos pasos.
+              Consulta negocios registrados, revisa sus condiciones publicadas y abre una solicitud en pocos pasos.
             </Text>
           </div>
           <div className="welcome-actions">
@@ -43,7 +43,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
           <Title level="2" className="business-shell__title">Antes de usar NODO</Title>
           <Text>NODO es un directorio de negocios registrados que publican sus propias condiciones.</Text>
           <Text>Revisamos datos del negocio antes de publicarlo y el acceso opera por invitacion.</Text>
-          <Text>Tu eliges el negocio y pagas directamente a los datos indicados en tu orden.</Text>
+          <Text>Tu eliges el negocio y coordinas directamente con los datos indicados en tu orden.</Text>
           <Text>NODO registra la orden y su evidencia para soporte y auditoria, pero no recibe ni retiene fondos.</Text>
           <Text>Al continuar aceptas los terminos de uso vigentes y el registro de actividad de la orden.</Text>
           <Text className="auth-entry__session-meta">Version: {CURRENT_CLIENT_TERMS_VERSION}</Text>
@@ -96,7 +96,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
         <div className="business-card profile-screen">
           <Text className="business-card__label">Tu perfil</Text>
           <Title level="2" className="business-shell__title">{user.first_name || user.username || "Cliente NODO"}</Title>
-          <Text>Modo cliente. Desde aquí puedes buscar negocios registrados y revisar tus órdenes.</Text>
+          <Text>Modo cliente. Desde aqui puedes consultar negocios registrados y revisar tus ordenes.</Text>
           <div className="business-card business-card--nested">
             <Text className="business-card__label">Terminos y reglas</Text>
             <Text>{termsAccepted ? "Tienes aceptados los terminos vigentes." : "Debes aceptar los terminos vigentes para operar en NODO."}</Text>
@@ -112,7 +112,7 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
             )}
           </div>
           <Button mode="filled" stretched onClick={() => setView("marketplace-search")}>
-            Ir al marketplace
+            Ver directorio
           </Button>
           <Button mode="outline" stretched onClick={() => setView("support")}>
             Soporte NODO

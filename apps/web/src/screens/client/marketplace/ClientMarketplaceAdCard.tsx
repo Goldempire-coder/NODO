@@ -9,8 +9,8 @@ function businessReputationSummary(ad: AdSummary): string {
 
 function businessAvailabilitySummary(ad: AdSummary): string {
   return ad.business?.availability?.status === "offline"
-    ? "Offline: no recibe ofertas"
-    : "Online: recibiendo ofertas";
+    ? "No disponible para nuevas solicitudes"
+    : "Disponible para solicitudes";
 }
 
 function businessRatingSummary(ad: AdSummary): string | null {
@@ -22,6 +22,10 @@ function businessRatingSummary(ad: AdSummary): string | null {
   const parsedRating = Number(ratingAvg);
   const displayRating = Number.isFinite(parsedRating) ? parsedRating.toFixed(1) : ratingAvg;
   return `Calificación: ${displayRating}/5 (${ratingsCount})`;
+}
+
+function businessAvailabilityBadge(ad: AdSummary): string {
+  return ad.business?.availability?.status === "offline" ? "No disponible" : "Disponible";
 }
 
 export function ClientMarketplaceAdCard({
@@ -39,7 +43,7 @@ export function ClientMarketplaceAdCard({
 
   return (
     <button
-      aria-label={`Abrir anuncio ${presentation.offerLabel} de ${businessName}`}
+      aria-label={`Abrir oferta ${presentation.offerLabel} de ${businessName}`}
       className="marketplace-business"
       disabled={opening}
       type="button"
@@ -62,7 +66,7 @@ export function ClientMarketplaceAdCard({
         <small>
           Bs. / <ClientMarketplaceCurrencyLabel presentation={presentation} />
         </small>
-        <em>{opening ? "Abriendo..." : ad.business?.availability?.label || "Online"}</em>
+        <em>{opening ? "Abriendo..." : businessAvailabilityBadge(ad)}</em>
       </span>
     </button>
   );

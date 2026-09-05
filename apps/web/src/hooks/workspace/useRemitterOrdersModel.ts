@@ -96,7 +96,7 @@ export function useRemitterOrdersModel(
 
   async function createOrder() {
     if (!selectedAd) {
-      setNotice("Selecciona un anuncio activo.");
+      setNotice("Selecciona una oferta activa.");
       return;
     }
     const startedAt = actionStartedAt();
@@ -130,7 +130,7 @@ export function useRemitterOrdersModel(
       ) {
         setSelectedAd(null);
         setView("marketplace-search");
-        setNotice("Ese negocio ya no puede cubrir este monto. Elige otro negocio.");
+        setNotice("Ese negocio ya no tiene disponibilidad para este monto. Elige otra oferta.");
         recordActionFailed("client_order_create", "create-order", startedAt, error.code);
         return;
       }

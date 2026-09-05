@@ -1,10 +1,8 @@
 import { Button, Text, Title } from "@telegram-apps/telegram-ui";
 import { ORDER_DISCLAIMER } from "../../constants/copy";
-import {
-  formatExchangeRoute,
-  paymentMethodCurrencyPresentation
-} from "../../constants/paymentLabels";
+import { paymentMethodCurrencyPresentation } from "../../constants/paymentLabels";
 import { sanitizeDecimalInput } from "../../lib/numericInput";
+import { formatClientMethodLine } from "./clientMethodCopy";
 import { ClientMarketplaceAdCard } from "./marketplace/ClientMarketplaceAdCard";
 import { ClientMarketplaceCurrencyLabel } from "./marketplace/ClientMarketplaceCurrencyLabel";
 import { displayBusinessName, type RemitterScreensModel } from "./RemitterScreens.types";
@@ -97,7 +95,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
             <Text className="auth-entry__session-meta">
               Monto mínimo: {searchCurrency.amountSymbol}20.00 {searchCurrency.currencyLabel}
             </Text>
-            <Text className="exchange-card__section-label">Elige un método disponible</Text>
+            <Text className="exchange-card__section-label">Elige un metodo publicado</Text>
             <div className="payment-choice">
               <button
                 className={searchForm.payment_method === "zelle" ? "is-active" : ""}
@@ -117,7 +115,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
             </div>
             <div className="receiver-note">
               <span className="status-dot" aria-hidden="true" />
-              <Text>Oferta publicada en Venezuela por Pago Movil. Coordina los detalles directamente con el negocio.</Text>
+              <Text>Condiciones publicadas para Pago Movil en Venezuela. Coordina los detalles directamente con el negocio.</Text>
             </div>
             <Button mode="filled" stretched disabled={searchingMarketplace} onClick={() => void searchAds()}>
               {searchingMarketplace ? "Buscando..." : "Buscar ofertas"}
@@ -127,7 +125,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
           <div className="marketplace-toolbar">
             <Title level="3" className="business-shell__title">Ofertas publicadas</Title>
-            <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - según tasa publicada</Text>
+            <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - condiciones publicadas</Text>
           </div>
 
           <MarketplaceBusinessList
@@ -137,7 +135,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
           <div className="trust-banner">
             <span className="status-dot" aria-hidden="true" />
-            <Text>Revisa monto, tasa y disponibilidad. Cada negocio publica sus datos.</Text>
+            <Text>Revisa monto, condiciones y disponibilidad. Cada negocio publica sus datos.</Text>
           </div>
         </div>
       ) : null}
@@ -149,7 +147,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
               <Text className="exchange-card__eyebrow">Directorio</Text>
               <Title level="3" className="business-shell__title">Ofertas disponibles</Title>
             </div>
-            <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - según tasa publicada</Text>
+            <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - condiciones publicadas</Text>
           </div>
 
           <MarketplaceBusinessList
@@ -159,7 +157,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
           <div className="trust-banner">
             <span className="status-dot" aria-hidden="true" />
-            <Text>Anuncios activos para {searchCurrency.offerLabel}. Elige una oferta y coordina directamente con el negocio.</Text>
+            <Text>Ofertas activas para {searchCurrency.offerLabel}. Elige una oferta y coordina directamente con el negocio.</Text>
           </div>
         </div>
       ) : null}
@@ -170,10 +168,10 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
           {selectedAd && selectedAdCurrency ? (
             <>
               <Title level="3" className="business-shell__title">{displayBusinessName(selectedAd)}</Title>
-              <Text>{formatExchangeRoute(selectedAd.payment_method, selectedAd.delivery_method)}</Text>
+              <Text>{formatClientMethodLine(selectedAd.payment_method, selectedAd.delivery_method)}</Text>
               <Text>
                 Rango {selectedAdCurrency.amountSymbol}{selectedAd.amount_min_usd} - {selectedAdCurrency.amountSymbol}{selectedAd.amount_max_usd}{" "}
-                <ClientMarketplaceCurrencyLabel presentation={selectedAdCurrency} /> - tasa Bs. {selectedAd.rate_bs_per_usd} /{" "}
+                <ClientMarketplaceCurrencyLabel presentation={selectedAdCurrency} /> - referencia Bs. {selectedAd.rate_bs_per_usd} /{" "}
                 <ClientMarketplaceCurrencyLabel presentation={selectedAdCurrency} />
               </Text>
               <Text className="auth-entry__session-meta">{ORDER_DISCLAIMER}</Text>

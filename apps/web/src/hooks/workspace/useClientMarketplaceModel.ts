@@ -143,8 +143,8 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
       setSearchResultsNextCursor(data.next_cursor);
       setNotice(
         data.items.length
-          ? "Orden cancelada. Te mostramos otros negocios disponibles para el mismo monto."
-          : "Orden cancelada. No encontramos otros negocios disponibles para el mismo monto."
+          ? "Orden cancelada. Te mostramos otras ofertas disponibles para el mismo monto."
+          : "Orden cancelada. No encontramos otras ofertas disponibles para el mismo monto."
       );
       recordActionCompleted(
         "client_marketplace_search",
@@ -156,7 +156,7 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
         return;
       }
       setNotice(
-        "La orden fue cancelada, pero no logramos buscar otros negocios. Intenta de nuevo."
+        "La orden fue cancelada, pero no logramos buscar otras ofertas. Intenta de nuevo."
       );
       recordActionFailed(
         "client_marketplace_search",
@@ -294,7 +294,7 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
       if (error instanceof ApiClientError && error.code === "AD_NOT_AVAILABLE") {
         setSearchResults((current) => current.filter((ad) => ad.id !== adId));
       }
-      setNotice(error instanceof ApiClientError && error.code === "AD_NOT_AVAILABLE" ? "Ese negocio ya no esta recibiendo ofertas. Elige otro negocio online." : error instanceof Error ? error.message : "Anuncio no disponible.");
+      setNotice(error instanceof ApiClientError && error.code === "AD_NOT_AVAILABLE" ? "Ese negocio ya no esta disponible para nuevas solicitudes. Elige otra oferta activa." : error instanceof Error ? error.message : "Anuncio no disponible.");
       recordActionFailed("client_ad_detail_open", "marketplace-detail", startedAt, error instanceof Error ? error.name : undefined);
     } finally {
       if (!optimisticAd && adDetailRequestIdRef.current === requestId) {
