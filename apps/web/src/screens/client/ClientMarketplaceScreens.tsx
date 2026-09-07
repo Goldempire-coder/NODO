@@ -95,7 +95,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
             <Text className="auth-entry__session-meta">
               Monto mínimo: {searchCurrency.amountSymbol}20.00 {searchCurrency.currencyLabel}
             </Text>
-            <Text className="exchange-card__section-label">Elige un metodo publicado</Text>
+            <Text className="exchange-card__section-label">Elige un método publicado</Text>
             <div className="payment-choice">
               <button
                 className={searchForm.payment_method === "zelle" ? "is-active" : ""}
@@ -115,7 +115,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
             </div>
             <div className="receiver-note">
               <span className="status-dot" aria-hidden="true" />
-              <Text>Condiciones publicadas para Pago Movil en Venezuela. Coordina los detalles directamente con el negocio.</Text>
+              <Text>Entrega publicada: Pago Móvil en Venezuela. Coordina los detalles directamente con el negocio.</Text>
             </div>
             <Button mode="filled" stretched disabled={searchingMarketplace} onClick={() => void searchAds()}>
               {searchingMarketplace ? "Buscando..." : "Buscar ofertas"}
@@ -124,7 +124,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
           {notice ? <Text className="auth-entry__session-meta">{notice}</Text> : null}
 
           <div className="marketplace-toolbar">
-            <Title level="3" className="business-shell__title">Ofertas publicadas</Title>
+            <Title level="3" className="business-shell__title">Ofertas disponibles</Title>
             <Text className="auth-entry__session-meta">{searchCurrency.offerLabel} - condiciones publicadas</Text>
           </div>
 
@@ -157,7 +157,7 @@ export function ClientMarketplaceScreens({ model }: { model: RemitterScreensMode
 
           <div className="trust-banner">
             <span className="status-dot" aria-hidden="true" />
-            <Text>Ofertas activas para {searchCurrency.offerLabel}. Elige una oferta y coordina directamente con el negocio.</Text>
+            <Text>Cuando haya ofertas para {searchCurrency.offerLabel}, elige una y coordina directamente con el negocio.</Text>
           </div>
         </div>
       ) : null}
