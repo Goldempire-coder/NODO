@@ -132,13 +132,13 @@ export function BusinessChatMessageList({
       {currentOrder?.status === "payment_reported" ? (
         <article className="business-order-chat-message business-order-chat-message--system">
           <span className="business-order-chat-message__sender">NODO</span>
-          <p>El cliente reporto el pago. Confirma solo cuando lo hayas recibido.</p>
+          <p>El cliente reporto un ingreso directo. Verifica solo cuando este visible en tu cuenta.</p>
         </article>
       ) : null}
 
       {currentOrder?.status === "payment_confirmed" && !chatCapabilities.receiver_details_shared ? (
         <Text className="auth-entry__session-meta business-order-chat-note">
-          Pago Movil pendiente. Espera a que el cliente comparta sus datos.
+          Entrega pendiente. Espera a que el cliente comparta sus datos.
         </Text>
       ) : null}
 
@@ -180,7 +180,7 @@ export function BusinessChatMessageList({
 
       {chatIsTerminal ? (
         <Text className="auth-entry__session-meta business-order-chat-note">
-          Esta negociación está cerrada. El historial queda disponible como registro de la conversación.
+          Esta orden esta cerrada. El historial queda disponible como registro de la conversacion.
         </Text>
       ) : null}
 

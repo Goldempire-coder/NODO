@@ -12,7 +12,7 @@ function paymentMethodName(methodType: "zelle" | "usdt_trc20") {
 }
 
 function adRouteName(methodType: "zelle" | "usdt_trc20") {
-  return methodType === "usdt_trc20" ? "USDT -> Bs" : "Zelle -> Bs";
+  return methodType === "usdt_trc20" ? "Condiciones USDT" : "Condiciones Zelle";
 }
 
 export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
@@ -25,10 +25,10 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
   const selectedRouteName = adRouteName(adForm.payment_method);
   const selectedMethodName = paymentMethodName(adForm.payment_method);
   const selectedCurrencyPresentation = adAmountCurrencyPresentation(adForm.payment_method);
-  const methodFieldLabel = adForm.payment_method === "usdt_trc20" ? "Wallet USDT donde recibes" : "Zelle donde recibes";
+  const methodFieldLabel = adForm.payment_method === "usdt_trc20" ? "Wallet USDT registrada" : "Zelle registrado";
   const methodEmptyCopy = adForm.payment_method === "usdt_trc20"
-    ? "Agrega una wallet USDT para publicar USDT -> Bs."
-    : "Agrega un Zelle para publicar Zelle -> Bs.";
+    ? "Agrega una wallet USDT para publicar condiciones USDT."
+    : "Agrega un Zelle para publicar condiciones Zelle.";
 
   return (
     <div className="business-card">
@@ -37,10 +37,10 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
       <Text className="auth-entry__session-meta">Rango autorizado: {business?.min_order_amount_usd || "20.00"} - {business?.max_order_amount_usd || "100.00"} <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /></Text>
       <div className="business-shell__tabs business-shell__tabs--two">
         <Button mode={adForm.payment_method === "zelle" ? "filled" : "outline"} size="s" disabled={isSaving} onClick={() => selectAdPaymentType("zelle")}>
-          Zelle - Bs
+          Condiciones Zelle
         </Button>
         <Button mode={adForm.payment_method === "usdt_trc20" ? "filled" : "outline"} size="s" disabled={isSaving} onClick={() => selectAdPaymentType("usdt_trc20")}>
-          USDT - Bs
+          Condiciones USDT
         </Button>
       </div>
       {routeMethods.length === 0 ? (
@@ -65,15 +65,15 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
       )}
       {selectedMethod ? (
         <div className="business-grid">
-          <Text>Recibes: {selectedMethod.receive_display}</Text>
+          <Text>Metodo publicado: {selectedMethod.receive_display}</Text>
           {selectedMethod.network ? <Text>Red: {selectedMethod.network}</Text> : null}
-          <Text>Entregas: {selectedMethod.delivery_display} {selectedMethod.delivery_currency}</Text>
+          <Text>Entrega publicada: {selectedMethod.delivery_display} {selectedMethod.delivery_currency}</Text>
           <Text>Limites: {selectedMethod.limits.min_amount_usd} - {selectedMethod.limits.max_amount_usd} <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /></Text>
           <Text>{selectedMethod.receive_method === "usdt_trc20" ? "Wallet" : "Zelle"}: {selectedMethod.masked_account || "enmascarado"}</Text>
         </div>
       ) : null}
       <label className="business-field">
-        <span>Tasa Bs/<BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /></span>
+        <span>Tasa publicada Bs/<BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /></span>
         <input value={adForm.rate_bs_per_usd} onChange={(event) => setAdForm((current) => ({ ...current, rate_bs_per_usd: sanitizeDecimalInput(event.target.value, { maxDecimals: 4, maxIntegerDigits: 5 }) }))} inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" />
       </label>
       <div className="business-grid">
@@ -88,8 +88,8 @@ export function CreateAdScreen({ model }: { model: BusinessMiniAppModel }) {
       </div>
       {selectedMethod && previewAmount && adForm.rate_bs_per_usd ? (
         <div className="payment-instruction-box">
-          <span>Resumen {selectedRouteName}</span>
-          <strong>Recibiras {previewAmount} <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /> y entregaras aprox. Bs. {previewBs.toFixed(2)}</strong>
+          <span>Condiciones publicadas: {selectedRouteName}</span>
+          <strong>Entrega estimada segun tu tasa: Bs. {previewBs.toFixed(2)} para {previewAmount} <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /></strong>
         </div>
       ) : null}
       <Button mode="filled" stretched disabled={isSaving || !adForm.payment_method_id || !adForm.rate_bs_per_usd} onClick={() => void createAd()}>
@@ -238,9 +238,9 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
   const isSavingPaymentMethod = Boolean(savingPaymentMethodId);
   return (
     <div className="business-card">
-      <Text className="business-card__label">Zelle / USDT</Text>
-      <Title level="3" className="business-shell__title">Zelle y wallets USDT</Title>
-      <Text className="auth-entry__session-meta">Organiza tus Zelle y wallets USDT antes de comprar creditos o publicar anuncios.</Text>
+      <Text className="business-card__label">Metodos</Text>
+      <Title level="3" className="business-shell__title">Metodos registrados</Title>
+      <Text className="auth-entry__session-meta">Organiza tus metodos registrados antes de publicar anuncios.</Text>
       <div className="business-shell__tabs business-shell__tabs--two">
         <Button mode={!editingPaymentMethodId && paymentMethodForm.method_type === "zelle" ? "filled" : "outline"} size="s" disabled={isSavingPaymentMethod} onClick={() => startPaymentMethodCreate("zelle")}>
           Zelle
@@ -299,9 +299,9 @@ export function PaymentMethodsScreen({ model }: { model: BusinessMiniAppModel })
           Cancelar
         </Button>
       ) : null}
-      <Text className="business-card__label">Tus Zelle / USDT</Text>
+      <Text className="business-card__label">Tus metodos registrados</Text>
       <div className="business-list business-list--scrollable">
-        {paymentMethods.length === 0 ? <Text>Aun no tienes Zelle ni wallets USDT guardadas.</Text> : null}
+        {paymentMethods.length === 0 ? <Text>Aun no tienes metodos guardados.</Text> : null}
         {paymentMethods.map((method) => (
           <div className="business-row zelle-row" key={method.id}>
             <div>

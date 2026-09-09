@@ -58,8 +58,8 @@ export function useBusinessChatOrderActions({
       return;
     }
     const actionLabel = action === "confirm-payment"
-      ? "confirmar Zelle recibido"
-      : "marcar Pago Movil enviado";
+      ? "verificar ingreso recibido"
+      : "marcar entrega realizada";
     if (
       (action === "confirm-payment" || action === "mark-delivered")
       && !requireUnlockedBusinessPin({ action: actionLabel, business, setNotice, setView })

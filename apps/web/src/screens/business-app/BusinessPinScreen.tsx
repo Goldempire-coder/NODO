@@ -19,8 +19,8 @@ export function BusinessPinScreen({ model }: { model: BusinessMiniAppModel }) {
   const canSubmitVerify = pinForm.pin.length >= 4;
   const title = isConfirmingPayment
     ? isConfigured
-      ? "PIN para confirmar pago"
-      : "Crear PIN para confirmar pago"
+      ? "PIN para verificar ingreso"
+      : "Crear PIN para verificar ingreso"
     : isDecliningOrder
     ? isConfigured
       ? "PIN para cancelar orden"
@@ -36,7 +36,7 @@ export function BusinessPinScreen({ model }: { model: BusinessMiniAppModel }) {
     : isConfigured
       ? isUnlocked ? "PIN activo" : "Desbloquear"
       : "Crear PIN";
-  const submitLabel = isConfirmingPayment ? "Confirmar pago" : isDecliningOrder ? "Continuar cancelacion" : isDeletingPaymentMethod ? "Borrar metodo" : isSavingPaymentMethod ? "Guardar metodo" : "Entrar";
+  const submitLabel = isConfirmingPayment ? "Verificar ingreso" : isDecliningOrder ? "Continuar cancelacion" : isDeletingPaymentMethod ? "Borrar metodo" : isSavingPaymentMethod ? "Guardar metodo" : "Entrar";
 
   return (
     <div className="business-card">
@@ -77,7 +77,7 @@ export function BusinessPinScreen({ model }: { model: BusinessMiniAppModel }) {
             />
           </label>
           <Button mode="filled" stretched disabled={busy || isLocked || !canSubmitSetup} onClick={() => void submitBusinessPinSetup()}>
-            {isConfirmingPayment ? "Activar PIN y confirmar" : isDecliningOrder ? "Activar PIN y continuar" : isDeletingPaymentMethod ? "Activar PIN y borrar metodo" : isSavingPaymentMethod ? "Activar PIN y guardar metodo" : "Activar PIN"}
+            {isConfirmingPayment ? "Activar PIN y verificar" : isDecliningOrder ? "Activar PIN y continuar" : isDeletingPaymentMethod ? "Activar PIN y borrar metodo" : isSavingPaymentMethod ? "Activar PIN y guardar metodo" : "Activar PIN"}
           </Button>
         </>
       ) : (

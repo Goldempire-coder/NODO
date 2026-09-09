@@ -24,16 +24,16 @@ const BUSINESS_ORDER_PAGE_SIZE = 20;
 
 function businessOrderPinActionLabel(action: PendingBusinessOrderPinAction["action"]) {
   return action === "confirm-payment"
-    ? "confirmar pago recibido"
+    ? "verificar ingreso recibido"
     : "cancelar esta orden antes del pago";
 }
 
 function businessOrderActionSuccessMessage(action: BusinessOrderAction) {
   if (action === "confirm-payment") {
-    return "Pago confirmado. Se consumieron los creditos del anuncio.";
+    return "Ingreso verificado. Se consumieron los creditos del anuncio.";
   }
   if (action === "mark-delivered") {
-    return "Pago movil marcado como enviado.";
+    return "Entrega marcada como realizada.";
   }
   if (action === "cannot-attend") {
     return "Orden cancelada antes de reportar pago. El cliente fue avisado.";

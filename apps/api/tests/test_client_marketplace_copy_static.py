@@ -182,6 +182,7 @@ def test_backend_chat_system_copy_uses_neutral_order_language() -> None:
         "No envies el pago",
         "Cliente marco Pago enviado",
         "Negocio marco Pago Movil enviado",
+        "Negocio marco entrega enviada",
         "Negociacion completada",
         "antes de enviar",
     ):
@@ -191,7 +192,8 @@ def test_backend_chat_system_copy_uses_neutral_order_language() -> None:
         "Solicitud abierta",
         "No realices ningun pago directo",
         "Cliente reporto un pago directo",
-        "Negocio marco entrega enviada",
+        "Negocio verifico ingreso reportado",
+        "Negocio marco la entrega acordada como realizada",
         "Orden completada",
         "antes de realizar cualquier pago directo",
     ):

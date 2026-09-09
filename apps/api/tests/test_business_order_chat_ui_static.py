@@ -276,8 +276,8 @@ def test_order_chat_terminal_state_keeps_history_without_composer_or_dispute_cop
     for source in [business_chat, client_chat]:
         assert 'status === "cancelled"' in source
         assert 'status === "completed"' in source
-        assert "Esta negociación está cerrada." in source
-        assert "registro de la conversación" in source
+        assert "Esta orden esta cerrada." in source
+        assert "registro de la conversacion" in source
         assert "respaldo" not in source.lower()
         assert "!chatIsTerminal ? (" in source
         assert "business-order-chat-composer" in source
@@ -289,13 +289,15 @@ def test_order_chat_uses_compact_role_correct_actions_and_composer_attachment() 
 
     assert "business-order-chat-action-dock" in business_chat
     assert "Compartir datos de pago" in business_chat
-    assert "Confirmar pago recibido" in business_chat
+    assert "Verificar ingreso" in business_chat
+    assert "Confirmar pago recibido" not in business_chat
     assert '"Enviar Zelle"' not in business_chat
-    assert "Pago Movil enviado" in business_chat
+    assert "Pago Movil enviado" not in business_chat
+    assert "Marcar entrega realizada" in business_chat
     assert "business-order-chat-action-dock" in client_chat
     assert "paymentEvidenceInputRef.current?.click()" in client_chat
     assert '>Foto<' not in client_chat
-    assert 'paymentReportMethod === "usdt_trc20" ? "USDT enviado" : "Zelle enviado"' in client_chat
+    assert 'paymentReportMethod === "usdt_trc20" ? "Reportar USDT" : "Reportar Zelle"' in client_chat
     assert "business-order-chat-action-dock__hash" not in client_chat
     assert "Identificador de transaccion" not in client_chat
     assert "Copiar" in client_chat

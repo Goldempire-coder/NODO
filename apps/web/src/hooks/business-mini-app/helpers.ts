@@ -87,11 +87,11 @@ export function businessAccessNoticeFromError(error: unknown): string {
 
 export function humanizeOrderStatus(status: string) {
   const labels: Record<string, string> = {
-    waiting_payment: "Esperando pago",
-    payment_reported: "Pago reportado",
+    waiting_payment: "Esperando reporte",
+    payment_reported: "Ingreso reportado",
     payment_rejected: "Pago en revision",
-    payment_confirmed: "Pago confirmado",
-    delivered: "Enviado",
+    payment_confirmed: "Ingreso verificado",
+    delivered: "Entrega realizada",
     completed: "Completada",
     disputed: "En revision",
     cancelled: "Cancelada"

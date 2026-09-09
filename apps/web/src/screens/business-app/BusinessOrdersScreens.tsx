@@ -23,7 +23,7 @@ function requiresBusinessAttention(order: BusinessOrderSummary) {
 
 function nextBusinessAction(order: BusinessOrderSummary) {
   if (order.capabilities.can_mark_delivered) {
-    return "Pagar al cliente";
+    return "Completar entrega acordada";
   }
   if (order.capabilities.can_confirm_payment || canReportPaymentProblem(order)) {
     return "Verificar ingreso";
@@ -110,8 +110,8 @@ export function IncomingOrdersScreen({ model }: { model: BusinessMiniAppModel })
       </div>
       <div className="business-shell__tabs">
         <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("payment_reported")}>Verificar</Button>
-        <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("payment_confirmed")}>Pagar</Button>
-        <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("delivered")}>Enviadas</Button>
+        <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("payment_confirmed")}>Entrega pendiente</Button>
+        <Button mode="outline" size="s" onClick={() => void loadBusinessOrders("delivered")}>Entrega realizada</Button>
       </div>
       <div className="business-list business-list--scrollable">
         {businessOrders.length === 0 ? (
@@ -185,11 +185,11 @@ export function BusinessOrderDetailScreen({ model }: { model: BusinessMiniAppMod
           <Text>{formatOrderMethodLine(businessOrderDetail.order.payment_method_snapshot, businessOrderDetail.order.delivery_method_snapshot)}</Text>
           {businessOrderDetail.order.capabilities.receiver_details_shared ? (
             <Text className="auth-entry__session-meta">
-              Pago Movil disponible. Abre el chat para consultarlo.
+              Datos de entrega disponibles. Abre el chat para consultarlos.
             </Text>
           ) : (
             <Text className="auth-entry__session-meta">
-              Pago Movil pendiente en chat
+              Entrega pendiente en chat
             </Text>
           )}
           {businessOrderDetail.payment_report ? (

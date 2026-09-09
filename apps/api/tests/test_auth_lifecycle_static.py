@@ -795,22 +795,33 @@ def test_business_ads_screen_has_readable_detail_and_edit_flow() -> None:
     assert "Republicando..." in ad_view_sources
     assert "Anuncio abierto" in ad_detail
     assert "Consume el credito de esta publicacion" in ad_view_sources
-    assert "Tasa" in ad_view_sources
+    assert "Tasa publicada" in ad_view_sources
     assert "USDT TRC20" not in ads_screen
-    assert "Zelle - Bs" in ads_screen
-    assert "USDT - Bs" in ads_screen
-    assert "Wallet USDT donde recibes" in ads_screen
-    assert "Zelle donde recibes" in ads_screen
+    for forbidden_copy in (
+        "Zelle - Bs",
+        "USDT - Bs",
+        "Wallet USDT donde recibes",
+        "Zelle donde recibes",
+        "USDT -> Bs",
+        "Zelle -> Bs",
+        "Recibiras",
+        "entregaras",
+    ):
+        assert forbidden_copy not in ads_screen
+    assert "Condiciones Zelle" in ads_screen
+    assert "Condiciones USDT" in ads_screen
+    assert "Wallet USDT registrada" in ads_screen
+    assert "Zelle registrado" in ads_screen
     assert "routeMethods.map" in ads_screen
     assert "selectAdPaymentType" in ads_screen
     assert "selectAdPaymentType" in payment_methods_model
-    assert "Agrega una wallet USDT para publicar USDT -> Bs." in ads_screen
-    assert "Recibiras {previewAmount} <BusinessAdCurrencyLabel presentation={selectedCurrencyPresentation} /> y entregaras aprox. Bs." in ads_screen
-    assert "Zelle y wallets USDT" in ads_screen
+    assert "Agrega una wallet USDT para publicar condiciones USDT." in ads_screen
+    assert "Entrega estimada segun tu tasa: Bs." in ads_screen
+    assert "Metodos registrados" in ads_screen
     assert "Si dejas Zelle o wallet vacio" in ads_screen
     assert "Metodos de cobro" not in ads_screen
     assert "Estas editando este metodo" not in ads_screen
-    assert "Zelle / USDT" in ads_screen
+    assert "Tus metodos registrados" in ads_screen
     assert "mini-action-button--danger" in ads_screen
     assert "Borrando..." in ads_screen
     assert "startPaymentMethodCreate" in payment_methods_model

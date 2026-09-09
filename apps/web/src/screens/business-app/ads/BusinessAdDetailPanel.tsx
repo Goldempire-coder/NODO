@@ -70,7 +70,7 @@ export function BusinessAdDetailPanel({ ad, mode = "detail", model }: { ad: AdSu
           <strong>{humanizeAdStatus(status)}</strong>
         </div>
         <div>
-          <span>Tasa</span>
+          <span>Tasa publicada</span>
           <strong>{displayRate(ad)} / <BusinessAdCurrencyLabel presentation={currencyPresentation} /></strong>
         </div>
         <div>
@@ -108,7 +108,7 @@ export function BusinessAdDetailPanel({ ad, mode = "detail", model }: { ad: AdSu
         <div className="business-ad-edit">
           {activePaymentMethods.length ? (
             <label className="business-field">
-              <span>Metodo donde recibes</span>
+              <span>Metodo registrado</span>
               <select value={editPaymentMethodValue} onChange={(event) => setAdEditForm((current) => ({ ...current, payment_method_id: event.target.value }))}>
                 <option value="">Selecciona un metodo activo</option>
                 {activePaymentMethods.map((method) => (
@@ -128,7 +128,7 @@ export function BusinessAdDetailPanel({ ad, mode = "detail", model }: { ad: AdSu
             Agregar metodo
           </Button>
           <label className="business-field">
-            <span>Tasa Bs/<BusinessAdCurrencyLabel presentation={editCurrencyPresentation} /></span>
+            <span>Tasa publicada Bs/<BusinessAdCurrencyLabel presentation={editCurrencyPresentation} /></span>
             <input value={adEditForm.rate_bs_per_usd} onChange={(event) => setAdEditForm((current) => ({ ...current, rate_bs_per_usd: sanitizeDecimalInput(event.target.value, { maxDecimals: 4, maxIntegerDigits: 5 }) }))} inputMode="decimal" pattern="[0-9]*[.]?[0-9]*" autoComplete="off" />
           </label>
           <div className="business-grid">

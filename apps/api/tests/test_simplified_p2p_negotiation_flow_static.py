@@ -63,9 +63,11 @@ def test_slice_50a_client_confirms_minimal_quote_before_post_and_opens_chat() ->
     orders_api = _read("apps/web/src/api/orders.ts")
 
     assert 'setView("create-order")' in marketplace
-    assert "Confirmar negociacion" in orders_screen
-    assert "Monto que entregas" in orders_screen
-    assert "Monto que recibe" in orders_screen
+    assert "Confirmar solicitud" in orders_screen
+    assert "Monto solicitado" in orders_screen
+    assert "Total referencial" in orders_screen
+    assert "Monto que entregas" not in orders_screen
+    assert "Monto que recibe" not in orders_screen
     assert "notice" in orders_screen
     assert 'className="auth-entry__message"' in orders_screen
     assert 'role={notice === "Preparando tu orden" ? "status" : "alert"}' in orders_screen
@@ -107,7 +109,7 @@ def test_chat_uses_one_compact_payment_details_flow_for_zelle_and_usdt() -> None
     payment_screen = _read("apps/web/src/screens/client/ClientPaymentScreens.tsx")
 
     assert "chatCapabilities.can_report_payment" in client_chat
-    assert 'paymentReportMethod === "usdt_trc20" ? "USDT enviado" : "Zelle enviado"' in client_chat
+    assert 'paymentReportMethod === "usdt_trc20" ? "Reportar USDT" : "Reportar Zelle"' in client_chat
     assert "No realices ningun pago directo" in client_chat
     assert "const canSharePaymentDetails = chatCapabilities.can_share_payment_details" in business_chat
     assert 'currentOrder?.payment_method_snapshot === "usdt_trc20"' in business_chat
@@ -154,7 +156,7 @@ def test_slice_50b2_payment_mobile_is_structured_inside_compact_chat_ui() -> Non
     assert "Pago movil:\\nBanco:\\nTelefono:\\nCedula:\\nTitular:" not in client_chat
     assert "receiverDetailsForm" in client_chat
     assert "shareReceiverDetails" in client_chat
-    assert "Compartir Pago Movil" in client_chat
+    assert "Compartir datos Pago Movil" in client_chat
     assert "Banco de Venezuela" in client_chat
     assert 'type="tel"' in client_chat
     assert "can_mark_delivered" in chat_service
@@ -295,12 +297,14 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
     assert "session.reloadChatSession(targetOrderId, targetSessionEpoch)" in chat_action_source
     assert "syncBusinessOrderFromChat(mutation.order)" in chat_action_source
     assert "refreshChat({ silent: true })" not in chat_action_source
-    assert "Confirmar pago recibido" in business_chat
-    assert "Pago Movil enviado" in business_chat
+    assert "Verificar ingreso" in business_chat
+    assert "Confirmar pago recibido" not in business_chat
+    assert "Pago Movil enviado" not in business_chat
+    assert "Marcar entrega realizada" in business_chat
     assert "Confirmar pago" not in business_orders
     assert "Marcar enviado" not in business_orders
     assert "shouldHandleInChat" in business_orders
-    assert "Pago Movil pendiente. Espera a que el cliente comparta sus datos." in business_chat
+    assert "Entrega pendiente. Espera a que el cliente comparta sus datos." in business_chat
     assert "businessChatAction" in business_chat
     assert "sortChatMessages" in chat_model
 
@@ -340,7 +344,7 @@ def test_receiver_details_state_and_async_result_are_scoped_to_the_chat_order() 
     assert "chatOrderIdRef.current !== targetOrderId" in share_source
     stale_guard = share_source.index("chatOrderIdRef.current !== targetOrderId")
     assert stale_guard < share_source.index("setReceiverDetailsMasked(")
-    assert stale_guard < share_source.index('setNotice("Pago Movil compartido.")')
+    assert stale_guard < share_source.index('setNotice("Datos Pago Movil compartidos.")')
 
 
 def test_client_chat_open_discards_a_late_response_from_another_order() -> None:
@@ -565,7 +569,7 @@ def test_slice_50b1_business_order_detail_ignores_legacy_receiver_data() -> None
         "apps/web/src/screens/business-app/BusinessOrdersScreens.tsx"
     )
 
-    assert "Pago Movil pendiente en chat" in business_orders
+    assert "Entrega pendiente en chat" in business_orders
     assert "capabilities.receiver_details_shared" in business_orders
     assert "hasLegacyReceiverData" not in business_orders
     assert '|| "Banco"' not in business_orders

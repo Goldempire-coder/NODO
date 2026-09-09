@@ -603,7 +603,7 @@ def test_slice_50b2_frontend_uses_structured_compact_chat_ui_and_copy_controls()
     assert 'type="text"' in client_chat
     assert 'type="tel"' in client_chat
     assert "confirmOrderReceived" in client_chat
-    assert "Pago Movil pendiente" in business_chat
+    assert "Entrega pendiente" in business_chat
     assert "revealReceiverDetails" in business_chat
     assert "Copiar telefono" in business_chat
     assert "Copiar cedula" in business_chat

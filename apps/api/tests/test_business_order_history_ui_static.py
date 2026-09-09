@@ -114,5 +114,5 @@ def test_business_confirm_payment_uses_pin_gate_in_detail_and_chat() -> None:
     assert 'data.order.capabilities.can_confirm_payment' in orders_model
     assert '(action === "confirm-payment" || action === "mark-delivered")' in chat_actions
     assert "routeBusinessPinError({ action: actionLabel, error, setNotice, setView })" in chat_actions
-    assert "PIN para confirmar pago" in pin_screen
-    assert "Activar PIN y confirmar" in pin_screen
+    assert "PIN para verificar ingreso" in pin_screen
+    assert "Activar PIN y verificar" in pin_screen

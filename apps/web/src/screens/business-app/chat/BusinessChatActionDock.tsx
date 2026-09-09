@@ -49,7 +49,7 @@ export function BusinessChatActionDock({
           disabled={businessChatAction === "confirm-payment"}
           onClick={() => void confirmBusinessPaymentInChat()}
         >
-          {businessChatAction === "confirm-payment" ? "Confirmando..." : "Confirmar pago recibido"}
+          {businessChatAction === "confirm-payment" ? "Verificando..." : "Verificar ingreso"}
         </button>
       ) : null}
       {canMarkDelivered ? (
@@ -59,7 +59,7 @@ export function BusinessChatActionDock({
           disabled={businessChatAction === "mark-delivered"}
           onClick={() => void markBusinessDeliveredInChat()}
         >
-          {businessChatAction === "mark-delivered" ? "Marcando..." : "Pago Movil enviado"}
+          {businessChatAction === "mark-delivered" ? "Marcando..." : "Marcar entrega realizada"}
         </button>
       ) : null}
     </div>
