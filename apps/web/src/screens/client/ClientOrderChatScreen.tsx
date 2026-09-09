@@ -149,7 +149,7 @@ export function ClientOrderChatScreen({ model }: { model: ClientWorkspaceModel }
         />
         {selectedChatOrder?.status === "waiting_payment" && !chatCapabilities.payment_details_shared ? (
             <Text className="auth-entry__session-meta business-order-chat-note">
-              No realices ningun pago directo hasta que el negocio comparta sus datos.
+              No realices ningun pago directo hasta que el negocio comparta sus datos publicados.
             </Text>
           ) : null}
         {chatAttachmentLink ? (

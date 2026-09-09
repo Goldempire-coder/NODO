@@ -97,7 +97,7 @@ export function ClientOperationReportPanel({
               disabled={creating}
               onClick={() => void model.submitOperationReport(order.id, { category, message })}
             >
-              {creating ? "Enviando..." : "Confirmar envio"}
+              {creating ? "Enviando..." : "Enviar reporte"}
             </Button>
           </div>
         </div>

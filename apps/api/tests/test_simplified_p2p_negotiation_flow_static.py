@@ -108,12 +108,12 @@ def test_chat_uses_one_compact_payment_details_flow_for_zelle_and_usdt() -> None
 
     assert "chatCapabilities.can_report_payment" in client_chat
     assert 'paymentReportMethod === "usdt_trc20" ? "USDT enviado" : "Zelle enviado"' in client_chat
-    assert "No envies el pago" in client_chat
+    assert "No realices ningun pago directo" in client_chat
     assert "const canSharePaymentDetails = chatCapabilities.can_share_payment_details" in business_chat
     assert 'currentOrder?.payment_method_snapshot === "usdt_trc20"' in business_chat
     assert '"Compartir wallet"' in business_chat
     assert "/share-payment-details" in _read("apps/web/src/api/chat.ts")
-    assert "Confirma con el negocio la red exacta antes de enviar." in client_chat
+    assert "Confirma con el negocio la red exacta antes de realizar cualquier pago directo." in client_chat
     assert "Compartir datos de pago" in business_chat
     assert "shareConfiguredPaymentDetails" in business_chat_model
     assert "Copiar" in client_chat
@@ -139,7 +139,7 @@ def test_usdt_copy_is_simple_but_the_order_network_remains_explicit() -> None:
     assert "USDT TRC20" not in marketplace
     assert "formatPaymentMethod(methodType)" in client_chat
     assert "paymentMethodCurrencyPresentation(methodType)" in client_chat
-    assert "Confirma con el negocio la red exacta antes de enviar." in client_chat
+    assert "Confirma con el negocio la red exacta antes de realizar cualquier pago directo." in client_chat
     assert "instructions.payment_instructions.network" in client_chat
     assert "Por ahora NODO solo admite wallets USDT en TRC20." not in payment_helpers
     assert "Revisa la wallet USDT. Confirma la red exacta con el cliente por chat." in payment_helpers
@@ -282,6 +282,8 @@ def test_slice_50c_payment_report_and_business_confirmations_stay_inside_chat() 
     assert "business-order-chat-action-dock" in client_chat
     assert "paymentEvidenceInputRef.current?.click()" in client_chat
     assert "Cliente marco Pago enviado" not in client_chat
+    assert "Negociacion creada" not in client_chat
+    assert "Negociacion completada" not in client_chat
     assert "can_confirm_payment" in chat_types
     assert "can_mark_delivered" in chat_types
     assert "confirmBusinessPaymentInChat" in business_chat_model

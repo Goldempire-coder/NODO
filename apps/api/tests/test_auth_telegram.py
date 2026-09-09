@@ -138,7 +138,7 @@ def test_user_accepts_terms_once_and_profile_persists_acceptance() -> None:
     accept_response = client.post(
         "/api/v1/users/me/terms-acceptance",
         headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": "req_terms_accept"},
-        json={"terms_version": "2026-07-06"},
+        json={"terms_version": "2026-09-09"},
     )
     profile_response = client.get(
         "/api/v1/users/me",
@@ -148,7 +148,7 @@ def test_user_accepts_terms_once_and_profile_persists_acceptance() -> None:
     assert accept_response.status_code == 200
     accepted = accept_response.json()["data"]
     assert accepted["terms_accepted_at"]
-    assert accepted["terms_version"] == "2026-07-06"
+    assert accepted["terms_version"] == "2026-09-09"
     assert profile_response.json()["data"]["terms_accepted_at"] == accepted["terms_accepted_at"]
     assert "terms_accepted" in _event_types(client)
 
@@ -192,12 +192,12 @@ def test_terms_acceptance_rejects_stale_version_and_allows_current_version_later
     current = client.post(
         "/api/v1/users/me/terms-acceptance",
         headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": "req_terms_current"},
-        json={"terms_version": "2026-07-06"},
+        json={"terms_version": "2026-09-09"},
     )
 
     assert current.status_code == 200, current.text
     assert current.json()["data"]["terms_accepted_at"]
-    assert current.json()["data"]["terms_version"] == "2026-07-06"
+    assert current.json()["data"]["terms_version"] == "2026-09-09"
 
 
 def test_invalid_hash_rejects_and_audits_auth_failed() -> None:

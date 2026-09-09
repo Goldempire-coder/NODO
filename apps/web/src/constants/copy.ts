@@ -1,7 +1,7 @@
 export const ORDER_DISCLAIMER =
   "NODO muestra ofertas de negocios registrados y conserva el registro de la orden. Las condiciones se coordinan directamente entre cliente y negocio.";
 export const PAYMENT_COPY =
-  "Usa solo los datos publicados por el negocio en esta orden. NODO no recibe ni retiene fondos; el negocio revisara tu reporte.";
+  "Usa solo los datos publicados por el negocio en esta orden. NODO no recibe, retiene, transfiere ni garantiza fondos; el negocio revisara tu reporte.";
 export const BUSINESS_OPS_COPY =
   "Confirma solo cuando el pago este visible en tu cuenta. Luego marca la entrega acordada cuando la completes.";
 export const CHAT_DISPUTE_COPY =

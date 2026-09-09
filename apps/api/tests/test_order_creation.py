@@ -100,7 +100,7 @@ def _login(client: TestClient, telegram_id: int = 901, username: str = "user") -
     terms = client.post(
         "/api/v1/users/me/terms-acceptance",
         headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": f"req_terms_{telegram_id}"},
-        json={"terms_version": "2026-07-06"},
+        json={"terms_version": "2026-09-09"},
     )
     assert terms.status_code == 200, terms.text
     login["user"] = terms.json()["data"]
@@ -739,7 +739,7 @@ def test_create_order_requires_terms_but_user_can_accept_later() -> None:
     accepted = client.post(
         "/api/v1/users/me/terms-acceptance",
         headers={"Authorization": f"Bearer {remitter['access_token']}", "X-Request-Id": "req_terms_gate_accept"},
-        json={"terms_version": "2026-07-06"},
+        json={"terms_version": "2026-09-09"},
     )
     assert accepted.status_code == 200, accepted.text
 

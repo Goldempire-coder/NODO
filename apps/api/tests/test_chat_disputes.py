@@ -84,7 +84,7 @@ def _login(client: TestClient, telegram_id: int, username: str) -> dict:
     terms = client.post(
         "/api/v1/users/me/terms-acceptance",
         headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": f"req_terms_{telegram_id}"},
-        json={"terms_version": "2026-07-06"},
+        json={"terms_version": "2026-09-09"},
     )
     assert terms.status_code == 200, terms.text
     login["user"] = terms.json()["data"]
@@ -332,8 +332,8 @@ def test_slice_50a_waiting_payment_chat_is_immediate_virtual_and_private() -> No
             "order_id": order["id"],
             "sender_role": "system",
             "body": (
-                "Negociacion creada. Coordinen por aqui. "
-                "No envies el pago hasta que el negocio comparta sus datos."
+                "Solicitud abierta. Coordinen por aqui. "
+                "No realices ningun pago directo hasta que el negocio comparta sus datos publicados."
             ),
             "visibility": "parties",
             "status": "visible",
@@ -467,7 +467,7 @@ def test_client_cancelled_order_keeps_chat_readable_closed_and_private_to_partic
     assert data["capabilities"]["can_open_dispute"] is False
     assert any(
         message["id"] == f"system:order-cancelled:{order['id']}"
-        and "Cliente cancelo la negociacion" in message["body"]
+        and "Cliente cancelo la solicitud" in message["body"]
         for message in data["system_messages"]
     )
     combined = business_read.text + client_read.text
@@ -619,7 +619,7 @@ def test_usdt_wallet_requires_explicit_business_share_and_replay_is_deduped() ->
     assert replay_share.status_code == 201, replay_share.text
     assert first_share.json()["data"]["message"]["id"] == replay_share.json()["data"]["message"]["id"]
     assert "TFullWalletValue123456789" in first_share.json()["data"]["message"]["body"]
-    assert "Confirma con el negocio la red exacta antes de enviar." in first_share.json()["data"]["message"]["body"]
+    assert "Confirma con el negocio la red exacta antes de realizar cualquier pago directo." in first_share.json()["data"]["message"]["body"]
     assert chat_after.json()["data"]["capabilities"]["can_report_payment"] is True
     assert reveal_after.status_code == 200, reveal_after.text
     assert reveal_after.json()["data"]["payment_instructions"]["account_value"] == "TFullWalletValue123456789"
@@ -1492,7 +1492,7 @@ def test_slice_50c_payment_report_appears_in_order_chat_with_proof_for_business(
         if message["id"].startswith("system:payment-reported:")
     ]
     assert len(report_messages) == 1
-    assert "Cliente marco Pago enviado" in report_messages[0]["body"]
+    assert "Cliente reporto un pago directo" in report_messages[0]["body"]
     assert report_messages[0]["attachments"][0]["id"] == evidence_data["file"]["id"]
     assert report_messages[0]["attachments"][0]["mime_type"] == "image/png"
 

@@ -154,7 +154,7 @@ def main() -> None:
     add_text_center(draw, (width // 2, 684), "Cómo funciona", font(42, bold=True), (255, 255, 255))
 
     steps = [
-        ("1", "Indica el monto que vas a enviar."),
+        ("1", "Indica el monto que buscas."),
         ("2", "Elige una oferta disponible."),
         ("3", "Revisa los datos publicados por el negocio."),
         ("4", "Guarda la evidencia de tu orden."),

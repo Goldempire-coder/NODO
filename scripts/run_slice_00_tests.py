@@ -82,7 +82,8 @@ def test_logging_redacts_secrets() -> None:
     redacted = redact_secret(text)
     assert_true("password" not in redacted, "database password must be redacted")
     assert_true("abc.def" not in redacted, "bearer token must be redacted")
-    assert_true("secret" not in redacted.lower(), "plain secret value must be redacted")
+    assert_true("JWT_SECRET=secret" not in redacted, "plain secret value must be redacted")
+    assert_true("JWT_SECRET=[REDACTED]" in redacted, "secret key names can remain but values must be redacted")
 
 
 def test_migrations_contract() -> None:

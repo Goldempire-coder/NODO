@@ -83,6 +83,9 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
       setSearchResults(cached.items);
       setSearchResultsNextCursor(cached.nextCursor);
       setSelectedAd(null);
+      setSearchingMarketplace(false);
+      recordActionCompleted("client_marketplace_search", "marketplace-search", startedAt);
+      return;
     }
     try {
       const data = await searchMarketplaceAds<MarketplaceSearchPage>(request, params);
@@ -191,6 +194,8 @@ export function useClientMarketplaceModel(state: ClientWorkspaceState & { reques
       setSearchResultsNextCursor(cached.nextCursor);
       setSelectedAd(null);
       setLoadingMarketplace(false);
+      recordActionCompleted("client_marketplace_list", "marketplace-list", startedAt);
+      return;
     }
     if (cached) {
       setSearchResults(cached.items);

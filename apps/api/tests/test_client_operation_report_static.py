@@ -15,8 +15,9 @@ def test_operation_report_is_outside_chat_and_uses_order_as_authority() -> None:
     model = _read("apps/web/src/hooks/workspace/useClientOperationReportModel.ts")
     chat = _read("apps/web/src/screens/client/ClientOrderChatScreen.tsx")
 
-    assert "Reportar operacion" in component
-    assert "Reporte recibido. Soporte NODO revisara la operacion." in model
+    assert "Reportar orden" in component
+    assert "Reporte recibido. Soporte NODO revisara la orden." in model
+    assert "Enviar reporte" in component
     assert "REPORTABLE_OPERATION_STATUSES" in component
     assert "ClientOperationReportPanel" in orders_screen
     assert 'f"/api/v1/orders/' not in api

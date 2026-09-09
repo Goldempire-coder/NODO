@@ -56,23 +56,23 @@ def test_client_marketplace_copy_describes_registration_without_endorsement() ->
 
     for expected in (
         "Directorio de ofertas",
-        "¿Cuánto vas a enviar?",
-        "Ofertas publicadas",
+        "¿Qué monto buscas?",
+        "Ofertas disponibles",
         "Ingresa un monto para ver ofertas disponibles.",
-        "Compara tasa, limites y disponibilidad.",
-        "Los datos son publicados por cada negocio.",
+        "Revisa monto, condiciones y disponibilidad.",
+        "Cada negocio publica sus datos.",
         "Perfil registrado",
-        "Paga solo a los datos mostrados en esta orden.",
-        "NODO conecta usuarios con negocios registrados.",
-        "El pago y la entrega se coordinan directamente entre las partes.",
+        "Usa solo los datos publicados por el negocio en esta orden.",
+        "NODO no recibe, retiene, transfiere ni garantiza fondos",
+        "NODO muestra ofertas de negocios registrados",
+        "Las condiciones se coordinan directamente entre cliente y negocio.",
         "Listo para usar NODO",
-        "Pago al negocio:",
         "Entrega publicada:",
         "Escribe tu numero completo",
         "Puede ser de Venezuela, Estados Unidos u otro pais.",
         "Escribe el numero completo",
         "Compara ofertas publicadas, revisa sus condiciones y crea tu orden en pocos pasos.",
-        "Indica el monto que vas a enviar.",
+        "Indica el monto que buscas.",
         "Elige una oferta disponible.",
         "Revisa los datos publicados por el negocio.",
         "Guarda la evidencia de tu orden.",
@@ -148,7 +148,7 @@ def test_telegram_welcome_and_client_phone_copy_are_country_neutral() -> None:
         "Puede ser de Venezuela, Estados Unidos u otro pais.",
         "Escribe el numero completo",
         "Compara ofertas publicadas, revisa sus condiciones y crea tu orden en pocos pasos.",
-        "Indica el monto que vas a enviar.",
+        "Indica el monto que buscas.",
         "Elige una oferta disponible.",
         "Revisa los datos publicados por el negocio.",
         "Guarda la evidencia de tu orden.",
@@ -163,7 +163,7 @@ def test_client_marketplace_mobile_copy_cannot_force_horizontal_overflow() -> No
     marketplace = (ROOT / "apps" / "web" / "src" / "screens" / "client" / "ClientMarketplaceScreens.tsx").read_text(encoding="utf-8")
     css = (ROOT / "apps" / "web" / "src" / "app" / "globals.css").read_text(encoding="utf-8")
 
-    assert "Ofertas publicadas" in marketplace
+    assert "Ofertas disponibles" in marketplace
     assert "Negocios que publican en NODO" not in marketplace
     assert ".business-shell" in css
     assert "overflow-x: clip;" in css
@@ -172,3 +172,27 @@ def test_client_marketplace_mobile_copy_cannot_force_horizontal_overflow() -> No
     assert ".exchange-card__title" in css
     assert "overflow-wrap: anywhere;" in css
     assert "min-width: 0;" in css
+
+
+def test_backend_chat_system_copy_uses_neutral_order_language() -> None:
+    chat_service = (ROOT / "apps" / "api" / "app" / "modules" / "chat" / "service.py").read_text(encoding="utf-8")
+
+    for forbidden in (
+        "Negociacion creada",
+        "No envies el pago",
+        "Cliente marco Pago enviado",
+        "Negocio marco Pago Movil enviado",
+        "Negociacion completada",
+        "antes de enviar",
+    ):
+        assert forbidden not in chat_service
+
+    for expected in (
+        "Solicitud abierta",
+        "No realices ningun pago directo",
+        "Cliente reporto un pago directo",
+        "Negocio marco entrega enviada",
+        "Orden completada",
+        "antes de realizar cualquier pago directo",
+    ):
+        assert expected in chat_service

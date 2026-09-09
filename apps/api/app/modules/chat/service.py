@@ -27,8 +27,8 @@ from app.shared.photo_uploads import (
 
 CHAT_DISCLAIMER = "Usa este chat para coordinar la orden y conservar el registro de la conversacion."
 NEGOTIATION_CREATED_MESSAGE = (
-    "Negociacion creada. Coordinen por aqui. "
-    "No envies el pago hasta que el negocio comparta sus datos."
+    "Solicitud abierta. Coordinen por aqui. "
+    "No realices ningun pago directo hasta que el negocio comparta sus datos publicados."
 )
 logger = get_logger(__name__)
 
@@ -220,7 +220,7 @@ class ChatService:
                     "id": f"system:payment-reported:{report.id}",
                     "order_id": order.id,
                     "sender_role": "system",
-                    "body": "Cliente marco Pago enviado. Revisa el comprobante adjunto.",
+                    "body": "Cliente reporto un pago directo. Revisa el comprobante adjunto.",
                     "visibility": "parties",
                     "status": "visible",
                     "attachments": [_payment_evidence_attachment_payload(file) for file in evidence],
@@ -233,7 +233,7 @@ class ChatService:
                     "id": f"system:payment-confirmed:{order.id}",
                     "order_id": order.id,
                     "sender_role": "system",
-                    "body": "Negocio confirmo el pago recibido. Escribe tu Pago Movil en el chat.",
+                    "body": "Negocio confirmo recepcion del pago directo. Comparte los datos de entrega acordados en el chat.",
                     "visibility": "parties",
                     "status": "visible",
                     "attachments": [],
@@ -247,7 +247,7 @@ class ChatService:
                     "id": f"system:receiver-details-shared:{receiver_details.id}",
                     "order_id": order.id,
                     "sender_role": "system",
-                    "body": "Cliente compartio Pago Movil.",
+                    "body": "Cliente compartio datos de entrega.",
                     "visibility": "parties",
                     "status": "visible",
                     "attachments": [],
@@ -260,7 +260,7 @@ class ChatService:
                     "id": f"system:order-delivered:{order.id}",
                     "order_id": order.id,
                     "sender_role": "system",
-                    "body": "Negocio marco Pago Movil enviado. Cliente debe confirmar recepcion o abrir caso.",
+                    "body": "Negocio marco entrega enviada. Cliente debe confirmar recepcion o abrir caso.",
                     "visibility": "parties",
                     "status": "visible",
                     "attachments": [],
@@ -273,7 +273,7 @@ class ChatService:
                     "id": f"system:order-completed:{order.id}",
                     "order_id": order.id,
                     "sender_role": "system",
-                    "body": "Negociacion completada.",
+                    "body": "Orden completada.",
                     "visibility": "parties",
                     "status": "visible",
                     "attachments": [],
@@ -281,13 +281,13 @@ class ChatService:
                 }
             )
         if order.status == "cancelled":
-            body = "Negociacion cerrada antes de reportar pago."
+            body = "Solicitud cerrada antes de reportar pago."
             if order.cancel_reason == "remitter_cancelled_before_payment":
-                body = "Cliente cancelo la negociacion antes de reportar pago. Esta orden esta cerrada."
+                body = "Cliente cancelo la solicitud antes de reportar pago. Esta orden esta cerrada."
             elif order.cancel_reason == "payment_not_reported_in_time":
-                body = "La negociacion se cerro porque se acabo el tiempo para reportar pago."
+                body = "La solicitud se cerro porque se acabo el tiempo para reportar pago."
             elif order.cancel_reason == "business_unavailable":
-                body = "El negocio no pudo atender esta negociacion. Esta orden esta cerrada."
+                body = "El negocio no pudo atender esta solicitud. Esta orden esta cerrada."
             messages.append(
                 {
                     "id": f"system:order-cancelled:{order.id}",
@@ -582,7 +582,7 @@ class ChatService:
             if network:
                 body = f"{body}\nRed indicada: {network}"
             body = (
-                f"{body}\nConfirma con el negocio la red exacta antes de enviar."
+                f"{body}\nConfirma con el negocio la red exacta antes de realizar cualquier pago directo."
             )
         else:
             body = f"Zelle del negocio: {account_value}"

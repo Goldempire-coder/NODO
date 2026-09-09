@@ -16,7 +16,7 @@ def test_business_credit_purchase_uses_connected_wallet_without_manual_input() -
     assert "void connectWallet()" not in screen
     assert "Preparar autorizacion" not in screen
     assert "NODO no ve ni guarda tu clave privada." in screen
-    assert "MetaMask mostrara cada paso antes de enviarlo." in screen
+    assert "MetaMask mostrara cada paso antes de confirmarlo." in screen
     assert "Esta wallet será la que firma y paga." in screen
     assert "value={payerWalletAddress}" not in screen
     assert "setPayerWalletAddress" not in screen

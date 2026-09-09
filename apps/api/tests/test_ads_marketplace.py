@@ -89,7 +89,7 @@ def _login(client: TestClient, telegram_id: int = 101, username: str = "user") -
     terms = client.post(
         "/api/v1/users/me/terms-acceptance",
         headers={"Authorization": f"Bearer {login['access_token']}", "X-Request-Id": f"req_terms_{telegram_id}"},
-        json={"terms_version": "2026-07-06"},
+        json={"terms_version": "2026-09-09"},
     )
     assert terms.status_code == 200, terms.text
     login["user"] = terms.json()["data"]

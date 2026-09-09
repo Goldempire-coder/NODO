@@ -455,7 +455,7 @@ def test_business_mini_app_uses_surface_session_gate_not_businesses_me_gate() ->
     assert "Wallet pagadora" in credits_screen
     assert "useInjectedWallet" in credits_model
     assert "NODO revisara esta compra automaticamente." in credits_screen
-    assert "MetaMask mostrara cada paso antes de enviarlo." in credits_screen
+    assert "MetaMask mostrara cada paso antes de confirmarlo." in credits_screen
     assert "red BASE" not in credits_screen
     assert "red BASE" not in credits_model
     assert 'recordBusinessActionStarted("credit_payment_create"' in credits_model
@@ -662,10 +662,10 @@ def test_client_mini_app_has_action_scoped_state_and_safe_breadcrumbs() -> None:
     assert "disabled={busy" not in support_screen
     assert "Buscando..." in marketplace_screen
     assert "Confirmando..." in order_screen
-    assert "Zelle enviado" in chat_screen
+    assert "Reportar Zelle" in chat_screen
     assert "loadingPaymentInstructions" in chat_screen
     assert "Subiendo comprobante..." in payment_screen
-    assert "Enviando reporte..." in payment_screen
+    assert "Guardando reporte..." in payment_screen
     assert 'sendingChatMessage ? "..." : <SendIcon />' in chat_screen
     assert 'aria-label="Enviar"' in chat_screen
     assert "Ir a Soporte" not in chat_screen
@@ -699,7 +699,7 @@ def test_slice_48a_client_cancel_returns_to_fresh_marketplace_and_admin_shows_ev
     assert "await searchFreshForAmount(data.order.amount_usd)" in orders_model
     assert "payment_not_sent_confirmed" in orders_model
     assert "Cancelar y buscar otro negocio" in order_screen
-    assert "Cancela solo si no enviaste el pago." in order_screen
+    assert "Cancela solo si no realizaste el pago directo al negocio." in order_screen
     for reason in [
         "business_not_responding",
         "business_unavailable",
@@ -707,7 +707,7 @@ def test_slice_48a_client_cancel_returns_to_fresh_marketplace_and_admin_shows_ev
         "choose_another_business",
     ]:
         assert reason in order_screen
-    assert "Orden cancelada. Te mostramos otros negocios disponibles para el mismo monto." in marketplace_model
+    assert "Orden cancelada. Te mostramos otras ofertas disponibles para el mismo monto." in marketplace_model
     assert "notice" in marketplace_screen
     assert "Cancelada antes de reportar pago." in admin_order_screen
 
@@ -757,11 +757,11 @@ def test_client_mini_app_android_scroll_keyboard_and_cached_loads() -> None:
     marketplace_list_function = marketplace_model.split("async function loadActiveMarketplace", 1)[1].split("async function openAdDetail", 1)[0]
     fresh_marketplace_cache_block = marketplace_list_function.split("if (cached && Date.now() - cached.loadedAt < CLIENT_MARKETPLACE_CACHE_TTL_MS)", 1)[1].split("if (cached)", 1)[0]
     assert "setSearchResults(cached.items)" in marketplace_model
-    assert "return;" not in fresh_marketplace_cache_block
-    assert "recordActionCompleted(\"client_marketplace_list\"" not in fresh_marketplace_cache_block
+    assert "return;" in fresh_marketplace_cache_block
+    assert "recordActionCompleted(\"client_marketplace_list\"" in fresh_marketplace_cache_block
     assert "setSearchResults((current) => current.filter((ad) => ad.id !== adId));" in marketplace_model
     assert "AD_NOT_AVAILABLE" in marketplace_model
-    assert "Online: recibiendo ofertas" in marketplace_surface
+    assert "Disponible para solicitudes" in marketplace_surface
     assert "CLIENT_ORDERS_CACHE_TTL_MS" in orders_model
     assert "prefetchActiveMarketplaceRef" in client_model
     assert "prefetchMyOrdersRef" in client_model

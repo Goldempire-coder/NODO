@@ -174,7 +174,7 @@ def _run_client_onboarding(client: TestClient, remitter: dict) -> dict:
     terms = client.post(
         "/api/v1/users/me/terms-acceptance",
         headers={**_bearer(remitter, "client_terms"), "Content-Type": "application/json"},
-        json={"terms_version": "2026-07-06"},
+        json={"terms_version": "2026-09-09"},
     )
     _assert_status(terms, 200, "client.terms")
     profile = client.post(

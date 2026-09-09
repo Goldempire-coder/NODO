@@ -88,7 +88,7 @@ export function BusinessChatMessageList({
     <div className="business-order-chat-messages" aria-label="Mensajes de la orden" aria-live="polite">
       <article className="business-order-chat-message business-order-chat-message--system business-order-chat-system-bubble">
         <span className="business-order-chat-message__sender">NODO</span>
-        <p>Negociacion abierta con cliente</p>
+        <p>Solicitud abierta con cliente</p>
         <strong>{orderLabel}</strong>
       </article>
 

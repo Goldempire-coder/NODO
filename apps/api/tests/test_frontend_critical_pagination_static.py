@@ -52,7 +52,7 @@ def test_client_orders_and_surface_support_use_explicit_cursor_pagination() -> N
     assert "ordersLoadedPageCountRef" in orders_model
     assert "loadMoreMyOrders" in client_model
     assert "loadMoreMyOrders" in order_screen
-    assert "Cargar mas" in order_screen
+    assert "Cargar más" in order_screen
 
     assert "supportTicketsNextCursor" in support_model
     assert "loadMoreSupportTickets" in support_model
@@ -92,7 +92,7 @@ def test_client_marketplace_and_order_chat_load_more_only_on_tap() -> None:
     assert "loadMoreActiveMarketplace" in marketplace_model
     assert "setSearchResultsNextCursor(data.next_cursor)" in marketplace_model
     assert "appendUniqueById(current, data.items)" in marketplace_model
-    assert "Cargar más negocios" in marketplace_screen
+    assert "Cargar más ofertas" in marketplace_screen
     assert "loadingMoreMarketplace" in marketplace_screen
     assert "Calificación" in marketplace_card
     assert "rating_avg" in marketplace_card

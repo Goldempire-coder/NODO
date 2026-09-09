@@ -13,6 +13,7 @@ import { mergeSupportTicketPage } from "./supportDetailPagination";
 const DEFAULT_CATEGORY: SupportTicketCategory = "technical_issue";
 const ACTIVE_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["open", "waiting_support", "waiting_user", "escalated"]);
 const ARCHIVED_SUPPORT_STATUSES = new Set<SupportTicket["status"]>(["resolved", "closed"]);
+const SUPPORT_TICKET_PAGE_SIZE = 25;
 
 export type SupportTicketListFilter = "active" | "archived" | "all";
 
@@ -25,7 +26,7 @@ function normalizeSupportFilter(filter?: string): SupportTicketListFilter {
 }
 
 function supportTicketsQuery(filter: SupportTicketListFilter, cursor?: string | null): string {
-  const params = new URLSearchParams({ limit: "50" });
+  const params = new URLSearchParams({ limit: String(SUPPORT_TICKET_PAGE_SIZE) });
   if (filter === "active" || filter === "archived") {
     params.set("status_group", filter);
   }
@@ -220,7 +221,7 @@ export function useSurfaceSupportModel({
       const firstPage = filterSupportTickets(payload.items, normalizedFilter);
       setSupportTickets((current) => (
         supportLoadedPageCountRef.current > 1
-          ? appendUniqueById(firstPage, current.slice(50))
+          ? appendUniqueById(firstPage, current.slice(SUPPORT_TICKET_PAGE_SIZE))
           : firstPage
       ));
       if (supportLoadedPageCountRef.current === 1) {

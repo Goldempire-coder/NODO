@@ -42,9 +42,9 @@ export function ClientOnboardingScreens({ model }: { model: RemitterScreensModel
           <Text className="business-card__label">Antes de comenzar</Text>
           <Title level="2" className="business-shell__title">Antes de usar NODO</Title>
           <Text>NODO es un directorio de negocios registrados que publican sus propias condiciones.</Text>
-          <Text>Revisamos datos del negocio antes de publicarlo y el acceso opera por invitacion.</Text>
+          <Text>El acceso de negocios opera por invitacion y revision administrativa.</Text>
           <Text>Tu eliges el negocio y coordinas directamente con los datos indicados en tu orden.</Text>
-          <Text>NODO registra la orden y su evidencia para soporte y auditoria, pero no recibe ni retiene fondos.</Text>
+          <Text>NODO registra la orden y su evidencia para soporte y auditoria, pero no recibe, retiene, transfiere ni garantiza fondos.</Text>
           <Text>Al continuar aceptas los terminos de uso vigentes y el registro de actividad de la orden.</Text>
           <Text className="auth-entry__session-meta">Version: {CURRENT_CLIENT_TERMS_VERSION}</Text>
           <Button mode="filled" stretched disabled={busy} onClick={() => void acceptTerms()}>

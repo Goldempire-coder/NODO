@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.core.errors import ApiError
 from app.modules.users.models import UserRecord
 
-CURRENT_TERMS_VERSION = "2026-07-06"
+CURRENT_TERMS_VERSION = "2026-09-09"
 
 
 def user_has_current_terms(user: UserRecord) -> bool:
