@@ -284,7 +284,9 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
   existen compras contractuales Sepolia; nunca borra ni convierte esas compras.
 - Compra contractual requiere `onchain_purchase_ref` bytes32 canonico y unique, payer, contrato/version, signer address/version, digest, firma y expiracion.
 - Firma contractual usa EIP-712 y no crea wallet, ledger ni credito.
-- Compra on-chain Base requiere `chain_id = 8453`, `network = base_mainnet`, `token_symbol = USDC`, `token_contract_address = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, `token_decimals = 6`.
+- Compra on-chain Base directa requiere un perfil completo permitido: Base mainnet solo con aprobacion Owner de crypto production go-live, o Base Sepolia/testnet para staging/piloto controlado.
+- Base mainnet usa `chain_id = 8453`, `network = base_mainnet`, `token_symbol = USDC`, `token_contract_address = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, `token_decimals = 6`.
+- Base Sepolia usa `chain_id = 84532`, `network = base_sepolia`, `token_symbol = USDC`, `token_contract_address = 0x036cbd53842c5426634e7929541ec2318f3dcf7e`, `token_decimals = 6`.
 - Compra on-chain Base requiere `destination_wallet_address`, `expected_amount_units` y `expires_at`.
 - `expected_amount_units` y `tx_amount_units` deben usar `numeric(78,0)`.
 - EVM values (`token_contract_address`, `destination_wallet_address`, `tx_hash`, `tx_from_address`, `tx_to_address`) deben persistirse/compararse normalizados lowercase; constraints o queries deben usar `lower(...)` o politica canonica equivalente.

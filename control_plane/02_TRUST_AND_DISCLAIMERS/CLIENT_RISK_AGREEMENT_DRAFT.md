@@ -4,7 +4,7 @@ Estado: `DRAFT LEGAL_REVIEW_REQUIRED`
 
 Fecha de borrador: 2026-07-21
 
-Este documento es una propuesta para que el cliente/remitente acepte riesgos antes de usar NODO. No es asesoria legal y requiere revision de abogado.
+Este documento es una propuesta para que el cliente acepte riesgos antes de usar NODO. No es asesoria legal y requiere revision de abogado.
 
 ## 1. Reconocimiento del rol de NODO
 

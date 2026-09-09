@@ -6,7 +6,7 @@ slice: remitter_app
 status: DRAFT_CONTROLLED
 
 purpose:
-Collect receiver pago móvil data.
+Collect receiver delivery data required for the order.
 
 route:
 /orders/create
@@ -63,10 +63,10 @@ audit events:
 none before create
 
 disclaimer:
-NODO registra la orden y la evidencia, pero no recibe ni retiene fondos. Pagaras directamente al negocio seleccionado.
+NODO registra la orden y la evidencia, pero no recibe ni retiene fondos. La coordinacion final ocurre directamente con el negocio seleccionado.
 
 privacy:
-- Do not show full payment instructions on this screen.
+- Do not show full published business instructions on this screen.
 - Do not show full account_value.
 - Receiver data is collected only for order creation and must not be logged in frontend.
 

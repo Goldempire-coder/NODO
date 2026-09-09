@@ -1,13 +1,15 @@
 # NODO Operations
 
-Estado: OFFICIAL INITIAL OPERATIONS PACKAGE
-Ultima actualizacion: 2026-07-11
+Estado: OFFICIAL OPERATIONS PACKAGE - PILOT ALIGNMENT
+Ultima actualizacion: 2026-09-09
 
 Este directorio documenta como operar, diagnosticar y recuperar NODO con los componentes reales encontrados en el repositorio.
 
-Decision operativa actual: NOT OPERATIONALLY READY para produccion.
+Decision operativa actual: NOT READY FOR OPEN PRODUCTION.
 
-Motivo: existen health checks, readiness checks, guardrails de staging, migraciones seguras y smokes para storage/Telegram, pero faltan ownership formal, alertas accionables, backups/restores probados, runbooks validados en nube, y evidencia de recuperacion de Tier 0/Tier 1.
+NODO puede prepararse para un piloto controlado solo con evidencia Owner, limites pequenos y riesgos aceptados. Produccion abierta sigue bloqueada.
+
+Motivo: existen health checks, readiness checks, guardrails de staging, migraciones seguras, smokes para storage/Telegram, deploy web con guardrails, alertas Telegram Admin para eventos concretos y modo emergencia. Siguen faltando rollback provider validado, backup/restore real probado, ownership formal con backup, dashboards/alertas provider-as-code y evidencia de recuperacion de Tier 0/Tier 1.
 
 ## Reglas de uso
 
@@ -28,6 +30,7 @@ Motivo: existen health checks, readiness checks, guardrails de staging, migracio
 - `MONITORING.md`: observabilidad actual y faltante.
 - `STAGING_CONCURRENCY_POLICY.md`: interpretacion oficial de c25/c50 product gates y c100+ como probe de transporte/infra.
 - `ALERT_CATALOG.md`: alertas accionables requeridas.
+- `PILOT_CONTROLLED_GATE.md`: gate minimo para piloto pequeno sin declarar produccion abierta.
 - `ACCESS_CONTROL.md`: controles operativos de acceso.
 - `CHANGE_MANAGEMENT.md`: cambios, deploy y rollback.
 - `DISASTER_RECOVERY.md`: backup/restore y riesgos.
@@ -39,7 +42,7 @@ Motivo: existen health checks, readiness checks, guardrails de staging, migracio
 
 ## Backup/restore y DR
 
-El paquete oficial de backup/restore queda documentado, pero no validado. Antes de cualquier uso productivo deben existir evidencias de:
+El paquete oficial de backup/restore queda documentado, pero no validado contra proveedor real. Antes de produccion abierta deben existir evidencias de:
 
 - Backup/restore de Supabase PostgreSQL.
 - Restore de Supabase Storage privado y reconciliacion con `file_assets`.
@@ -71,4 +74,4 @@ Los runbooks de DR relevantes son:
 
 ## Validacion
 
-Los documentos iniciales estan conectados a comandos y archivos reales del repo, pero la mayoria de los SOPs quedan `NOT VALIDATED` o `BLOCKED` hasta ejecutarse en staging controlado.
+Los documentos estan conectados a comandos y archivos reales del repo. Para piloto, usar `PILOT_CONTROLLED_GATE.md`. Para produccion abierta, cualquier SOP marcado `NOT VALIDATED`, `COMMAND NOT AVAILABLE`, `PROVIDER_ACCESS_REQUIRED` o `BLOCKED` sigue bloqueando.

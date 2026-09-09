@@ -2,9 +2,20 @@
 
 Contrato canonico para compra y acreditacion de creditos publicitarios con pagos on-chain.
 
-## Alcance MVP slice 19
+## Alcance actual
 
-MVP usa solo:
+Staging y piloto controlado usan solo Base Sepolia/testnet cuando se prueba crypto:
+
+- Network: Base Sepolia.
+- chain_id: `84532`.
+- Token activo: USDC de prueba en Base Sepolia.
+- Token contract USDC Base Sepolia: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
+- Decimals: `6`.
+- Destination wallet config: `NODO_CREDIT_RECEIVING_WALLET_BASE`.
+
+Base mainnet/USDC real queda bloqueado hasta aprobacion Owner separada de crypto production go-live.
+
+Produccion futura con USDC real usaria:
 
 - Network: Base mainnet.
 - chain_id: `8453`.
@@ -13,7 +24,7 @@ MVP usa solo:
 - Decimals: `6`.
 - Destination wallet config: `NODO_CREDIT_RECEIVING_WALLET_BASE`.
 
-Base Sepolia queda solo para tests y staging controlado. Base Sepolia no es red de acreditacion real.
+Base Sepolia no es red de acreditacion real y no debe presentarse como pago de produccion.
 
 USDT en Base queda fuera del MVP porque no hay contrato oficial Tether en Base verificado en la fuente canonica de Tether al momento de este contrato. Prohibido aceptar USDT por simbolo, nombre o token no verificado.
 
@@ -24,7 +35,7 @@ Referencias de token:
 
 ## Relacion con flujos previos
 
-Flujo principal para fondos reales despues de 52A/52C:
+Flujo principal futuro para fondos reales despues de aprobacion Owner separada:
 `base_usdc_contract`, con contrato NODO, `purchase_ref` y autorizacion EIP-712
 firmada. Este flujo reemplaza la confianza en un `tx_hash` publico como prueba
 de intencion comercial.
@@ -52,14 +63,16 @@ Prohibido:
 
 ## Flujo Base USDC Directo A Wallet
 
+Estado: legacy local/staging o fallback manual/Admin. No usar como flujo normal si el contrato esta activo y no auto-acreditar con trafico real controlado.
+
 1. Negocio aprobado entra a Mini App Negocio.
 2. Selecciona paquete de creditos.
 3. Backend crea `credit_purchases.status = pending_payment` con metodo `base_usdc_onchain`.
 4. Backend devuelve:
    - purchase id
-   - Base mainnet
-   - chain_id `8453`
-   - USDC contract oficial
+   - red Base configurada por backend
+   - chain_id segun perfil permitido
+   - USDC contract oficial del perfil permitido
    - amount exacto en unidades menores
    - destination wallet publica
    - expires_at
@@ -90,8 +103,9 @@ Prohibido:
 
 Un pago solo puede acreditarse si todo es cierto:
 
-- chain_id = `8453`.
-- token contract = USDC Base oficial `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
+- chain_id, network y token contract coinciden con el perfil backend permitido.
+- Base mainnet: `8453`, `base_mainnet`, USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
+- Base Sepolia: `84532`, `base_sepolia`, USDC testnet `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
 - decimals = `6`.
 - destination wallet = `NODO_CREDIT_RECEIVING_WALLET_BASE`.
 - amount en unidades menores es exactamente el esperado o mayor.

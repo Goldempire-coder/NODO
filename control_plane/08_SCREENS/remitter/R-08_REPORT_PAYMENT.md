@@ -16,7 +16,7 @@ route note:
 This is a frontend route. API calls must use `/api/v1`.
 
 entry points:
-Compact `Zelle enviado` or `USDT enviado` action in R-09_ORDER_TRACKING_CHAT
+Compact evidence action in R-09_ORDER_TRACKING_CHAT
 
 exit points:
 Remain in R-09_ORDER_TRACKING_CHAT after success or controlled failure.
@@ -75,15 +75,15 @@ audit events:
 - payment_reported when report is submitted
 
 copy:
-- El cliente paga directamente al negocio.
+- El cliente coordina directamente con el negocio.
 - NODO no recibe ni retiene fondos.
 - NODO registra evidencia y estado de la orden.
-- Reportar pago no significa que el negocio ya confirmo recepcion.
-- Despues de reportar pago, el negocio debe revisar y confirmar.
+- Reportar evidencia no significa que el negocio ya confirmo recepcion.
+- Despues de reportar evidencia, el negocio debe revisar y confirmar.
 
 slice boundary:
 - Does not confirm business receipt.
-- Does not deliver pago movil.
+- Does not complete the delivery outside NODO.
 - Does not consume credits.
 - Does not build chat/disputes.
 - R-09 is only a next-step link/state for slice 07.

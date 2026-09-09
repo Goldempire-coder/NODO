@@ -31,7 +31,7 @@ Sincronos:
 - Auth Telegram: frontend -> `POST /api/v1/auth/telegram`.
 - Marketplace: frontend -> `GET /api/v1/ads/search`.
 - Crear orden: frontend -> `POST /api/v1/orders`.
-- Reportar pago/evidencia: frontend -> payment endpoints.
+- Reportar evidencia de la orden: frontend -> payment endpoints internos.
 - Admin Web: frontend -> `/api/v1/admin/*`.
 - Soporte: frontend -> `/api/v1/support/*` y `/api/v1/admin/support/*`.
 
@@ -79,7 +79,7 @@ Primer componente a revisar si falla: `credit_purchases`, `credit_purchase_oncha
 1. Cliente busca marketplace.
 2. Cliente crea orden.
 3. Backend mueve anuncio `active -> in_order`, crea orden, state event y audit.
-4. Cliente ve instrucciones y reporta pago.
+4. Cliente ve datos publicados por el negocio y reporta evidencia.
 5. Negocio confirma o reporta un problema mediante disputa; si confirma, luego
    marca entregado segun estado.
 6. Chat/disputa/soporte siguen el estado sin cierre unilateral del pago reportado.

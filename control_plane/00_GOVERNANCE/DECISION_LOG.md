@@ -6,6 +6,10 @@ Este archivo registra decisiones aprobadas por el owner. Si otro documento contr
 
 | Fecha | Decision | Estado |
 | --- | --- | --- |
+| 2026-09-09 | NODO avanza primero como piloto controlado, no como produccion abierta. El gate vigente es `operations/PILOT_CONTROLLED_GATE.md`; el resultado maximo de builder es `READY_FOR_OWNER_REVIEW` o `PILOT_CONTROLLED_REVIEW_REQUIRED`. | aprobado |
+| 2026-09-09 | USDC real/Base mainnet queda fuera del piloto salvo aprobacion Owner separada de crypto production go-live. Staging y pruebas crypto usan Base Sepolia/testnet; para piloto se permite asignacion manual de creditos por Owner/Admin si se decide no activar compras reales. | aprobado |
+| 2026-09-09 | Copy publico debe evitar lenguaje de remesa, envio/cambio de dinero, custodia, escrow, pago seguro, entrega garantizada o negocio seguro. Usar `datos publicados`, `reportar evidencia`, `verificar ingreso`, `entrega acordada`, `condiciones publicadas` y `coordinacion directa`. | aprobado |
+| 2026-09-09 | Rollback minimo para staging queda documentado por redeploy de SHA anterior; produccion abierta sigue bloqueada hasta validar rollback/restore reales de proveedor y alertas criticas. | aprobado |
 | 2026-07-08 | Slice 14D2 usa bot Telegram separado para intake de negocios con `BUSINESS_INTAKE_BOT_TOKEN`, webhook canonico `POST /api/v1/business-intake/telegram/webhook/{secret}`, pasos conversacionales canonicos en `last_step`, persistencia parcial por respuesta valida, idempotencia por `telegram_chat_id + update_id`, documentos descargados desde Telegram a storage privado y prohibicion de crear negocio activo, roles, access links, anuncios, creditos o acceso a Mini App Negocio. | aprobado |
 | 2026-07-05 | Stack de staging/produccion inicial aprobado: Cloudflare Pages frontend, Railway backend/workers, Supabase Pro PostgreSQL, Upstash Redis, Cloudflare R2 o Supabase Storage, Stripe test/live segun gate y Telegram webhook. Vercel queda legacy/no recomendado para NODO por costo de escala. | aprobado |
 | 2026-07-04 | Slice 10 usa `job_runs.job_type` como columna canonica; `job_name` queda prohibido/no valido. `job_type` inicial: `expire_and_escalate_orders`. | aprobado |
@@ -25,11 +29,11 @@ Este archivo registra decisiones aprobadas por el owner. Si otro documento contr
 | 2026-07-04 | Founder access usa campos canonicos en `businesses`; `founder_access` no es tabla activa MVP. | aprobado |
 | 2026-07-04 | Referrals usan `referral_codes` y `referral_events`; tabla `referrals` queda legacy/no valida para nuevas migraciones. | aprobado |
 | 2026-07-04 | `refund` y `adjustment` no son tipos activos de `credits_ledger`; usar `release` y `admin_adjustment`. | aprobado |
-| 2026-07-03 | El producto se construye para uso masivo, no como demo/piloto. | aprobado |
+| 2026-07-03 | El producto se construye para uso masivo, no como demo/piloto. | reemplazado para go-live por piloto controlado 2026-09-09 |
 | 2026-07-03 | Capacidad objetivo inicial: 200 negocios, 10,000 clientes, 2,000 ordenes activas/concurrentes. | aprobado |
 | 2026-07-03 | Stack base: Next.js, TypeScript, Tailwind, Telegram Mini App SDK/UI, FastAPI, PostgreSQL/Supabase, Redis. | aprobado |
 | 2026-07-03 | Frontend en Vercel; backend en runtime dedicado production-grade; Telegram por webhook. Reemplazado el 2026-07-05 por Cloudflare Pages + Railway como stack inicial aprobado. | reemplazado |
-| 2026-07-03 | Stripe es la pasarela principal para compra automatica de creditos de negocio. | aprobado |
+| 2026-07-03 | Stripe es la pasarela principal para compra automatica de creditos de negocio. | reemplazado por creditos manuales/Base Sepolia piloto y Base USDC contractual futuro |
 | 2026-07-03 | Zelle y USDT TRC20 quedan como compra manual de creditos con comprobante y aprobacion admin. | aprobado |
 | 2026-07-03 | Fundadores tienen 30 dias gratis dentro de limites de riesgo; no es ilimitado sin control tecnico. | aprobado |
 | 2026-07-03 | Admin requiere panel funcional completo; no basta whitelist por Telegram ID. | aprobado |
@@ -63,9 +67,9 @@ Este archivo registra decisiones aprobadas por el owner. Si otro documento contr
 | 2026-07-04 | Slice 04 guarda `payment_instructions_snapshot` privado al crear orden, pero create/detail/list no revelan instrucciones completas; slice 05 las revela con `GET /api/v1/orders/{id}/payment-instructions`. | aprobado |
 | 2026-07-04 | Slice 04 incluye cancelacion de orden propia solo en `waiting_payment` antes de reporte de pago y extension unica de 15 minutos; reporte de pago, confirmacion del negocio, entrega, chat y disputas quedan fuera. | aprobado |
 | 2026-07-04 | Rutas canonicas de slice 05: `GET /api/v1/orders/{id}/payment-instructions`, `POST /api/v1/orders/{id}/payment-evidence`, `POST /api/v1/orders/{id}/payment-report`; queda prohibida la ruta legacy `POST /orders/:id/payment-report`. | aprobado |
-| 2026-07-04 | Slice 05 revela instrucciones completas solo al remitente dueno, setea `payment_data_revealed_at/payment_data_revealed_by`, audita `payment_instructions_viewed` y no crea reportes desde el endpoint de reveal. | aprobado |
+| 2026-07-04 | Slice 05 revela instrucciones completas solo al cliente dueno, setea `payment_data_revealed_at/payment_data_revealed_by`, audita `payment_instructions_viewed` y no crea reportes desde el endpoint de reveal. | aprobado |
 | 2026-07-04 | Slice 05 usa `file_assets` como tabla canonica para evidencia privada de pago con `resource_type = payment_report` y `file_type = payment_evidence`; no crea `payment_evidence_files` ni `storage_objects`. | aprobado |
-| 2026-07-04 | `payment_reports` queda como tabla oficial del reporte del remitente con status inicial `submitted`, idempotency_key, payment_type, referencias por metodo, proof_file_id, payload hash, timestamps y constraints por Zelle/USDT TRC20. | aprobado |
+| 2026-07-04 | `payment_reports` queda como tabla oficial del reporte del cliente con status inicial `submitted`, idempotency_key, payment_type, referencias por metodo, proof_file_id, payload hash, timestamps y constraints por Zelle/USDT TRC20. | aprobado |
 | 2026-07-04 | Para evidencia Zelle previa al reporte, `POST /payment-evidence` puede reservar `pending_payment_report_id`; `POST /payment-report` debe crear `payment_reports.id = pending_payment_report_id` al usar ese comprobante. | aprobado |
 | 2026-07-04 | Reportar pago mueve `waiting_payment -> payment_reported`, mantiene ad `in_order`, mantiene creditos bloqueados y no consume creditos, no confirma negocio, no entrega pago movil ni completa orden. | aprobado |
 | 2026-07-04 | Rutas canonicas de operaciones de negocio sobre ordenes para slice 06: `GET /api/v1/business/orders`, `GET /api/v1/business/orders/{id}`, `POST /api/v1/business/orders/{id}/confirm-payment`, `POST /api/v1/business/orders/{id}/reject-payment-report`, `POST /api/v1/business/orders/{id}/mark-delivered`. | sustituido parcialmente por C0 2026-08-09 |
@@ -122,7 +126,7 @@ Este archivo registra decisiones aprobadas por el owner. Si otro documento contr
 | Fecha | Decision | Estado |
 |---|---|---|
 | 2026-07-07 | NODO se separa en Mini App Cliente, Mini App Negocio, Panel Admin Web Desktop, Bot Registro Negocios y Backend unico compartido. | aprobado |
-| 2026-07-07 | Mini App Cliente queda solo para remitentes/clientes y no incluye registro/verificacion de negocio, creditos de negocio, ordenes entrantes ni admin. | aprobado |
+| 2026-07-07 | Mini App Cliente queda solo para clientes y no incluye registro/verificacion de negocio, creditos de negocio, ordenes entrantes ni admin. | aprobado |
 | 2026-07-07 | Mini App Negocio queda solo para `business_owner` con negocio aprobado y asociado a Telegram ID. | aprobado |
 | 2026-07-07 | Panel Admin Web Desktop queda fuera de la Mini App Cliente y concentra admin, soporte, metricas, disputas, auditoria y revision de intake. | aprobado |
 | 2026-07-07 | Bot Registro Negocios crea `business_intake_requests` pendientes para admin; no crea negocio activo, no publica anuncios y no promete aprobacion. | aprobado |
@@ -149,7 +153,7 @@ Este archivo registra decisiones aprobadas por el owner. Si otro documento contr
 
 | Fecha | Decision | Estado |
 |---|---|---|
-| 2026-07-10 | Slice 19 crea compra/acreditacion de creditos publicitarios con pagos on-chain en Base mainnet, `chain_id = 8453`. | aprobado |
+| 2026-07-10 | Slice 19 crea compra/acreditacion de creditos publicitarios con pagos on-chain en Base mainnet, `chain_id = 8453`. | bloqueado para piloto hasta aprobacion Owner separada |
 | 2026-07-10 | MVP de slice 19 acepta solo USDC nativo en Base con contrato `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` y decimals `6`. | aprobado |
 | 2026-07-10 | USDT Base queda fuera del MVP hasta verificacion oficial contractual; prohibido aceptar tokens por simbolo/nombre solamente. | aprobado |
 | 2026-07-10 | `NODO_CREDIT_RECEIVING_WALLET_BASE` es direccion publica destino; private keys, seed phrases, mnemonics y signing keys quedan prohibidos en backend, frontend, Railway, GitHub, Cursor, logs y evidencia. Sustituido parcialmente por 52C solo para el `authorizedSigner` EIP-712 operacional; treasury/owner keys siguen prohibidas. | sustituido parcialmente |

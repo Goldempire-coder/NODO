@@ -4,9 +4,11 @@ Este documento gobierna el orden de construccion. Ningun slice puede saltar depe
 
 ## Estado global
 
-Estado documental: READY_FOR_BUILDER_DOCS.
+Estado documental: STAGING_PILOT_PREPARATION.
 
-Estado de producto: PRE-BUILD. No existe autorizacion automatica de READY_FOR_REAL_USE. Esa decision es solo del owner despues de QA, monitoreo, deploy y prueba real controlada.
+Estado de producto: BUILT_IN_STAGING_PILOT_PREPARATION. No existe autorizacion automatica de READY_FOR_REAL_USE ni READY_FOR_PRODUCTION. Esa decision es solo del owner despues de QA, monitoreo, deploy, legal, rollback, backup/restore y prueba real controlada.
+
+La matriz historica de slices se conserva para trazabilidad. El gate vigente para piloto controlado esta en `operations/PILOT_CONTROLLED_GATE.md`.
 
 ## Slices oficiales
 

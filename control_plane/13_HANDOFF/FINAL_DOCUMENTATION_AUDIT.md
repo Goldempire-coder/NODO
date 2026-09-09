@@ -1,12 +1,14 @@
 # FINAL_DOCUMENTATION_AUDIT.md
 
-Fecha: 2026-07-03
+Fecha: 2026-09-09
 
 ## Resultado
 
-Estado documental: READY_FOR_BUILDER_DOCS.
+Estado documental historico: READY_FOR_BUILDER_DOCS v0.3.
 
-Esto significa que la copia v0.3 tiene estructura, reglas, contratos y slices suficientes para entregar a un builder bajo gobierno. No significa que el producto este construido ni autorizado para uso real.
+Estado actual del repo: STAGING_PILOT_PREPARATION.
+
+La copia v0.3 fue la base documental original para construir bajo gobierno. El repo actual ya contiene implementacion, staging, operaciones y slices posteriores. Este documento queda como auditoria historica; el estado vigente debe leerse en `README.md`, `control_plane/00_GOVERNANCE/PROJECT_STATUS.md`, `operations/README.md` y `operations/PILOT_CONTROLLED_GATE.md`.
 
 ## Rutas
 
@@ -102,9 +104,9 @@ Cambios que intencionalmente amplian o corrigen el seed:
 - Bot en produccion debe usar webhook, no polling.
 - UI queda amarrada a referencias visuales, no landing generica.
 
-## Riesgos residuales
+## Riesgos residuales historicos
 
-- El builder debe convertir estos contratos en migraciones, codigo y tests reales.
+- Los contratos originales ya fueron evolucionados por implementaciones y slices posteriores; cualquier builder nuevo debe leer el estado vigente antes de tocar codigo.
 - El owner debe aprobar cualquier cambio de modelo de negocio, tiempo de orden, costo de creditos o disclaimer.
 - READY_FOR_REAL_USE no puede declararlo el builder.
 
@@ -122,18 +124,26 @@ Cambios que intencionalmente amplian o corrigen el seed:
 10. Pantallas afectadas
 11. 13_HANDOFF/BUILDER_START_PROMPT.md
 
-## Veredicto
+## Veredicto historico
 
-La documentacion queda lista para iniciar construccion gobernada por slices.
+La documentacion v0.3 quedo lista para iniciar construccion gobernada por slices. El veredicto vigente del proyecto no es este archivo historico.
 
-Estado permitido:
+Estado historico permitido:
 
 ```txt
 READY_FOR_BUILDER_DOCS
 ```
 
-Estado no permitido todavia:
+Estado vigente maximo para piloto controlado:
+
+```txt
+READY_FOR_OWNER_REVIEW
+PILOT_CONTROLLED_REVIEW_REQUIRED
+```
+
+Estado no permitido por builder:
 
 ```txt
 READY_FOR_REAL_USE
+READY_FOR_PRODUCTION
 ```

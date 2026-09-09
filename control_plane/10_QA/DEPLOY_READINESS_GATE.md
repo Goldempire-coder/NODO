@@ -1,6 +1,8 @@
 # DEPLOY_READINESS_GATE.md
 
-Gate obligatorio antes de cualquier deploy productivo.
+Gate obligatorio antes de cualquier deploy productivo o apertura de piloto.
+
+Para piloto controlado, usar ademas `operations/PILOT_CONTROLLED_GATE.md`. El piloto no equivale a produccion abierta.
 
 ## No negociable
 
@@ -13,7 +15,7 @@ Gate obligatorio antes de cualquier deploy productivo.
 - Rollback documentado.
 - Variables de entorno completas.
 - Webhooks Telegram y Stripe verificados en staging.
-- Backup y restore probados.
+- Backup y restore probados para produccion abierta. Para piloto controlado, si no estan probados, debe existir aceptacion Owner explicita de riesgo y limites de alcance.
 - Backup/restore probado significa evidencia verificable de DB, storage privado, secrets recovery, rollback compatible con schema y validacion de integridad post-restore.
 - Logs, metricas y alertas activos.
 - Rate limits activos.
@@ -43,7 +45,8 @@ Gate obligatorio antes de cualquier deploy productivo.
 - Emails/notificaciones si aplican en modo seguro.
 - Admin panel protegido.
 - Audit logs escriben eventos.
-- Stripe test webhook firmado acredita exactamente una vez.
+- Creditos reales por USDC mainnet quedan fuera hasta aprobacion Owner separada de crypto production go-live.
+- Stripe legacy/test webhook, si esta habilitado, debe acreditar exactamente una vez.
 - Telegram Mini App test valida `initData` real.
 
 ## Checklist de riesgo

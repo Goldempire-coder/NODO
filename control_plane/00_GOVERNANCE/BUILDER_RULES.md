@@ -12,7 +12,7 @@ No construir ninguna feature si no tiene:
 - audit event si cambia estado/datos sensibles
 - error esperado
 - test minimo
-- disclaimer/copy requerido si toca pagos, verificacion o responsabilidad
+- disclaimer/copy requerido si toca creditos, metodos publicados, verificacion o responsabilidad
 
 ## Arquitectura obligatoria
 
@@ -73,4 +73,8 @@ Si alguna auditoria obligatoria encuentra un hallazgo `CRITICAL` o `HIGH`, el sl
 
 - READY_FOR_BUILDER: documentacion suficiente para construir el slice.
 - READY_FOR_OWNER_REVIEW: tecnicamente revisado y probado.
+- PILOT_CONTROLLED_REVIEW_REQUIRED: candidato listo para revision Owner de piloto pequeno con riesgos documentados.
 - READY_FOR_REAL_USE: solo el owner lo autoriza.
+- READY_FOR_PRODUCTION: solo el owner lo autoriza despues de legal, rollback, backup/restore, alertas, ambientes separados y evidencia completa.
+
+El builder no puede declarar `READY_FOR_REAL_USE` ni `READY_FOR_PRODUCTION`.

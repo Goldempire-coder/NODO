@@ -13,8 +13,8 @@ Mini App Cliente.
 - Lista de negocios activos.
 - Detalle de negocio.
 - Crear orden.
-- Instrucciones de pago.
-- Reportar pago.
+- Datos publicados por el negocio.
+- Reportar evidencia.
 - Mis ordenes.
 - Chat por orden.
 - Soporte por orden.
@@ -35,4 +35,3 @@ Mini App Cliente.
 ## UI
 
 Telegram Mini App mobile-first, themeParams, safe areas y MainButton donde aplique. No landing generica.
-

@@ -30,12 +30,12 @@ Prohibido usar en UI, marketing, emails, notificaciones, admin o documentacion p
 - Identidad validada, solo cuando exista evidencia de revision documental del titular.
 - Perfil registrado en NODO.
 - NODO registra ordenes, evidencia, chat y reputacion.
-- NODO facilita la conexion entre remitente y negocio.
-- El pago se realiza directamente entre usuario y negocio.
+- NODO facilita la conexion entre cliente y negocio registrado.
+- La coordinacion final ocurre directamente entre usuario y negocio.
 - NODO no recibe, retiene ni transfiere fondos entre cliente y negocio.
 - NODO vende creditos internos para usar servicios propios de la plataforma.
 - Los creditos NODO no son dinero, saldo custodiado, deposito, retiro disponible ni valor transferible.
-- La responsabilidad de pago y entrega es entre las partes.
+- La responsabilidad de la operacion y entrega es entre las partes.
 
 ## Regla de bloqueo
 

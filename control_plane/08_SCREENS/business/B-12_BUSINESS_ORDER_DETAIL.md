@@ -6,7 +6,7 @@ slice: slice_06_business_order_ops
 status: DRAFT_CONTROLLED
 
 purpose:
-Confirm payment, reject payment report, and mark delivered for own business order.
+Verify reported evidence, report a problem, and mark agreed delivery for own business order.
 
 route:
 /business/orders/:id
@@ -41,15 +41,15 @@ Telegram UI rules:
 
 MainButton behavior:
 Contextual by status:
-- `payment_reported`: confirm payment or report a payment problem.
-- `payment_confirmed`: mark delivered.
+- `payment_reported`: verify incoming evidence or report a problem.
+- `payment_confirmed`: mark agreed delivery completed.
 
 validation:
 status-specific:
-- confirm payment requires `payment_reported`.
-- reporting a payment problem requires `payment_reported` and structured reason
+- verifying incoming evidence requires `payment_reported`.
+- reporting an evidence problem requires `payment_reported` and structured reason
   `payment_not_received_or_incomplete`.
-- mark delivered requires `payment_confirmed`.
+- mark agreed delivery completed requires `payment_confirmed`.
 
 permissions:
 own business order only; backend validates `business_owner`, approved business and `orders.business_id`.
@@ -66,13 +66,13 @@ audit events:
 payment_confirmed/dispute_opened/credits_consumed/order_delivered
 
 copy required:
-- Confirmar pago significa que el negocio reconoce recepcion real del pago.
+- Verificar ingreso significa que el negocio reconoce que el ingreso acordado fue recibido.
 - Confirmar recepcion consume creditos del anuncio.
 - Confirmar recepcion archiva el anuncio; la orden sigue viva para entrega.
-- Enviar pago movil es una accion separada.
-- Marcar entregado significa que el negocio dice que envio el pago movil.
+- Completar entrega acordada es una accion separada.
+- Marcar entrega realizada significa que el negocio declara haber completado la entrega acordada.
 - NODO registra evidencia y estado; no retiene fondos.
-- Reportar problema con pago abre una disputa, mantiene la conversacion
+- Reportar problema abre una disputa, mantiene la conversacion
   investigable y no libera anuncio, credito ni capacidad.
 
 scope boundary:
@@ -86,7 +86,7 @@ QA checklist:
 - confirm-payment consumes credits exactly once
 - confirm-payment archives ad and does not return it to marketplace
 - payment-problem dispute does not consume credits and keeps ad in_order
-- mark-delivered does not complete order
+- mark agreed delivery completed does not complete order
 - no `storage_path`, `account_value` or full payment instructions exposed
 
 ## Slice 14B1 access contract
@@ -94,4 +94,4 @@ QA checklist:
 - Requires `surface/session` allowed for `business_mini_app`.
 - Mutating actions require active business link and capabilities from backend.
 - Suspended business may respond to open cases only if explicitly returned by capabilities.
-- Blocked business/link/user cannot confirm payment, open a payment-problem dispute or mark delivered.
+- Blocked business/link/user cannot verify incoming evidence, open a problem dispute or mark delivered.

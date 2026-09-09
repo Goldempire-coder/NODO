@@ -56,12 +56,12 @@ Top:
 - small online/ready status
 
 Primary card:
-- title: "Cuanto quieres cambiar?"
+- title: "Que monto buscas?"
 - large USD amount input
 - currency selector
 - minimum amount helper
 - segmented payment method selector
-- payment/delivery explanation row
+- method/delivery explanation row
 - MainButton CTA
 
 Below:

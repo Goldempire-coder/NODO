@@ -14,7 +14,7 @@ Estado prohibido: `READY_FOR_REAL_USE`.
 - PostgreSQL: Supabase Pro
 - Redis: Upstash Redis
 - Storage privado: Cloudflare R2 o Supabase Storage
-- Pagos de creditos: Stripe test mode primero
+- Creditos: asignacion manual Owner o Base Sepolia/testnet en staging primero; USDC real/mainnet requiere aprobacion Owner separada
 - Telegram: bot/Mini App en test mode primero
 
 Vercel queda legacy/no recomendado para NODO por costo de escala.
@@ -31,7 +31,7 @@ Vercel queda legacy/no recomendado para NODO por costo de escala.
 8. Crear proyecto Cloudflare Pages para `apps/web`.
 9. Configurar solo variables publicas en Cloudflare Pages.
 10. Crear storage privado en R2 o Supabase Storage.
-11. Configurar Stripe test mode y webhook de staging.
+11. Mantener compras reales de creditos desactivadas salvo aprobacion Owner; usar asignacion manual o Base Sepolia/testnet para pruebas crypto.
 12. Configurar Telegram bot/Mini App con URL de Cloudflare Pages.
 13. Correr smoke real staging.
 14. Correr stress pequeno controlado staging.
@@ -87,7 +87,15 @@ If selected:
 - API token/key for Railway only
 - no public bucket exposure for evidence, documents or payment proofs
 
-### Stripe
+### Creditos
+
+Piloto controlado:
+
+- Asignacion manual Owner permitida para evitar compras USDC reales.
+- Base Sepolia/testnet permitida para pruebas crypto controladas.
+- Base mainnet/USDC real bloqueado hasta crypto production go-live separado.
+
+### Stripe legacy/test
 
 Test mode first:
 
@@ -114,7 +122,8 @@ Test mode first:
 - Upstash Redis ping/locks/rate limits work
 - private storage upload + signed view URL works
 - Telegram auth from Mini App works
-- Stripe test webhook credits once and duplicate webhook does not double-credit
+- Credit assignment manual o Base Sepolia/testnet queda auditada una sola vez
+- Stripe test webhook credits once and duplicate webhook does not double-credit si Stripe legacy/test esta habilitado
 - order flow smoke: search, create order, reveal instructions, report payment, business confirm, delivered
 - job dry-run and real controlled job run are audited
 - frontend build and Cloudflare Pages deploy are verified
@@ -127,7 +136,8 @@ Stop and report blocker if any of these happen:
 - migration fails against Supabase staging
 - Redis lock/rate/idempotency fails against Upstash
 - storage exposes `storage_path` or public evidence URL
-- Stripe redirect credits without signed webhook
+- compra real de creditos activa sin aprobacion Owner separada
+- Stripe redirect credits without signed webhook si Stripe legacy/test esta habilitado
 - Telegram auth works without backend `initData` validation
 - admin mutation works without RBAC/reason/audit
 - any 500 stack trace leaks to client

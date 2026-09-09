@@ -1,12 +1,20 @@
 # DEPLOYMENT_PLAN.md
 
-Target: product ready for mass use, not a throwaway demo.
+Target: producto preparado para piloto controlado primero; produccion masiva despues de evidencia operativa, legal y financiera.
 
-Initial scale target:
+Initial scale target para arquitectura futura:
 
 - 200 businesses
 - 10,000 clients
-- up to 2,000 simultaneous active orders/transactions
+- up to 2,000 simultaneous active orders/requests
+
+Pilot target:
+
+- pocos negocios conocidos;
+- clientes limitados;
+- montos bajos;
+- creditos manuales si el Owner decide mantener USDC real fuera del piloto;
+- supervision Admin activa.
 
 ## Approved initial staging/production stack
 
@@ -35,15 +43,18 @@ Queue/cache:
 - Upstash Redis
 - Required for rate limits, idempotency locks and jobs.
 
-Payments:
-- Stripe Checkout for automatic credit purchases
-- Zelle/USDT manual fallback
+Credits:
+- Base Sepolia/testnet for staging crypto validation.
+- Base mainnet/USDC real blocked until explicit Owner crypto production go-live.
+- Manual credit assignment can be used for pilot when approved by Owner.
+- Stripe legacy/test path remains optional/fallback only if explicitly enabled.
 
 Bot:
 - Telegram webhook mode
 - no production polling
 
 Observability:
+- Telegram Admin Alerts for implemented app events
 - Sentry or provider-native error monitoring
 - structured logs
 - uptime checks
@@ -57,12 +68,13 @@ Observability:
 4. Create Railway worker/job process only after API smoke passes.
 5. Create Cloudflare Pages project for `apps/web`.
 6. Configure private storage with Cloudflare R2 or Supabase Storage.
-7. Configure Stripe test mode products/prices and webhook secret.
+7. Keep credit purchases in test/manual mode unless Owner approves real payment activation.
 8. Configure Telegram bot/Mini App test URL after Cloudflare Pages URL exists.
 9. Run migrations against Supabase staging.
 10. Run smoke tests against real staging services.
 11. Run controlled small stress test against staging.
-12. Owner reviews evidence before any production/live use.
+12. Owner reviews evidence before pilot.
+13. Production/open use requires the full deploy readiness gate, legal review and backup/restore proof.
 
 ## Provider ownership
 
@@ -87,3 +99,4 @@ No secret may be committed to the repo.
 - deployment rollback plan
 - no fake production metrics
 - no `READY_FOR_REAL_USE` until owner approves real-service evidence
+- no USDC real/mainnet credit activation until owner approves crypto production go-live

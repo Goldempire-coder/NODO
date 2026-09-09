@@ -130,7 +130,7 @@ superficie cercana, debe probar el subconjunto afectado.
 ### Ordenes, pagos y disputas
 
 - Crear orden es idempotente.
-- Reportar pago es idempotente.
+- Reportar evidencia es idempotente.
 - Confirmar pago consume credito exactamente una vez.
 - Resolver disputa a favor de cliente/negocio/cancelacion mueve credito,
   capacidad y anuncio segun contrato vigente.

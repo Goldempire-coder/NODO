@@ -1,16 +1,16 @@
 # PROJECT_STATUS.md
 
-Estado documental: READY_FOR_BUILDER_DOCS v0.3.
+Estado documental: STAGING_PILOT_PREPARATION.
 
-Estado de producto: PRE-BUILD.
+Estado de producto: BUILT_IN_STAGING_PILOT_PREPARATION.
 
-Fecha de corte documental: 2026-07-03.
+Fecha de corte documental: 2026-09-09.
 
 ## Significado del estado
 
-READY_FOR_BUILDER_DOCS significa que la documentacion contiene el mapa suficiente para que un builder empiece por slices con gobierno, reportes, limites, contratos y QA.
+STAGING_PILOT_PREPARATION significa que existe implementacion en `apps/api`, `apps/web`, migraciones, contratos y operaciones, pero el arbol documental gobierna todavia que se puede probar, desplegar y declarar.
 
-No significa que el producto este construido, probado, desplegado ni autorizado para uso real.
+No significa produccion abierta. El piloto controlado requiere evidencia actual, aceptacion Owner de riesgos residuales y alcance limitado.
 
 ## Estados permitidos
 
@@ -18,7 +18,9 @@ No significa que el producto este construido, probado, desplegado ni autorizado 
 - READY_FOR_BUILDER: un slice tiene contrato suficiente para construirse.
 - IN_BUILD: el builder esta implementando un slice aprobado.
 - READY_FOR_OWNER_REVIEW: el slice fue construido y probado tecnicamente.
+- PILOT_CONTROLLED_REVIEW_REQUIRED: el candidato puede revisarse para piloto pequeno, con limites, evidencia y riesgos documentados.
 - READY_FOR_REAL_USE: solo el owner lo autoriza despues de deploy, monitoreo y prueba real.
+- READY_FOR_PRODUCTION: solo el owner puede autorizarlo despues de legal, backup/restore real, alertas, rollback, ambientes separados y evidencia completa.
 
 ## Bloqueos que obligan a detener construccion
 

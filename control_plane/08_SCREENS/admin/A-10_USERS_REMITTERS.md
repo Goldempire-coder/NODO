@@ -7,7 +7,7 @@ surface: Admin Web Desktop
 status: CONTRACT_READY
 
 purpose:
-Centro de operaciones para buscar usuarios/remitentes/negocios por identidad operacional, ver detalle seguro y controlar estado de usuario/access links segun RBAC.
+Centro de operaciones para buscar clientes/usuarios/negocios por identidad operacional, ver detalle seguro y controlar estado de usuario/access links segun RBAC.
 
 route:
 /admin/users

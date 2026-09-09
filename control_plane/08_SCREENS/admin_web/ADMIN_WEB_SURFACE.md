@@ -13,7 +13,7 @@ Panel Admin Web Desktop.
 - Asociar Telegram ID al negocio.
 - Aprobar/rechazar/suspender negocio.
 - Ver negocios.
-- Ver usuarios/remitentes.
+- Ver clientes/usuarios.
 - Controlar estado de usuarios segun RBAC.
 - Ver y administrar vinculos `business_access_links`.
 - Ver ordenes.

@@ -1,13 +1,17 @@
 # OPERATIONAL_READINESS_REPORT
 
-Estado: OFFICIAL OWNER REVIEW
-Fecha: 2026-07-11
+Estado: OFFICIAL OWNER REVIEW - PILOT ALIGNMENT
+Fecha: 2026-09-09
 
 ## 1. DECISION
 
-NOT OPERATIONALLY READY
+NOT READY FOR OPEN PRODUCTION
 
-NODO tiene una base tecnica fuerte para construir operaciones: health/readiness/version, scripts con guardrails, migraciones con ledger, storage smoke, Telegram smoke, tests, audit logs y stress tooling. Pero produccion queda bloqueada porque varios componentes Tier 0/Tier 1 no tienen aun ownership, alertas provider-as-code, backup/restore probado, rollback provider documentado, ni evidencia de game days.
+NODO tiene una base tecnica fuerte para piloto controlado: health/readiness/version, scripts con guardrails, migraciones con ledger, storage smoke, Telegram smoke, deploy web con guardrails, tests, audit logs, Telegram Admin Alerts, modo emergencia y stress tooling.
+
+Produccion abierta sigue bloqueada porque varios componentes Tier 0/Tier 1 no tienen aun ownership con backup, alertas provider-as-code, backup/restore real probado, rollback provider nativo validado ni evidencia de game days.
+
+Resultado permitido: `READY_FOR_OWNER_REVIEW` despues de evidencia actual. Resultado prohibido para builder: `READY_FOR_REAL_USE` o `READY_FOR_PRODUCTION`.
 
 ## 2. MAPA DEL SISTEMA
 
@@ -41,7 +45,7 @@ Componentes Tier 1 principales:
 | SOP | Proposito | Validacion |
 |---|---|---|
 | `sops/DEPLOYMENT_SOP.md` | Predeploy y deploy gate | PARTIALLY VALIDATED |
-| `sops/ROLLBACK_SOP.md` | Rollback seguro | NOT VALIDATED |
+| `sops/ROLLBACK_SOP.md` | Rollback seguro | DOCUMENTED / NOT VALIDATED IN STAGING |
 | `sops/POST_DEPLOY_VERIFICATION_SOP.md` | Verificacion post deploy | PARTIALLY VALIDATED |
 | `sops/ENV_CONFIG_SOP.md` | Variables y secretos | PARTIALLY VALIDATED |
 | `sops/STAGING_MIGRATION_SOP.md` | Migraciones staging con guardrails | PARTIALLY VALIDATED |
@@ -75,12 +79,12 @@ Componentes Tier 1 principales:
 
 ## 5. VACIOS OPERATIVOS
 
-CRITICAL:
+CRITICAL para produccion abierta:
 
 - No hay backup/restore probado para Supabase PostgreSQL.
 - No hay owner tecnico/operativo definido para Tier 0/Tier 1.
 - No hay alertas accionables configuradas como codigo o evidencia provider.
-- No hay rollback provider documentado con comandos exactos.
+- No hay rollback provider nativo validado. Existe rollback minimo staging por redeploy de SHA anterior.
 - Scheduler real del watcher Base USDC no esta documentado como proceso operativo.
 
 HIGH:
@@ -90,6 +94,12 @@ HIGH:
 - No hay RTO/RPO definidos.
 - No hay game days ejecutados.
 - No hay evidencia de restore de storage privado.
+
+PILOT:
+
+- Piloto controlado requiere `operations/PILOT_CONTROLLED_GATE.md`.
+- Si no hay restore proveedor probado, el piloto requiere aceptacion Owner explicita de riesgo.
+- USDC real/mainnet queda fuera hasta aprobacion Owner separada.
 
 MEDIUM:
 
@@ -163,6 +173,6 @@ No se ejecutaron servicios reales, migraciones, deploys, cleanup, storage smoke 
 
 ## 10. VEREDICTO
 
-REJECTED FOR PRODUCTION OPERATIONS
+REJECTED FOR OPEN PRODUCTION OPERATIONS
 
-NODO puede seguir avanzando en staging y validaciones controladas. No esta listo para operacion productiva hasta cerrar los bloqueos Tier 0/Tier 1.
+NODO puede seguir avanzando hacia piloto controlado con evidencia actual y limites claros. No esta listo para produccion abierta hasta cerrar los bloqueos Tier 0/Tier 1.

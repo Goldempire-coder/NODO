@@ -74,7 +74,7 @@ states:
 - success where applicable
 
 disclaimer:
-Los creditos son para publicar y operar anuncios dentro de NODO. No son saldo de clientes ni fondos de remesas.
+Los creditos son para publicar y operar anuncios dentro de NODO. No son dinero, saldo custodiado, deposito, retiro disponible ni valor transferible.
 
 privacy:
 - Show masked payment method metadata by default.

@@ -359,10 +359,13 @@ Slice 06 consume ledger:
 
 Slice 19 on-chain notes:
 
-- `base_usdc_onchain` uses Base mainnet `chain_id = 8453`.
-- `base_usdc_onchain` es legacy local/staging o fallback manual/Admin. Una
-  transferencia directa no auto-acredita con trafico real controlado.
-- USDC Base contract is `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
+- `base_usdc_onchain` directo es legacy local/staging o fallback manual/Admin.
+  Una transferencia directa no auto-acredita con trafico real controlado.
+- Staging y piloto controlado usan Base Sepolia/testnet cuando se prueba crypto.
+- Base mainnet `chain_id = 8453` y USDC real quedan bloqueados hasta aprobacion
+  Owner separada de crypto production go-live.
+- USDC Base mainnet contract is `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`.
+- USDC Base Sepolia testnet contract is `0x036cbd53842c5426634e7929541ec2318f3dcf7e`.
 - USDT Base is not active in MVP.
 - `expected_amount_units` uses `numeric(78,0)` and stores USDC minor units with 6 decimals. Do not use float.
 - `destination_wallet_address` comes from `NODO_CREDIT_RECEIVING_WALLET_BASE`.

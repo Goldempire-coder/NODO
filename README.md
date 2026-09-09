@@ -2,9 +2,11 @@
 
 Proyecto gobernado para construir NODO por slices.
 
-Estado actual: `READY_FOR_BUILDER_DOCS`
+Estado actual: `STAGING_PILOT_PREPARATION`
 
-Este repositorio todavia no contiene implementacion de producto. La primera capa creada es la arquitectura de gobierno para que Cursor/Builder no invente reglas, estados, permisos, copy, pantallas ni arquitectura tecnica.
+Este repositorio ya contiene implementacion de producto para backend FastAPI, frontend Next/Telegram Mini Apps, Admin Web, contratos de creditos, migraciones, pruebas, scripts de staging y documentacion operativa.
+
+La documentacion gobierna el alcance para que ningun builder invente reglas, estados, permisos, copy, pantallas, despliegues o arquitectura tecnica. Antes del piloto, el estado permitido es `READY_FOR_OWNER_REVIEW` o `PILOT_CONTROLLED_REVIEW_REQUIRED`; el builder no puede declarar `READY_FOR_REAL_USE` ni `READY_FOR_PRODUCTION`.
 
 ## Carpetas principales
 
@@ -12,7 +14,12 @@ Este repositorio todavia no contiene implementacion de producto. La primera capa
 - `.cursor/rules/`: reglas activas para Cursor antes de cualquier edicion.
 - `governance/`: protocolos de trabajo, reportes del builder, revision del owner y control de cambios.
 - `evidence/`: evidencias por slice, pruebas, capturas, logs y reportes de ejecucion.
-- `implementation/`: espacio reservado para la implementacion real cuando el owner apruebe iniciar slices.
+- `apps/api/`: backend FastAPI.
+- `apps/web/`: frontend Next exportado a Cloudflare Pages, incluyendo Cliente, Negocio, Admin Web y website.
+- `apps/contracts/`: contratos locales/testnet para creditos NODO.
+- `database/migrations/`: migraciones up/down.
+- `operations/`: runbooks, SOPs, matriz de recuperacion y gate de piloto.
+- `scripts/`: tooling de validacion, migracion, staging, smokes y deploy web.
 
 ## Regla principal
 
@@ -28,9 +35,16 @@ Ningun builder puede construir features sin:
 
 - `READY_FOR_BUILDER_DOCS`: documentacion lista para iniciar slices.
 - `READY_FOR_OWNER_REVIEW`: un slice fue construido y tiene evidencia para revision.
+- `PILOT_CONTROLLED_REVIEW_REQUIRED`: candidato puede evaluarse para piloto pequeno, con riesgos documentados y sin declarar produccion abierta.
 - `READY_FOR_REAL_USE`: solo puede declararlo el owner despues de pruebas reales.
 
 El builder no puede declarar `READY_FOR_REAL_USE`.
+
+## Piloto controlado
+
+El piloto inicial debe usar alcance pequeno, negocios conocidos, clientes limitados y creditos manuales si el Owner decide no activar compras USDC reales. Staging sigue usando Base Sepolia/testnet para creditos on-chain hasta una aprobacion Owner separada de crypto production go-live.
+
+Antes de abrir piloto, revisar `operations/PILOT_CONTROLLED_GATE.md`, `operations/CHANGE_MANAGEMENT.md`, `operations/DISASTER_RECOVERY.md`, `operations/MONITORING.md` y `control_plane/10_QA/DEPLOY_READINESS_GATE.md`.
 
 ## Inicio de trabajo
 

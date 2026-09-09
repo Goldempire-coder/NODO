@@ -39,13 +39,13 @@ Admin screens may use a denser dashboard layout and do not need the remitter bot
 
 ```txt
 Header
-Amount Exchange Card
+Amount Search Card
 Recent Orders
 Marketplace Summary
 Bottom Nav
 ```
 
-Amount Exchange Card:
+Amount Search Card:
 - amount input
 - payment method segmented control
 - delivery helper text
@@ -95,10 +95,10 @@ Create Order:
 
 Payment Instructions:
 - timer prominent
-- official payment data
+- published business data
 - reveal/copy audit behavior
 - marketplace disclaimer
-- MainButton "Ya realice el pago"
+- MainButton "Reportar evidencia"
 
 Report Payment:
 - method-specific form
@@ -108,7 +108,7 @@ Report Payment:
 
 Confirm Received:
 - warning copy
-- confirm only if receiver sees funds in bank
+- confirm only if receiver sees the agreed delivery completed
 - dispute alternative
 
 ## Business app distribution

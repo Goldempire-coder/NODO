@@ -6,7 +6,7 @@ Mini App Cliente.
 
 ## Objetivo
 
-Permitir que el cliente/remitente abra y siga tickets de soporte general o asociados a una orden propia.
+Permitir que el cliente abra y siga tickets de soporte general o asociados a una orden propia.
 
 ## Scopes permitidos
 

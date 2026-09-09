@@ -1,7 +1,7 @@
 # BACKUP_RESTORE_MATRIX
 
 Estado: OFFICIAL - OWNER DECISIONS REQUIRED
-Ultima actualizacion: 2026-07-11
+Ultima actualizacion: 2026-09-09
 
 ## RTO/RPO por Tier
 
@@ -16,11 +16,11 @@ Propuesta tecnica pendiente de aprobacion owner.
 
 ## Ownership
 
-No hay personas asignadas en repo.
+Owner primario de piloto: Carlos.
 
-Valor canonico hasta decision owner:
+Backup operativo/persona alterna: NOT DEFINED -- RELEASE RISK.
 
-`OWNERSHIP NOT DEFINED -- RELEASE RISK`
+Hasta definir backup humano y permisos por proveedor, cualquier incidente Tier 0 depende del Owner.
 
 ## Matriz por componente
 
@@ -29,11 +29,11 @@ Valor canonico hasta decision owner:
 | Supabase PostgreSQL | users, sessions, businesses, access links, ads, orders, payment reports, credits, support, staff, audit, jobs, intake | 0 | PROVIDER_ACCESS_REQUIRED | NOT VALIDATED | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner + DB reliability |
 | Supabase Storage privado | file assets backing documents/evidence/support/intake | 0/1 | PROVIDER_ACCESS_REQUIRED | NOT VALIDATED | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner + storage provider |
 | Redis/Upstash | rate limit, locks, idempotency windows, cache | 0/1 | UNKNOWN | NOT VALIDATED | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner + runtime |
-| Railway backend | API image, env, runtime config | 0/1 | Provider deploy history UNKNOWN | Provider rollback NOT VALIDATED | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner + release manager |
-| Cloudflare frontend | static export, public env, deploy history | 1 | Provider deploy history UNKNOWN | Provider rollback NOT VALIDATED | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner + release manager |
+| Railway backend | API image, env, runtime config | 0/1 | Provider deploy history AVAILABLE IN RAILWAY, not exported to repo | Native provider rollback NOT VALIDATED; redeploy SHA rollback documented for staging | DECISION REQUIRED | Carlos | BACKUP NOT DEFINED -- RELEASE RISK | BACKUP NOT DEFINED -- RELEASE RISK | Owner + release manager |
+| Cloudflare frontend | static export, public env, deploy history | 1 | Provider deploy history AVAILABLE IN CLOUDFLARE, not exported to repo | Native provider rollback NOT VALIDATED; redeploy SHA rollback documented for staging | DECISION REQUIRED | Carlos | BACKUP NOT DEFINED -- RELEASE RISK | BACKUP NOT DEFINED -- RELEASE RISK | Owner + release manager |
 | Secrets/env vars | Railway secrets, Cloudflare public env, Telegram, Supabase, Upstash, Base RPC | 0 | UNKNOWN | NOT VALIDATED | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner only |
 | Telegram bots/webhooks | BOT_TOKEN, BUSINESS_INTAKE_BOT_TOKEN, webhook config | 1 | PROVIDER_ACCESS_REQUIRED | NOT VALIDATED | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner + bot operator |
-| Base RPC/on-chain watcher | RPC URL/key, destination wallet public config, watcher state in DB | 0 | DB backup dependent, RPC provider UNKNOWN | NOT VALIDATED | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner + credits operator |
+| Base RPC/on-chain watcher | RPC URL/key, destination wallet public config, network profile, watcher state in DB | 0 | DB backup dependent, RPC provider UNKNOWN | NOT VALIDATED | DECISION REQUIRED | Carlos | BACKUP NOT DEFINED -- RELEASE RISK | BACKUP NOT DEFINED -- RELEASE RISK | Owner + credits operator |
 | Audit logs | audit_logs append-only | 0 | DB backup dependent | NOT VALIDATED | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner + security |
 | file_assets | DB metadata for private files | 0/1 | DB backup dependent | NOT VALIDATED with storage | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner + storage |
 | notification_jobs | pending/sent notification state | 1/2 | DB backup dependent | NOT VALIDATED | DECISION REQUIRED | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | OWNERSHIP NOT DEFINED -- RELEASE RISK | Owner + operations |
@@ -45,6 +45,8 @@ Valor canonico hasta decision owner:
 - DB + storage consistency.
 - Secrets/env recovery.
 - Railway/Cloudflare rollback.
+
+Para piloto controlado sin USDC real, el riesgo de creditos on-chain puede mitigarse manteniendo compras crypto desactivadas y asignando creditos manualmente por Owner. Esto no elimina la necesidad de backup/restore antes de produccion abierta.
 
 ## Componentes que no deben restaurarse como fuente canonica
 

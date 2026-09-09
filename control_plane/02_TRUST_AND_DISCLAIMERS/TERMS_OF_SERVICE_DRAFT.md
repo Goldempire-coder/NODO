@@ -10,7 +10,7 @@ Este documento es una propuesta operativa/legal inicial para revision del owner 
 
 Estos terminos regulan el acceso y uso de NODO, una plataforma tecnologica tipo marketplace disponible mediante Telegram Mini Apps y superficies relacionadas.
 
-NODO conecta clientes/remitentes con negocios registrados para que las partes puedan coordinar operaciones permitidas fuera de custodia de NODO. NODO provee publicacion de anuncios, reputacion, limites, chat, soporte, evidencia, estados de orden, herramientas de disputa y controles operativos.
+NODO conecta clientes con negocios registrados para que las partes puedan coordinar operaciones permitidas fuera de custodia de NODO. NODO provee publicacion de anuncios, reputacion, limites, chat, soporte, evidencia, estados de orden, herramientas de disputa y controles operativos.
 
 Para negocios, NODO tambien puede vender creditos internos para publicar, activar, mantener, promocionar u operar anuncios y otros servicios propios de la plataforma. Esa compra de creditos es una relacion negocio-NODO y no una operacion entre cliente final y negocio.
 

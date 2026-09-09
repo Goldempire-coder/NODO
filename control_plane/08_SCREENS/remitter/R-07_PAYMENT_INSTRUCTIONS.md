@@ -69,10 +69,10 @@ audit events:
 payment_instructions_viewed
 
 copy:
-- El cliente paga directamente al negocio.
+- El cliente coordina directamente con el negocio.
 - NODO no recibe ni retiene fondos.
 - NODO registra evidencia y estado de la orden.
-- Reportar pago no significa que el negocio ya confirmo recepcion.
+- Reportar evidencia no significa que el negocio ya confirmo recepcion.
 
 slice boundary:
 - Slice 04 may link to this screen or show disabled/coming-next state.

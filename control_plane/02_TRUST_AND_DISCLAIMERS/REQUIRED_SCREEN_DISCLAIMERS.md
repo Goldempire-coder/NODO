@@ -16,19 +16,19 @@ Texto corto permitido:
 
 Texto obligatorio:
 
-`NODO registra la orden y la evidencia, pero no recibe ni retiene fondos. Pagaras directamente al negocio seleccionado.`
+`NODO registra la orden y la evidencia, pero no recibe ni retiene fondos. La coordinacion final ocurre directamente con el negocio seleccionado.`
 
-## Instrucciones de pago
-
-Texto obligatorio:
-
-`Paga solo a los datos mostrados en esta orden. NODO no toca fondos ni puede revertir pagos hechos fuera de las instrucciones.`
-
-## Reportar pago
+## Datos publicados por el negocio
 
 Texto obligatorio:
 
-`Sube evidencia clara. El negocio revisara el pago y NODO conservara el registro para soporte y auditoria.`
+`Usa solo los datos publicados dentro de esta orden. NODO no toca fondos ni puede revertir operaciones acordadas fuera de la plataforma.`
+
+## Reportar evidencia
+
+Texto obligatorio:
+
+`Sube evidencia clara. El negocio revisara el ingreso acordado y NODO conservara el registro para soporte y auditoria.`
 
 ## Tracking/chat
 
@@ -40,7 +40,7 @@ Texto obligatorio:
 
 Texto obligatorio:
 
-`Confirma solo cuando el dinero este reflejado en el banco del receptor. Esta accion cerrara la orden como completada.`
+`Confirma solo cuando la entrega acordada este reflejada por el receptor. Esta accion cerrara la orden como completada.`
 
 ## Disputa
 
@@ -54,17 +54,17 @@ Texto obligatorio:
 
 `Los creditos son para publicar y operar anuncios dentro de NODO. No son dinero, no son saldo custodiado, no son retirables ni transferibles.`
 
-## Pago digital de creditos
+## Compra digital de creditos
 
 Texto obligatorio:
 
-`NODO verificara el pago y acreditara los creditos automaticamente cuando la transaccion sea confirmada. No repitas el pago mientras se verifica.`
+`NODO verificara la compra de creditos y los acreditara cuando la transaccion sea confirmada. No repitas la compra mientras se verifica.`
 
 ## Metodos de creditos no activos
 
 Texto obligatorio si una pantalla o documento menciona metodos no activos:
 
-`Este metodo de pago no esta disponible para comprar creditos en NODO. Usa solo los metodos mostrados en el checkout vigente.`
+`Este metodo no esta disponible para comprar creditos en NODO. Usa solo las opciones mostradas en el checkout vigente.`
 
 Nota para builders: no mostrar Stripe, Zelle manual, USDT manual ni otro metodo de creditos como activo salvo aprobacion owner y actualizacion documental separada.
 

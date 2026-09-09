@@ -3,31 +3,31 @@
 ## Required copy
 
 Home helper:
-- Tu familiar recibe por pago movil en Venezuela.
+- Consulta ofertas de negocios registrados y coordina directamente.
 
 Home CTA:
-- Buscar negocios
+- Ver directorio
 
 Search context:
-- Buscando para: $X via Zelle
-- Buscando para: $X via USDT
+- Consultando ofertas para: $X via Zelle
+- Consultando ofertas para: $X via USDT
 
 Trust card:
 - Compara perfiles registrados en NODO segun tasa, limites y disponibilidad.
-- Tu pago se hace directo al negocio. NODO registra la orden y evidencia.
+- La coordinacion ocurre directamente con el negocio. NODO registra la orden y evidencia.
 
 Payment instructions:
-- Usa solo los datos oficiales mostrados en esta orden.
+- Usa solo los datos publicados dentro de esta orden.
 - NODO no recibe, retiene ni transfiere fondos.
 
 USDT warning:
-- Confirma que la red indicada en los datos de pago coincide con la red de tu wallet antes de enviar USDT.
+- Confirma que la red indicada por el negocio coincide con la red que usaras antes de continuar.
 
 Confirm received:
-- Confirma solo cuando el dinero este reflejado en el banco del receptor.
+- Confirma solo cuando el ingreso acordado este reflejado por el receptor.
 
 Marketplace:
-- NODO no toca fondos. Pagas directamente al negocio seleccionado.
+- NODO no toca fondos. Coordinas directamente con el negocio seleccionado.
 
 ## Forbidden copy
 
@@ -41,6 +41,12 @@ Marketplace:
 - ciudad cercana
 - casa de cambio garantizada
 - pago seguro garantizado
+- enviar dinero
+- remesa
+- cambiar dinero
+- pagar al cliente
+- pago movil enviado
+- recibiras dinero
 
 ## Tone
 

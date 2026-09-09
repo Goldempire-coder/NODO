@@ -4,7 +4,7 @@ Estado de validacion: NOT VALIDATED
 
 ## SINTOMA
 
-Negocio pago Base USDC o envio hash, pero creditos no aparecen.
+Negocio registro compra Base USDC o hash, pero creditos no aparecen.
 
 ## SEVERIDAD INICIAL
 
@@ -20,7 +20,7 @@ SEV-2; SEV-1 si muchos negocios o monto alto.
 
 ## MITIGACION
 
-- Si pago esta bajo confirmaciones: esperar confirmaciones.
+- Si la transaccion esta bajo confirmaciones: esperar confirmaciones.
 - Si red/token/wallet incorrectos: marcar under_review/reject segun contrato.
 - Si watcher caido: ejecutar recuperacion cuando exista scheduler/run command documentado.
 

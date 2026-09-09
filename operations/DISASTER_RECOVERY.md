@@ -1,11 +1,13 @@
 # DISASTER_RECOVERY
 
-Estado: BLOCKED - CONTRACTS READY FOR OWNER REVIEW
-Ultima actualizacion: 2026-07-11
+Estado: BLOCKED FOR OPEN PRODUCTION - PILOT RISK ACCEPTANCE REQUIRED
+Ultima actualizacion: 2026-09-09
 
 ## Decision operativa
 
-Produccion sigue bloqueada. NODO no tiene restore validado para Tier 0/Tier 1.
+Produccion abierta sigue bloqueada. NODO no tiene restore real validado para Tier 0/Tier 1.
+
+Un piloto controlado puede evaluarse solo si el Owner acepta por escrito el riesgo de no tener restore provider probado y mantiene usuarios/negocios/montos limitados.
 
 Este documento define el marco de DR. No afirma que exista evidencia provider ni que el restore ya fue probado.
 
@@ -21,11 +23,14 @@ Existe:
 - Smoke Telegram.
 - Health/readiness/version.
 - Rollback drill local hasta slice 11 sobre DB desechable con datos sinteticos.
+- Tooling local sintetico de backup/restore en `scripts/local_synthetic_backup_restore.py`.
+- Rollback staging por redeploy de SHA anterior documentado en `sops/ROLLBACK_SOP.md`.
+- Alertas Telegram Admin para intake, disputas, compras de creditos que requieren atencion, prueba y modo emergencia.
 
 No existe todavia:
 
-- Script de backup Postgres.
-- Script de restore Postgres.
+- Script de backup Postgres real contra proveedor.
+- Script de restore Postgres real contra proveedor.
 - Restore Supabase probado.
 - Restore storage privado probado.
 - Drill DB+storage con integridad post-restore.
@@ -60,8 +65,8 @@ Todos los RTO/RPO quedan `DECISION REQUIRED` hasta aprobacion owner.
 
 ## Fases aprobadas futuras
 
-- 31C: tooling seguro local/sintetico de backup metadata y verification.
-- 31D: restore drill staging/entorno aislado.
+- 31C: tooling seguro local/sintetico de backup metadata y verification. Existe script local; falta evidencia actualizada si no hay run reciente.
+- 31D: restore drill staging/entorno aislado con proveedor.
 - 31E: integrity validation after restore.
 - 31F: recurring restore test policy.
 

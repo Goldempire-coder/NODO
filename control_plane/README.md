@@ -1,17 +1,17 @@
 # NODO CONTROL PLANE
 
-Paquete gobernado para construir NODO por slices con Cursor/Codex/Builder.
+Paquete gobernado para mantener, auditar y evolucionar NODO por slices con Cursor/Codex/Builder.
 
-Estado: READY_FOR_BUILDER_DOCS v0.3
-Fecha: 2026-07-03
+Estado: STAGING_PILOT_PREPARATION
+Fecha: 2026-09-09
 
 Regla principal: ningun builder construye features sin contrato aprobado, evidencia de lectura y reporte de lineas tocadas.
 
 ## Producto objetivo
 
-NODO es un directorio tecnologico para conectar remitentes con negocios registrados. NODO organiza perfiles, metodos publicados, reputacion, ordenes, chat, evidencias, creditos publicitarios y auditoria. NODO no recibe, retiene, transfiere ni garantiza fondos de usuarios; el pago y la entrega son responsabilidad entre remitente y negocio.
+NODO es un directorio tecnologico para conectar clientes con negocios registrados. NODO organiza perfiles, metodos publicados, reputacion, ordenes, chat, evidencias, creditos publicitarios y auditoria. NODO no recibe, retiene, transfiere ni garantiza fondos entre cliente y negocio; el pago y la entrega ocurren directamente entre esas partes.
 
-El producto se construye para uso masivo desde el inicio, no como demo. Capacidad minima de diseno: 200 negocios, 10,000 clientes y 2,000 ordenes activas/concurrentes bajo limites de riesgo, colas, locks, idempotencia y monitoreo.
+El producto se prepara para piloto controlado antes de produccion abierta. Capacidad minima de diseno: 200 negocios, 10,000 clientes y 2,000 ordenes activas/concurrentes bajo limites de riesgo, colas, locks, idempotencia y monitoreo.
 
 ## Stack aprobado
 
@@ -20,7 +20,7 @@ El producto se construye para uso masivo desde el inicio, no como demo. Capacida
 - Base de datos: PostgreSQL/Supabase con pooling, migraciones y RLS/claims donde aplique.
 - Cache/colas/locks: Redis.
 - Bot: Telegram webhook, no polling en produccion.
-- Pagos de creditos: Base USDC contractual es el flujo principal para creditos NODO; Stripe, Zelle y USDT TRC20 quedan como legacy/fallback solo si backend los habilita y con revision admin cuando aplique.
+- Creditos NODO: Base USDC contractual es el flujo principal tecnico, pero staging/piloto usa Base Sepolia/testnet o asignacion manual Owner hasta aprobacion separada de crypto production go-live. Stripe, Zelle y USDT TRC20 quedan como legacy/fallback solo si backend los habilita y con revision admin cuando aplique.
 - Deploy/staging aprobado: Cloudflare Pages para frontend, Railway para backend/workers, Supabase Pro para PostgreSQL, Upstash Redis para locks/rate limits/jobs y Cloudflare R2 o Supabase Storage para storage privado. Vercel queda legacy/no recomendado para NODO por costo de escala.
 
 ## Orden obligatorio de lectura
@@ -76,3 +76,7 @@ Cada slice debe entregar:
 - BUILDER_REPORT con archivos, lineas y evidencia
 
 Si falta un contrato, el builder debe detenerse y reportar `BLOCKED_BY_MISSING_CONTRACT`. Si encuentra contradiccion entre documentos, debe detenerse y reportar `BLOCKED_BY_CONTRACT_CONFLICT`.
+
+## Regla de piloto
+
+El builder puede preparar evidencia para `READY_FOR_OWNER_REVIEW` o `PILOT_CONTROLLED_REVIEW_REQUIRED`, pero no puede declarar produccion abierta ni uso real sin decision Owner. El gate vigente para piloto esta en `operations/PILOT_CONTROLLED_GATE.md`.
