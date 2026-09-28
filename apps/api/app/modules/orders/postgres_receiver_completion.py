@@ -233,12 +233,46 @@ class PostgresOrderReceiverCompletionMixin:
         event_metadata: dict[str, Any],
         audit_metadata: dict[str, Any],
     ) -> OrderRecord:
+        return self._complete_delivered_atomically(
+            order_id=order_id, remitter_user_id=remitter_user_id,
+            completed_at=completed_at, request_id=request_id,
+            event_metadata=event_metadata, audit_metadata=audit_metadata,
+            automatic=False,
+        )
+
+    def auto_complete_delivered_atomically(
+        self, *, order_id: str, completed_at: datetime, request_id: str,
+        event_metadata: dict[str, Any], audit_metadata: dict[str, Any],
+    ) -> OrderRecord | None:
+        return self._complete_delivered_atomically(
+            order_id=order_id, remitter_user_id=None,
+            completed_at=completed_at, request_id=request_id,
+            event_metadata=event_metadata, audit_metadata=audit_metadata,
+            automatic=True,
+        )
+
+    def _complete_delivered_atomically(
+        self, *, order_id: str, remitter_user_id: str | None,
+        completed_at: datetime, request_id: str,
+        event_metadata: dict[str, Any], audit_metadata: dict[str, Any],
+        automatic: bool,
+    ) -> OrderRecord | None:
+        reason = "auto_completed_after_24h" if automatic else "manual_confirmed"
+        event_type = "order_auto_completed_after_24h" if automatic else "order_completed"
+        actor_role = None if automatic else "remitter"
         with self._connect() as conn:  # type: ignore[attr-defined]
             order_row = conn.execute(
                 "select * from orders where id = %s for update",
                 (order_id,),
             ).fetchone()
-            if order_row is None or str(order_row["remitter_user_id"]) != remitter_user_id:
+            if automatic and (
+                order_row is None
+                or order_row["status"] != "delivered"
+                or order_row["auto_complete_at"] is None
+                or order_row["auto_complete_at"] > completed_at
+            ):
+                return None
+            if order_row is None or (not automatic and str(order_row["remitter_user_id"]) != remitter_user_id):
                 raise ApiError("ORDER_NOT_FOUND", status_code=404)
             if order_row["status"] != "delivered":
                 raise ApiError("ORDER_RECEIPT_CONFIRMATION_NOT_ALLOWED", status_code=409)
@@ -251,24 +285,26 @@ class PostgresOrderReceiverCompletionMixin:
                 (order_id,),
             ).fetchone()
             if dispute is not None:
+                if automatic:
+                    return None
                 raise ApiError("ORDER_COMPLETION_BLOCKED_BY_DISPUTE", status_code=409)
             capacity_consumed = self._capacity.transition_in_transaction(  # type: ignore[attr-defined]
                 conn,
                 order_id=order_id,
                 target_status="consumed",
-                reason="manual_confirmed",
+                reason=reason,
             )
             if not capacity_consumed:
                 raise ApiError("ORDER_STATE_CONFLICT", status_code=409)
             updated_row = conn.execute(
                 """
                 update orders
-                set status = 'completed', completion_reason = 'manual_confirmed',
+                set status = 'completed', completion_reason = %s,
                     completed_at = %s, updated_at = now()
                 where id = %s and status = 'delivered'
                 returning *
                 """,
-                (completed_at, order_id),
+                (reason, completed_at, order_id),
             ).fetchone()
             if updated_row is None:
                 raise ApiError("ORDER_STATE_CONFLICT", status_code=409)
@@ -282,18 +318,18 @@ class PostgresOrderReceiverCompletionMixin:
                 order_id=order_id,
                 from_status="delivered",
                 to_status="completed",
-                event_type="order_completed",
+                event_type=event_type,
                 actor_user_id=remitter_user_id,
-                actor_role="remitter",
-                reason="manual_confirmed",
+                actor_role=actor_role,
+                reason=reason,
                 request_id=request_id,
                 metadata_json=event_metadata,
             )
             self._insert_integrity_audit(  # type: ignore[attr-defined]
                 conn,
-                event_type="order_completed",
+                event_type=event_type,
                 actor_user_id=remitter_user_id,
-                actor_role="remitter",
+                actor_role=actor_role,
                 resource_id=order_id,
                 request_id=request_id,
                 metadata_json=audit_metadata,
@@ -304,9 +340,9 @@ class PostgresOrderReceiverCompletionMixin:
                 event_type="business_capacity_consumed",
                 context={
                     "actor_user_id": remitter_user_id,
-                    "actor_role": "remitter",
+                    "actor_role": actor_role,
                     "request_id": request_id,
-                    "reason": "manual_confirmed",
+                    "reason": reason,
                 },
             )
             conn.commit()

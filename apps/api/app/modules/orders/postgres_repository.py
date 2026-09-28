@@ -3,17 +3,26 @@ from __future__ import annotations
 from typing import Any
 
 from app.modules.orders.models import OrderRecord
-from app.modules.orders.postgres_admin_dispute_resolution import PostgresAdminDisputeResolutionMixin
-from app.modules.orders.postgres_admin_dispute_opening import PostgresAdminDisputeOpeningMixin
+from app.modules.orders.postgres_admin_dispute_opening import (
+    PostgresAdminDisputeOpeningMixin,
+)
+from app.modules.orders.postgres_admin_dispute_resolution import (
+    PostgresAdminDisputeResolutionMixin,
+)
 from app.modules.orders.postgres_create_order import PostgresCreateOrderMixin
 from app.modules.orders.postgres_integrity import PostgresOrderIntegrityMixin
-from app.modules.orders.postgres_payment_confirmation import PostgresPaymentConfirmationMixin
-from app.modules.orders.postgres_payment_reports import PostgresPaymentReportsMixin
+from app.modules.orders.postgres_job_transitions import PostgresOrderJobTransitionsMixin
 from app.modules.orders.postgres_participant_payment_problem_dispute import (
     PostgresParticipantPaymentProblemDisputeMixin,
 )
+from app.modules.orders.postgres_payment_confirmation import (
+    PostgresPaymentConfirmationMixin,
+)
+from app.modules.orders.postgres_payment_reports import PostgresPaymentReportsMixin
 from app.modules.orders.postgres_queries import PostgresOrderQueriesMixin
-from app.modules.orders.postgres_receiver_completion import PostgresOrderReceiverCompletionMixin
+from app.modules.orders.postgres_receiver_completion import (
+    PostgresOrderReceiverCompletionMixin,
+)
 from app.modules.orders.postgres_state_events import PostgresOrderStateEventsMixin
 from app.modules.orders.row_mappers import jsonb, order_from_row
 from app.modules.orders.terminal_publication_cooldown import (
@@ -28,6 +37,7 @@ class PostgresOrderRepository(
     PostgresAdminDisputeOpeningMixin,
     PostgresCreateOrderMixin,
     PostgresOrderIntegrityMixin,
+    PostgresOrderJobTransitionsMixin,
     PostgresPaymentConfirmationMixin,
     PostgresPaymentReportsMixin,
     PostgresParticipantPaymentProblemDisputeMixin,

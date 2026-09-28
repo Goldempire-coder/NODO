@@ -4,7 +4,12 @@ from datetime import datetime
 from typing import Any
 
 from app.core.errors import ApiError
-from app.modules.orders.models import OrderReceiverDetailsRecord, OrderRecord, new_id, utc_now
+from app.modules.orders.models import (
+    OrderReceiverDetailsRecord,
+    OrderRecord,
+    new_id,
+    utc_now,
+)
 
 
 class InMemoryOrderReceiverCompletionMixin:
@@ -160,22 +165,56 @@ class InMemoryOrderReceiverCompletionMixin:
         event_metadata: dict[str, Any],
         audit_metadata: dict[str, Any],
     ) -> OrderRecord:
+        return self._complete_delivered_atomically(
+            order_id=order_id, remitter_user_id=remitter_user_id,
+            completed_at=completed_at, request_id=request_id,
+            event_metadata=event_metadata, audit_metadata=audit_metadata,
+            automatic=False,
+        )
+
+    def auto_complete_delivered_atomically(
+        self, *, order_id: str, completed_at: datetime, request_id: str,
+        event_metadata: dict[str, Any], audit_metadata: dict[str, Any],
+    ) -> OrderRecord | None:
+        return self._complete_delivered_atomically(
+            order_id=order_id, remitter_user_id=None,
+            completed_at=completed_at, request_id=request_id,
+            event_metadata=event_metadata, audit_metadata=audit_metadata,
+            automatic=True,
+        )
+
+    def _complete_delivered_atomically(
+        self, *, order_id: str, remitter_user_id: str | None,
+        completed_at: datetime, request_id: str,
+        event_metadata: dict[str, Any], audit_metadata: dict[str, Any],
+        automatic: bool,
+    ) -> OrderRecord | None:
+        reason = "auto_completed_after_24h" if automatic else "manual_confirmed"
+        event_type = "order_auto_completed_after_24h" if automatic else "order_completed"
+        actor_role = None if automatic else "remitter"
         with self._lock:  # type: ignore[attr-defined]
             order = self.orders.get(order_id)  # type: ignore[attr-defined]
-            if order is None or order.remitter_user_id != remitter_user_id:
+            if automatic and (
+                order is None or order.status != "delivered"
+                or order.auto_complete_at is None or order.auto_complete_at > completed_at
+            ):
+                return None
+            if order is None or (not automatic and order.remitter_user_id != remitter_user_id):
                 raise ApiError("ORDER_NOT_FOUND", status_code=404)
             if order.status != "delivered":
                 raise ApiError("ORDER_RECEIPT_CONFIRMATION_NOT_ALLOWED", status_code=409)
             disputes = getattr(self, "_disputes", None)
             if disputes is not None and disputes.get_open_for_order(order.id) is not None:
+                if automatic:
+                    return None
                 raise ApiError("ORDER_COMPLETION_BLOCKED_BY_DISPUTE", status_code=409)
             if self._capacity is None or not self._capacity.consume(  # type: ignore[attr-defined]
                 order_id=order.id,
-                reason="manual_confirmed",
+                reason=reason,
             ):
                 raise ApiError("ORDER_STATE_CONFLICT", status_code=409)
             order.status = "completed"
-            order.completion_reason = "manual_confirmed"
+            order.completion_reason = reason
             order.completed_at = completed_at
             order.updated_at = utc_now()
             self._apply_terminal_publication_cooldown(  # type: ignore[attr-defined]
@@ -188,18 +227,18 @@ class InMemoryOrderReceiverCompletionMixin:
                 order_id=order.id,
                 from_status="delivered",
                 to_status="completed",
-                event_type="order_completed",
+                event_type=event_type,
                 actor_user_id=remitter_user_id,
-                actor_role="remitter",
-                reason="manual_confirmed",
+                actor_role=actor_role,
+                reason=reason,
                 request_id=request_id,
                 metadata_json=event_metadata,
             )
             if self._audit is not None:  # type: ignore[attr-defined]
                 self._audit.write(  # type: ignore[attr-defined]
-                    event_type="order_completed",
+                    event_type=event_type,
                     actor_user_id=remitter_user_id,
-                    actor_role="remitter",
+                    actor_role=actor_role,
                     resource_type="order",
                     resource_id=order.id,
                     request_id=request_id,
@@ -208,11 +247,11 @@ class InMemoryOrderReceiverCompletionMixin:
                 self._audit.write(  # type: ignore[attr-defined]
                     event_type="business_capacity_consumed",
                     actor_user_id=remitter_user_id,
-                    actor_role="remitter",
+                    actor_role=actor_role,
                     resource_type="order",
                     resource_id=order.id,
                     request_id=request_id,
-                    metadata_json={"reason": "manual_confirmed"},
+                    metadata_json={"reason": reason},
                 )
             return order
 

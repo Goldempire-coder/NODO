@@ -3,38 +3,94 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import os
 import sys
 import time
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar, Self
+from unittest.mock import patch
 
 import httpx
+import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
-import apply_staging_migrations  # noqa: E402
-import apply_staging_single_migration  # noqa: E402
-import burst_spacing_probe  # noqa: E402
-import capacity_real  # noqa: E402
-import cloud_load_runner  # noqa: E402
-import connection_origin_probe  # noqa: E402
-import cleanup_synthetic_run  # noqa: E402
-import edge_header_correlation_probe  # noqa: E402
-import external_latency_probe  # noqa: E402
-import marketplace_delivery_diagnostics  # noqa: E402
-import prepare_marketplace_delivery_fixtures  # noqa: E402
-import reconcile_staging_migration_ledger  # noqa: E402
-import staging_cleanup_synthetic_run  # noqa: E402
-import staging_guardrails  # noqa: E402
-import staging_storage_smoke  # noqa: E402
-import staging_telegram_webhook_smoke  # noqa: E402
-import ttfb_queue_probe  # noqa: E402
-from app.auth.jwt import decode_access_token  # noqa: E402
-from app.routes.telegram_bot import telegram_webhook_secret  # noqa: E402
+import apply_staging_migrations
+import apply_staging_single_migration
+import burst_spacing_probe
+import capacity_real
+import cleanup_synthetic_run
+import cloud_load_runner
+import connection_origin_probe
+import edge_header_correlation_probe
+import external_latency_probe
+import marketplace_delivery_diagnostics
+import prepare_marketplace_delivery_fixtures
+import reconcile_staging_migration_ledger
+import staging_cleanup_synthetic_run
+import staging_guardrails
+import staging_storage_smoke
+import staging_telegram_webhook_smoke
+import ttfb_queue_probe
+from app.auth.jwt import decode_access_token
+from app.routes.telegram_bot import telegram_webhook_secret
+
+
+@contextmanager
+def _isolated_tooling_environment() -> Iterator[list[int]]:
+    warm_sizes: list[int] = []
+
+    def fake_warm_pool(_database_url: str, *, size: int) -> None:
+        warm_sizes.append(size)
+
+    # Constructors must still validate staging, without warming real connections.
+    with patch.dict(os.environ), patch("app.main.warm_pool", fake_warm_pool):
+        yield warm_sizes
+
+
+@pytest.fixture(autouse=True)
+def isolated_tooling_environment() -> Iterator[list[int]]:
+    original_env = dict(os.environ)
+    with _isolated_tooling_environment() as warm_sizes:
+        yield warm_sizes
+    restored = dict(os.environ) == original_env
+    assert restored, "tooling test environment was not restored"
+
+
+@pytest.mark.parametrize("fail_inside", [False, True])
+def test_tooling_environment_restores_changes_and_warmup_patch(
+    fail_inside: bool,
+) -> None:
+    from app import main
+
+    original_warm_pool = main.warm_pool
+    with patch.dict(
+        os.environ, {"NODO_TEST_RESTORED": "before", "NODO_TEST_REMOVED": "before"}
+    ):
+        original_env = dict(os.environ)
+        expected_error = (
+            pytest.raises(RuntimeError, match="synthetic tooling failure")
+            if fail_inside
+            else nullcontext()
+        )
+        with expected_error, _isolated_tooling_environment() as warm_sizes:
+            os.environ["NODO_TEST_RESTORED"] = "after"
+            del os.environ["NODO_TEST_REMOVED"]
+            os.environ["NODO_TEST_CREATED"] = "synthetic"
+            main.warm_pool("synthetic-unused", size=3)
+            assert warm_sizes == [3]
+            if fail_inside:
+                raise RuntimeError("synthetic tooling failure")
+
+        restored = dict(os.environ) == original_env
+        assert restored, "tooling environment leaked after context exit"
+        assert main.warm_pool is original_warm_pool
 
 
 def _env_file(tmp_path: Path, *, app_env: str = "staging", extra: dict[str, str] | None = None) -> Path:
@@ -247,7 +303,12 @@ def test_prepare_marketplace_delivery_cleanup_discoverability_uses_cleanup_table
     assert "collect_counts" in source
 
 
-def test_marketplace_delivery_can_use_existing_fixture_run_id(tmp_path: Path) -> None:
+def test_marketplace_delivery_can_use_existing_fixture_run_id(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_tooling_environment: list[int],
+) -> None:
+    monkeypatch.setenv("NODO_DB_POOL_WARM_SIZE", "3")
     diagnostics = marketplace_delivery_diagnostics.MarketplaceDeliveryDiagnostics(
         env_file=_env_file(tmp_path),
         remote_base_url="https://nodo-staging.example.test",
@@ -265,6 +326,9 @@ def test_marketplace_delivery_can_use_existing_fixture_run_id(tmp_path: Path) ->
     )
 
     assert diagnostics.fixture_run_id == "slice33a3_fixture_0001"
+    assert diagnostics.harness.smoke.env["APP_ENV"] == "staging"
+    assert os.environ["APP_ENV"] == "staging"
+    assert isolated_tooling_environment == [3]
 
 
 def test_marketplace_delivery_expands_users_to_consume_request_target(tmp_path: Path) -> None:
@@ -1227,7 +1291,10 @@ def test_single_migration_rejects_unsafe_paths() -> None:
     for value in unsafe_values:
         try:
             apply_staging_single_migration.resolve_migration_path(value)
-        except Exception as exc:
+        except (
+            apply_staging_single_migration.SingleMigrationError,
+            FileNotFoundError,
+        ) as exc:
             assert type(exc).__name__ in {"SingleMigrationError", "FileNotFoundError"}
         else:
             raise AssertionError(f"unsafe migration path must be rejected: {value}")
@@ -1832,7 +1899,7 @@ def test_capacity_remote_client_uses_explicit_max_connections(tmp_path: Path) ->
     client = harness._client_context(concurrency=50)
 
     try:
-        assert client._transport._pool._max_connections == 7  # type: ignore[attr-defined]  # noqa: SLF001
+        assert client._transport._pool._max_connections == 7  # type: ignore[attr-defined]
     finally:
         asyncio.run(client.aclose())
 
@@ -2347,16 +2414,16 @@ def test_external_latency_probe_parser_accepts_client_modes(tmp_path: Path) -> N
 
 def test_external_latency_probe_shared_mode_uses_max_connections(tmp_path: Path) -> None:
     class FakeClient:
-        created: list["FakeClient"] = []
+        created: ClassVar[list[FakeClient]] = []
 
         def __init__(self, **kwargs: Any) -> None:
             self.kwargs = kwargs
             FakeClient.created.append(self)
 
-        async def __aenter__(self) -> "FakeClient":
+        async def __aenter__(self) -> Self:
             return self
 
-        async def __aexit__(self, *_args: Any) -> None:
+        async def __aexit__(self, *_args: object) -> None:
             return None
 
         async def get(self, _path: str, *, headers: dict[str, str]) -> httpx.Response:
@@ -2398,16 +2465,16 @@ def test_external_latency_probe_shared_mode_uses_max_connections(tmp_path: Path)
 
 def test_external_latency_probe_new_per_request_creates_client_per_request(tmp_path: Path) -> None:
     class FakeClient:
-        created: list["FakeClient"] = []
+        created: ClassVar[list[FakeClient]] = []
 
         def __init__(self, **kwargs: Any) -> None:
             self.kwargs = kwargs
             FakeClient.created.append(self)
 
-        async def __aenter__(self) -> "FakeClient":
+        async def __aenter__(self) -> Self:
             return self
 
-        async def __aexit__(self, *_args: Any) -> None:
+        async def __aexit__(self, *_args: object) -> None:
             return None
 
         async def get(self, _path: str, *, headers: dict[str, str]) -> httpx.Response:
@@ -2493,10 +2560,10 @@ def test_external_latency_probe_output_redacts_env_and_headers(tmp_path: Path) -
         def __init__(self, **_kwargs: Any) -> None:
             pass
 
-        async def __aenter__(self) -> "FakeClient":
+        async def __aenter__(self) -> Self:
             return self
 
-        async def __aexit__(self, *_args: Any) -> None:
+        async def __aexit__(self, *_args: object) -> None:
             return None
 
         async def get(self, _path: str, *, headers: dict[str, str]) -> httpx.Response:

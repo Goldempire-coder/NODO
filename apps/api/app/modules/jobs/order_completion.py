@@ -45,30 +45,17 @@ class OrderCompletionMixin:
         if dry_run:
             counters.changed += 1
             return
-        previous = order.status
-        self._orders.update_order(  # type: ignore[attr-defined]
-            order,
-            status="completed",
-            completion_reason="auto_completed_after_24h",
+        updated = self._orders.auto_complete_delivered_atomically(  # type: ignore[attr-defined]
+            order_id=order.id,
             completed_at=now,
-            capacity_event_context={
-                "actor_user_id": None,
-                "actor_role": None,
-                "request_id": request_id,
-                "reason": "auto_completed_after_24h",
-            },
-        )
-        self._state_event(order.id, previous, "completed", "order_auto_completed_after_24h", "auto_completed_after_24h", request_id)  # type: ignore[attr-defined]
-        self._audit.write(  # type: ignore[attr-defined]
-            event_type="order_auto_completed_after_24h",
-            actor_user_id=None,
-            actor_role=None,
-            resource_type="order",
-            resource_id=order.id,
             request_id=request_id,
-            metadata_json={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE},
+            event_metadata={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE},
+            audit_metadata={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE},
         )
-        self._notify_order_auto_completed(order, now=now)
+        if updated is None:
+            counters.skipped += 1
+            return
+        self._notify_order_auto_completed(updated, now=now)
         counters.changed += 1
 
     def _has_open_dispute(self, order, open_dispute_order_ids: set[str] | None) -> bool:  # type: ignore[no-untyped-def]

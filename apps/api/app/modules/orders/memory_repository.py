@@ -10,18 +10,28 @@ from app.modules.ads.publication_access import require_business_can_receive_new_
 from app.modules.businesses.models import FileAssetRecord
 from app.modules.disputes.models import DisputeRecord
 from app.modules.orders.integrity import AtomicCancellationResult
-from app.modules.orders.memory_receiver_completion import InMemoryOrderReceiverCompletionMixin
+from app.modules.orders.memory_job_transitions import InMemoryOrderJobTransitionsMixin
 from app.modules.orders.memory_payment_reports import InMemoryOrderPaymentReportsMixin
 from app.modules.orders.memory_queries import InMemoryOrderQueriesMixin
+from app.modules.orders.memory_receiver_completion import (
+    InMemoryOrderReceiverCompletionMixin,
+)
 from app.modules.orders.memory_state_events import InMemoryOrderStateEventsMixin
-from app.modules.orders.models import OrderRecord, OrderStateEventRecord, PaymentReportRecord, new_id, new_public_order_code, utc_now
+from app.modules.orders.models import (
+    OrderRecord,
+    OrderStateEventRecord,
+    PaymentReportRecord,
+    new_id,
+    new_public_order_code,
+    utc_now,
+)
 from app.modules.orders.terminal_publication_cooldown import (
     terminal_publication_cooldown_candidate,
     terminal_transition_starts_publication_cooldown,
 )
 
 
-class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrderPaymentReportsMixin, InMemoryOrderQueriesMixin, InMemoryOrderStateEventsMixin):
+class InMemoryOrderRepository(InMemoryOrderJobTransitionsMixin, InMemoryOrderReceiverCompletionMixin, InMemoryOrderPaymentReportsMixin, InMemoryOrderQueriesMixin, InMemoryOrderStateEventsMixin):
     moves_ad_on_create_order = False
     moves_ad_on_atomic_cancel = False
     creates_initial_state_event_on_create_order = False
@@ -122,7 +132,9 @@ class InMemoryOrderRepository(InMemoryOrderReceiverCompletionMixin, InMemoryOrde
                     reason=capacity_reservation["reason"],
                 )
             if notification_plan is not None:
-                from app.modules.notifications.order_notification_jobs import build_order_created_business_job
+                from app.modules.notifications.order_notification_jobs import (
+                    build_order_created_business_job,
+                )
 
                 try:
                     self._jobs.enqueue_notification(  # type: ignore[union-attr]

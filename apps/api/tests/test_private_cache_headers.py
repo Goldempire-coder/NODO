@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -27,9 +28,8 @@ def _set_env() -> None:
 
 _set_env()
 
-from app.main import create_app  # noqa: E402
-from app.modules.users.admin_passwords import hash_admin_password  # noqa: E402
-
+from app.main import create_app
+from app.modules.users.admin_passwords import hash_admin_password
 
 PRIVATE_NO_STORE = "private, no-store"
 
@@ -115,12 +115,35 @@ def test_private_surface_errors_disable_caching() -> None:
     assert telegram_webhook_error.headers.get("Cache-Control") == PRIVATE_NO_STORE
 
 
-def test_public_and_marketplace_responses_keep_their_existing_cache_policy() -> None:
+def test_public_and_marketplace_responses_keep_their_existing_cache_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.network import ConnectivityResult
+    from app.repositories.database import DatabaseRepository
+    from app.repositories.redis import RedisRepository
+
+    connectivity_calls = {"database": 0, "redis": 0}
+
+    def database_unavailable(_repository: DatabaseRepository) -> ConnectivityResult:
+        connectivity_calls["database"] += 1
+        return ConnectivityResult(False, "UPSTREAM_UNAVAILABLE", "Connection failed.")
+
+    def redis_unavailable(_repository: RedisRepository) -> ConnectivityResult:
+        connectivity_calls["redis"] += 1
+        return ConnectivityResult(False, "UPSTREAM_UNAVAILABLE", "Connection failed.")
+
+    monkeypatch.setattr(DatabaseRepository, "check_connectivity", database_unavailable)
+    monkeypatch.setattr(RedisRepository, "check_connectivity", redis_unavailable)
     client = TestClient(create_app())
 
     for path in ("/health", "/ready", "/version", "/api/v1/health", "/api/v1/ready", "/api/v1/version"):
         response = client.get(path)
         assert response.headers.get("Cache-Control") != PRIVATE_NO_STORE, path
+        if path in {"/ready", "/api/v1/ready"}:
+            assert response.status_code == 503
+            assert response.json()["error"]["code"] == "UPSTREAM_UNAVAILABLE"
+
+    assert connectivity_calls == {"database": 2, "redis": 2}
 
     for path in ("/api/v1/ads/search", "/api/v1/ads/not-a-real-ad", "/api/v1/telegram-public", "/assets/app.js"):
         response = client.get(path)
