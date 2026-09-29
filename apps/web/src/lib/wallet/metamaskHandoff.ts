@@ -1,29 +1,77 @@
 import { getTelegramWebApp } from "../../theme/telegramTheme";
+import { getPublicEnv } from "../env";
 
 const WALLET_PROBE_PATH = "/business/wallet-probe/";
 const CREDIT_PAYMENT_HANDOFF_PATH_PREFIX = "/business/credit-payment/handoff/";
 const METAMASK_DAPP_DEEPLINK_BASE = "https://link.metamask.io/dapp/";
-const NODO_PROBE_HTTPS_ORIGINS = new Set(["https://nodo-staging.pages.dev"]);
+const STAGING_ORIGIN = "https://nodo-staging.pages.dev";
+const NON_PRODUCTION_ENVIRONMENTS = new Set(["local", "dev", "development", "staging", "test"]);
+
+function parseOrigin(value: string): URL | null {
+  try {
+    const source = new URL(value);
+    if (
+      !/^https?:\/\/[^/?#\\\s]+\/?$/i.test(value)
+      || source.username
+      || source.password
+      || source.pathname !== "/"
+      || source.search
+      || source.hash
+      || source.hostname.includes("*")
+    ) {
+      return null;
+    }
+    return source;
+  } catch {
+    return null;
+  }
+}
 
 function isAllowedProbeOrigin(url: URL): boolean {
-  if (url.protocol === "https:" && NODO_PROBE_HTTPS_ORIGINS.has(url.origin)) {
+  const env = getPublicEnv();
+  const environment = env.NEXT_PUBLIC_APP_ENV.trim().toLowerCase();
+  const nonProduction = NON_PRODUCTION_ENVIRONMENTS.has(environment)
+    || (!environment && process.env.NODE_ENV === "development");
+  const configured = env.NEXT_PUBLIC_WALLET_ALLOWLIST.trim();
+  const entries = configured ? configured.split(",").map((entry) => entry.trim()) : [];
+  const origins = entries.map(parseOrigin);
+  // A malformed entry invalidates the whole list, never just that entry.
+  if (origins.some((origin) => !origin || origin.protocol !== "https:")) {
+    return false;
+  }
+  if (environment === "production" && origins.some((origin) =>
+    origin?.hostname === "nodo-staging.pages.dev" || origin?.hostname.endsWith(".nodo-staging.pages.dev")
+  )) {
+    return false;
+  }
+  const allowed = origins.map((origin) => origin!.origin);
+  if (!configured && nonProduction) {
+    allowed.push(STAGING_ORIGIN);
+  }
+  if (url.protocol === "https:" && allowed.includes(url.origin)) {
     return true;
   }
-  return url.protocol === "http:"
+  return nonProduction && url.protocol === "http:"
     && (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]");
 }
 
+function rejectOrigin(code: "WALLET_PROBE_ORIGIN_INVALID" | "CREDIT_HANDOFF_ORIGIN_INVALID"): never {
+  console.warn(code);
+  throw Object.assign(new Error("No se puede abrir MetaMask desde este sitio. Contacta a Soporte NODO."), { code });
+}
+
 export function buildMetaMaskWalletProbeDeeplink(origin: string): string {
-  const source = new URL(origin);
+  const source = parseOrigin(origin);
   if (
-    !isAllowedProbeOrigin(source)
+    !source
+    || !isAllowedProbeOrigin(source)
     || source.username
     || source.password
     || source.pathname !== "/"
     || source.search
     || source.hash
   ) {
-    throw new Error("WALLET_PROBE_ORIGIN_INVALID");
+    rejectOrigin("WALLET_PROBE_ORIGIN_INVALID");
   }
   const probe = new URL(WALLET_PROBE_PATH, source.origin);
   return `${METAMASK_DAPP_DEEPLINK_BASE}${probe.host}${probe.pathname}`;
@@ -50,16 +98,17 @@ export function buildMetaMaskCreditHandoffDeeplink(origin: string, handoffToken:
   if (!/^[A-Za-z0-9_-]{43}$/.test(handoffToken)) {
     throw new Error("CREDIT_HANDOFF_TOKEN_INVALID");
   }
-  const source = new URL(origin);
+  const source = parseOrigin(origin);
   if (
-    !isAllowedProbeOrigin(source)
+    !source
+    || !isAllowedProbeOrigin(source)
     || source.username
     || source.password
     || source.pathname !== "/"
     || source.search
     || source.hash
   ) {
-    throw new Error("CREDIT_HANDOFF_ORIGIN_INVALID");
+    rejectOrigin("CREDIT_HANDOFF_ORIGIN_INVALID");
   }
   const target = new URL(`${CREDIT_PAYMENT_HANDOFF_PATH_PREFIX}${handoffToken}/`, source.origin);
   const dappUrl = `${target.host}${target.pathname}`;

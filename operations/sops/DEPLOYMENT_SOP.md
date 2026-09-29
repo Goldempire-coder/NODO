@@ -44,6 +44,34 @@ Durante un SEV-1 activo salvo que el Incident Commander apruebe rollback/deploy 
 - Variables documentadas en `control_plane/11_OPERATIONS/ENVIRONMENT_VARIABLES.md`.
 - Migraciones staging validadas si hay cambios DB.
 
+## Dimensionamiento previo (sin cambiar defaults)
+
+Conservar `WEB_CONCURRENCY=1` hasta contar con mediciones y aprobacion de cambio.
+Aplicar tambien `../runbooks/DB_POOL_SATURATION_RUNBOOK.md`.
+
+- Presupuesto de conexiones: `replicas x WEB_CONCURRENCY x NODO_DB_POOL_MAX_SIZE`
+  mas otros consumidores, conexiones administrativas y reserva debe quedar por
+  debajo del limite util del destino PostgreSQL/pooler. No confundir el limite de
+  clientes del pooler con las conexiones disponibles en PostgreSQL.
+- Incluir replicas temporales durante un despliegue. El pool minimo/caliente
+  tambien se multiplica por proceso; no presupuestar solo las conexiones ociosas.
+- CPU: mas workers no crean mas CPU. Medir carga, latencia y saturacion con el
+  limite real del contenedor antes de proponer mas procesos.
+- Memoria: medir el pico por worker y reservar espacio para runtime, tareas y
+  sistema; `workers x pico_por_worker + reserva` debe caber en cada contenedor.
+  No usar una formula de CPU como garantia de capacidad ni elevar pools a ciegas.
+
+Ejemplo ficticio: limite util de 60 conexiones, 10 para otros consumidores y
+10 de reserva deja 40 para esta API. Una replica, un worker y pool maximo de 20
+presupuesta 20; dos replicas transitorias presupuesta 40. Dos workers por replica
+con esas dos replicas pedirian 80: no cabe. Con 1 GB por contenedor, un pico
+medido ficticio de 300 MB por worker y reserva de 250 MB, dos workers requieren
+850 MB, pero ese dato por si solo no autoriza aumentar workers: tambien deben
+cumplirse DB, CPU y latencia. Estos numeros no describen los proveedores de NODO.
+
+Registrar mediciones y limites antes de aprobar el dimensionamiento. Esta guia
+no cambia Dockerfile, variables, planes ni servicios.
+
 ## Herramientas necesarias
 
 - Python.

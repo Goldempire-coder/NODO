@@ -48,16 +48,15 @@ def test_metamask_probe_uses_a_fixed_public_route_without_private_context() -> N
         assert marker not in helper
 
 
-def test_metamask_probe_restricts_origins_to_nodo_staging_and_local_dev() -> None:
+def test_metamask_probe_restricts_origins_by_env_and_allowlist() -> None:
     helper = _read("apps/web/src/lib/wallet/metamaskHandoff.ts")
 
-    assert (
-        'const NODO_PROBE_HTTPS_ORIGINS = new Set(["https://nodo-staging.pages.dev"]);'
-        in helper
-    )
-    assert 'url.protocol === "https:" && NODO_PROBE_HTTPS_ORIGINS.has(url.origin)' in helper
+    assert 'const STAGING_ORIGIN = "https://nodo-staging.pages.dev";' in helper
+    assert "env.NEXT_PUBLIC_WALLET_ALLOWLIST.trim()" in helper
+    assert "if (!configured && nonProduction)" in helper
+    assert 'url.protocol === "https:" && allowed.includes(url.origin)' in helper
     assert 'if (url.protocol === "https:")' not in helper
-    assert 'return url.protocol === "http:"' in helper
+    assert 'return nonProduction && url.protocol === "http:"' in helper
     assert 'url.hostname === "localhost"' in helper
     assert 'url.hostname === "127.0.0.1"' in helper
     assert 'url.hostname === "[::1]"' in helper
@@ -65,7 +64,7 @@ def test_metamask_probe_restricts_origins_to_nodo_staging_and_local_dev() -> Non
     assert "source.password" in helper
     assert "source.search" in helper
     assert "source.hash" in helper
-    assert "source.pathname !== \"/\"" in helper
+    assert 'source.pathname !== "/"' in helper
     assert "WALLET_PROBE_ORIGIN_INVALID" in helper
 
 
