@@ -4,6 +4,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Mapping
+from urllib.parse import urlsplit
 
 SECRET_ENV_KEYS = {
     "BOT_TOKEN",
@@ -27,6 +28,9 @@ SECRET_ENV_KEYS = {
 
 REQUIRED_ENV_KEYS = ("APP_ENV", "DATABASE_URL", "REDIS_URL")
 SUPABASE_STORAGE_ENV_KEYS = ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
+PRODUCTION_TELEGRAM_ENV_KEYS = ("TELEGRAM_WEB_APP_URL", "TELEGRAM_WELCOME_IMAGE_URL")
+PREVIEW_ENVIRONMENTS = {"local", "dev", "development", "staging", "test"}
+CLOUDFLARE_PREVIEW_ORIGIN_REGEX = r"^https://[a-z0-9-]+\.nodo-staging\.pages\.dev$"
 GIT_COMMIT_SHA_PATTERN = re.compile(r"^[0-9a-f]{40,64}$")
 
 
@@ -126,6 +130,7 @@ class Settings:
     telegram_web_app_url: str
     telegram_welcome_image_url: str
     cors_origins: list[str]
+    cors_origin_regex: str | None
 
 
 def _split_csv(value: str) -> list[str]:
@@ -183,13 +188,50 @@ def validate_env(environ: Mapping[str, str] | None = None) -> None:
     missing = [key for key in REQUIRED_ENV_KEYS if not source.get(key)]
     if source.get("PRIVATE_STORAGE_MODE") == "supabase":
         missing.extend(key for key in SUPABASE_STORAGE_ENV_KEYS if not source.get(key))
+    if source.get("APP_ENV", "").strip().lower() == "production":
+        missing.extend(
+            key for key in PRODUCTION_TELEGRAM_ENV_KEYS if not source.get(key, "").strip()
+        )
     if missing:
         raise EnvValidationError(missing)
+
+
+def _cors_settings(source: Mapping[str, str]) -> tuple[list[str], str | None]:
+    app_env = source.get("APP_ENV", "").strip().lower()
+    default_origins = "" if app_env == "production" else "http://localhost:3000"
+    origins = _split_csv(source.get("API_CORS_ORIGINS", default_origins))
+    if app_env == "production":
+        for origin in origins:
+            try:
+                host = urlsplit(origin).hostname or ""
+            except ValueError:
+                raise EnvValidationError(["API_CORS_ORIGINS"]) from None
+            if (
+                origin == "*"
+                or host == "nodo-staging.pages.dev"
+                or host.endswith(".nodo-staging.pages.dev")
+            ):
+                raise EnvValidationError(["API_CORS_ORIGINS"])
+        # Production accepts explicit origins only, even if a preview regex was copied.
+        return origins, None
+    if app_env not in PREVIEW_ENVIRONMENTS:
+        return origins, None
+    regex = (
+        source.get("API_CORS_ORIGIN_REGEX", CLOUDFLARE_PREVIEW_ORIGIN_REGEX).strip()
+        or None
+    )
+    if regex is not None:
+        try:
+            re.compile(regex)
+        except re.error:
+            raise EnvValidationError(["API_CORS_ORIGIN_REGEX"]) from None
+    return origins, regex
 
 
 def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
     source = environ or os.environ
     validate_env(source)
+    cors_origins, cors_origin_regex = _cors_settings(source)
     app_version, build_id = _release_metadata(source)
     return Settings(
         app_env=source.get("APP_ENV", "local"),
@@ -332,7 +374,8 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             "TELEGRAM_WELCOME_IMAGE_URL",
             "https://nodo-staging.pages.dev/telegram-welcome.jpg?v=20260818143000",
         ),
-        cors_origins=_split_csv(source.get("API_CORS_ORIGINS", "http://localhost:3000")),
+        cors_origins=cors_origins,
+        cors_origin_regex=cors_origin_regex,
     )
 
 
