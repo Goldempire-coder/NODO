@@ -1,0 +1,3 @@
+drop index if exists credits_ledger_expire_ad_unique_idx;
+drop index if exists credits_ledger_consume_order_unique_idx;
+drop index if exists credits_ledger_release_ad_unique_idx;
