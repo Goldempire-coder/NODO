@@ -154,6 +154,35 @@ Rules:
 - Logout repetido debe ser seguro/idempotente.
 - Auditar `user_logout`.
 
+## Identidad transitoria para limites de solicitudes
+
+- Auth y creditos usan el mismo resolvedor y el mismo hash transitorio por request.
+- `TRUSTED_PROXIES` vacio (default): ignorar `X-Forwarded-For`; usar el peer TCP.
+- Solo configurar IPs/CIDRs de proxies cuya procedencia y comportamiento se hayan
+  verificado. No se permiten comodines, nombres DNS ni redes `/0`. No confiar
+  en redes privadas completas solo por ser privadas.
+- Con peer confiable, recorrer todas las cabeceras `X-Forwarded-For` de derecha
+  a izquierda, omitiendo unicamente proxies confiables. Usar el primer salto no
+  confiable; ante salto malformado o cadena sin cliente no confiable, usar el peer.
+- Iniciar Uvicorn con `--no-proxy-headers` (incluido en Dockerfile). De lo contrario
+  puede reemplazar el peer antes de que la aplicacion aplique esta regla.
+  Revisar cualquier comando de arranque alternativo; `FORWARDED_ALLOW_IPS` no
+  sustituye `TRUSTED_PROXIES`.
+- La identidad resuelta solo se usa para contadores con TTL en memoria/Redis;
+  no se agrega a sesiones, auditoria, logs o respuestas. Se conserva el tratamiento
+  existente del peer en sesiones; no se incorpora seguimiento nuevo de IP.
+- Antes de un despliegue autorizado, comprobar la topologia de proxies, el
+  comportamiento XFF (append/sanitize), aislamiento del origen y comandos reales.
+  Sin esa evidencia, no declarar resuelto el reparto de limites en el proveedor:
+  el default seguro puede agrupar usuarios tras un proxy.
+- Desactivar proxy headers en Uvicorn tambien deja de interpretar
+  `X-Forwarded-Proto`. Verificar HTTPS y redirecciones de barra final en staging
+  antes de publicar; esta tarea no cambia configuraciones del proveedor.
+- El fallback local limpia llaves caducadas en la siguiente solicitud cuando
+  vence el intervalo de limpieza (60 s). No elimina contadores activos. Es local
+  al proceso; no reemplaza la coordinacion Redis entre workers ni un limite de
+  memoria ante cardinalidad ilimitada dentro de una ventana activa.
+
 ## Errores esperados
 
 - TELEGRAM_INIT_DATA_INVALID

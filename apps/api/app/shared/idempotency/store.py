@@ -3,9 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from dataclasses import dataclass
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from threading import RLock
-from typing import Any
+from typing import Any, Iterator
 from uuid import uuid4
 
 import redis
@@ -25,6 +26,12 @@ class IdempotencyRecord:
     expires_at: float
 
 
+@dataclass
+class _KeyLock:
+    lock: Any = field(default_factory=RLock)
+    users: int = 0
+
+
 def canonical_payload_hash(payload: dict[str, Any]) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -34,6 +41,22 @@ class InMemoryIdempotencyStore:
     def __init__(self) -> None:
         self._lock = RLock()
         self._records: dict[str, IdempotencyRecord] = {}
+        self._key_locks: dict[str, _KeyLock] = {}
+
+    @contextmanager
+    def _lock_key(self, key: str) -> Iterator[None]:
+        # Count waiters too: never replace a lock while another caller still owns it.
+        with self._lock:
+            entry = self._key_locks.setdefault(key, _KeyLock())
+            entry.users += 1
+        try:
+            with entry.lock:
+                yield
+        finally:
+            with self._lock:
+                entry.users -= 1
+                if entry.users == 0:
+                    del self._key_locks[key]
 
     def get(self, key: str) -> IdempotencyRecord | None:
         now = time.time()
@@ -47,7 +70,7 @@ class InMemoryIdempotencyStore:
             return record
 
     def put(self, key: str, *, payload_hash: str, response: dict[str, Any], ttl_seconds: int = 86_400) -> None:
-        with self._lock:
+        with self._lock_key(key), self._lock:
             self._records[key] = IdempotencyRecord(
                 payload_hash=payload_hash,
                 response=response,
@@ -58,7 +81,7 @@ class InMemoryIdempotencyStore:
         if not key:
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
         payload_hash = canonical_payload_hash(payload)
-        with self._lock:
+        with self._lock_key(key):
             started = time.perf_counter()
             record = self.get(key)
             _profile_mark(profile, "idempotency:get_existing", started)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import os
 import re
 from dataclasses import dataclass
@@ -131,10 +132,24 @@ class Settings:
     telegram_welcome_image_url: str
     cors_origins: list[str]
     cors_origin_regex: str | None
+    trusted_proxies: tuple[str, ...] = ()
 
 
 def _split_csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _trusted_proxies(source: Mapping[str, str]) -> tuple[str, ...]:
+    try:
+        networks = tuple(
+            ipaddress.ip_network(item)
+            for item in _split_csv(source.get("TRUSTED_PROXIES", ""))
+        )
+        if any(network.prefixlen == 0 for network in networks):
+            raise ValueError
+    except ValueError:
+        raise EnvValidationError(["TRUSTED_PROXIES"]) from None
+    return tuple(str(network) for network in networks)
 
 
 def _read_int(source: Mapping[str, str], key: str, default: int) -> int:
@@ -279,6 +294,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         refresh_token_ttl_seconds=_read_int(source, "REFRESH_TOKEN_TTL_SECONDS", 2_592_000),
         auth_rate_limit_max_attempts=_read_int(source, "AUTH_RATE_LIMIT_MAX_ATTEMPTS", 10),
         auth_rate_limit_window_seconds=_read_int(source, "AUTH_RATE_LIMIT_WINDOW_SECONDS", 60),
+        trusted_proxies=_trusted_proxies(source),
         business_rate_limit_max_attempts=_read_int(source, "BUSINESS_RATE_LIMIT_MAX_ATTEMPTS", 30),
         business_rate_limit_window_seconds=_read_int(source, "BUSINESS_RATE_LIMIT_WINDOW_SECONDS", 60),
         credit_contract_rate_limit_user_max_attempts=min(

@@ -48,7 +48,10 @@ def test_rate_limit_identity_uses_proxy_appended_client_ip_not_spoofed_leftmost(
         "headers": [(b"x-forwarded-for", b"1.2.3.4, 198.51.100.44")],
     }
 
-    assert client_ip_for_rate_limit(scope) == "198.51.100.44"
+    assert (
+        client_ip_for_rate_limit(scope, trusted_proxies=("10.0.0.10/32",))
+        == "198.51.100.44"
+    )
 
 
 def test_rate_limit_identity_falls_back_to_scope_client_without_forwarded_header() -> None:

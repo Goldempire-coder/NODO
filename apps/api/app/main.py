@@ -412,7 +412,9 @@ def _configure_workers(app: FastAPI) -> None:
 
 
 def _configure_middlewares(app: FastAPI, *, settings: Settings) -> None:
-    app.add_middleware(RateLimitRequestIdentityMiddleware)
+    app.add_middleware(
+        RateLimitRequestIdentityMiddleware, trusted_proxies=settings.trusted_proxies
+    )
     app.add_middleware(ObservabilityMiddleware)
     app.add_middleware(RuntimeTimingMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
