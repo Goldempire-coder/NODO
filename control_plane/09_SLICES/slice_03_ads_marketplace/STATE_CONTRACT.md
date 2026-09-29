@@ -14,7 +14,7 @@ Official state behavior for this slice.
 
 ## Transitions in slice 03
 
-- `draft -> active`: publish ad; validates approved business and credits/founder access; blocks credits when applicable.
+- `draft -> active`: publish ad; validates approved business and sufficient credits; always blocks credits, without Founder exemption.
 - `active -> paused`: owner pauses; does not change `expires_at`.
 - `paused -> active`: allowed only if `expires_at > now()` and business remains approved.
 - `active -> expired`: passive expiration materialized when service reads or mutates a vencido ad.

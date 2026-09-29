@@ -21,7 +21,7 @@ data required:
 - authenticated user/session
 - approved own business
 - active approved business_payment_methods loaded from `GET /api/v1/business/payment-methods`
-- credit wallet summary or founder access status
+- credit wallet summary, always requiring sufficient balance; no Founder exemption
 - form fields: selected approved payment method, rate_bs_per_usd, amount_min_usd, amount_max_usd
 - calculated required_credits preview
 

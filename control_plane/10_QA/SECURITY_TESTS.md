@@ -158,8 +158,8 @@ Un slice sensible no pasa a `READY_FOR_OWNER_REVIEW` sin pruebas de seguridad ej
 - comprobante manual no expone `storage_path`.
 - `business_owner` solo ve wallet/ledger/referrals propios.
 - support ve compras de credito en modo lectura/enmascarado y no aprueba/rechaza/ajusta.
-- founder activo permite publicar sin cobrar creditos y audita `founder_free_use`.
-- founder expirado requiere creditos disponibles.
+- cualquier marca Founder historica requiere creditos disponibles y hold al publicar; no genera `founder_free_use`.
+- asignacion manual idempotente permite publicar y confirmar consumiendo una sola vez; anuncios historicos sin hold no crean ordenes nuevas.
 - `founder_access` no se crea como tabla activa.
 - referrals usan `referral_codes` y `referral_events`, no tabla `referrals`.
 - self-referral falla.

@@ -87,7 +87,7 @@ Creation rule:
 - Slice 03 creates `credit_wallets` lazily and idempotently for approved businesses when missing, before validating publish.
 - New lazy wallet starts with zero balances.
 - Missing wallet must not create fake credits.
-- If publish cannot proceed due zero balance and no founder access, return `CREDIT_BALANCE_INSUFFICIENT`.
+- If publish cannot proceed due insufficient balance, return `CREDIT_BALANCE_INSUFFICIENT`, including historical Founder businesses.
 
 ## credits_ledger
 

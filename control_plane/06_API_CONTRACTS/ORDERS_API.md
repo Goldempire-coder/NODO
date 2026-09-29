@@ -180,6 +180,10 @@ Rules:
 - Actor: `remitter` activo.
 - `Idempotency-Key` obligatorio.
 - Validar anuncio `active`, no vencido y disponible.
+- Anuncio historico sin `credit_hold_ledger_id`: rechazar orden nueva con
+  `AD_NOT_AVAILABLE` (409), sin mover anuncio, reservar capacidad ni crear orden.
+  Revalidar presencia del hold en la transicion transaccional PostgreSQL. Founder
+  no concede exencion; no fabricar reservas para anuncios u ordenes previos.
 - Revalidar dentro de la transaccion que el negocio no tenga una pausa de
   publicacion activa. Una pausa responde `AD_NOT_AVAILABLE` sin mover anuncio,
   crear orden, reservar capacidad ni encolar notificacion.

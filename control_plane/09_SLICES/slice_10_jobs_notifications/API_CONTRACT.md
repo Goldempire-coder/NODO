@@ -22,7 +22,7 @@ Effects:
 - opens disputes at hard deadlines
 - sends delivered reminders
 - auto-completes delivered orders after 24h when no dispute exists
-- expires ads/founder access
+- expires ads; Founder expiry retired by Owner on 2026-09-29
 
 Rules:
 

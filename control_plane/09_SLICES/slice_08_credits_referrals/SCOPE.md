@@ -2,7 +2,7 @@
 
 ## Objective
 
-Compra/acreditacion de creditos publicitarios, wallet, ledger, Stripe, pagos manuales Zelle/USDT, founder access y referrals.
+Compra/acreditacion de creditos publicitarios, wallet, ledger, Stripe, pagos manuales Zelle/USDT, historial Founder sin exencion y referrals. Owner 2026-09-29: creditos iniciales por asignacion administrativa normal.
 
 ## Included
 

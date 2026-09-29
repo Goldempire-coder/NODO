@@ -1,7 +1,9 @@
 # CREDITS_API.md
 
 Contrato canonico para creditos publicitarios, compras, Stripe, pagos manuales,
-founder access y referrals.
+metadatos historicos Founder (sin beneficio) y referrals. Decision Owner 2026-09-29:
+los creditos iniciales se asignan por el ajuste administrativo existente, con
+auditoria e idempotencia. `founder_status` y `founder_expires_at` no eximen del hold.
 
 Todas las rutas activas usan prefijo `/api/v1`.
 

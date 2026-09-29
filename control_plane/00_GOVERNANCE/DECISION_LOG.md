@@ -27,6 +27,7 @@ Este archivo registra decisiones aprobadas por el owner. Si otro documento contr
 | 2026-07-04 | Pagos manuales de creditos quedan `pending_manual_review`; admin/super_admin aprueba o rechaza con reason, y solo aprobacion acredita. | aprobado |
 | 2026-07-04 | Comprobantes manuales de creditos usan `file_assets.resource_type = credit_purchase`, `file_type = credit_purchase_proof`, storage privado y no exponen `storage_path`. | aprobado |
 | 2026-07-04 | Founder access usa campos canonicos en `businesses`; `founder_access` no es tabla activa MVP. | aprobado |
+| 2026-09-29 | Owner retira la exencion Founder: asignacion manual de creditos normales a negocios iniciales, hold obligatorio al publicar, sin nuevas ordenes en anuncios historicos sin hold. Conservar balances e historial; no ejecutar migracion, remediacion de datos ni deploy en este cambio. Sustituye el beneficio gratuito de 30 dias; ver FOUNDER_RULES.md. | aprobado por Carlos en chat; implementacion para revision |
 | 2026-07-04 | Referrals usan `referral_codes` y `referral_events`; tabla `referrals` queda legacy/no valida para nuevas migraciones. | aprobado |
 | 2026-07-04 | `refund` y `adjustment` no son tipos activos de `credits_ledger`; usar `release` y `admin_adjustment`. | aprobado |
 | 2026-07-03 | El producto se construye para uso masivo, no como demo/piloto. | reemplazado para go-live por piloto controlado 2026-09-09 |

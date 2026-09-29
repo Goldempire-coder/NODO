@@ -15,6 +15,6 @@ Este job revisa cada pocos minutos:
 - ordenes `payment_confirmed` que necesitan warning o disputa.
 - ordenes `delivered` que necesitan recordatorios o auto-complete.
 - anuncios expirados.
-- founder access expirado.
+- Founder: solo historial, sin nuevas expiraciones ni avisos desde la decision Owner 2026-09-29.
 
 El job debe ser idempotente, usar locks Redis con TTL y escribir audit logs.

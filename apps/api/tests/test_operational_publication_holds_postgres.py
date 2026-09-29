@@ -414,7 +414,6 @@ def test_postgres_hold_blocks_marketplace_publish_and_direct_order(
                 amount_max_usd=Decimal("50.00"),
                 required_credits=1,
                 created_by=ids["owner_id"],
-                use_founder_access=False,
             )
         assert publish_blocked.value.code == "BUSINESS_PUBLICATION_UNDER_REVIEW"
 

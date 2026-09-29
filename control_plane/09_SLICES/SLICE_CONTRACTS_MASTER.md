@@ -628,7 +628,7 @@ Reglas:
 - Redirect frontend de Stripe nunca acredita creditos.
 - Zelle/USDT manual queda pendiente hasta aprobacion admin.
 - Comprobantes manuales usan `file_assets.resource_type = credit_purchase`, `file_type = credit_purchase_proof`, storage privado y nunca exponen `storage_path`.
-- Founder access dura 30 dias con limites de riesgo y usa campos en `businesses`.
+- Founder retirado por Owner 2026-09-29: campos solo historicos, sin periodo gratuito; asignacion manual de creditos normales, hold obligatorio.
 - Referidos usan `referral_codes` + `referral_events`; no tabla `referrals`.
 - `refund` y `adjustment` no son tipos activos de `credits_ledger`; usar `release` y `admin_adjustment`.
 - Creditos son publicitarios/listing: se bloquean al publicar un anuncio por 7 dias segun rango.
@@ -737,7 +737,7 @@ Incluye:
 - job `expire_and_escalate_orders`
 - recordatorios de pago
 - recordatorios de negocio
-- expiracion founder access
+- historial Founder conservado, sin nuevas expiraciones
 - expiracion anuncios
 - procesamiento async de webhooks
 - notificaciones Telegram

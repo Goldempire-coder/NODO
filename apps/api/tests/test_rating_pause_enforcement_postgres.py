@@ -185,7 +185,6 @@ def test_postgres_marketplace_and_ad_publish_use_database_pause(
                 amount_max_usd=Decimal("50.00"),
                 required_credits=1,
                 created_by=ids["owner_id"],
-                use_founder_access=False,
             )
         assert blocked.value.code == "BUSINESS_PUBLICATION_TEMPORARILY_UNAVAILABLE"
 

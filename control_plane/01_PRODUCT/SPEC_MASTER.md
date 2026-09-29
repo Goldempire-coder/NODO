@@ -1828,7 +1828,7 @@ El MVP se considera listo cuando:
 * Manual credit purchase.
 * Credits ledger.
 * Required credits per ad.
-* Founder mode.
+* Historical Founder metadata only; automatic benefit retired by Owner 2026-09-29. Initial credits are assigned manually and use normal publication holds (FOUNDER_RULES.md).
 * Referral rewards.
 
 ### Fase 4 â€” Admin

@@ -145,7 +145,7 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
 - `ads.expires_at = ads.activated_at + interval '7 days'` al publicar.
 - Unique parcial: un negocio no puede tener dos anuncios `active` con misma combinacion `payment_method`, `delivery_method` y rango solapado.
 - Un anuncio no puede activarse si el negocio no esta `approved`.
-- Un anuncio no puede activarse si el negocio no tiene creditos publicitarios o founder access vigente.
+- Un anuncio nuevo no puede activarse sin creditos publicitarios suficientes y hold; no hay exencion Founder.
 - Pausar anuncio no modifica `expires_at`.
 - Marketplace no muestra anuncios vencidos aunque el estado persistido aun sea `active` o `paused`.
 - Slice 03 materializa expiracion pasiva al leer/mutar anuncios vencidos; worker masivo queda para `slice_10_jobs_notifications`.
@@ -306,7 +306,7 @@ Estas constraints son obligatorias. Si una migracion no puede aplicarlas, el bui
   watcher por `purchase_ref`.
 - `base_usdt_onchain` no es metodo activo MVP.
 - Founder access usa campos canonicos en `businesses`: `founder_status`, `founder_started_at`, `founder_expires_at`; tabla `founder_access` no es activa en MVP.
-- Founder access requiere fecha de inicio, fecha de expiracion y limite de riesgo.
+- Los campos Founder conservan historial; no habilitan publicaciones ni un periodo gratuito (decision Owner 2026-09-29).
 - `referral_codes.business_id` unique FK businesses(id).
 - `referral_codes.code` unique.
 - `referral_events.referrer_business_id` y `referred_business_id` FK businesses(id).
