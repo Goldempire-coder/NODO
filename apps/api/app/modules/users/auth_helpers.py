@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
+from typing import Any
 
+from app.shared.logging_redaction import redact_mapping
 
 REFRESH_ALLOWED_STATUSES_BY_ROLE = {
     "remitter": {"active", "restricted"},
@@ -20,4 +23,16 @@ def hash_ip(ip_address: str | None) -> str | None:
 
 
 def safe_debug_payload(payload: dict) -> str:
-    return json.dumps({key: "[REDACTED]" if "token" in key else value for key, value in payload.items()}, sort_keys=True)
+    def redact_auth_fields(value: Any) -> Any:
+        if isinstance(value, Mapping):
+            return {
+                key: "[REDACTED]"
+                if "token" in str(key).lower() or str(key).lower() == "code"
+                else redact_auth_fields(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, (list, tuple)):
+            return [redact_auth_fields(item) for item in value]
+        return value
+
+    return json.dumps(redact_mapping(redact_auth_fields(payload)), sort_keys=True)
