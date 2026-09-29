@@ -416,11 +416,10 @@ def _configure_middlewares(app: FastAPI, *, settings: Settings) -> None:
     app.add_middleware(ObservabilityMiddleware)
     app.add_middleware(RuntimeTimingMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
-    cloudflare_preview_origin_regex = r"^https://[a-z0-9-]+\.nodo-staging\.pages\.dev$"
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_origin_regex=cloudflare_preview_origin_regex,
+        allow_origin_regex=settings.cors_origin_regex,
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=[
