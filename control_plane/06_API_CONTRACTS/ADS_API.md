@@ -339,9 +339,9 @@ Rules:
   debe ser menor o igual a `declared_available_capacity_usd`.
 - `business.daily_limit_usd` limita montos reservados o consumidos por orden;
   publicar el anuncio no consume ese limite.
-- Si `credit_wallet` no existe, slice 03 lo crea de forma idempotente con balances cero antes de validar saldo/founder.
-- Si founder access activo y no expirado, puede publicar sin descontar creditos, pero debe registrar ledger `founder_free_use` o metadata de exencion segun credit service.
-- Si no hay founder access, publicar hace hold transaccional:
+- Si `credit_wallet` no existe, slice 03 lo crea de forma idempotente con balances cero antes de validar saldo.
+- Founder no concede exencion (decision Owner 2026-09-29); los creditos iniciales se asignan mediante ajuste administrativo auditado.
+- Toda publicacion hace hold transaccional:
   - resta `available_credits`
   - suma `blocked_credits`
   - crea `credits_ledger.type = hold`

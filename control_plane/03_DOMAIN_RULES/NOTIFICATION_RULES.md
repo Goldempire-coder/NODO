@@ -35,7 +35,7 @@ Todas las notificaciones deben ser idempotentes por orden, tipo y ventana de tie
 - onchain_credit_purchase_credited -> negocio
 - manual_credit_payment_rejected -> negocio
 - referral_bonus_granted -> negocio
-- founder_access_expired -> negocio
+- founder_access_expired -> historico, no generar nuevos avisos (retiro Founder 2026-09-29)
 
 ## Timers de orden
 
@@ -80,7 +80,7 @@ Todas las notificaciones deben ser idempotentes por orden, tipo y ventana de tie
 - `onchain_credit_purchase_credited` puede notificar al negocio que una compra Base USDC fue acreditada despues de verifier y ledger exact-once.
 - `manual_credit_payment_rejected` puede notificar rechazo con reason seguro/enmascarado.
 - `referral_bonus_granted` puede notificar bonus acreditado sin exponer datos del negocio referido.
-- `founder_access_expired` puede notificar que nuevas publicaciones requieren creditos disponibles.
+- `founder_access_expired` queda solo para interpretar historial; el job ya no genera estos avisos.
 - Stripe webhook notifications must be idempotent and must not include Stripe secrets, raw webhook payloads or signed URLs.
 - Manual proof notifications must not include `storage_path` or signed URLs.
 - Base USDC on-chain notifications may report safe status changes only: purchase created, tx detected, confirmations pending, credited, under review, rejected or expired.
@@ -168,7 +168,7 @@ Tipos canonicos:
 | order_auto_completed_after_24h | remitente y negocio | 24h despues de `delivered` sin disputa | La orden se cerro automaticamente porque no se abrio disputa dentro del plazo. |
 | order_completed | negocio | remitente confirma recibido; dedupe separado del auto-complete | El cliente confirmo la recepcion y la orden fue completada. |
 | ad_expired | negocio | anuncio vence por edad | Tu anuncio cumplio 7 dias, se archivo y el credito fue consumido. |
-| founder_access_expired | negocio | `founder_expires_at <= now` | Tu periodo fundador expiro; nuevas publicaciones requieren creditos disponibles. |
+| founder_access_expired | historico | No generar; beneficio retirado 2026-09-29 | Conservar historial; pendientes existentes requieren revision autorizada. |
 | structured_operation_report_admin | admin/super_admin concreto | futuro 42F2 procesa un reporte estructurado | Nuevo reporte de operacion. Revisar Admin Web. |
 | admin_alert_test | admin/super_admin concreto | Admin Web solicita prueba manual del canal | Prueba recibida. El canal esta activo. No tienes que hacer nada. |
 | admin_alert_business_intake_submitted | admin/super_admin concreto | se crea `business_intake_submitted` en Admin Web | Nueva solicitud de negocio. Abre Admin > Intake y revisa datos, documentos y prioridad antes de aprobar o rechazar. |

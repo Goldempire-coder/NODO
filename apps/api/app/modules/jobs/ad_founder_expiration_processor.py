@@ -57,28 +57,3 @@ class AdFounderExpirationProcessor:
                     business_id=ad.business_id,
                 )
             counters.changed += 1
-
-    def process_founders(self, *, now: datetime, batch_size: int, dry_run: bool, request_id: str, counters: JobCounters) -> None:
-        for business in self._businesses.list_expired_founder_businesses(limit=batch_size):
-            counters.processed += 1
-            if dry_run:
-                counters.changed += 1
-                continue
-            self._businesses.expire_founder_access(business)
-            self._audit.write(
-                event_type="founder_access_expired",
-                actor_user_id=None,
-                actor_role=None,
-                resource_type="business",
-                resource_id=business.id,
-                request_id=request_id,
-                metadata_json={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE},
-            )
-            self._notify(
-                notification_type="founder_access_expired",
-                dedupe_key=f"business:{business.id}:founder_access_expired",
-                scheduled_for=now,
-                recipient_user_id=business.owner_user_id,
-                business_id=business.id,
-            )
-            counters.changed += 1

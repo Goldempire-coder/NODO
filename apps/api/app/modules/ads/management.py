@@ -159,13 +159,10 @@ class AdManagementMixin:
                 business=business,
                 payload=payload,
                 required_credits=required_credits,
-                founder_access_used=False,
             )
             events = ad_creation_audit_events(
                 user=user,
-                business=business,
                 ad=republished,
-                founder_access_used=False,
                 request_id=request_id,
             )
             events.append(

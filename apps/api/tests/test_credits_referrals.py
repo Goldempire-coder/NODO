@@ -3480,7 +3480,7 @@ def test_postgres_onchain_duplicate_tx_log_path_is_atomic() -> None:
     assert "do update" not in source.lower()
 
 
-def test_founder_access_remains_audited_credit_free_publish_without_bypassing_verification() -> None:
+def test_founder_history_does_not_allow_credit_free_publication() -> None:
     client = _client()
     owner = _login(client, 950, "founder")
     business = _create_business(client, owner, "founder")
@@ -3511,12 +3511,13 @@ def test_founder_access_remains_audited_credit_free_publish_without_bypassing_ve
         },
     )
 
-    assert response.status_code == 201, response.text
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "CREDIT_BALANCE_INSUFFICIENT"
     wallet = client.app.state.ad_repository.get_wallet(business["id"])
     assert wallet.available_credits == 0
     assert wallet.blocked_credits == 0
-    assert "founder_free_use" in _event_types(client)
-    assert response.json()["data"]["credit_hold"]["ledger_id"] is None
+    assert "founder_free_use" not in _event_types(client)
+    assert client.app.state.ad_repository.ads == {}
 
 
 def test_safe_errors_and_migration_contracts_do_not_expose_private_fields_or_legacy_types() -> None:

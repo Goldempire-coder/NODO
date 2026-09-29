@@ -100,6 +100,8 @@ class OrderCreateFlow:
             if self._ad_expired(ad):
                 self._expire_ad_without_purchase(ad=ad, user=user, request_id=request_id)
                 raise ApiError("AD_EXPIRED", status_code=409)
+            if ad.credit_hold_ledger_id is None:
+                raise ApiError("AD_NOT_AVAILABLE", status_code=409)
             plan = build_create_order_plan(
                 user=user,
                 payload=payload,

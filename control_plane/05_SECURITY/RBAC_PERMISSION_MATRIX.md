@@ -144,7 +144,7 @@ Post-MVP:
 | business_owner | upload_verification_document | own business | legacy/not Mini App Negocio; active flow is Bot Intake/Admin Web | verification_document_uploaded | no |
 | business_owner | submit_verification | own business | legacy/not Mini App Negocio; active flow is Bot Intake/Admin Web | business_submitted | no |
 | business_owner | view_own_payment_methods | own approved business payment methods | approved business, owner, active business access link | no | yes |
-| business_owner | create_ad | own business | approved, credits/founder access valid | ad_created | yes |
+| business_owner | create_ad | own business | approved, sufficient credits and hold; no Founder exemption | ad_created | yes |
 | business_owner | view_own_ads | own business ads | approved business, owner | no | yes |
 | business_owner | update_ad | own ad | active/paused and not expired | ad_updated | yes |
 | business_owner | pause_ad | own ad | active | ad_paused | yes |

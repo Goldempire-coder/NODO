@@ -19,8 +19,8 @@ Required QA:
 - Admin adjustment requires reason, RBAC and audit.
 - support cannot approve/reject/adjust.
 - wallet balances never negative.
-- founder month allows ad publish without charging credits while active.
-- founder expired requires credits.
+- historical Founder status never bypasses the normal publication credit hold.
+- manual admin credits support publication and confirmation with idempotent consumption.
 - referral self-referral blocked.
 - referral duplicate blocked.
 - referral cap 20 enforced.

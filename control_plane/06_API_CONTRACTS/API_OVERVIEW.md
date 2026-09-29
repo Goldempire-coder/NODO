@@ -62,7 +62,7 @@ Error:
 - BUSINESS_SECURITY_API: PIN operativo de Mini App Negocio para configurar, verificar, bloquear y consultar el estado de desbloqueo antes de mutaciones sensibles.
 - MESSAGES_API: mensajes, adjuntos privados y lectura de chat.
 - DISPUTES_API: apertura, vista admin y resolucion admin de disputas en slice 09.
-- CREDITS_API: wallet, ledger, Stripe checkout/webhook, pagos manuales, Base USDC on-chain credit topups, founder access y referrals.
+- CREDITS_API: wallet, ledger, Stripe checkout/webhook, pagos manuales, Base USDC on-chain credit topups, historial Founder sin exencion y referrals.
 - ADMIN_API: panel admin, aprobaciones, disputas, metricas, auditoria, job runs/admin ops, control de usuarios/access links y composicion de endpoints admin previos.
 - SURFACE_SESSION_API: resolucion de superficie activa, capabilities por backend y gate canonico de Mini App Negocio/Admin Web.
 - BUSINESS_INTAKE_API: Bot Registro Negocios y revision admin de solicitudes.

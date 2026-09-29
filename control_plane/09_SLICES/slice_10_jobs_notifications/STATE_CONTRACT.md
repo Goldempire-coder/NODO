@@ -70,9 +70,8 @@ completion_reason = auto_completed_after_24h
 
 ## Founder access
 
-- Expirar founder access cuando `founder_expires_at <= now`.
-- Setear `business.founder_status = expired`.
-- Auditar `founder_access_expired`.
+- Retirado por el Owner el 2026-09-29: no expirar Founder, modificar sus campos historicos ni generar `founder_access_expired`.
+- Las expiraciones normales de anuncios y ordenes conservan sus reglas.
 - No saltar verificacion de negocio, limites de riesgo ni auditoria.
 
 ## job_runs.status

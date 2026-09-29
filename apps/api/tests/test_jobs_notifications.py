@@ -1180,7 +1180,7 @@ def test_delivered_reminders_are_deduped_and_auto_complete_skips_open_dispute() 
     assert client.app.state.order_repository.get_by_id(order2["id"]).status == "delivered"
 
 
-def test_ad_and_founder_expiration_admin_job_endpoints_and_lock_rbac() -> None:
+def test_ad_expiration_preserves_founder_history_admin_job_endpoints_and_lock_rbac() -> None:
     client = _client()
     owner, business, ad, _, _ = _seed_order(client, owner_id=1040, remitter_id=1041)
     active_ad = client.app.state.ad_repository.get_ad(ad["id"])
@@ -1196,12 +1196,14 @@ def test_ad_and_founder_expiration_admin_job_endpoints_and_lock_rbac() -> None:
     _run_job(client, utc_now())
 
     assert client.app.state.ad_repository.get_ad(ad["id"]).status == "archived"
-    assert client.app.state.business_repository.get_business(business["id"]).founder_status == "expired"
+    assert client.app.state.business_repository.get_business(business["id"]).founder_status == "active"
     assert client.app.state.ad_repository.get_wallet(business["id"]).blocked_credits == blocked_before - 1
     assert client.app.state.ad_repository.get_wallet(business["id"]).consumed_credits == consumed_before + 1
-    assert {"ad_expired", "credits_consumed", "founder_access_expired"}.issubset(set(_event_types(client)))
+    assert {"ad_expired", "credits_consumed"}.issubset(set(_event_types(client)))
+    assert "founder_access_expired" not in _event_types(client)
     notification_types = {item.notification_type for item in client.app.state.job_repository.notification_jobs.values()}
-    assert {"ad_expired", "founder_access_expired"}.issubset(notification_types)
+    assert "ad_expired" in notification_types
+    assert "founder_access_expired" not in notification_types
     assert {"job_started", "job_finished"}.issubset(set(_event_types(client)))
 
     admin = _login(client, 1042, "admin")

@@ -10,7 +10,7 @@
 - Cancelacion automatica de `waiting_payment` vencida.
 - Auto-complete de `delivered` a las 24h si no hay disputa.
 - Expiracion de anuncios.
-- Expiracion de founder access.
+- Founder retirado: preservar historial sin generar nuevas expiraciones ni notificaciones.
 - Registro de job runs y fallos.
 - Endpoints admin/ops protegidos para observar `job_runs` y ejecutar dry-run
   sin mutaciones reales:

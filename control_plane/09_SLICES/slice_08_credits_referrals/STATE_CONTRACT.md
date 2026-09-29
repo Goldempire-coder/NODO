@@ -45,7 +45,7 @@ Reglas:
   - purchase
   - referral_bonus
   - admin_adjustment
-- Founder no acredita wallet; publica sin cobrar durante la ventana y escribe `founder_free_use`.
+- Founder es solo historial: no acredita wallet ni exime del hold. Carlos asigna creditos mediante el ajuste administrativo normal (decision Owner 2026-09-29).
 - No se permiten balances negativos.
 - No se permite doble acreditacion por la misma compra/referral/admin action.
 

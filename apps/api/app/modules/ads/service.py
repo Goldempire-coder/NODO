@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
 from typing import Any
 
 from app.modules.ads.audit_events import ad_creation_audit_events
@@ -76,14 +75,6 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             raise ApiError("PAYMENT_METHOD_NOT_APPROVED", status_code=400)
         return method
 
-    def _founder_access_valid(self, business: BusinessRecord) -> bool:
-        if business.founder_status != "active" or business.founder_expires_at is None:
-            return False
-        expires_at = business.founder_expires_at
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        return expires_at > datetime.now(timezone.utc)
-
     def _materialize_expired(self, ad: AdRecord, *, actor: UserRecord | None, request_id: str) -> AdRecord:
         if not is_expired(ad):
             return ad
@@ -126,7 +117,7 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             raise ApiError("AD_LIMIT_NOT_ALLOWED", status_code=409)
         return required_credits
 
-    def _publish_ad(self, *, user: UserRecord, business: BusinessRecord, payload: AdCreateRequest, required_credits: int, founder_access_used: bool) -> AdRecord:
+    def _publish_ad(self, *, user: UserRecord, business: BusinessRecord, payload: AdCreateRequest, required_credits: int) -> AdRecord:
         return self._repository.publish_ad(
             business_id=business.id,
             payment_method_id=payload.payment_method_id,
@@ -137,7 +128,6 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             amount_max_usd=payload.amount_max_usd,
             required_credits=required_credits,
             created_by=user.id,
-            use_founder_access=founder_access_used,
         )
 
     def _write_audit_events(self, events: list[dict]) -> None:
@@ -168,13 +158,10 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             self._payment_or_invalid(business, payload.payment_method_id, payload.payment_method)
             profile_mark(profile, "service:get_payment_method", stage_started)
             stage_started = time.perf_counter()
-            founder_access_used = self._founder_access_valid(business)
-            profile_mark(profile, "service:founder_access_valid", stage_started)
-            stage_started = time.perf_counter()
-            ad = self._publish_ad(user=user, business=business, payload=payload, required_credits=required_credits, founder_access_used=founder_access_used)
+            ad = self._publish_ad(user=user, business=business, payload=payload, required_credits=required_credits)
             profile_mark(profile, "repo:publish_ad", stage_started)
             stage_started = time.perf_counter()
-            self._write_audit_events(ad_creation_audit_events(user=user, business=business, ad=ad, founder_access_used=founder_access_used, request_id=request_id))
+            self._write_audit_events(ad_creation_audit_events(user=user, ad=ad, request_id=request_id))
             profile_mark(profile, "audit:ad_created_published_credits", stage_started)
             stage_started = time.perf_counter()
             response = {"ad": ad_payload(ad), "credit_hold": {"ledger_id": ad.credit_hold_ledger_id, "required_credits": ad.required_credits}}

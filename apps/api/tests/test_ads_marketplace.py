@@ -1093,7 +1093,6 @@ def test_memory_repository_serializes_active_method_and_shared_capacity_guards()
                 amount_max_usd=amount_max,
                 required_credits=1,
                 created_by="owner-active-ad-race",
-                use_founder_access=False,
             )
             return "created"
         except ApiError as exc:
@@ -2013,10 +2012,10 @@ def test_rate_limit_and_safe_errors_no_secret_or_private_data_leak() -> None:
     assert "owner@example.com" not in combined
 
 
-def test_founder_access_can_publish_without_credit_debit() -> None:
+def test_founder_history_publishes_with_normal_credit_hold() -> None:
     client = _client()
     owner = _login(client, 791, "founder")
-    business, method_id = _approved_business_with_method(client, owner, credits=0)
+    business, method_id = _approved_business_with_method(client, owner, credits=2)
     stored_business = client.app.state.business_repository.get_business(business["id"])
     stored_business.founder_status = "active"
     stored_business.founder_expires_at = stored_business.created_at + timedelta(days=7)
@@ -2024,8 +2023,10 @@ def test_founder_access_can_publish_without_credit_debit() -> None:
     ad = _create_ad(client, owner, method_id, key="founder")
     assert ad["status"] == "active"
     wallet = client.app.state.ad_repository.get_wallet(business["id"])
-    assert wallet.available_credits == 0
-    assert wallet.blocked_credits == 0
+    assert wallet.available_credits == 1
+    assert wallet.blocked_credits == 1
+    assert client.app.state.ad_repository.get_ad(ad["id"]).credit_hold_ledger_id is not None
+    assert stored_business.founder_status == "active"
 
 
 def test_marketplace_search_filters_zelle_and_usdt_ads_by_exact_method() -> None:

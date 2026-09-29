@@ -191,11 +191,11 @@ Rules:
 - Founder rules live in `control_plane/03_DOMAIN_RULES/FOUNDER_RULES.md`.
 - Founder uses canonical fields on `businesses`: `founder_status`, `founder_started_at`, `founder_expires_at`.
 - `founder_access` table is legacy/no valid for MVP.
-- 30 days free from `founder_started_at`.
+- Owner decision 2026-09-29: no automatic free period; initial credits are assigned manually by an authorized administrator.
 - Must pass business verification before use.
 - Always respects risk limits, max order amount and RBAC.
-- Free period does not remove audit, limits or suspension rules.
-- Publishing during active founder period does not charge credits, but must write `founder_free_use`.
+- Historical Founder fields and ledger entries remain readable but grant no exemption.
+- Every new publication reserves normal credits with `hold`; no new `founder_free_use` is written.
 
 ## Payment methods for buying credits
 
@@ -342,11 +342,11 @@ Cada movimiento en `credits_ledger` debe guardar:
 
 Para `slice_03_ads_marketplace`:
 
-- publicar anuncio genera `hold` cuando no aplica founder access.
+- publicar anuncio siempre genera `hold`, sin exencion Founder.
 - `hold` usa `reference_type = ad` y `reference_id = related_ad_id`.
 - si el wallet no existe para un negocio aprobado, slice 03 puede crearlo lazy/idempotente con balances cero.
 - crear wallet no acredita creditos.
-- si no hay creditos disponibles ni founder access vigente, publicar responde `CREDIT_BALANCE_INSUFFICIENT`.
+- si no hay creditos suficientes disponibles, publicar responde `CREDIT_BALANCE_INSUFFICIENT`, incluso con marca Founder historica.
 
 ## Required audit events
 

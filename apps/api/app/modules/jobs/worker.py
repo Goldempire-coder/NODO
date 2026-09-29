@@ -151,9 +151,6 @@ class ExpireAndEscalateOrdersWorker(JobRunLifecycleMixin, JobWorkerSideEffectsMi
         self._process_ads(now=now, batch_size=batch_size, dry_run=dry_run, request_id=request_id, counters=counters)
         profile_mark(profile, "worker:process_ads", stage_started)
         stage_started = time.perf_counter()
-        self._process_founders(now=now, batch_size=batch_size, dry_run=dry_run, request_id=request_id, counters=counters)
-        profile_mark(profile, "worker:process_founders", stage_started)
-        stage_started = time.perf_counter()
         self._process_public_reputation_snapshots(
             now=now,
             batch_size=batch_size,
@@ -167,9 +164,6 @@ class ExpireAndEscalateOrdersWorker(JobRunLifecycleMixin, JobWorkerSideEffectsMi
 
     def _process_ads(self, *, now: datetime, batch_size: int, dry_run: bool, request_id: str, counters: JobCounters) -> None:
         self._ad_founder_processor.process_ads(now=now, batch_size=batch_size, dry_run=dry_run, request_id=request_id, counters=counters)
-
-    def _process_founders(self, *, now: datetime, batch_size: int, dry_run: bool, request_id: str, counters: JobCounters) -> None:
-        self._ad_founder_processor.process_founders(now=now, batch_size=batch_size, dry_run=dry_run, request_id=request_id, counters=counters)
 
     def _process_public_reputation_snapshots(
         self,

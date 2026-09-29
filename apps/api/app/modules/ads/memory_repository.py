@@ -134,7 +134,6 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
         amount_max_usd: Decimal,
         required_credits: int,
         created_by: str,
-        use_founder_access: bool,
     ) -> AdRecord:
         with self._lock:
             self._require_publication_access(business_id)
@@ -144,7 +143,7 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
                 amount_max_usd=amount_max_usd,
             )
             wallet = self.ensure_wallet(business_id)
-            if not use_founder_access and wallet.available_credits < required_credits:
+            if wallet.available_credits < required_credits:
                 raise ApiError("CREDIT_BALANCE_INSUFFICIENT", status_code=409)
             now = utc_now()
             ad = AdRecord(
@@ -167,17 +166,6 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
                 last_rate_updated_at=now,
             )
             self.ads[ad.id] = ad
-            if use_founder_access:
-                self._write_ledger(
-                    wallet=wallet,
-                    ledger_type="founder_free_use",
-                    amount=required_credits,
-                    related_ad_id=ad.id,
-                    reason="founder_access_ad_publish",
-                    source="ads",
-                    created_by=created_by,
-                )
-                return ad
             hold = self._hold_credits(wallet=wallet, amount=required_credits, ad_id=ad.id, created_by=created_by)
             ad.credit_hold_ledger_id = hold.id
             ad.updated_at = utc_now()

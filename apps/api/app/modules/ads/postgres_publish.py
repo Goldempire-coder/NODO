@@ -20,7 +20,6 @@ class PostgresAdPublishMixin:
         amount_max_usd: Decimal,
         required_credits: int,
         created_by: str,
-        use_founder_access: bool,
     ) -> AdRecord:
         with self._connect() as conn:  # type: ignore[attr-defined]
             self._require_active_candidate_in_transaction(  # type: ignore[attr-defined]
@@ -31,7 +30,7 @@ class PostgresAdPublishMixin:
                 enforce_publication_access=True,
             )
             wallet_row = self._wallet_for_ad_publish(conn, business_id=business_id)
-            self._ensure_publish_credit_balance(conn, wallet_row, required_credits=required_credits, use_founder_access=use_founder_access)
+            self._ensure_publish_credit_balance(conn, wallet_row, required_credits=required_credits)
             ad_row = self._insert_active_ad(
                 conn,
                 business_id=business_id,
@@ -44,9 +43,8 @@ class PostgresAdPublishMixin:
                 required_credits=required_credits,
             )
             ad = ad_from_row(ad_row)
-            available_after, blocked_after = self._publish_wallet_balances(wallet_row, required_credits=required_credits, use_founder_access=use_founder_access)
-            if not use_founder_access:
-                self._update_wallet_for_publish_hold(conn, business_id=business_id, available_after=available_after, blocked_after=blocked_after)
+            available_after, blocked_after = self._publish_wallet_balances(wallet_row, required_credits=required_credits)
+            self._update_wallet_for_publish_hold(conn, business_id=business_id, available_after=available_after, blocked_after=blocked_after)
             ledger_row = self._insert_publish_ledger(
                 conn,
                 business_id=business_id,
@@ -56,10 +54,8 @@ class PostgresAdPublishMixin:
                 available_after=available_after,
                 blocked_after=blocked_after,
                 created_by=created_by,
-                use_founder_access=use_founder_access,
             )
-            if not use_founder_access:
-                ad_row = self._attach_hold_ledger_to_ad(conn, ad_id=ad.id, ledger_id=ledger_row["id"])
+            ad_row = self._attach_hold_ledger_to_ad(conn, ad_id=ad.id, ledger_id=ledger_row["id"])
             conn.commit()
         return ad_from_row(ad_row)
 
@@ -74,8 +70,8 @@ class PostgresAdPublishMixin:
             (business_id,),
         ).fetchone()
 
-    def _ensure_publish_credit_balance(self, conn, wallet_row, *, required_credits: int, use_founder_access: bool) -> None:  # type: ignore[no-untyped-def]
-        if not use_founder_access and wallet_row["available_credits"] < required_credits:
+    def _ensure_publish_credit_balance(self, conn, wallet_row, *, required_credits: int) -> None:  # type: ignore[no-untyped-def]
+        if wallet_row["available_credits"] < required_credits:
             conn.rollback()
             raise ApiError("CREDIT_BALANCE_INSUFFICIENT", status_code=409)
 
@@ -105,9 +101,9 @@ class PostgresAdPublishMixin:
             (business_id, payment_method_id, payment_method, delivery_method, rate_bs_per_usd, amount_min_usd, amount_max_usd, required_credits),
         ).fetchone()
 
-    def _publish_wallet_balances(self, wallet_row, *, required_credits: int, use_founder_access: bool) -> tuple[int, int]:  # type: ignore[no-untyped-def]
-        available_after = wallet_row["available_credits"] if use_founder_access else wallet_row["available_credits"] - required_credits
-        blocked_after = wallet_row["blocked_credits"] if use_founder_access else wallet_row["blocked_credits"] + required_credits
+    def _publish_wallet_balances(self, wallet_row, *, required_credits: int) -> tuple[int, int]:  # type: ignore[no-untyped-def]
+        available_after = wallet_row["available_credits"] - required_credits
+        blocked_after = wallet_row["blocked_credits"] + required_credits
         return available_after, blocked_after
 
     def _update_wallet_for_publish_hold(self, conn, *, business_id: str, available_after: int, blocked_after: int) -> None:  # type: ignore[no-untyped-def]
@@ -131,9 +127,7 @@ class PostgresAdPublishMixin:
         available_after: int,
         blocked_after: int,
         created_by: str,
-        use_founder_access: bool,
     ):  # type: ignore[no-untyped-def]
-        ledger_type = "founder_free_use" if use_founder_access else "hold"
         return conn.execute(
             """
             insert into credits_ledger (
@@ -146,7 +140,7 @@ class PostgresAdPublishMixin:
             """,
             (
                 business_id,
-                ledger_type,
+                "hold",
                 required_credits,
                 wallet_row["available_credits"],
                 available_after,
@@ -155,7 +149,7 @@ class PostgresAdPublishMixin:
                 wallet_row["consumed_credits"],
                 wallet_row["consumed_credits"],
                 ad_id,
-                "founder_access_ad_publish" if use_founder_access else "ad_publish_credit_hold",
+                "ad_publish_credit_hold",
                 ad_id,
                 created_by,
             ),

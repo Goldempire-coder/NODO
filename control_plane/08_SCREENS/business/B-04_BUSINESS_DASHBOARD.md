@@ -6,7 +6,7 @@ slice: slice_08_credits_referrals
 status: DRAFT_CONTROLLED
 
 purpose:
-Business overview with credits summary, founder status and entry points.
+Business overview with credits summary and entry points. Historical Founder metadata grants no benefit (Owner 2026-09-29).
 
 route:
 /business
@@ -21,7 +21,7 @@ data required:
 - authenticated user/session
 - approved business profile
 - `GET /api/v1/business/credits/wallet`
-- credit summary/founder status/referral entry metadata
+- credit summary/referral entry metadata; preserve historical Founder fields for API compatibility only
 
 read strategy:
 - Read only data needed for this screen.
@@ -60,7 +60,7 @@ none
 
 QA checklist:
 - Shows credits/trust/rating.
-- Shows founder access status when present.
+- Does not advertise Founder access; initial credits are assigned manually by the administrator.
 - Does not promise escrow, guaranteed funds or guaranteed delivery.
 
 ## Slice 14B1 access contract

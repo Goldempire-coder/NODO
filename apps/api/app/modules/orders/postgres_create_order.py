@@ -228,7 +228,7 @@ class PostgresCreateOrderMixin:
 
     def _move_ad_to_in_order_or_raise(self, conn, *, ad_id: str) -> None:  # type: ignore[no-untyped-def]
         moved_ad = conn.execute(
-            "update ads set status = 'in_order', updated_at = now() where id = %s and status = 'active' returning id",
+            "update ads set status = 'in_order', updated_at = now() where id = %s and status = 'active' and credit_hold_ledger_id is not null returning id",
             (ad_id,),
         ).fetchone()
         if moved_ad is None:
