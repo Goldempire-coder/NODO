@@ -2,7 +2,7 @@
 
 Fecha local: 2026-09-28 (America/New_York).
 Autor: Codex. Revisor previsto: Dilitan.
-Estado: correccion y validacion local completas; publicacion de la rama bloqueada por verificacion pendiente de Cloudflare. No es cierre de tarea ni aprobacion para produccion.
+Estado: correccion y validacion local completas; rama publicada y PR #1 en borrador para Dilitan. Bloqueo de Cloudflare resuelto mediante consulta de solo lectura. No es cierre de tarea ni aprobacion para produccion.
 
 ## Resumen
 
@@ -18,10 +18,11 @@ Dilitan revisa el resultado; Codex implementa y resuelve sus observaciones. No s
 - Base: 6069a75ee2fa6f9b05fdf21ebbfc77039af562c1, rama codex/review-automatic-order-transitions-20260928.
 - [Base publicada](https://github.com/Goldempire-coder/NODO/tree/6069a75ee2fa6f9b05fdf21ebbfc77039af562c1).
 - Worktree aislado: C:\Users\carlo\Documents\Playground\NODO-credit-holds-review.
-- Rama local: codex/credit-hold-idempotency-20260928.
-- Commit local del codigo probado: fc53e5e20d8d22c2cad1a3e5ff7972b23748951f.
-- No se hizo push. La rama y ese commit todavia no son una entrega accesible en GitHub; no se proporciona un enlace remoto como si estuviera publicado.
-- No se creo PR. No se fusiono ni se modifico main.
+- Rama publicada: codex/credit-hold-idempotency-20260928.
+- Commit del codigo probado: fc53e5e20d8d22c2cad1a3e5ff7972b23748951f.
+- Primera publicacion verificada por ls-remote: 103c06a6e5e0049f1709d2287f6827c4645e3c0f (codigo y reporte inicial). Esta actualizacion posterior solo cambia el reporte; el SHA del codigo probado no cambia.
+- [Rama para Dilitan](https://github.com/Goldempire-coder/NODO/tree/codex/credit-hold-idempotency-20260928).
+- [PR #1 en borrador](https://github.com/Goldempire-coder/NODO/pull/1), base codex/review-automatic-order-transitions-20260928, no main. No se fusiono ni se modifico main.
 - Se inspeccionaron los worktrees existentes. El ayudante de la app no pudo resolver la referencia del repositorio anidado; se uso git worktree add en NODO con destino inexistente comprobado, no un clon.
 - Comparacion del status y diff original antes/despues de la correccion: identicos. Website, operaciones y laboratorio preservados. Las actualizaciones documentales propias de esta entrega se distinguen de esos cambios.
 
@@ -72,7 +73,7 @@ Entorno instalado: Windows y Python 3.14 de la venv existente. Sin instalaciones
 | secret-guard sobre los cinco archivos de codigo | Sin hallazgos |
 | Comparacion del checkout original | Status y diff preservados |
 
-El escaneo adicional de este reporte marco una sola coincidencia generica de alta entropia: el enlace publico a GitHub del commit base, en la linea 19. Se reviso manualmente como falso positivo, no una credencial. El escaneo de PRESENCIA-CODEX no tuvo hallazgos. No se cambio la configuracion del detector.
+El escaneo inicial adicional de este reporte marco una sola coincidencia generica de alta entropia: el enlace publico a GitHub del commit base, en la linea 19. Se reviso manualmente como falso positivo, no una credencial. El escaneo inicial de PRESENCIA-CODEX no tuvo hallazgos. No se cambio la configuracion del detector.
 
 El warning es la deprecacion existente de httpx en TestClient. No se cambio ninguna dependencia. Las 68 pruebas omitidas no se cuentan como aprobadas; esta corrida no enumero sus motivos. No se validaron PostgreSQL real, aplicacion de indices, migraciones, imagen de despliegue ni servicios cloud.
 
@@ -183,21 +184,24 @@ Procedimiento propuesto para una aprobacion posterior:
 5. Desplegar solo despues de esa validacion y de la aprobacion correspondiente. Los rechecks no dependen de ignorar conflictos, pero la proteccion adicional no existe hasta aplicar los indices.
 6. Si se revierte el codigo, conservar inicialmente los indices y pausar nuevas mutaciones de creditos hasta evaluar compatibilidad. Volver al codigo anterior reabre el intervalo de carrera. Quitar los indices requiere aprobacion separada; la reversa no elimina movimientos ni restaura saldos.
 
-## Publicacion y bloqueo actual
+## Publicacion y bloqueo resuelto
 
 Comprobacion de despliegue indirecto previa a push:
 
 - Workflows encontrados en la base: nodo-cloud-load-runner y nodo-connection-origin-probe, ambos workflow_dispatch; no se invocaron.
 - Railway, consulta visual de solo lectura: nodo-api-staging / nodo-api muestra Source vacio, con Connect Repo / Connect Image. No tiene una fuente Git conectada. No se cambiaron configuraciones ni se abrieron variables.
-- Cloudflare: el navegador de Codex llega al login. El Wrangler 4.130.0 ya instalado en cache, invocado directamente con pages project list y telemetria desactivada, tampoco pudo autenticar en modo no interactivo. Tuvo ademas un fallo de permiso al escribir su log local. No se instalaron herramientas, no se aportaron tokens ni se inicio un login automatico.
-- Pendiente: acceso de Carlos a Cloudflare para consultar si el proyecto Pages tiene integracion Git y si esta rama dispararia previews. No cambiar configuracion para resolverlo sin autorizacion.
+- Cloudflare, primera comprobacion: navegador sin sesion y CLI sin autenticacion. El Wrangler 4.130.0 existente tuvo ademas un fallo de permiso al escribir su log. No se instalaron herramientas ni se aportaron tokens.
+- Cloudflare, comprobacion posterior tras el login de Carlos: Workers & Pages muestra nodo-staging, nodo-staging.pages.dev y el texto No Git connection. Su ultimo despliegue visible figura de hace 19 dias. No se conecto a GitHub ni se cambio configuracion. Carlos pregunto si debia conectarlo; Codex indico que no era necesario para esta revision.
+- La rama base remota conserva 6069a75ee2fa6f9b05fdf21ebbfc77039af562c1. La nueva rama no existia antes de la subida.
 
-Por esa verificacion faltante no se hizo push ni PR. No es un bloqueo tecnico que corresponda resolver a Dilitan ni una nueva solicitud de aprobacion para programar. Codex conserva la correccion local y continuara la publicacion al poder demostrar el aislamiento.
+La subida uso un refspec explicito solo para codex/credit-hold-idempotency-20260928, sin force. Primero hubo un rechazo local de red y otro por el propietario del worktree creado por el sandbox. Se resolvieron con ejecucion autorizada, ruta -C explicita y safe.directory limitado a este worktree durante el comando; no se cambiaron permisos ni configuracion global. ls-remote confirmo el primer SHA publicado. El GitHub CLI no tenia sesion; la sesion web existente permitio crear el PR en borrador y confirmar visualmente base, rama, titulo y estado Draft. El PR se adjunto al chat.
+
+La evidencia de 1382 pruebas corresponde a la ejecucion previa sobre el mismo codigo. No se repitieron pruebas ni se modifico codigo para este desbloqueo documental y publicacion.
 
 ## Entrega y siguiente accion
 
-Este reporte se prepara como Markdown propio en la carpeta acordada; su subida y lectura posterior se comprueban antes de anunciarlo entregado. PRESENCIA-CODEX se actualiza para reemplazar el estado obsoleto del primer paquete. No se modifican instrucciones ni revisiones de Dilitan.
+Este reporte se entrega como Markdown propio en la carpeta acordada, conservando el mismo ID. PRESENCIA-CODEX se actualiza con el SHA final de la rama y los enlaces. La subida y lectura posterior se verifican antes de anunciar la entrega. No se modifican instrucciones ni revisiones de Dilitan.
 
-Siguiente accion de Codex: comprobar Cloudflare, publicar esta rama sin despliegue, verificar el SHA remoto y entregar el enlace exacto para revision. Luego esperar APROBADO u OBSERVACIONES de Dilitan antes de TAREA-001.
+Siguiente accion: Dilitan revisa PR #1 y deja APROBADO u OBSERVACIONES. Codex corrige observaciones si existen; no inicia TAREA-001 antes de recibir la revision. La migracion real y el despliegue siguen requiriendo aprobacion separada.
 
 Sin migraciones ejecutadas, despliegues, cambios de proveedores, datos reales, secretos, bots, wallets, USDC ni cambios de permisos de administrador. No se declara NODO listo para produccion.
