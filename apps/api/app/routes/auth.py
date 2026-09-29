@@ -8,6 +8,7 @@ from pydantic import Field, ValidationError
 from app.core.errors import ApiError
 from app.modules.users.schemas import AdminCredentialLoginRequest, LogoutRequest, RefreshRequest, TelegramAuthRequest
 from app.modules.users.service import AuthService
+from app.shared.rate_limit.request_identity import current_request_ip_hash
 
 router = APIRouter(tags=["auth"])
 
@@ -51,6 +52,7 @@ async def auth_telegram(
     service = _auth_service(request)
     data = service.login_with_telegram(
         init_data=payload.init_data,
+        rate_limit_ip_hash=current_request_ip_hash(),
         surface=header_surface or body_surface,
         request_id=_request_id(request),
         ip_address=request.client.host if request.client else None,
@@ -64,6 +66,7 @@ def auth_admin_login(payload: AdminCredentialLoginRequest, request: Request) -> 
     service = _auth_service(request)
     data = service.login_with_admin_credentials(
         username=payload.username,
+        rate_limit_ip_hash=current_request_ip_hash(),
         password=payload.password,
         request_id=_request_id(request),
         ip_address=request.client.host if request.client else None,
@@ -76,6 +79,7 @@ def auth_admin_login(payload: AdminCredentialLoginRequest, request: Request) -> 
 def refresh(payload: RefreshRequest, request: Request) -> dict:
     service = _auth_service(request)
     data = service.refresh(
+        rate_limit_ip_hash=current_request_ip_hash(),
         refresh_token=payload.refresh_token,
         request_id=_request_id(request),
         ip_address=request.client.host if request.client else None,
@@ -87,6 +91,7 @@ def refresh(payload: RefreshRequest, request: Request) -> dict:
 def logout(payload: LogoutRequest, request: Request) -> dict:
     service = _auth_service(request)
     data = service.logout(
+        rate_limit_ip_hash=current_request_ip_hash(),
         refresh_token=payload.refresh_token,
         request_id=_request_id(request),
         ip_address=request.client.host if request.client else None,

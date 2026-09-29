@@ -55,13 +55,14 @@ class AuthService:
         self,
         *,
         init_data: str,
+        rate_limit_ip_hash: str | None = None,
         surface: str | None = None,
         request_id: str,
         ip_address: str | None,
         user_agent: str | None,
     ) -> dict:
         bot_token, jwt_secret, jwt_refresh_secret = self._require_telegram_auth_secrets()
-        self._check_rate_limit(f"auth:{ip_address or 'unknown'}")
+        self._check_rate_limit(f"auth:{rate_limit_ip_hash or ip_address or 'unknown'}")
         telegram_user = self._validate_telegram_login(
             init_data=init_data,
             bot_tokens=self._telegram_auth_bot_tokens(default_bot_token=bot_token, surface=surface),
@@ -94,13 +95,16 @@ class AuthService:
         self,
         *,
         username: str,
+        rate_limit_ip_hash: str | None = None,
         password: str,
         request_id: str,
         ip_address: str | None,
         user_agent: str | None,
     ) -> dict:
         jwt_secret, jwt_refresh_secret = self._require_session_secrets()
-        self._check_rate_limit(f"auth:admin:ip:{ip_address or 'unknown'}")
+        self._check_rate_limit(
+            f"auth:admin:ip:{rate_limit_ip_hash or ip_address or 'unknown'}"
+        )
         try:
             username_normalized = normalize_admin_username(username)
         except ValueError as exc:
@@ -298,8 +302,13 @@ class AuthService:
             request_id=request_id,
         )
 
-    def refresh(self, *, refresh_token: str, request_id: str, ip_address: str | None = None) -> dict:
-        self._check_rate_limit(f"auth:refresh:ip:{ip_address or 'unknown'}")
+    def refresh(
+        self, *, refresh_token: str, request_id: str,
+        ip_address: str | None = None, rate_limit_ip_hash: str | None = None,
+    ) -> dict:
+        self._check_rate_limit(
+            f"auth:refresh:ip:{rate_limit_ip_hash or ip_address or 'unknown'}"
+        )
         jwt_secret, jwt_refresh_secret = self._require_session_secrets()
         refresh_hash = hash_refresh_token(refresh_token, jwt_refresh_secret)
         session = self._repository.get_session_by_refresh_hash(refresh_hash)
@@ -339,8 +348,13 @@ class AuthService:
             "expires_in": self._settings.access_token_ttl_seconds,
         }
 
-    def logout(self, *, refresh_token: str, request_id: str, ip_address: str | None = None) -> dict:
-        self._check_rate_limit(f"auth:logout:ip:{ip_address or 'unknown'}")
+    def logout(
+        self, *, refresh_token: str, request_id: str,
+        ip_address: str | None = None, rate_limit_ip_hash: str | None = None,
+    ) -> dict:
+        self._check_rate_limit(
+            f"auth:logout:ip:{rate_limit_ip_hash or ip_address or 'unknown'}"
+        )
         _, jwt_refresh_secret = self._require_session_secrets()
         refresh_hash = hash_refresh_token(refresh_token, jwt_refresh_secret)
         session = self._repository.get_session_by_refresh_hash(refresh_hash)
