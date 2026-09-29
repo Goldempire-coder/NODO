@@ -78,6 +78,8 @@ Los cinco avisos antiguos no se ocultan ni se corrigen fuera de alcance: UP035 e
 
 El escaneo de este reporte marca dos coincidencias genericas por los identificadores de los enlaces Drive de las fuentes. Revision manual: son enlaces a los documentos de trabajo autorizados, no credenciales ni valores secretos. No se cambio la configuracion del detector.
 
+El control del reporte ya agregado a Git detecto una linea vacia extra al final, despues de la comprobacion inicial del codigo. Se corrigio en una actualizacion documental separada y se volvio a comprobar el diff completo contra la base; no se altero codigo ni se repitieron pruebas por ese ajuste.
+
 El warning existente es StarletteDeprecationWarning por httpx en TestClient. No se instalo otra dependencia. Las 68 omisiones no cuentan como aprobadas; esta corrida no enumero sus razones.
 
 1390 no es la suma acumulada con PR #1: esta rama parte de 6069a75, sin las 22 pruebas de creditos de aquella rama, y agrega 30 propias.
@@ -202,4 +204,3 @@ En esos comandos python significa el ejecutable de la venv indicado, no una inst
 - [Revision de Dilitan, TAREA-000](https://drive.google.com/file/d/1PNk1Ee5HGHg3OfTpiZSJMlCJgyQtIGRR/view).
 - [TAREA-001 v2](https://drive.google.com/file/d/1uqcIwYUdi72y1E6iV6mApkGbhPOw63Ez/view).
 - [FastAPI: CORS](https://fastapi.tiangolo.com/tutorial/cors/): lista explicita, regex y distincion entre preflight y peticiones simples. Contrastado con el CORSMiddleware instalado en la venv. La pagina de Starlette consultada devolvio 502; no se uso como evidencia recuperada.
-
