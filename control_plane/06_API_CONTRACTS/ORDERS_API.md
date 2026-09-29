@@ -535,6 +535,10 @@ Rules:
 - Actualiza `payment_report_deadline_at` y `expires_at`.
 - Crea state event.
 - Audita `payment_deadline_extended`.
+- Revalida propietario, estado, reporte, vencimiento y uso de extension bajo
+  bloqueo de la orden. Actualizacion, state event y audit comparten transaccion;
+  solicitudes concurrentes distintas no pueden extender dos veces ni escribir
+  sobre una orden que ya cambio de estado.
 
 Errores:
 
@@ -545,6 +549,7 @@ Errores:
 - ORDER_EXPIRED
 - ORDER_STATUS_INVALID
 - ORDER_EXTENSION_ALREADY_USED
+- ORDER_STATE_CONFLICT
 - ORDER_PAYMENT_ALREADY_REPORTED
 - IDEMPOTENCY_KEY_REQUIRED
 - IDEMPOTENCY_CONFLICT

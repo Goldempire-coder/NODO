@@ -128,23 +128,20 @@ class DisputeService(AdminDisputeResolutionMixin):
                 request_id=request_id,
             )
             return dispute
-        updated = self._orders.update_order_if_status(
-            order.id,
-            expected_status=previous_status,
-            status="disputed",
-            dispute_reason=payload.reason,
-        )
-        if updated is None:
-            raise ApiError("ORDER_STATE_CONFLICT", status_code=409)
-        dispute = self._repository.create_dispute(
+        updated, dispute = self._orders.open_participant_dispute_atomically(
             order_id=order.id,
-            opened_by_user_id=user.id,
-            opened_by_role=user.role,
-            previous_order_status=previous_status,
+            expected_status=previous_status,
+            actor_user_id=user.id,
+            actor_role=user.role,
+            business_owner_user_id=self._business_owner_id(order),
             reason=payload.reason,
             description=payload.description,
+            evidence_file_ids=normalized_evidence,
+            request_id=request_id,
         )
-        self._record_open_dispute(user=user, order=order, updated_order=updated, dispute=dispute, payload=payload, previous_status=previous_status, normalized_evidence=normalized_evidence, request_id=request_id)
+        self._notifications.order_disputed_parties_admin(
+            order=updated, dispute_id=dispute.id, request_id=request_id,
+        )
         return dispute
 
     def _validate_open_dispute(self, *, user: UserRecord, order: OrderRecord, payload: DisputeCreateRequest, normalized_evidence: list[str]) -> None:
@@ -163,51 +160,6 @@ class DisputeService(AdminDisputeResolutionMixin):
             raise ApiError("DISPUTE_ALREADY_OPEN", status_code=409)
         require_dispute_order_state(order)
         self._validate_evidence_files(user=user, order=order, evidence_file_ids=normalized_evidence)
-
-    def _record_open_dispute(
-        self,
-        *,
-        user: UserRecord,
-        order: OrderRecord,
-        updated_order: OrderRecord,
-        dispute,
-        payload: DisputeCreateRequest,
-        previous_status: str,
-        normalized_evidence: list[str],
-        request_id: str,
-    ) -> None:  # type: ignore[no-untyped-def]
-        self._repository.add_event(
-            dispute_id=dispute.id,
-            order_id=order.id,
-            actor_user_id=user.id,
-            actor_role=user.role,
-            event_type="dispute_opened",
-            old_status=None,
-            new_status="open",
-            reason=payload.reason,
-            metadata_json={"previous_order_status": previous_status, "evidence_file_ids": normalized_evidence},
-        )
-        self._orders.add_state_event(
-            order_id=order.id,
-            from_status=previous_status,
-            to_status="disputed",
-            event_type="dispute_opened",
-            actor_user_id=user.id,
-            actor_role=user.role,
-            reason=payload.reason,
-            request_id=request_id,
-            metadata_json={"dispute_id": dispute.id, "previous_order_status": previous_status},
-        )
-        self._audit.write(
-            event_type="dispute_opened",
-            actor_user_id=user.id,
-            actor_role=user.role,
-            resource_type="dispute",
-            resource_id=dispute.id,
-            request_id=request_id,
-            metadata_json={"order_id": order.id, "previous_order_status": previous_status, "new_order_status": updated_order.status, "reason": payload.reason},
-        )
-        self._notifications.order_disputed_parties_admin(order=updated_order, dispute_id=dispute.id, request_id=request_id)
 
     def open_admin_order_dispute(
         self,

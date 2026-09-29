@@ -10,7 +10,6 @@ from app.modules.orders.policy import require_order_owner, require_remitter
 from app.modules.orders.schemas import OrderActionRequest, OrderCancelRequest
 from app.modules.orders.serializers import public_order_payload
 from app.modules.orders.state_machine import (
-    extended_deadline,
     now_utc,
     require_extend_allowed,
 )
@@ -113,27 +112,13 @@ class OrderRemitterOps:
             require_order_owner(user, order)
             order = self._materialize_order_expiration(order, actor=user, request_id=request_id)
             require_extend_allowed(order)
-            new_deadline = extended_deadline(order)
-            updated = self._repository.update_order(
-                order,
-                extension_used=True,
-                payment_report_extension_used_at=now_utc(),
-                payment_report_deadline_at=new_deadline,
-                expires_at=new_deadline,
-            )
             reason = payload.reason if payload else None
-            self._repository.add_state_event(
+            updated = self._repository.extend_payment_deadline_atomically(
                 order_id=order.id,
-                from_status="waiting_payment",
-                to_status="waiting_payment",
-                event_type="waiting_payment_extended",
-                actor_user_id=user.id,
-                actor_role=user.role,
+                remitter_user_id=user.id,
                 reason=reason,
                 request_id=request_id,
-                metadata_json={"minutes_added": 15},
             )
-            self._audit.write(event_type="payment_deadline_extended", actor_user_id=user.id, actor_role=user.role, resource_type="order", resource_id=order.id, request_id=request_id, metadata_json={"reason": reason})
             return {"order": public_order_payload(updated), "disclaimer": ORDER_DISCLAIMER}
 
         return self._idempotency.replay_or_store(f"orders:extend:{user.id}:{order_id}:{idempotency_key}", payload={"order_id": order_id, "reason": payload.reason if payload else None}, compute=compute)
