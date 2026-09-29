@@ -11,6 +11,9 @@ from app.modules.businesses.models import FileAssetRecord
 from app.modules.disputes.models import DisputeRecord
 from app.modules.orders.integrity import AtomicCancellationResult
 from app.modules.orders.memory_job_transitions import InMemoryOrderJobTransitionsMixin
+from app.modules.orders.memory_participant_transitions import (
+    InMemoryParticipantTransitionsMixin,
+)
 from app.modules.orders.memory_payment_reports import InMemoryOrderPaymentReportsMixin
 from app.modules.orders.memory_queries import InMemoryOrderQueriesMixin
 from app.modules.orders.memory_receiver_completion import (
@@ -31,7 +34,7 @@ from app.modules.orders.terminal_publication_cooldown import (
 )
 
 
-class InMemoryOrderRepository(InMemoryOrderJobTransitionsMixin, InMemoryOrderReceiverCompletionMixin, InMemoryOrderPaymentReportsMixin, InMemoryOrderQueriesMixin, InMemoryOrderStateEventsMixin):
+class InMemoryOrderRepository(InMemoryParticipantTransitionsMixin, InMemoryOrderJobTransitionsMixin, InMemoryOrderReceiverCompletionMixin, InMemoryOrderPaymentReportsMixin, InMemoryOrderQueriesMixin, InMemoryOrderStateEventsMixin):
     moves_ad_on_create_order = False
     moves_ad_on_atomic_cancel = False
     creates_initial_state_event_on_create_order = False

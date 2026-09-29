@@ -73,6 +73,9 @@ Effects:
 - `disputes.status = open`
 - creates `dispute_events.event_type = dispute_opened`
 - audits `dispute_opened`
+- Order transition, dispute, both timelines and audit are one transaction.
+  Failure leaves no partial opening. Recheck ownership, current state and
+  absence of an open dispute while locking the order; notify only after commit.
 - From `payment_reported`, opening the business payment-problem dispute keeps
   `payment_reports.status = submitted`; it does not accept or reject the
   client's claim before Admin resolution.
@@ -119,6 +122,7 @@ Errors:
 - ORDER_NOT_OWNED
 - ORDER_STATUS_INVALID
 - DISPUTE_ALREADY_OPEN
+- ORDER_STATE_CONFLICT
 - DISPUTE_NOT_ALLOWED
 - DISPUTE_REASON_REQUIRED
 - MESSAGE_ATTACHMENT_INVALID

@@ -10,8 +10,14 @@ from app.modules.orders.postgres_admin_dispute_resolution import (
     PostgresAdminDisputeResolutionMixin,
 )
 from app.modules.orders.postgres_create_order import PostgresCreateOrderMixin
+from app.modules.orders.postgres_deadline_extension import (
+    PostgresDeadlineExtensionMixin,
+)
 from app.modules.orders.postgres_integrity import PostgresOrderIntegrityMixin
 from app.modules.orders.postgres_job_transitions import PostgresOrderJobTransitionsMixin
+from app.modules.orders.postgres_participant_dispute import (
+    PostgresParticipantDisputeMixin,
+)
 from app.modules.orders.postgres_participant_payment_problem_dispute import (
     PostgresParticipantPaymentProblemDisputeMixin,
 )
@@ -33,6 +39,8 @@ from app.shared.db.connection import pooled_connect
 
 
 class PostgresOrderRepository(
+    PostgresDeadlineExtensionMixin,
+    PostgresParticipantDisputeMixin,
     PostgresAdminDisputeResolutionMixin,
     PostgresAdminDisputeOpeningMixin,
     PostgresCreateOrderMixin,
