@@ -65,6 +65,9 @@ class PostgresAdCreditHoldsMixin:
         if self._release_hold_already_exists(conn, ad_id=ad.id):
             return None
         wallet = self._lock_wallet_for_release(conn, ad=ad)
+        # A competing transaction may have committed while we waited for the wallet.
+        if self._release_hold_already_exists(conn, ad_id=ad.id):
+            return None
         if wallet is None:
             return None
         available_after = wallet["available_credits"] + ad.required_credits
@@ -98,6 +101,8 @@ class PostgresAdCreditHoldsMixin:
         if self._consume_hold_already_exists(conn, order_id=order_id):
             raise ApiError("CREDIT_ALREADY_CONSUMED", status_code=409)
         wallet = self._lock_wallet_for_consume(conn, ad=ad)
+        if self._consume_hold_already_exists(conn, order_id=order_id):
+            raise ApiError("CREDIT_ALREADY_CONSUMED", status_code=409)
         if wallet is None:
             raise ApiError("CREDIT_HOLD_NOT_FOUND", status_code=409)
         blocked_after = wallet["blocked_credits"] - ad.required_credits
@@ -178,6 +183,8 @@ class PostgresAdCreditHoldsMixin:
             )
             return None
         wallet = self._lock_wallet_for_consume(conn, ad=ad)
+        if self._expire_hold_already_exists(conn, ad_id=ad.id) is not None:
+            return None
         if wallet is None:
             conn.execute(
                 "update ads set status = 'archived', updated_at = now() where id = %s",
