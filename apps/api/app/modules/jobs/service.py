@@ -101,7 +101,10 @@ class JobService:
                 resource_type="job_run",
                 resource_id=result["job_run"]["id"],
                 request_id=request_id,
-                metadata_json={"job_type": JOB_TYPE_EXPIRE_AND_ESCALATE},
+                metadata_json={
+                    "job_type": JOB_TYPE_EXPIRE_AND_ESCALATE,
+                    "current_time": result["job_run"]["started_at"],
+                },
             )
             _profile_mark(profile, "audit:job_dry_run_executed", stage_started)
             return _profile_attach(result, profile, profile_started)
