@@ -29,7 +29,23 @@ from app.main import create_app  # noqa: E402
 from app.modules.users.admin_passwords import hash_admin_password  # noqa: E402
 
 
-def test_all_private_admin_surfaces_disable_response_caching() -> None:
+def test_all_private_admin_surfaces_disable_response_caching(monkeypatch) -> None:
+    from app.core.network import ConnectivityResult
+    from app.repositories.database import DatabaseRepository
+    from app.repositories.redis import RedisRepository
+
+    connectivity_calls = {"database": 0, "redis": 0}
+
+    def database_unavailable(_repository: DatabaseRepository) -> ConnectivityResult:
+        connectivity_calls["database"] += 1
+        return ConnectivityResult(False, "UPSTREAM_UNAVAILABLE", "Connection failed.")
+
+    def redis_unavailable(_repository: RedisRepository) -> ConnectivityResult:
+        connectivity_calls["redis"] += 1
+        return ConnectivityResult(False, "UPSTREAM_UNAVAILABLE", "Connection failed.")
+
+    monkeypatch.setattr(DatabaseRepository, "check_connectivity", database_unavailable)
+    monkeypatch.setattr(RedisRepository, "check_connectivity", redis_unavailable)
     client = TestClient(create_app())
     client.app.state.user_repository.create_admin_user_with_credentials(
         username="private-cache@nodo.local",
@@ -75,6 +91,7 @@ def test_all_private_admin_surfaces_disable_response_caching() -> None:
     health = client.get("/health")
     assert health.status_code == 200
     assert health.headers.get("Cache-Control") != "private, no-store"
+    assert connectivity_calls == {"database": 1, "redis": 1}
 
 
 def test_admin_error_responses_disable_response_caching() -> None:

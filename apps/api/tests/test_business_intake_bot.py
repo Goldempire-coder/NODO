@@ -59,9 +59,15 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
-from app.modules.business_intake import admin_delete as intake_admin_delete  # noqa: E402
-from app.modules.business_intake import business_creation as intake_business_creation  # noqa: E402
-from app.modules.business_intake import conversation as intake_conversation  # noqa: E402
+from app.modules.business_intake import (  # noqa: E402
+    admin_delete as intake_admin_delete,
+)
+from app.modules.business_intake import (  # noqa: E402
+    business_creation as intake_business_creation,
+)
+from app.modules.business_intake import (  # noqa: E402
+    conversation as intake_conversation,
+)
 from app.modules.business_intake import routes as intake_routes  # noqa: E402
 from app.modules.business_intake import service as intake_service  # noqa: E402
 from app.modules.business_intake.models import utc_now  # noqa: E402
@@ -900,13 +906,18 @@ def test_admin_accept_keeps_intake_documents_visible_on_created_business_detail(
 
 
 def test_admin_accept_can_approve_existing_intake_created_business(monkeypatch: Any) -> None:
-    client = _client()
+    client = _client(TELEGRAM_WEB_APP_URL="https://nodo.example.test")
     sent_messages: list[dict[str, Any]] = []
+    menu_buttons: list[dict[str, Any]] = []
 
     def fake_send(bot_token: str, sent_chat_id: int, text: str, reply_markup: dict[str, Any] | None = None) -> None:
         sent_messages.append({"bot_token": bot_token, "chat_id": sent_chat_id, "text": text, "reply_markup": reply_markup})
 
+    def fake_set_menu(bot_token: str, sent_chat_id: int, text: str, web_app_url: str) -> None:
+        menu_buttons.append({"bot_token": bot_token, "chat_id": sent_chat_id, "text": text, "web_app_url": web_app_url})
+
     monkeypatch.setattr(intake_business_creation, "telegram_send_message_sync", fake_send)
+    monkeypatch.setattr(intake_business_creation, "telegram_set_chat_menu_button_sync", fake_set_menu)
 
     started = _start(client, update_id=590, telegram_id=7044, chat_id=8044)
     _contact(client, started["id"], update_id=591, telegram_id=7044, chat_id=8044)
@@ -925,6 +936,7 @@ def test_admin_accept_can_approve_existing_intake_created_business(monkeypatch: 
     )
     assert pending.status_code == 200, pending.text
     assert pending.json()["data"]["business"]["verification_status"] == "pending"
+    assert menu_buttons == []
 
     approved = client.post(
         f"/api/v1/admin/business-intake/{started['id']}/accept",
@@ -944,6 +956,14 @@ def test_admin_accept_can_approve_existing_intake_created_business(monkeypatch: 
     assert data["business"]["id"] == pending.json()["data"]["business"]["id"]
     assert data["business"]["verification_status"] == "approved"
     assert sent_messages
+    assert menu_buttons == [
+        {
+            "bot_token": BUSINESS_INTAKE_BOT_TOKEN,
+            "chat_id": 8044,
+            "text": intake_business_creation.BUSINESS_MENU_BUTTON_TEXT,
+            "web_app_url": "https://nodo.example.test/business/",
+        }
+    ]
 
 
 def test_admin_approval_awards_normalized_intake_referral_once(monkeypatch: Any) -> None:
@@ -1165,8 +1185,15 @@ def test_admin_can_delete_bad_intake_with_reason_and_idempotency(monkeypatch: An
     }
 
 
-def test_admin_can_reset_intake_without_typing_reason() -> None:
+def test_admin_can_reset_intake_without_typing_reason(monkeypatch: Any) -> None:
     client = _client()
+    sent_messages: list[dict[str, Any]] = []
+
+    def fake_send(bot_token: str, sent_chat_id: int, text: str, reply_markup: dict[str, Any] | None = None) -> None:
+        sent_messages.append({"bot_token": bot_token, "chat_id": sent_chat_id, "text": text, "reply_markup": reply_markup})
+
+    monkeypatch.setattr(intake_admin_delete, "telegram_send_message_sync", fake_send)
+
     started = _start(client, update_id=655, telegram_id=7065, chat_id=8065)
     _contact(client, started["id"], update_id=656, telegram_id=7065, chat_id=8065)
     _submit(client, started["id"], update_id=657, telegram_id=7065, chat_id=8065)
@@ -1184,6 +1211,16 @@ def test_admin_can_reset_intake_without_typing_reason() -> None:
     assert client.app.state.business_intake_repository.get(started["id"]) is None
     delete_events = [event for event in client.app.state.audit_writer.events if event.event_type == "business_intake_deleted"]
     assert delete_events[-1].metadata_json["reason"] == "admin_reset_onboarding"
+    assert deleted.json()["data"]["reset_notification_sent"] is True
+    assert _event_types(client).count("business_intake_reset_notification_sent") == 1
+    assert sent_messages == [
+        {
+            "bot_token": BUSINESS_INTAKE_BOT_TOKEN,
+            "chat_id": 8065,
+            "text": intake_admin_delete.BUSINESS_INTAKE_RESET_MESSAGE,
+            "reply_markup": None,
+        }
+    ]
 
 
 def test_admin_can_complete_intake_manually_and_submit_for_review() -> None:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -155,7 +156,23 @@ def test_cors_allows_browser_write_methods_used_by_mini_apps() -> None:
         assert method in response.headers["access-control-allow-methods"]
 
 
-def test_ready_endpoint_uses_safe_error_when_dependencies_down() -> None:
+def test_ready_endpoint_uses_safe_error_when_dependencies_down(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.network import ConnectivityResult
+    from app.repositories.database import DatabaseRepository
+    from app.repositories.redis import RedisRepository
+
+    connectivity_calls = {"database": 0, "redis": 0}
+
+    def database_unavailable(_repository: DatabaseRepository) -> ConnectivityResult:
+        connectivity_calls["database"] += 1
+        return ConnectivityResult(False, "UPSTREAM_UNAVAILABLE", "Connection failed.")
+
+    def redis_unavailable(_repository: RedisRepository) -> ConnectivityResult:
+        connectivity_calls["redis"] += 1
+        return ConnectivityResult(False, "UPSTREAM_UNAVAILABLE", "Connection failed.")
+
+    monkeypatch.setattr(DatabaseRepository, "check_connectivity", database_unavailable)
+    monkeypatch.setattr(RedisRepository, "check_connectivity", redis_unavailable)
     _set_env()
     client = TestClient(create_app())
     response = client.get("/api/v1/ready", headers={"X-Request-Id": "req_ready"})
@@ -164,3 +181,7 @@ def test_ready_endpoint_uses_safe_error_when_dependencies_down() -> None:
     assert payload["request_id"] == "req_ready"
     assert payload["error"]["code"] == "UPSTREAM_UNAVAILABLE"
     assert "password" not in response.text
+    assert payload["error"]["message"] == "Servicio no listo."
+    assert response.headers["X-NODO-Error-Code"] == "UPSTREAM_UNAVAILABLE"
+    assert response.headers["X-Request-Id"] == "req_ready"
+    assert connectivity_calls == {"database": 1, "redis": 1}

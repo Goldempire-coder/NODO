@@ -11,10 +11,9 @@ from pathlib import Path
 from urllib.parse import urlencode
 from uuid import uuid4
 
+from app.modules.credits.onchain import OnchainVerificationResult
 from fastapi.testclient import TestClient
 from psycopg.types.json import Jsonb
-
-from app.modules.credits.onchain import OnchainVerificationResult
 
 BOT_TOKEN = "123456:test-bot-token"
 BUSINESS_INTAKE_BOT_TOKEN = "123456:test-business-intake-bot-token"
@@ -57,8 +56,12 @@ def _set_env(**overrides: str) -> None:
 _set_env()
 
 from app.main import create_app  # noqa: E402
-from app.modules.admin_notifications.memory_repository import InMemoryAdminNotificationRepository  # noqa: E402
-from app.modules.admin_notifications.service import AdminNotificationService  # noqa: E402
+from app.modules.admin_notifications.memory_repository import (  # noqa: E402
+    InMemoryAdminNotificationRepository,
+)
+from app.modules.admin_notifications.service import (  # noqa: E402
+    AdminNotificationService,
+)
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
 from app.modules.legal.models import (  # noqa: E402
@@ -68,7 +71,9 @@ from app.modules.legal.models import (  # noqa: E402
     CURRENT_BUSINESS_CREDIT_TERMS_VERSION,
     CURRENT_BUSINESS_TERMS_VERSION,
 )
-from app.modules.support.postgres_repository import PostgresSupportRepository  # noqa: E402
+from app.modules.support.postgres_repository import (  # noqa: E402
+    PostgresSupportRepository,
+)
 from app.routes.telegram_bot import telegram_webhook_secret  # noqa: E402
 
 
@@ -744,8 +749,10 @@ def test_base_usdc_under_review_and_telegram_failed_permanent_notify_admin() -> 
     assert tx_hash not in json.dumps(notifications)
 
 
-def test_base_usdc_watcher_notifies_all_paginated_stuck_purchases() -> None:
-    client = _client(ONCHAIN_CREDIT_WATCHER_BATCH_SIZE="2")
+def test_base_usdc_watcher_notifies_all_paginated_stuck_purchases(monkeypatch) -> None:
+    monkeypatch.setenv("ONCHAIN_CREDIT_WATCHER_BATCH_SIZE", "2")
+    client = _client()
+    assert client.app.state.settings.onchain_credit_watcher_batch_size == 2
     admin = _make_admin(client, 31311, "admin")
     owner = _login(client, 31312, "credit_notify_paginated_owner")
     _create_business(client, owner, "credit_notify_paginated")

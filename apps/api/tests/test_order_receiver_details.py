@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor
-import pytest
+from copy import deepcopy
+from datetime import datetime
+from uuid import UUID
 
+import pytest
 from test_business_order_ops import (
     _bearer,
     _client,
@@ -11,7 +15,6 @@ from test_business_order_ops import (
     _login,
     _seed_reported_order,
 )
-
 
 RECEIVER_DETAILS = {
     "bank": "0102",
@@ -548,6 +551,185 @@ def test_confirm_received_and_dispute_race_has_one_terminal_winner() -> None:
     assert reservation.status == expected_reservation_status
 
 
+def _assert_receiver_fixture_chat_private(payload: dict, metadata: dict) -> None:
+    private_values = (*RECEIVER_DETAILS.values(), "Banco de Venezuela")
+    assert payload["data"]["order"]["receiver_data_masked"] == {
+        "bank": "Banco",
+        "phone": "***4567",
+        "document": "***5678",
+        "holder": "***st",
+    }
+    checked_metadata = set()
+
+    def check_text(text: str) -> None:
+        assert not any(value in text for value in private_values), "Receiver data exposed"
+
+    def visit(value, path: tuple = ()) -> None:  # type: ignore[no-untyped-def]
+        # Only explicit paths bound to fixture records can contain incidental digits.
+        if path in metadata:
+            kind, expected = metadata[path]
+            assert value == expected, "Metadata differs from fixture record"
+            if value is None:
+                assert kind == "timestamp"
+            else:
+                assert isinstance(value, str)
+                try:
+                    if kind == "timestamp":
+                        assert datetime.fromisoformat(value).tzinfo is not None
+                    elif kind == "uuid":
+                        assert str(UUID(value)) == value
+                    elif kind == "public_code":
+                        assert re.fullmatch(r"NODO-[0-9A-F]{8}", value)
+                    elif kind == "system_id":
+                        prefix, identifier = value.rsplit(":", 1)
+                        assert prefix in {
+                            "system:negotiation-created",
+                            "system:payment-reported",
+                            "system:payment-confirmed",
+                            "system:receiver-details-shared",
+                        }
+                        assert str(UUID(identifier)) == identifier
+                    else:
+                        raise AssertionError("Unknown metadata kind")
+                except ValueError:
+                    raise AssertionError("Invalid metadata format") from None
+            checked_metadata.add(path)
+            return
+        if isinstance(value, dict):
+            for key, child in value.items():
+                check_text(key)
+                visit(child, (*path, key))
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                visit(child, (*path, index))
+        else:
+            check_text(json.dumps(value, ensure_ascii=False))
+
+    visit(payload)
+    assert checked_metadata == set(metadata), "Expected metadata missing"
+
+
+def _receiver_privacy_synthetic_case() -> tuple[dict, dict]:
+    identifier = "10000000-0102-4000-8000-000000000001"
+    timestamp = "2026-09-22T16:51:35.770102+00:00"
+    payload = {
+        "data": {
+            "order": {
+                "id": identifier,
+                "public_order_code": "NODO-ABCD0102",
+                "created_at": timestamp,
+                "receiver_data_masked": {
+                    "bank": "Banco", "phone": "***4567", "document": "***5678", "holder": "***st",
+                },
+            },
+            "items": [{"body": "Mensaje ficticio", "attachments": [{"mime_type": "image/png"}]}],
+            "system_messages": [{"id": f"system:receiver-details-shared:{identifier}", "body": "Aviso generico"}],
+            "capabilities": {"receiver_details_shared": True},
+            "extra": {"nested": [{}]},
+        },
+        "request_id": "req_synthetic_privacy",
+    }
+    metadata = {
+        ("data", "order", "id"): ("uuid", identifier),
+        ("data", "order", "public_order_code"): ("public_code", "NODO-ABCD0102"),
+        ("data", "order", "created_at"): ("timestamp", timestamp),
+        ("data", "system_messages", 0, "id"): ("system_id", f"system:receiver-details-shared:{identifier}"),
+    }
+    return payload, metadata
+
+
+def test_receiver_privacy_check_accepts_verified_metadata_collisions_without_mutation() -> None:
+    payload, metadata = _receiver_privacy_synthetic_case()
+    original = deepcopy(payload)
+    _assert_receiver_fixture_chat_private(payload, metadata)
+    assert payload == original
+
+
+@pytest.mark.parametrize("field", ["bank", "phone", "document", "holder", "bank_label"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        ("data", "order", "extra"),
+        ("data", "items", 0, "body"),
+        ("data", "system_messages", 0, "body"),
+        ("data", "items", 0, "attachments", 0, "extra"),
+        ("data", "capabilities", "extra"),
+        ("data", "extra", "nested", 0, "receiver_details"),
+        ("data", "extra", "id"),
+        ("data", "extra", "created_at"),
+        ("request_id",),
+    ],
+)
+def test_receiver_privacy_check_rejects_private_values_anywhere(field: str, path: tuple) -> None:
+    payload, metadata = _receiver_privacy_synthetic_case()
+    private_value = "Banco de Venezuela" if field == "bank_label" else RECEIVER_DETAILS[field]
+    target = payload
+    for component in path[:-1]:
+        target = target[component]
+    target[path[-1]] = f"Dato: {private_value}."
+    with pytest.raises(AssertionError, match="Receiver data exposed"):
+        _assert_receiver_fixture_chat_private(payload, metadata)
+
+
+@pytest.mark.parametrize("field", ["bank", "phone", "document", "holder"])
+def test_receiver_privacy_check_rejects_private_dictionary_keys(field: str) -> None:
+    payload, metadata = _receiver_privacy_synthetic_case()
+    payload["data"]["extra"][RECEIVER_DETAILS[field]] = None
+    with pytest.raises(AssertionError, match="Receiver data exposed"):
+        _assert_receiver_fixture_chat_private(payload, metadata)
+
+
+@pytest.mark.parametrize("field", ["id", "created_at"])
+def test_receiver_privacy_check_does_not_exempt_unknown_metadata_paths(field: str) -> None:
+    payload, metadata = _receiver_privacy_synthetic_case()
+    payload["data"]["extra"][field] = payload["data"]["order"][field]
+    with pytest.raises(AssertionError, match="Receiver data exposed"):
+        _assert_receiver_fixture_chat_private(payload, metadata)
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("id", "20000000-0102-4000-8000-000000000001"),
+        ("created_at", "2026-09-22T16:51:36.770102+00:00"),
+        ("public_order_code", "NODO-FFFF0102"),
+    ],
+)
+def test_receiver_privacy_check_rejects_metadata_from_another_record(field: str, replacement: str) -> None:
+    payload, metadata = _receiver_privacy_synthetic_case()
+    payload["data"]["order"][field] = replacement
+    with pytest.raises(AssertionError, match="Metadata differs from fixture record"):
+        _assert_receiver_fixture_chat_private(payload, metadata)
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [("id", "0102"), ("created_at", "0102"), ("created_at", "2026-09-22T16:51:35"), ("public_order_code", "0102")],
+)
+def test_receiver_privacy_check_rejects_invalid_metadata_even_when_equal(field: str, replacement: str) -> None:
+    payload, metadata = _receiver_privacy_synthetic_case()
+    path = ("data", "order", field)
+    payload["data"]["order"][field] = replacement
+    metadata[path] = (metadata[path][0], replacement)
+    with pytest.raises(AssertionError):
+        _assert_receiver_fixture_chat_private(payload, metadata)
+
+
+def test_receiver_privacy_check_rejects_missing_verified_metadata() -> None:
+    payload, metadata = _receiver_privacy_synthetic_case()
+    del payload["data"]["order"]["created_at"]
+    with pytest.raises(AssertionError, match="Expected metadata missing"):
+        _assert_receiver_fixture_chat_private(payload, metadata)
+
+
+@pytest.mark.parametrize("field", ["bank", "phone", "document", "holder", "extra"])
+def test_receiver_privacy_check_rejects_changed_legacy_mask(field: str) -> None:
+    payload, metadata = _receiver_privacy_synthetic_case()
+    payload["data"]["order"]["receiver_data_masked"][field] = "unexpected"
+    with pytest.raises(AssertionError):
+        _assert_receiver_fixture_chat_private(payload, metadata)
+
+
 def test_receiver_details_never_enter_general_chat_or_message_payloads() -> None:
     client = _client()
     owner, _, _, remitter, order = _seed_reported_order(
@@ -556,15 +738,85 @@ def test_receiver_details_never_enter_general_chat_or_message_payloads() -> None
         remitter_id=5901,
     )
     _confirm_payment(client, owner, order["id"], key="receiver_chat_confirm")
-    _share_receiver_details(client, remitter, order["id"], key="receiver_chat_share")
+    chat_repository = client.app.state.chat_repository
+    order_repository = client.app.state.order_repository
+    message_ids_before = set(chat_repository.messages)
+    shared = _share_receiver_details(client, remitter, order["id"], key="receiver_chat_share")
+    assert shared.status_code == 200, shared.text
+    receiver = order_repository.get_receiver_details(order["id"])
+    assert receiver is not None
+    assert receiver.order_id == order["id"]
+    assert receiver.shared_by_user_id == remitter["user"]["id"]
+    assert {
+        "bank": receiver.bank_code,
+        "phone": receiver.phone,
+        "document": receiver.document,
+        "holder": receiver.holder,
+    } == RECEIVER_DETAILS
+    assert set(chat_repository.messages) == message_ids_before
 
     messages = client.get(
         f"/api/v1/orders/{order['id']}/messages?limit=50",
         headers=_bearer(remitter, "receiver_chat_list"),
     )
     assert messages.status_code == 200, messages.text
-    for private_value in RECEIVER_DETAILS.values():
-        assert private_value not in messages.text
+    assert messages.headers["cache-control"] == "private, no-store"
+    payload = messages.json()
+    stored_order = order_repository.get_by_id(order["id"])
+    metadata = {
+        ("data", "order_id"): ("uuid", stored_order.id),
+        ("data", "order", "id"): ("uuid", stored_order.id),
+        ("data", "order", "public_order_code"): ("public_code", stored_order.public_order_code),
+    }
+    for field in ("payment_report_deadline_at", "expires_at", "created_at", "delivered_at", "completed_at"):
+        timestamp = getattr(stored_order, field)
+        metadata[("data", "order", field)] = ("timestamp", timestamp.isoformat() if timestamp else None)
+
+    report = order_repository.get_latest_payment_report_for_order(order["id"])
+    assert report is not None
+    evidence = order_repository.list_payment_evidence_for_report(report.id)
+    assert evidence
+    records = [message for message in chat_repository.messages.values() if message.order_id == order["id"]]
+    attachments = chat_repository.list_attachments_for_messages([message.id for message in records])
+    ordinary = {
+        message.id: (
+            "uuid",
+            message.created_at,
+            [(item.id, item.file_asset_id, item.created_at) for item in attachments.get(message.id, [])],
+        )
+        for message in records
+    }
+    system = {
+        f"system:negotiation-created:{stored_order.id}": ("system_id", stored_order.created_at, []),
+        f"system:payment-reported:{report.id}": (
+            "system_id", report.created_at, [(file.id, file.id, file.created_at) for file in evidence],
+        ),
+        f"system:payment-confirmed:{stored_order.id}": ("system_id", stored_order.payment_confirmed_at, []),
+        f"system:receiver-details-shared:{receiver.id}": ("system_id", receiver.shared_at, []),
+    }
+    for collection, expected_records in (("items", ordinary), ("system_messages", system)):
+        items = payload["data"][collection]
+        assert len(items) == len(expected_records)
+        assert {item["id"] for item in items} == set(expected_records)
+        for index, item in enumerate(items):
+            kind, created_at, expected_attachments = expected_records[item["id"]]
+            path = ("data", collection, index)
+            metadata[(*path, "id")] = (kind, item["id"])
+            metadata[(*path, "order_id")] = ("uuid", stored_order.id)
+            metadata[(*path, "created_at")] = ("timestamp", created_at.isoformat())
+            attachments_by_id = {identifier: (file_id, timestamp) for identifier, file_id, timestamp in expected_attachments}
+            assert len(item["attachments"]) == len(attachments_by_id)
+            assert {attachment["id"] for attachment in item["attachments"]} == set(attachments_by_id)
+            for attachment_index, attachment in enumerate(item["attachments"]):
+                file_id, timestamp = attachments_by_id[attachment["id"]]
+                attachment_path = (*path, "attachments", attachment_index)
+                metadata[(*attachment_path, "id")] = ("uuid", attachment["id"])
+                metadata[(*attachment_path, "file_asset_id")] = ("uuid", file_id)
+                metadata[(*attachment_path, "created_at")] = ("timestamp", timestamp.isoformat())
+
+    assert payload["data"]["capabilities"]["receiver_details_shared"] is True
+    assert payload["data"]["next_cursor"] is None
+    _assert_receiver_fixture_chat_private(payload, metadata)
 
 
 def test_slice_50b2_frontend_uses_structured_compact_chat_ui_and_copy_controls() -> None:
@@ -593,8 +845,8 @@ def test_slice_50b2_frontend_uses_structured_compact_chat_ui_and_copy_controls()
     assert "shareReceiverDetails" in client_chat
     assert "receiverDetailsForm" in client_chat
     assert "setReceiverDetailsForm" in client_chat
-    assert "Compartir Pago Movil" in client_chat
-    assert "Pago Movil compartido" in client_chat
+    assert "<summary>Compartir datos Pago Movil</summary>" in client_chat
+    assert ">Datos Pago Movil compartidos</span>" in client_chat
     assert "Escribe el numero completo" in client_chat
     assert "0414 1234567" not in client_chat
     assert 'placeholder="12345678"' in client_chat

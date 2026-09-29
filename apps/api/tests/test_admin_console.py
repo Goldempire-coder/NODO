@@ -13,7 +13,6 @@ from urllib.parse import urlencode
 import pytest
 from fastapi.testclient import TestClient
 
-
 BOT_TOKEN = "123456:test-bot-token"
 JWT_SECRET = "test-access-secret"
 JWT_REFRESH_SECRET = "test-refresh-secret"
@@ -46,8 +45,8 @@ def _set_env(**overrides: str) -> None:
 
 _set_env()
 
-from app.main import create_app  # noqa: E402
 from app.core.config import load_settings  # noqa: E402
+from app.main import create_app  # noqa: E402
 from app.modules.admin.service import AdminService  # noqa: E402
 from app.modules.businesses.models import utc_now  # noqa: E402
 from app.modules.businesses.pin_security import hash_pin  # noqa: E402
@@ -176,7 +175,7 @@ def _create_order(client: TestClient, remitter: dict, ad_id: str, *, key: str = 
 
 
 def _upload_payment_evidence(client: TestClient, remitter: dict, order_id: str, key: str = "evidence") -> dict:
-    content = png_bytes(f"proof:{order_id}:{key}".encode("utf-8"))
+    content = png_bytes(f"proof:{order_id}:{key}".encode())
     response = client.post(
         f"/api/v1/orders/{order_id}/payment-evidence",
         headers=_headers(remitter, key),
@@ -502,7 +501,25 @@ def test_admin_dashboard_is_private_and_omits_client_contact_details_for_read_ro
         assert "+58 414 555 0199" not in response.text
 
 
-def test_admin_incident_console_summarizes_operational_signals_without_sensitive_values() -> None:
+def test_admin_incident_console_summarizes_operational_signals_without_sensitive_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.network import ConnectivityResult
+    from app.repositories.database import DatabaseRepository
+    from app.repositories.redis import RedisRepository
+
+    connectivity_calls = {"database": 0, "redis": 0}
+
+    def database_unavailable(_repository: DatabaseRepository) -> ConnectivityResult:
+        connectivity_calls["database"] += 1
+        return ConnectivityResult(False, "UPSTREAM_UNAVAILABLE", "Connection failed.")
+
+    def redis_unavailable(_repository: RedisRepository) -> ConnectivityResult:
+        connectivity_calls["redis"] += 1
+        return ConnectivityResult(False, "UPSTREAM_UNAVAILABLE", "Connection failed.")
+
+    monkeypatch.setattr(DatabaseRepository, "check_connectivity", database_unavailable)
+    monkeypatch.setattr(RedisRepository, "check_connectivity", redis_unavailable)
     client = _client()
     admin = _login(client, 906, "incident_admin")
     support = _login(client, 907, "incident_support")
@@ -571,6 +588,10 @@ def test_admin_incident_console_summarizes_operational_signals_without_sensitive
     assert "storage_path" not in combined
     assert "account_value" not in combined
     assert "admin_viewed_incident_console" in _event_types(client)
+    assert connectivity_calls == {"database": 2, "redis": 2}
+    assert data["dependencies"]["ok"] is False
+    assert data["dependencies"]["checks"]["database"]["ok"] is False
+    assert data["dependencies"]["checks"]["redis"]["ok"] is False
 
 
 def test_admin_opens_investigation_from_payment_rejected_without_releasing_obligations() -> None:
@@ -975,7 +996,7 @@ def test_admin_resolve_requires_admin_reason_idempotency_and_consumes_once() -> 
 def test_admin_resolve_cancelled_releases_and_keep_under_review_has_no_credit_effect() -> None:
     client = _client()
     _, business_cancel, ad_cancel, _, order_cancel, dispute_cancel = _seed_disputed_order(client, owner_id=920, remitter_id=921)
-    _, business_review, ad_review, _, order_review, dispute_review = _seed_disputed_order(client, owner_id=922, remitter_id=923)
+    _, business_review, ad_review, _, _order_review, dispute_review = _seed_disputed_order(client, owner_id=922, remitter_id=923)
     admin = _login(client, 924, "admin")
     client.app.state.user_repository.set_user_role(admin["user"]["id"], "admin")
     cancel_wallet_before = client.app.state.ad_repository.get_wallet(business_cancel["id"])
@@ -1083,8 +1104,10 @@ def test_admin_business_order_audit_lists_are_masked_and_credit_screens_stay_sli
 
 
 def test_slice_09_migration_allows_admin_resolution_values() -> None:
-    migration = open("database/migrations/0010_slice_09_admin_console.up.sql", encoding="utf-8").read()
-    rollback = open("database/migrations/0010_slice_09_admin_console.down.sql", encoding="utf-8").read()
+    with open("database/migrations/0010_slice_09_admin_console.up.sql", encoding="utf-8") as migration_file:
+        migration = migration_file.read()
+    with open("database/migrations/0010_slice_09_admin_console.down.sql", encoding="utf-8") as rollback_file:
+        rollback = rollback_file.read()
 
     for expected in [
         "disputes_resolution_type_check",
@@ -1249,8 +1272,10 @@ def test_platform_emergency_mode_blocks_new_operations_but_keeps_existing_order_
 
 
 def test_platform_emergency_mode_migration_contract_is_dedicated_and_reversible() -> None:
-    migration = open("database/migrations/0025_platform_emergency_mode.up.sql", encoding="utf-8").read()
-    rollback = open("database/migrations/0025_platform_emergency_mode.down.sql", encoding="utf-8").read()
+    with open("database/migrations/0025_platform_emergency_mode.up.sql", encoding="utf-8") as migration_file:
+        migration = migration_file.read()
+    with open("database/migrations/0025_platform_emergency_mode.down.sql", encoding="utf-8") as rollback_file:
+        rollback = rollback_file.read()
 
     assert "create table if not exists platform_emergency_mode" in migration
     assert "enabled boolean not null default false" in migration

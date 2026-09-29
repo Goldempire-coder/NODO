@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import logging
 import os
+from types import SimpleNamespace
 
+import pytest
+from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
 
 
@@ -23,6 +26,10 @@ from app.core.errors import ApiError  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.routes.telegram_bot import telegram_webhook_secret  # noqa: E402
 from app.shared.logging_redaction import redact_mapping, redact_text  # noqa: E402
+from app.shared.observability import (  # noqa: E402
+    ObservabilityMiddleware,
+    route_template,
+)
 
 
 def _client() -> TestClient:
@@ -259,3 +266,97 @@ def test_response_headers_do_not_expose_sensitive_values() -> None:
     assert "should-not-echo" not in header_blob
     assert "Authorization" not in header_blob
     assert "refresh_token" not in header_blob
+
+
+def test_health_aliases_have_distinct_log_templates(caplog) -> None:  # type: ignore[no-untyped-def]
+    caplog.set_level(logging.INFO, logger="nodo.observability")
+    client = _client()
+    for path in ("/api/v1/health", "/health"):
+        assert client.get(path).status_code == 200
+
+    templates = [record.route_template for record in caplog.records if record.msg == "backend_request_completed"]
+    assert templates == ["/api/v1/health", "/health"]
+
+
+@pytest.mark.parametrize("path, expected", [
+    ("/api/v1/items/synthetic-private-id", "/api/v1/items/{item_id}"),
+    ("/api/v2/items/synthetic-private-id", "/api/v2/items/{item_id}"),
+    ("/api/v3/group/items/synthetic-private-id", "/api/v3/group/items/{item_id}"),
+    ("/items/synthetic-private-id", "/items/{item_id}"),
+    ("/direct/synthetic-private-id", "/direct/{item_id}"),
+])
+def test_request_log_keeps_full_templates_without_parameter_values(caplog, monkeypatch, path: str, expected: str) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("OBSERVABILITY_REQUEST_LOGGING_ENABLED", "1")
+    caplog.set_level(logging.INFO, logger="nodo.observability")
+    app = FastAPI()
+    app.add_middleware(ObservabilityMiddleware)
+    router = APIRouter()
+
+    @router.get("/items/{item_id}")
+    def item(item_id: str) -> dict[str, bool]:
+        return {"ok": True}
+
+    parent = APIRouter()
+    parent.include_router(router, prefix="/group")
+    app.include_router(router, prefix="/api/v1")
+    app.include_router(router, prefix="/api/v2")
+    app.include_router(parent, prefix="/api/v3")
+    app.include_router(router)
+    app.get("/direct/{item_id}")(item)
+
+    response = TestClient(app).get(path + "?access_token=synthetic-query-token")
+
+    assert response.status_code == 200
+    records = [record for record in caplog.records if record.msg == "backend_request_completed"]
+    assert len(records) == 1
+    assert records[0].route_template == expected
+    assert "synthetic-" not in records[0].route_template
+    assert "?" not in records[0].route_template
+
+
+def test_route_template_prefers_matching_effective_metadata() -> None:
+    route = SimpleNamespace(path="/items/{item_id}")
+    context = SimpleNamespace(original_route=route, path="/api/v1/items/{item_id}")
+    request = SimpleNamespace(scope={"route": route, "fastapi": {"effective_route_context": context}})
+
+    assert route_template(request) == "/api/v1/items/{item_id}"
+
+
+@pytest.mark.parametrize("namespace", [
+    None,
+    [],
+    {},
+    {"effective_route_context": None},
+    {"effective_route_context": {}},
+    {"effective_route_context": SimpleNamespace(path="/unrelated")},
+    {"effective_route_context": SimpleNamespace(original_route=object(), path="/unrelated")},
+])
+def test_route_template_uses_route_metadata_without_matching_context(namespace) -> None:  # type: ignore[no-untyped-def]
+    request = SimpleNamespace(scope={"route": SimpleNamespace(path="/api/v1/items/{item_id}"), "fastapi": namespace})
+
+    assert route_template(request) == "/api/v1/items/{item_id}"
+
+
+@pytest.mark.parametrize("invalid_path", [
+    None, 123, "", "relative", "//example.invalid/path", "/items?token=synthetic",
+    "/items#synthetic", "/items\n", "/items with spaces", "/" + "a" * 256,
+])
+def test_route_template_rejects_malformed_effective_paths(invalid_path) -> None:  # type: ignore[no-untyped-def]
+    route = SimpleNamespace(path="/items/{item_id}")
+    context = SimpleNamespace(original_route=route, path=invalid_path)
+    request = SimpleNamespace(scope={"route": route, "fastapi": {"effective_route_context": context}})
+
+    assert route_template(request) == "/items/{item_id}"
+
+
+def test_route_template_preserves_legacy_metadata_without_fastapi_namespace() -> None:
+    request = SimpleNamespace(scope={"route": SimpleNamespace(path="/api/v1/items/{item_id}")})
+
+    assert route_template(request) == "/api/v1/items/{item_id}"
+
+
+def test_route_template_without_selected_route_keeps_existing_path_fallback() -> None:
+    context = SimpleNamespace(original_route=None, path="/unrelated")
+    request = SimpleNamespace(scope={"fastapi": {"effective_route_context": context}}, url=SimpleNamespace(path="/not-found"))
+
+    assert route_template(request) == "/not-found"

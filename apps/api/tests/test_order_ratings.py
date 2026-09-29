@@ -13,16 +13,17 @@ from urllib.parse import urlencode
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.modules.businesses.models import BusinessRecord
 from app.modules.businesses.presenters import business_payload
-from app.modules.notifications.attention import BUSINESS_ORDER_ATTENTION_STATUSES, CLIENT_ORDER_ATTENTION_STATUSES
+from app.modules.notifications.attention import (
+    BUSINESS_ORDER_ATTENTION_STATUSES,
+    CLIENT_ORDER_ATTENTION_STATUSES,
+)
 from app.modules.notifications.notification_types import TELEGRAM_NOTIFICATION_TYPES
 from app.modules.orders import ratings_repository as ratings_repository_module
 from app.modules.orders.models import OrderRecord, utc_now
 from app.modules.orders.serializers import business_order_payload
-
+from fastapi.testclient import TestClient
 
 BOT_TOKEN = "123456:test-bot-token"
 ROOT = Path(__file__).resolve().parents[3]
@@ -573,7 +574,7 @@ def test_frontend_rating_is_backend_authoritative_and_has_own_action_state() -> 
     assert "rating?: OrderSummary[\"rating\"]" in chat_model
     assert "rating: data.rating" in chat_model
     assert "getOrder" in chat_model
-    assert "¿Cómo fue esta operación?" in chat_screen
+    assert "¿Cómo fue esta orden?" in chat_screen
     assert "Calificaste" in chat_screen
     assert "submitOrderRating" in chat_screen
     assert 'setView("order-summary")' not in chat_screen

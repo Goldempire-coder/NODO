@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 CHAT_ROOT = ROOT / "apps/web/src/hooks/business-mini-app/chat"
 CHAT_FACADE = ROOT / "apps/web/src/hooks/business-mini-app/useBusinessChatModel.ts"
@@ -203,18 +202,61 @@ def test_cannot_attend_is_resumed_once_for_the_same_order_after_pin_unlock() -> 
     detail_screen = _read(
         ROOT / "apps/web/src/screens/business-app/BusinessOrdersScreens.tsx"
     )
+    pending_type = _section(orders, "type PendingBusinessOrderPinAction", "type BusinessOrdersPage")
+    execute = _section(orders, "const executeBusinessOrderAction", "const mutateBusinessOrder")
+    mutate = _section(orders, "const mutateBusinessOrder", "const resumePendingBusinessOrderPinAction")
+    resume = _section(orders, "const resumePendingBusinessOrderPinAction", "\n  return {")
 
     assert "PendingBusinessOrderPinAction" in orders
     assert "pendingBusinessOrderPinActionRef" in orders
     assert "queuePendingBusinessOrderPinAction" in orders
-    assert 'action: "cannot-attend"' in orders
-    assert "requireUnlockedBusinessPin" in orders
-    assert "routeBusinessPinError" in orders
-    assert "isStillCurrentTarget" in orders
+    assert "orderId: string;" in pending_type
+    assert 'action: "confirm-payment" | "cannot-attend";' in pending_type
+    assert "requireUnlockedBusinessPin" in mutate
+    assert "routeBusinessPinError" in execute
+    assert "isStillCurrentTarget" in execute
     assert "resumePendingBusinessOrderPinAction" in orders
-    assert "getBusinessOrder<BusinessOrderDetail>(request, pending.orderId)" in orders
-    assert "can_decline_before_payment" in orders
-    assert "businessOrderActionsRef.current.has(targetOrderId)" in orders
+    assert "getBusinessOrder<BusinessOrderDetail>(request, pending.orderId)" in resume
+    assert "can_decline_before_payment" in resume
+    assert "businessOrderActionsRef.current.has(targetOrderId)" in execute
+
+    pin_actions = '(action === "confirm-payment" || action === "cannot-attend")'
+    local_pin = _section(
+        mutate,
+        f"if ({pin_actions} && !requireUnlockedBusinessPin({{",
+        "queuePendingBusinessOrderPinAction(null)",
+    )
+    server_pin = _section(
+        execute,
+        f"if ({pin_actions} && isBusinessPinError(error)) {{",
+        "recordBusinessActionFailed",
+    )
+    for pin_entry in (local_pin, server_pin):
+        assert "action: businessOrderPinActionLabel(action)" in pin_entry
+        assert "queuePendingBusinessOrderPinAction({ orderId: targetOrderId, action });" in pin_entry
+    assert "return;" in local_pin
+    assert "const isStillCurrentTarget = isCurrentTarget" in server_pin
+    assert "&& isCurrentBusinessOrderDetail(targetOrderId, targetRequestEpoch)" in server_pin
+    guarded_server_pin = _section(server_pin, "if (isStillCurrentTarget) {", "\n        }")
+    assert "routeBusinessPinError" in guarded_server_pin
+    assert "queuePendingBusinessOrderPinAction({ orderId: targetOrderId, action });" in guarded_server_pin
+    assert execute.index("businessOrderActionsRef.current.has(targetOrderId)") < execute.index(
+        "businessOrderActionsRef.current.set(targetOrderId, action)"
+    ) < execute.index("await ")
+
+    assert "const pending = pendingBusinessOrderPinActionRef.current;" in resume
+    assert "return false;" in _section(resume, "if (!pending) {", "\n    }")
+    assert resume.index("queuePendingBusinessOrderPinAction(null);") < resume.index("await ")
+    capability = _section(resume, "const canResume =", "if (!canResume)")
+    assert 'pending.action === "confirm-payment"' in capability
+    assert "? data.order.capabilities.can_confirm_payment" in capability
+    assert ": data.order.capabilities.can_decline_before_payment;" in capability
+    assert resume.index("await getBusinessOrder<BusinessOrderDetail>") < resume.index("const canResume")
+    assert "return true;" in _section(resume, "if (!canResume) {", "const completed =")
+    resumed_action = _section(resume, "await executeBusinessOrderAction({", "});")
+    assert "action: pending.action," in resumed_action
+    assert "targetOrderId: pending.orderId," in resumed_action
+    assert "targetOrder: data.order," in resumed_action
 
     assert "pendingOrderPinResumeRef" in app_model
     assert "resumePendingOrderPinAction" in access_model

@@ -11,7 +11,6 @@ from urllib.parse import urlencode
 import pytest
 from fastapi.testclient import TestClient
 
-
 BOT_TOKEN = "123456:test-bot-token"
 JWT_SECRET = "test-access-secret"
 JWT_REFRESH_SECRET = "test-refresh-secret"
@@ -190,7 +189,7 @@ def _create_order(client: TestClient, remitter: dict, ad_id: str, *, key: str = 
 
 
 def _upload_payment_evidence(client: TestClient, remitter: dict, order_id: str, key: str = "evidence") -> dict:
-    content = png_bytes(f"proof:{order_id}:{key}".encode("utf-8"))
+    content = png_bytes(f"proof:{order_id}:{key}".encode())
     response = client.post(
         f"/api/v1/orders/{order_id}/payment-evidence",
         headers=_headers(remitter, key),
@@ -1317,7 +1316,7 @@ def test_business_chat_alert_failure_does_not_block_saved_message(monkeypatch, c
         for item in listed.json()["data"]["items"]
     )
     assert _admin_notifications(client) == []
-    failure_record = next(record for record in caplog.records if record.message == "order_chat_off_platform_alert_failed")
+    failure_record = next(record for record in caplog.records if record.getMessage() == "order_chat_off_platform_alert_failed")
     assert failure_record.order_id == order["id"]
     assert failure_record.message_id == created.json()["data"]["message"]["id"]
     assert failure_record.rule_id == "off_platform_platform_bypass"
@@ -1658,7 +1657,7 @@ def test_business_payment_problem_requires_submitted_payment_report() -> None:
 def test_open_dispute_effects_for_rejected_confirmed_and_delivered_states_are_contract_safe() -> None:
     client = _client()
 
-    owner_rejected, business_rejected, ad_rejected, remitter_rejected, order_rejected = _seed_reported_order(client, owner_id=840, remitter_id=841)
+    _owner_rejected, business_rejected, ad_rejected, remitter_rejected, order_rejected = _seed_reported_order(client, owner_id=840, remitter_id=841)
     _seed_historical_payment_rejected(client, order_rejected["id"])
     wallet_rejected = client.app.state.ad_repository.get_wallet(business_rejected["id"])
     rejected = client.post(
@@ -1749,9 +1748,12 @@ def test_disputes_are_idempotent_and_support_cannot_resolve_in_admin_console() -
 
 
 def test_slice_07_migration_and_contract_prohibitions_are_explicit() -> None:
-    migration = open("database/migrations/0008_slice_07_chat_disputes.up.sql", encoding="utf-8").read()
-    app_source = open("apps/api/app/main.py", encoding="utf-8").read()
-    slice_api = open("control_plane/09_SLICES/slice_07_chat_disputes/API_CONTRACT.md", encoding="utf-8").read()
+    with open("database/migrations/0008_slice_07_chat_disputes.up.sql", encoding="utf-8") as migration_file:
+        migration = migration_file.read()
+    with open("apps/api/app/main.py", encoding="utf-8") as app_file:
+        app_source = app_file.read()
+    with open("control_plane/09_SLICES/slice_07_chat_disputes/API_CONTRACT.md", encoding="utf-8") as contract_file:
+        slice_api = contract_file.read()
 
     for expected in [
         "create table if not exists messages",

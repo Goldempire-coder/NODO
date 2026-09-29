@@ -49,7 +49,7 @@ states:
 - success
 
 presentation:
-- compact system bubble: `Como fue esta operacion?`
+- compact system bubble: `Como fue esta orden?`
 - 1..5 stars and compact `Calificar` action
 - already rated copy: `Calificaste X de 5`
 - no dedicated screen is required

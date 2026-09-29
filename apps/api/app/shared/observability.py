@@ -23,6 +23,7 @@ SURFACE_RESPONSE_HEADER = "X-NODO-Surface"
 
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _SURFACE_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+_ROUTE_TEMPLATE_PATTERN = re.compile(r"/(?!/)[A-Za-z0-9_/{.}:-]{0,255}")
 
 logger = get_logger("nodo.observability")
 
@@ -71,6 +72,13 @@ def get_operation_id(request: Any) -> str:
 
 def route_template(request: Any) -> str:
     route = request.scope.get("route")
+    # Included routers may keep their prefix only in FastAPI's effective metadata.
+    fastapi_scope = request.scope.get("fastapi")
+    context = fastapi_scope.get("effective_route_context") if isinstance(fastapi_scope, dict) else None
+    if route is not None and getattr(context, "original_route", None) is route:
+        effective_path = getattr(context, "path", None)
+        if isinstance(effective_path, str) and _ROUTE_TEMPLATE_PATTERN.fullmatch(effective_path):
+            return effective_path
     path = getattr(route, "path", None)
     return str(path or request.url.path)
 
