@@ -77,7 +77,9 @@ class AdManagementMixin:
         require_pause_allowed(ad)
 
         def compute() -> dict[str, Any]:
-            paused = self._repository.set_status(ad, "paused")  # type: ignore[attr-defined]
+            paused = self._repository.set_status(  # type: ignore[attr-defined]
+                ad, "paused", expected_status="active"
+            )
             self._audit.write(  # type: ignore[attr-defined]
                 event_type="ad_paused",
                 actor_user_id=user.id,
@@ -90,7 +92,7 @@ class AdManagementMixin:
             return {"ad": ad_payload(paused)}
 
         response = self._idempotency.replay_or_store(  # type: ignore[attr-defined]
-            f"ads:pause:{idempotency_key}" if idempotency_key else None,
+            f"ads:pause:{business.id}:{idempotency_key}" if idempotency_key else None,
             payload={"id": ad_id, "action": "pause", "reason": reason},
             compute=compute,
         )
@@ -126,7 +128,11 @@ class AdManagementMixin:
             return {"ad": ad_payload(reactivated)}
 
         response = self._idempotency.replay_or_store(  # type: ignore[attr-defined]
-            f"ads:reactivate:{idempotency_key}" if idempotency_key else None,
+            (
+                f"ads:reactivate:{business.id}:{idempotency_key}"
+                if idempotency_key
+                else None
+            ),
             payload={"id": ad_id, "action": "reactivate", "reason": reason},
             compute=compute,
         )
@@ -229,7 +235,7 @@ class AdManagementMixin:
             return {"ad": ad_payload(archived)}
 
         response = self._idempotency.replay_or_store(  # type: ignore[attr-defined]
-            f"ads:archive:{idempotency_key}" if idempotency_key else None,
+            f"ads:archive:{business.id}:{idempotency_key}" if idempotency_key else None,
             payload={"id": ad_id, "action": "archive", "reason": reason},
             compute=compute,
         )

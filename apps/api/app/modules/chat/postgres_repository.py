@@ -278,6 +278,20 @@ class PostgresChatRepository:
             row = conn.execute("select * from message_attachments where id = %s and deleted_at is null", (attachment_id,)).fetchone()
         return attachment_from_row(row) if row else None
 
+    def get_attachments(
+        self, attachment_ids: list[str]
+    ) -> dict[str, MessageAttachmentRecord]:
+        if not attachment_ids:
+            return {}
+        with self._connect() as conn:
+            rows = conn.execute(
+                "select * from message_attachments "
+                "where id = any(%s) and deleted_at is null",
+                (attachment_ids,),
+            ).fetchall()
+        attachments = [attachment_from_row(row) for row in rows]
+        return {attachment.id: attachment for attachment in attachments}
+
     def get_file_asset(self, file_id: str) -> FileAssetRecord | None:
         with self._connect() as conn:
             row = conn.execute(

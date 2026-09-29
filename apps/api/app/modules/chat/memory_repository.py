@@ -248,6 +248,17 @@ class InMemoryChatRepository:
             return None
         return attachment
 
+    def get_attachments(
+        self, attachment_ids: list[str]
+    ) -> dict[str, MessageAttachmentRecord]:
+        with self._lock:
+            return {
+                attachment_id: attachment
+                for attachment_id in attachment_ids
+                if (attachment := self.attachments.get(attachment_id)) is not None
+                and attachment.deleted_at is None
+            }
+
     def get_file_asset(self, file_id: str) -> FileAssetRecord | None:
         file = self.files.get(file_id)
         if file is None or file.deleted_at is not None:

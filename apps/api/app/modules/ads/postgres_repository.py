@@ -225,6 +225,7 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
         status: str,
         *,
         enforce_publication_access: bool = False,
+        expected_status: str | None = None,
     ) -> AdRecord:
         with self._connect() as conn:
             if status == "active":
@@ -245,10 +246,14 @@ class PostgresAdRepository(PostgresAdWalletsMixin, PostgresAdCreditHoldsMixin, P
                     exclude_ad_id=current.id,
                     enforce_publication_access=enforce_publication_access,
                 )
-            row = conn.execute(
-                "update ads set status = %s, updated_at = now() where id = %s returning *",
-                (status, ad.id),
-            ).fetchone()
+            sql = "update ads set status = %s, updated_at = now() where id = %s"
+            params: tuple[object, ...] = (status, ad.id)
+            if expected_status is not None:
+                sql += " and status = %s"
+                params += (expected_status,)
+            row = conn.execute(sql + " returning *", params).fetchone()
+            if row is None:
+                raise ApiError("AD_STATUS_INVALID", status_code=409)
             conn.commit()
         return ad_from_row(row)
 
