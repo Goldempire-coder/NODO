@@ -25,7 +25,7 @@ class PaymentReportingMixin:
         self._rate_limit("payment_report", user)  # type: ignore[attr-defined]
         if not idempotency_key:
             raise ApiError("IDEMPOTENCY_KEY_REQUIRED", status_code=400)
-        order_id = require_uuid(order_id, "ORDER_NOT_FOUND") or order_id
+        order_id = require_uuid(order_id, "ORDER_NOT_FOUND")
         payload_hash = canonical_payload_hash({"order_id": order_id, **payload.model_dump()})
         existing_by_key = self._repository.get_payment_report_by_idempotency_key(reported_by_user_id=user.id, idempotency_key=idempotency_key)  # type: ignore[attr-defined]
         if existing_by_key is not None:
