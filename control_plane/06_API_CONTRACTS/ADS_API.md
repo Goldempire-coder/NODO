@@ -32,6 +32,16 @@ Todas las rutas usan prefijo:
   separados por metodo.
 - `active` dura 7 dias desde `activated_at`.
 - Pausar no extiende `expires_at`.
+- La pausa compara el estado `active` en la misma escritura. Si una orden u otra
+  transicion gano antes, responde `AD_STATUS_INVALID` sin sobrescribir el estado
+  ni auditar una pausa exitosa.
+- Crear, pausar, archivar y reactivar usan idempotencia separada por negocio
+  resuelto del actor autorizado, no por un `business_id` aportado en el cuerpo.
+  Una llave reutilizada por otro negocio no devuelve respuestas ajenas.
+- Gate de despliegue para este cambio de namespace: no mezclar versiones viejas
+  y nuevas ni asumir replay de llaves legacy. Preparar una transicion aprobada
+  que preserve la ventana de reintentos existente (TTL por defecto: 24 horas).
+  No borrar Redis ni ejecutar una migracion como parte de este arreglo local.
 - Expiracion masiva por worker queda para `slice_10_jobs_notifications`; slice 03 implementa expiracion pasiva/materializada.
 - Responses usan `ERROR_CONTRACT.md`.
 

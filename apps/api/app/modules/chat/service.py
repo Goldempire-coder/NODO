@@ -500,8 +500,9 @@ class ChatService:
 
         def compute() -> dict[str, Any]:
             self._rate_limit_duplicate_message(user=user, order_id=order.id, body=body)
+            attachments = self._repository.get_attachments(normalized_attachments)
             for attachment_id in normalized_attachments:
-                attachment = self._repository.get_attachment(attachment_id)
+                attachment = attachments.get(attachment_id)
                 if attachment is None or attachment.order_id != order.id or attachment.uploaded_by_user_id != user.id or attachment.message_id is not None:
                     raise ApiError("MESSAGE_ATTACHMENT_INVALID", status_code=400)
             message = self._repository.create_message(order_id=order.id, sender_user_id=user.id, sender_role=user.role, body=body, idempotency_key=idempotency_key)

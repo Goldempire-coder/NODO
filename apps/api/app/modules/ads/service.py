@@ -169,7 +169,11 @@ class AdService(AdManagementMixin, AdMarketplaceMixin):
             return response
 
         stage_started = time.perf_counter()
-        response = self._idempotency.replay_or_store(f"ads:create:{idempotency_key}" if idempotency_key else None, payload=idempotency_payload, compute=compute)
+        response = self._idempotency.replay_or_store(
+            f"ads:create:{business.id}:{idempotency_key}" if idempotency_key else None,
+            payload=idempotency_payload,
+            compute=compute,
+        )
         profile_mark(profile, "service:idempotency_replay_or_store", stage_started)
         self._clear_marketplace_cache()
         return profile_attach(dict(response), profile, profile_started)

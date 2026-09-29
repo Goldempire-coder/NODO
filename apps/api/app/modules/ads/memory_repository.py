@@ -207,8 +207,14 @@ class InMemoryAdRepository(InMemoryAdCreditsMixin):
         status: str,
         *,
         enforce_publication_access: bool = False,
+        expected_status: str | None = None,
     ) -> AdRecord:
         with self._lock:
+            if expected_status is not None:
+                current = self.ads.get(ad.id)
+                if current is None or current.status != expected_status:
+                    raise ApiError("AD_STATUS_INVALID", status_code=409)
+                ad = current
             if status == "active":
                 if enforce_publication_access:
                     self._require_publication_access(ad.business_id)
